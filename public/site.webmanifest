@@ -1,0 +1,16 @@
+{
+  "name": "SEA Learning App",
+  "short_name": "SEA Learning",
+  "description": "Aplikasi pembelajaran digital untuk SMA Negeri 6 Pangkajene dan Kepulauan.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#4C1D95",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
