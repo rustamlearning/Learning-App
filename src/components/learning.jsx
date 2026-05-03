@@ -99,6 +99,40 @@ function Info({ label, value }) {
   )
 }
 
+
+function FormattedAIText({ text }) {
+  const lines = normalizeAiText(text).split(/\n+/).map((line) => line.trim()).filter(Boolean)
+
+  return (
+    <div className="space-y-2">
+      {lines.map((line, index) => (
+        <p key={`${line}-${index}`} className={/^\d+\./.test(line) ? 'pl-1' : ''}>
+          {renderInlineMarkdown(line)}
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function normalizeAiText(value) {
+  return String(value || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\s+(\d+\.\s)/g, '\n\n$1')
+    .replace(/\s+([-•]\s)/g, '\n$1')
+}
+
+function renderInlineMarkdown(line) {
+  const parts = line.split(/(\*\*[^*]+\*\*)/g)
+
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index} className="font-extrabold text-slate-950">{part.slice(2, -2)}</strong>
+    }
+
+    return <span key={index}>{part}</span>
+  })
+}
+
 export function AIChatPanel() {
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Halo, saya AI Tutor SEA Learning. Mau belajar apa hari ini?' },
@@ -131,8 +165,8 @@ export function AIChatPanel() {
       </div>
       <div className="thin-scrollbar mb-4 max-h-80 space-y-3 overflow-y-auto rounded-3xl bg-galaxy-surface p-3">
         {messages.map((message, index) => (
-          <div key={`${message.role}-${index}`} className={`max-w-[88%] rounded-3xl px-4 py-3 text-sm leading-6 ${message.role === 'assistant' ? 'bg-white text-gray-700 shadow-sm' : 'ml-auto bg-galaxy-deep text-white'}`}>
-            {message.content}
+          <div key={`${message.role}-${index}`} className={`max-w-[88%] rounded-3xl px-4 py-3 text-sm leading-6 whitespace-pre-wrap ${message.role === 'assistant' ? 'bg-white text-gray-700 shadow-sm' : 'ml-auto bg-galaxy-deep text-white'}`}>
+            <FormattedAIText text={message.content} />
           </div>
         ))}
       </div>
