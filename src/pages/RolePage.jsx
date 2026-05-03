@@ -138,58 +138,107 @@ function renderPimpinan(page, notify) {
 }
 
 function SiswaDashboard({ user, notify }) {
+  const firstName = user?.name?.split(' ')[0] || 'Siswa'
+
   return (
     <div>
-      <PageHeader eyebrow="Student Galaxy" title={`Selamat datang, ${user.name.split(' ')[0]} 👋`} description="Dari kepulauan, menuju masa depan. Selesaikan satu misi kecil, raih progres besar." action={<div className="flex gap-2"><QuickActionButton icon={BookOpen} label="Lanjutkan Belajar" onClick={() => notify('Membuka materi terakhir pada mode demo.')} /><QuickActionButton icon={Bot} label="Tanya AI Tutor" onClick={() => notify('AI Tutor siap di menu siswa.')} /></div>} />
+      <PageHeader
+        eyebrow="Student Dashboard"
+        title={`Halo, ${firstName} 👋`}
+        description="Lanjutkan belajar, selesaikan misi harian, dan pantau progresmu dalam satu tempat."
+        action={
+          <div className="flex flex-wrap gap-2">
+            <QuickActionButton icon={BookOpen} label="Lanjutkan Belajar" onClick={() => notify('Membuka materi terakhir pada mode demo.')} />
+            <QuickActionButton icon={Bot} label="Tanya AI Tutor" onClick={() => notify('AI Tutor siap di menu siswa.')} />
+          </div>
+        }
+      />
+
       <section className="dashboard-aurora-card island-wave mb-5 overflow-hidden rounded-[2rem] p-5 text-white shadow-glow sm:p-6">
         <div className="absolute right-10 top-8 h-28 w-28 rounded-full bg-cyan-300/15 blur-3xl" />
         <div className="absolute bottom-3 left-12 h-24 w-44 rounded-full bg-purple-300/12 blur-3xl" />
+
         <div className="relative z-10 grid gap-5 rounded-3xl bg-white/5 p-5 ring-1 ring-white/10 lg:grid-cols-[1fr_17rem] lg:items-center">
           <div>
-            <p className="text-sm font-bold text-cyan-100">Your learning galaxy starts from the islands</p>
-            <h2 className="mt-2 text-balance text-3xl font-extrabold tracking-[-0.03em] sm:text-4xl">Misi hari ini: 2/3 selesai.</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-purple-100/82">Setiap topik adalah pulau baru untuk dijelajahi. Kamu makin dekat dengan mastery badge.</p>
+            <p className="text-sm font-extrabold uppercase tracking-[0.16em] text-cyan-100">
+              SEA Learning Mission
+            </p>
+            <h2 className="mt-2 text-balance text-3xl font-black tracking-[-0.04em] sm:text-4xl">
+              Misi hari ini: 2 dari 3 selesai.
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-purple-100/85">
+              Selesaikan satu materi, satu latihan, dan satu refleksi singkat untuk menjaga progres belajarmu tetap konsisten.
+            </p>
+
             <div className="mt-5 h-3 max-w-md rounded-full bg-white/15">
               <div className="h-3 rounded-full bg-gradient-to-r from-galaxy-cyan via-galaxy-teal to-galaxy-gold" style={{ width: '67%' }} />
             </div>
-            <p className="mt-2 text-xs font-bold text-cyan-100">Progress misi 67% · reward +50 XP</p>
+            <p className="mt-2 text-xs font-bold text-cyan-100">
+              Progress misi 67% · reward +50 XP
+            </p>
           </div>
+
           <div className="rounded-3xl bg-white p-4 text-gray-950 shadow-soft">
             <ProgressRing value={72} label="Progress belajar" />
           </div>
         </div>
       </section>
+
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={LineChartIcon} label="Progress Belajar" value="72%" caption="Orbit belajar aktif" tone="purple" />
+        <StatCard icon={LineChartIcon} label="Progress Belajar" value="72%" caption="Target minggu ini 85%" tone="purple" />
         <StatCard icon={Sparkles} label="XP Hari Ini" value="120 XP" caption="Target +50 XP lagi" tone="cyan" />
         <StatCard icon={CalendarClock} label="Streak" value="5 hari" caption="Jaga konsistensi" tone="amber" />
         <StatCard icon={Award} label="Nilai Rata-rata" value="84" caption="Naik 3 poin" tone="green" />
       </div>
+
       <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
         <DailyMissionCard />
-        <DashboardCard title="Learning Path"><LearningPath /></DashboardCard>
-      </div>
-      <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_0.9fr_0.85fr]">
-        <DashboardCard title="Smart Recommendation">
-          <p className="text-sm leading-7 text-gray-600">Kamu masih perlu latihan di <b>Simple Past Tense</b>. Coba 10 menit hari ini agar grammar naik sebelum kuis berikutnya.</p>
-          <button onClick={() => notify('Membuka latihan Simple Past Tense demo.')} className="mt-4 rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Mulai latihan 10 menit</button>
+        <DashboardCard title="Learning Path">
+          <LearningPath />
         </DashboardCard>
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_0.9fr_0.85fr]">
+        <DashboardCard title="Rekomendasi Pintar">
+          <p className="text-sm leading-7 text-gray-600">
+            Kamu masih perlu latihan di <b>Simple Past Tense</b>. Coba 10 menit hari ini agar grammar naik sebelum kuis berikutnya.
+          </p>
+          <button onClick={() => notify('Membuka latihan Simple Past Tense demo.')} className="mt-4 rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">
+            Mulai latihan 10 menit
+          </button>
+        </DashboardCard>
+
         <DashboardCard title="Lanjutkan Belajar">
           <StatusBadge tone="cyan">Ringan dibuka</StatusBadge>
           <h3 className="mt-3 text-xl font-extrabold">Descriptive Text</h3>
           <p className="mt-2 text-sm text-gray-500">Progress 65% · Bahasa Inggris · Text Type</p>
-          <div className="mt-4 h-2 rounded-full bg-galaxy-lavender"><div className="h-2 rounded-full bg-galaxy-action" style={{ width: '65%' }} /></div>
-          <button onClick={() => notify('Melanjutkan Descriptive Text pada mode demo.')} className="mt-4 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">Lanjutkan</button>
+          <div className="mt-4 h-2 rounded-full bg-galaxy-lavender">
+            <div className="h-2 rounded-full bg-galaxy-action" style={{ width: '65%' }} />
+          </div>
+          <button onClick={() => notify('Melanjutkan Descriptive Text pada mode demo.')} className="mt-4 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">
+            Lanjutkan
+          </button>
         </DashboardCard>
-        <DashboardCard title="Upcoming Quiz">
+
+        <DashboardCard title="Kuis Terdekat">
           <StatusBadge tone="green">Berlangsung</StatusBadge>
           <h3 className="mt-3 text-lg font-extrabold">Quiz Descriptive Text</h3>
           <p className="mt-2 text-sm leading-6 text-gray-500">4 Mei 2026 · 20 menit · Rustam, S.Pd.</p>
-          <button onClick={() => notify('Membuka detail kuis demo.')} className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">Cek kesiapan</button>
+          <button onClick={() => notify('Membuka detail kuis demo.')} className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+            Cek kesiapan
+          </button>
         </DashboardCard>
       </div>
+
       <div className="mt-5 grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
-        <DashboardCard title="Badge terbaru"><div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">{badges.filter((badge) => ['Island Starter', 'Vocabulary Voyager', 'SEAClub Speaker'].includes(badge.name)).map((badge) => <BadgeCard key={badge.id} badge={badge} />)}</div></DashboardCard>
+        <DashboardCard title="Badge terbaru">
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            {badges.filter((badge) => ['Island Starter', 'Vocabulary Voyager', 'SEAClub Speaker'].includes(badge.name)).map((badge) => (
+              <BadgeCard key={badge.id} badge={badge} />
+            ))}
+          </div>
+        </DashboardCard>
+
         <DashboardCard title="SEAClub Corner" className="archipelago-soft island-wave">
           <div className="grid gap-3 sm:grid-cols-[0.8fr_1.2fr]">
             <div className="rounded-2xl bg-white/85 p-4 ring-1 ring-cyan-100">
@@ -200,7 +249,9 @@ function SiswaDashboard({ user, notify }) {
             <div className="rounded-2xl bg-white/85 p-4 ring-1 ring-cyan-100">
               <p className="text-xs font-extrabold uppercase tracking-wide text-galaxy-teal">Challenge</p>
               <p className="mt-2 text-sm font-bold leading-6 text-gray-800">Tell us about your island in 5 sentences.</p>
-              <button onClick={() => notify('SEAClub challenge dibuka pada mode demo.')} className="mt-3 rounded-2xl bg-teal-50 px-4 py-2.5 text-sm font-extrabold text-teal-700 ring-1 ring-teal-100">Mulai Challenge</button>
+              <button onClick={() => notify('SEAClub challenge dibuka pada mode demo.')} className="mt-3 rounded-2xl bg-teal-50 px-4 py-2.5 text-sm font-extrabold text-teal-700 ring-1 ring-teal-100">
+                Mulai Challenge
+              </button>
             </div>
           </div>
         </DashboardCard>
@@ -620,19 +671,28 @@ function GuruDashboard({ notify }) {
     ['Tambah Materi', Plus],
     ['Buat Soal', FileQuestion],
     ['Buat Tugas', ClipboardList],
-    ['Buat Kuis Live', PlayCircle],
-    ['Buka AI Generator', Sparkles],
+    ['Kuis Live', PlayCircle],
+    ['AI Generator', Sparkles],
   ]
 
   return (
     <div>
-      <PageHeader eyebrow="Teaching Command Center" title="Ruang mengajar modern." description="Kelola konten, kuis, dan sinyal kelas dengan cepat tanpa membuat dashboard terasa berat." />
+      <PageHeader
+        eyebrow="Teacher Command Center"
+        title="Ruang mengajar modern."
+        description="Pantau kelas, buat konten, dan lihat sinyal belajar siswa dengan cepat."
+      />
+
       <section className="command-banner mb-5 rounded-[1.75rem] p-5 sm:p-6">
         <div className="grid gap-5 lg:grid-cols-[1fr_0.9fr] lg:items-end">
           <div>
             <p className="text-sm font-extrabold text-galaxy-purple">Fokus Mengajar Hari Ini</p>
-            <h2 className="mt-2 text-balance text-3xl font-extrabold tracking-[-0.03em] text-gray-950 sm:text-4xl">117 siswa aktif belajar minggu ini.</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">3 siswa perlu perhatian, 2 kuis berjalan, dan 5 tugas menunggu pantauan.</p>
+            <h2 className="mt-2 text-balance text-3xl font-black tracking-[-0.04em] text-gray-950 sm:text-4xl">
+              117 siswa aktif belajar minggu ini.
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
+              3 siswa perlu perhatian, 2 kuis berjalan, dan 5 tugas menunggu pantauan.
+            </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <StatusBadge>4 kelas aktif</StatusBadge>
               <StatusBadge tone="cyan">117 siswa aktif</StatusBadge>
@@ -640,9 +700,14 @@ function GuruDashboard({ notify }) {
               <StatusBadge tone="purple">2 kuis berjalan</StatusBadge>
             </div>
           </div>
+
           <div className="grid gap-2 sm:grid-cols-2">
             {quickActions.map(([label, Icon]) => (
-              <button key={label} onClick={() => notify(`${label} dibuka pada mode demo.`)} className="inline-flex min-h-12 items-center gap-2 rounded-2xl border border-purple-500/[0.12] bg-[linear-gradient(135deg,rgba(124,58,237,0.10),rgba(34,211,238,0.10))] px-4 text-sm font-bold text-purple-700 shadow-[0_10px_24px_rgba(30,27,75,0.06)] transition hover:-translate-y-0.5 hover:bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(34,211,238,0.14))]">
+              <button
+                key={label}
+                onClick={() => notify(`${label} dibuka pada mode demo.`)}
+                className="inline-flex min-h-12 items-center gap-2 rounded-2xl border border-purple-500/[0.12] bg-[linear-gradient(135deg,rgba(124,58,237,0.10),rgba(34,211,238,0.10))] px-4 text-sm font-bold text-purple-700 shadow-[0_10px_24px_rgba(30,27,75,0.06)] transition hover:-translate-y-0.5"
+              >
                 <Icon size={16} />
                 {label}
               </button>
@@ -650,6 +715,7 @@ function GuruDashboard({ notify }) {
           </div>
         </div>
       </section>
+
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard icon={School} label="Kelas" value="4" caption="aktif diajar" tone="purple" />
         <StatCard icon={UsersRound} label="Siswa aktif" value="117" caption="minggu ini" tone="cyan" />
@@ -657,43 +723,59 @@ function GuruDashboard({ notify }) {
         <StatCard icon={FileQuestion} label="Kuis berjalan" value="2" caption="hari ini" tone="quiz" />
         <StatCard icon={BarChart3} label="Rata-rata" value="84" caption="kelas utama" tone="green" />
       </div>
+
       <div className="grid gap-5 lg:grid-cols-2">
         <DashboardCard title="Kelas Perlu Perhatian">
           {[
             ['X.1', '8 siswa belum remedial'],
             ['XI.1', '5 siswa belum membuka materi'],
             ['XII.1', 'rata-rata kuis turun 6 poin'],
-          ].map(([kelas, detail]) => <p key={kelas} className="mb-2 rounded-2xl bg-orange-50 p-3 text-sm font-semibold text-orange-800 ring-1 ring-orange-100"><b>{kelas}:</b> {detail}</p>)}
+          ].map(([kelas, detail]) => (
+            <p key={kelas} className="mb-2 rounded-2xl bg-orange-50 p-3 text-sm font-semibold text-orange-800 ring-1 ring-orange-100">
+              <b>{kelas}:</b> {detail}
+            </p>
+          ))}
         </DashboardCard>
+
         <DashboardCard title="AI Insight">
           <div className="rounded-3xl bg-gradient-to-br from-purple-50 to-cyan-50 p-4 ring-1 ring-purple-100">
             <div className="flex gap-3">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-purple-100 text-galaxy-purple ring-1 ring-purple-200"><Sparkles size={18} /></div>
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-purple-100 text-galaxy-purple ring-1 ring-purple-200">
+                <Sparkles size={18} />
+              </div>
               <div>
-                <p className="text-sm leading-6 text-gray-700"><b>Siswa banyak salah di Simple Past Tense.</b> Rekomendasi: buat latihan remedial 10 soal.</p>
-                <button onClick={() => notify('AI Generator siap membuat remedial demo.')} className="mt-3 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-galaxy-purple ring-1 ring-purple-100">Buat remedial</button>
+                <p className="text-sm leading-6 text-gray-700">
+                  <b>Siswa banyak salah di Simple Past Tense.</b> Rekomendasi: buat latihan remedial 10 soal.
+                </p>
+                <button onClick={() => notify('AI Generator siap membuat remedial demo.')} className="mt-3 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-galaxy-purple ring-1 ring-purple-100">
+                  Buat remedial
+                </button>
               </div>
             </div>
           </div>
         </DashboardCard>
-        <DashboardCard title="Soal paling banyak salah">
+
+        <DashboardCard title="Soal Paling Banyak Salah">
           {[
             ['Simple Past Tense', '62% salah'],
             ['Narrative Text', '48% salah'],
             ['Persamaan Kuadrat', '41% salah'],
-          ].map(([item, score]) => <p key={item} className="flex justify-between border-b border-purple-50 py-3 text-sm last:border-b-0"><span className="font-semibold text-gray-700">{item}</span><span className="text-slate-500">{score}</span></p>)}
+          ].map(([item, score]) => (
+            <p key={item} className="flex justify-between border-b border-purple-50 py-3 text-sm last:border-b-0">
+              <span className="font-semibold text-gray-700">{item}</span>
+              <span className="text-slate-500">{score}</span>
+            </p>
+          ))}
         </DashboardCard>
+
         <DashboardCard title="Aktivitas Kelas Hari Ini">
-          {['X.1 menyelesaikan Quiz Descriptive Text.', 'XI.1 membuka materi Narrative Text.', '12 siswa mengumpulkan tugas Daily Writing.'].map((item) => <p key={item} className="border-b border-purple-50 py-3 text-sm leading-6 text-gray-600 last:border-b-0">{item}</p>)}
-        </DashboardCard>
-        <DashboardCard title="Kuis & Tugas Terdekat" className="lg:col-span-2">
-          <div className="grid gap-3 md:grid-cols-3">
-            {[
-              ['Quiz Descriptive Text', 'hari ini'],
-              ['Tugas Daily Writing', 'besok'],
-              ['Remedial Simple Past', '2 hari lagi'],
-            ].map(([title, due]) => <div key={title} className="rounded-2xl bg-galaxy-surface p-4 ring-1 ring-purple-100"><p className="text-sm font-extrabold text-gray-900">{title}</p><p className="mt-1 text-sm text-slate-500">{due}</p></div>)}
-          </div>
+          {[
+            'X.1 menyelesaikan Quiz Descriptive Text.',
+            'XI.1 membuka materi Narrative Text.',
+            '12 siswa mengumpulkan tugas Daily Writing.',
+          ].map((item) => (
+            <p key={item} className="border-b border-purple-50 py-3 text-sm leading-6 text-gray-600 last:border-b-0">{item}</p>
+          ))}
         </DashboardCard>
       </div>
     </div>
@@ -1477,76 +1559,62 @@ function LaporanGuru({ notify }) {
 }
 
 function AdminDashboard() {
-  const weeklyActivity = [
-    { day: 'Senin', value: 42 },
-    { day: 'Selasa', value: 58 },
-    { day: 'Rabu', value: 64 },
-    { day: 'Kamis', value: 51 },
-    { day: 'Jumat', value: 73 },
-    { day: 'Sabtu', value: 35 },
-  ]
-
   return (
     <div>
-      <PageHeader eyebrow="Admin" title="Konsol sekolah" description="Pantau data inti, aktivitas sistem, dan status backup." />
-      <section className="admin-overview-banner mb-5 rounded-[1.75rem] p-5 sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <PageHeader
+        eyebrow="Admin Center"
+        title="Pusat kendali data sekolah."
+        description="Kelola guru, siswa, kelas, mata pelajaran, laporan, dan backup data dari satu dashboard."
+      />
+
+      <section className="command-banner mb-5 rounded-[1.75rem] p-5 sm:p-6">
+        <div className="grid gap-5 lg:grid-cols-[1fr_18rem] lg:items-center">
           <div>
-            <p className="text-sm font-extrabold text-galaxy-purple">Admin Console</p>
-            <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.02em] text-gray-950 sm:text-3xl">Konsol sekolah.</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Pantau data inti, aktivitas sistem, dan status backup dengan tampilan yang clean dan stabil.</p>
+            <p className="text-sm font-extrabold text-galaxy-purple">Status Sistem</p>
+            <h2 className="mt-2 text-balance text-3xl font-black tracking-[-0.04em] text-gray-950 sm:text-4xl">
+              Data sekolah siap dipantau.
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
+              Gunakan menu admin untuk menjaga data guru, siswa, kelas, dan mata pelajaran tetap rapi.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <StatusBadge tone="green">Database aktif</StatusBadge>
+              <StatusBadge tone="cyan">Backup tersedia</StatusBadge>
+              <StatusBadge tone="purple">Role-based access</StatusBadge>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <StatusBadge tone="green">Online</StatusBadge>
-            <StatusBadge tone="teal">Backup aman</StatusBadge>
-            <StatusBadge tone="cyan">Hemat data aktif</StatusBadge>
+
+          <div className="rounded-3xl bg-white p-4 shadow-soft ring-1 ring-purple-100">
+            <p className="text-sm font-extrabold text-gray-950">Ringkasan Data</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Guru, siswa, kelas, dan mapel terpusat untuk kebutuhan aplikasi.</p>
           </div>
         </div>
       </section>
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-6"><StatCard label="Siswa" value="145" /><StatCard label="Guru" value="24" tone="cyan" /><StatCard label="Kelas" value="5" tone="amber" /><StatCard label="Mapel" value="8" /><StatCard label="Materi" value="10" tone="green" /><StatCard label="Ujian aktif" value="2" tone="teal" /></div>
-      <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-        <DashboardCard title="Status sistem">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-100"><StatusBadge tone="green">Online</StatusBadge><p className="mt-3 text-sm font-bold text-emerald-800">Aplikasi siap dipakai</p></div>
-            <div className="rounded-2xl bg-cyan-50 p-4 ring-1 ring-cyan-100"><StatusBadge tone="cyan">Hemat Data</StatusBadge><p className="mt-3 text-sm font-bold text-cyan-800">Media berat tidak autoplay</p></div>
-            <div className="rounded-2xl bg-purple-50 p-4 ring-1 ring-purple-100"><StatusBadge>Backup</StatusBadge><p className="mt-3 text-sm font-bold text-purple-800">Terakhir 2 Mei 2026 08.00</p></div>
-            <div className="rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-100"><StatusBadge tone="amber">Maintenance</StatusBadge><p className="mt-3 text-sm font-bold text-amber-800">Nonaktif pada demo</p></div>
-          </div>
-        </DashboardCard>
-        <DashboardCard title="Quick action">
-          <div className="grid gap-2 sm:grid-cols-2">
-            {['Tambah Siswa', 'Tambah Guru', 'Import Data', 'Lihat Laporan'].map((item) => <button key={item} className="rounded-2xl border border-purple-500/[0.08] bg-purple-500/[0.06] px-4 py-3 text-sm font-bold text-purple-700 transition hover:-translate-y-0.5 hover:bg-purple-500/[0.10]">{item}</button>)}
-          </div>
-        </DashboardCard>
+
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard icon={UsersRound} label="Guru" value={teachers.length} caption="terdaftar" tone="purple" />
+        <StatCard icon={School} label="Siswa" value={students.length} caption="terdata" tone="cyan" />
+        <StatCard icon={BookOpen} label="Kelas" value={classes.length} caption="aktif" tone="amber" />
+        <StatCard icon={ClipboardCheck} label="Mapel" value={subjects.length} caption="tersedia" tone="green" />
       </div>
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-        <DashboardCard title="Grafik aktivitas mingguan">
-          <ResponsiveContainer width="100%" height={230}>
-            <BarChart data={weeklyActivity}>
-              <XAxis dataKey="day" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis hide />
-              <Tooltip />
-              <Bar dataKey="value" fill="#14B8A6" radius={[12, 12, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </DashboardCard>
-        <DashboardCard title="Ringkasan status backup">
-          <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-100">
-            <StatusBadge tone="green">Aman</StatusBadge>
-            <p className="mt-3 text-sm font-bold text-emerald-800">Backup terakhir: 2 Mei 2026 08.00</p>
-            <p className="mt-1 text-sm text-emerald-700">Mode restore: Nonaktif pada demo</p>
-          </div>
-        </DashboardCard>
-      </div>
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-        <DashboardCard title="Aktivitas user">{activities.map((item) => <p key={item} className="border-b border-purple-50 py-3 text-sm leading-6 text-gray-600 last:border-b-0">{item}</p>)}</DashboardCard>
-        <DashboardCard title="Ringkasan jumlah data">
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <DashboardCard title="Prioritas Admin">
           {[
-            ['Data siswa aktif', '145'],
-            ['Data guru aktif', '24'],
-            ['Materi publish', '10'],
-            ['Ujian aktif', '2'],
-          ].map(([label, value]) => <p key={label} className="flex justify-between border-b border-purple-50 py-3 text-sm last:border-b-0"><span className="text-gray-600">{label}</span><b>{value}</b></p>)}
+            'Periksa data siswa baru sebelum publikasi akun.',
+            'Pastikan setiap guru sudah terhubung dengan mata pelajaran.',
+            'Lakukan backup berkala setelah perubahan data besar.',
+          ].map((item) => (
+            <p key={item} className="border-b border-purple-50 py-3 text-sm leading-6 text-gray-600 last:border-b-0">{item}</p>
+          ))}
+        </DashboardCard>
+
+        <DashboardCard title="Aktivitas Terbaru">
+          {activities.slice(0, 5).map((activity) => (
+            <p key={activity.id} className="border-b border-purple-50 py-3 text-sm leading-6 text-gray-600 last:border-b-0">
+              <b>{activity.actor}</b> · {activity.action}
+            </p>
+          ))}
         </DashboardCard>
       </div>
     </div>
@@ -2023,7 +2091,62 @@ function downloadJson(data) {
 
 function PimpinanDashboard() {
   return (
-    <div><PageHeader eyebrow="Pimpinan" title="Executive learning overview" description="Statistik seluruh sekolah dalam satu tampilan ringan." /><div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><StatCard label="Kelas paling aktif" value="X.1" icon={School} /><StatCard label="Guru paling aktif" value="Rustam" icon={GraduationCapIcon} /><StatCard label="Siswa perhatian" value="5" icon={UsersRound} tone="amber" /><StatCard label="Mapel rendah" value="Fisika" icon={Target} tone="cyan" /></div><DashboardCard title="Aktivitas mingguan"><ResponsiveContainer width="100%" height={300}><LineChart data={scoreTrend}><XAxis dataKey="name" /><YAxis /><Tooltip /><Line dataKey="aktivitas" stroke="#22D3EE" strokeWidth={3} /><Line dataKey="nilai" stroke="#A855F7" strokeWidth={3} /></LineChart></ResponsiveContainer></DashboardCard></div>
+    <div>
+      <PageHeader
+        eyebrow="Executive Dashboard"
+        title="Monitoring sekolah secara menyeluruh."
+        description="Pantau performa kelas, aktivitas guru, progres siswa, dan laporan akademik dari satu halaman."
+      />
+
+      <section className="dashboard-aurora-card island-wave mb-5 overflow-hidden rounded-[2rem] p-5 text-white shadow-glow sm:p-6">
+        <div className="relative z-10 grid gap-5 rounded-3xl bg-white/5 p-5 ring-1 ring-white/10 lg:grid-cols-[1fr_18rem] lg:items-center">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.16em] text-cyan-100">School Performance</p>
+            <h2 className="mt-2 text-balance text-3xl font-black tracking-[-0.04em] sm:text-4xl">
+              Rata-rata akademik sekolah: 84.
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-purple-100/85">
+              Mayoritas kelas stabil, beberapa siswa membutuhkan perhatian lanjutan pada remedial dan kehadiran belajar.
+            </p>
+          </div>
+
+          <div className="rounded-3xl bg-white p-4 text-gray-950 shadow-soft">
+            <ProgressRing value={84} label="Indeks akademik" />
+          </div>
+        </div>
+      </section>
+
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard icon={School} label="Kelas aktif" value={classes.length} caption="terpantau" tone="purple" />
+        <StatCard icon={UsersRound} label="Siswa" value={students.length} caption="dalam sistem" tone="cyan" />
+        <StatCard icon={Trophy} label="Rata-rata" value="84" caption="akademik" tone="green" />
+        <StatCard icon={Target} label="Perhatian" value="3" caption="kelas prioritas" tone="amber" />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <DashboardCard title="Trend Nilai Sekolah">
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={scoreTrend}>
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Line dataKey="nilai" stroke="#7C3AED" strokeWidth={3} />
+            </LineChart>
+          </ResponsiveContainer>
+        </DashboardCard>
+
+        <DashboardCard title="Aktivitas Belajar">
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={scoreTrend}>
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="aktivitas" fill="#22D3EE" radius={[12, 12, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </DashboardCard>
+      </div>
+    </div>
   )
 }
 
