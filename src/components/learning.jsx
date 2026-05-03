@@ -157,7 +157,7 @@ export function AIGeneratorMockup() {
     <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
       <SectionCard>
         <h2 className="text-xl font-extrabold text-gray-950">AI Generator Guru</h2>
-        <p className="mt-2 text-sm leading-6 text-gray-500">Mockup siap integrasi API. Tidak memanggil layanan berbayar.</p>
+        <p className="mt-2 text-sm leading-6 text-gray-500">Terhubung ke endpoint AI server saat tersedia, dengan fallback mock agar tetap aman saat offline.</p>
         <div className="mt-5 grid gap-3">
           {[
             ['subject', 'Mata pelajaran'],
@@ -177,7 +177,7 @@ export function AIGeneratorMockup() {
       </SectionCard>
       <SectionCard className="bg-galaxy-deep text-white">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-extrabold">Output mock</h2>
+          <h2 className="text-xl font-extrabold">Output AI</h2>
           <button className="rounded-2xl bg-white/10 px-3 py-2 text-xs font-bold text-white"><Copy size={14} className="mr-1 inline" /> Salin</button>
         </div>
         <div className="space-y-3">
