@@ -123,7 +123,7 @@ export function AIChatMockup() {
         </div>
         <div>
           <h2 className="text-xl font-extrabold text-gray-950">AI Tutor</h2>
-          <p className="text-sm text-gray-500">Belajar bertahap, bukan cari jawaban ujian aktif.</p>
+          <p className="text-sm text-gray-500">Terhubung ke AI server, tetap aman untuk proses belajar.</p>
         </div>
       </div>
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
@@ -157,7 +157,7 @@ export function AIGeneratorMockup() {
     <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
       <SectionCard>
         <h2 className="text-xl font-extrabold text-gray-950">AI Generator Guru</h2>
-        <p className="mt-2 text-sm leading-6 text-gray-500">Terhubung ke endpoint AI server saat tersedia, dengan fallback mock agar tetap aman saat offline.</p>
+        <p className="mt-2 text-sm leading-6 text-gray-500">Terhubung ke endpoint AI server saat tersedia, dengan mode fallback aman saat offline atau API belum dikonfigurasi.</p>
         <div className="mt-5 grid gap-3">
           {[
             ['subject', 'Mata pelajaran'],

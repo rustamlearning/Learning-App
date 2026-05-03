@@ -636,7 +636,7 @@ function FlashcardPage() {
 }
 
 function AIPage() {
-  return <><PageHeader eyebrow="AI Tutor" title="AI Tutor siap membantu kamu memahami materi." description="Mockup aman dan edukatif, siap integrasi nanti." /><AIChatMockup /></>
+  return <><PageHeader eyebrow="AI Tutor" title="AI Tutor siap membantu kamu memahami materi." description="Terhubung ke AI server saat tersedia, dengan mode fallback aman jika API belum dikonfigurasi." /><AIChatMockup /></>
 }
 
 function ProgresPage() {
@@ -1578,7 +1578,7 @@ function RemedialPage({ notify }) {
 }
 
 function AIGeneratorPage() {
-  return <><PageHeader eyebrow="AI Generator" title="Buat soal, rangkuman, flashcard, dan rubrik." description="Output mock siap disimpan ke bank soal nanti." /><AIGeneratorMockup /></>
+  return <><PageHeader eyebrow="AI Generator" title="Buat soal, rangkuman, flashcard, dan rubrik." description="Bantu guru membuat draft soal, rangkuman, flashcard, dan rubrik melalui endpoint AI server." /><AIGeneratorMockup /></>
 }
 
 function LaporanGuru({ notify }) {
