@@ -18,8 +18,9 @@ const officialSchoolName = school?.name || 'SMA Negeri 6 Pangkajene dan Kepulaua
 export default function Login() {
   const navigate = useNavigate()
   const { loginAs, loginWithEmail } = useAuth()
-  const [identifier, setIdentifier] = useState('Andi Saputra')
-  const [password, setPassword] = useState('password123')
+  const showDemoAccess = import.meta.env.DEV
+  const [identifier, setIdentifier] = useState(showDemoAccess ? 'Andi Saputra' : '')
+  const [password, setPassword] = useState(showDemoAccess ? 'password123' : '')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -94,7 +95,7 @@ export default function Login() {
                 Selamat datang di SEA Learning.
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                Gunakan akun sekolah atau pilih akses demo sesuai role.
+                {showDemoAccess ? 'Gunakan akun sekolah atau pilih akses demo sesuai role.' : 'Gunakan akun sekolah yang sudah terdaftar.'}
               </p>
             </header>
 
@@ -150,25 +151,29 @@ export default function Login() {
               )}
             </form>
 
-            <div className="my-7 flex items-center gap-3">
-              <div className="h-px flex-1 bg-slate-200" />
-              <span className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-400">
-                akses demo
-              </span>
-              <div className="h-px flex-1 bg-slate-200" />
-            </div>
+            {showDemoAccess && (
+              <>
+                <div className="my-7 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-slate-200" />
+                  <span className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                    akses demo
+                  </span>
+                  <div className="h-px flex-1 bg-slate-200" />
+                </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {Object.keys(demoUsers).map((role) => (
-                <button
-                  key={role}
-                  onClick={() => finish(loginAs(role))}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-extrabold text-slate-700 transition hover:-translate-y-0.5 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
-                >
-                  {roleLabels[role]}
-                </button>
-              ))}
-            </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.keys(demoUsers).map((role) => (
+                    <button
+                      key={role}
+                      onClick={() => finish(loginAs(role))}
+                      className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-extrabold text-slate-700 transition hover:-translate-y-0.5 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
+                    >
+                      {roleLabels[role]}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           <p className="mt-6 text-center text-xs font-semibold leading-6 text-slate-400">
