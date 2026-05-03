@@ -11,6 +11,7 @@ export default function Login() {
   const [password, setPassword] = useState('demo123')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   function finish(user) {
     navigate(roleHome[user.role], { replace: true })
@@ -19,10 +20,15 @@ export default function Login() {
   async function submit(event) {
     event.preventDefault()
     setLoading(true)
-    setTimeout(() => {
-      finish(loginWithEmail(email))
+    setError('')
+    try {
+      const user = await loginWithEmail(email, password)
+      finish(user)
+    } catch (error) {
+      setError(error.message || 'Login gagal. Periksa email dan password.')
+    } finally {
       setLoading(false)
-    }, 260)
+    }
   }
 
   return (
@@ -67,6 +73,7 @@ export default function Login() {
             <button className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#7C3AED_0%,#8B5CF6_50%,#22D3EE_100%)] text-sm font-extrabold text-white shadow-[0_14px_30px_rgba(124,58,237,0.20)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(124,58,237,0.24)]">
               {loading ? <Loader2 className="animate-spin" size={18} /> : <>Masuk <ArrowRight size={17} /></>}
             </button>
+            {error && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 ring-1 ring-rose-100">{error}</p>}
           </form>
 
           <div className="my-7 flex items-center gap-3">

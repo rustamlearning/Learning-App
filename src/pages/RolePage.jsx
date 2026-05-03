@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Award,
   BarChart3,
@@ -47,6 +47,7 @@ import {
   DashboardCard,
   DataTable,
   EmptyState,
+  LoadingState,
   PageHeader,
   QuickActionButton,
   SearchFilterBar,
@@ -57,19 +58,23 @@ import {
   ProgressRing,
 } from '../components/ui.jsx'
 import { AIChatMockup, AIGeneratorMockup, BadgeCard, DailyMissionCard, FlashcardDeck, LearningPath, SEAClubCorner } from '../components/learning.jsx'
+import { fetchMaterialLookups, fetchMaterials, removeMaterial, saveMaterial } from '../services/materialService.js'
+import { fetchQuestions, removeQuestion, saveQuestion } from '../services/questionService.js'
+import { fetchQuizAttempts, fetchQuizQuestions, fetchQuizzes, fetchStudentRecord, removeQuiz, saveQuiz, submitQuizAttempt } from '../services/quizService.js'
+import { exportBackupData, fetchClasses, fetchProfiles, fetchSubjects, removeClass, removeProfile, removeSubject, saveClass, saveProfile, saveSubject } from '../services/adminService.js'
 
 export default function RolePage({ role, page }) {
-  const { user } = useAuth()
+  const { user, accessToken, supabaseEnabled } = useAuth()
   const [toast, setToast] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const notify = (message) => setToast(message)
 
   const content = useMemo(() => {
-    if (role === 'siswa') return renderSiswa(page, user, notify)
-    if (role === 'guru') return renderGuru(page, user, notify, setConfirmOpen)
-    if (role === 'admin') return renderAdmin(page, notify, setConfirmOpen)
+    if (role === 'siswa') return renderSiswa(page, user, notify, { accessToken, supabaseEnabled })
+    if (role === 'guru') return renderGuru(page, user, notify, setConfirmOpen, { accessToken, supabaseEnabled })
+    if (role === 'admin') return renderAdmin(page, notify, setConfirmOpen, { accessToken, supabaseEnabled })
     return renderPimpinan(page, notify)
-  }, [role, page, user])
+  }, [role, page, user, accessToken, supabaseEnabled])
 
   return (
     <>
@@ -80,12 +85,12 @@ export default function RolePage({ role, page }) {
   )
 }
 
-function renderSiswa(page, user, notify) {
+function renderSiswa(page, user, notify, appContext) {
   if (page === 'dashboard') return <SiswaDashboard user={user} notify={notify} />
   if (page === 'kelas') return <KelasSaya />
-  if (page === 'materi') return <MateriBelajar notify={notify} />
+  if (page === 'materi') return <MateriBelajar user={user} notify={notify} appContext={appContext} />
   if (page === 'latihan') return <LatihanPage notify={notify} />
-  if (page === 'kuis') return <KuisPage notify={notify} />
+  if (page === 'kuis') return <KuisPage user={user} notify={notify} appContext={appContext} />
   if (page === 'flashcard') return <FlashcardPage />
   if (page === 'ai-tutor') return <AIPage />
   if (page === 'progres') return <ProgresPage />
@@ -95,13 +100,13 @@ function renderSiswa(page, user, notify) {
   return <EmptyState />
 }
 
-function renderGuru(page, user, notify, setConfirmOpen) {
+function renderGuru(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'dashboard') return <GuruDashboard notify={notify} />
   if (page === 'kelas') return <GuruKelas />
-  if (page === 'materi') return <GuruMateri user={user} notify={notify} />
-  if (page === 'bank-soal') return <BankSoal user={user} notify={notify} setConfirmOpen={setConfirmOpen} />
+  if (page === 'materi') return <GuruMateri user={user} notify={notify} appContext={appContext} />
+  if (page === 'bank-soal') return <BankSoal user={user} notify={notify} appContext={appContext} />
   if (page === 'tugas') return <GuruTugas notify={notify} />
-  if (page === 'kuis-live') return <KuisLive notify={notify} />
+  if (page === 'kuis-live') return <KuisLive user={user} notify={notify} appContext={appContext} />
   if (page === 'analisis-nilai') return <AnalisisNilai />
   if (page === 'remedial') return <RemedialPage notify={notify} />
   if (page === 'ai-generator') return <AIGeneratorPage />
@@ -109,15 +114,15 @@ function renderGuru(page, user, notify, setConfirmOpen) {
   return <EmptyState />
 }
 
-function renderAdmin(page, notify, setConfirmOpen) {
+function renderAdmin(page, notify, setConfirmOpen, appContext) {
   if (page === 'dashboard') return <AdminDashboard />
-  if (page === 'guru') return <AdminGuru notify={notify} setConfirmOpen={setConfirmOpen} />
-  if (page === 'siswa') return <AdminSiswa notify={notify} setConfirmOpen={setConfirmOpen} />
-  if (page === 'kelas') return <AdminKelas notify={notify} />
-  if (page === 'mapel') return <AdminMapel notify={notify} />
+  if (page === 'guru') return <AdminProfiles role="guru" title="Data Guru" notify={notify} appContext={appContext} />
+  if (page === 'siswa') return <AdminProfiles role="siswa" title="Data Siswa" notify={notify} appContext={appContext} />
+  if (page === 'kelas') return <AdminKelas notify={notify} appContext={appContext} />
+  if (page === 'mapel') return <AdminMapel notify={notify} appContext={appContext} />
   if (page === 'pengaturan') return <Pengaturan notify={notify} />
   if (page === 'laporan') return <LaporanSekolah notify={notify} />
-  if (page === 'backup') return <BackupPage notify={notify} setConfirmOpen={setConfirmOpen} />
+  if (page === 'backup') return <BackupPage notify={notify} setConfirmOpen={setConfirmOpen} appContext={appContext} />
   return <EmptyState />
 }
 
@@ -230,22 +235,79 @@ function KelasSaya() {
   )
 }
 
-function MateriBelajar({ notify }) {
+function MateriBelajar({ user, notify, appContext }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('Semua')
-  const filtered = materials.filter((item) => (filter === 'Semua' || item.status === filter || item.subject === filter) && item.title.toLowerCase().includes(search.toLowerCase()))
+  const [selected, setSelected] = useState(null)
+  const [remoteMaterials, setRemoteMaterials] = useState([])
+  const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
+  const [error, setError] = useState('')
+  const [completedIds, setCompletedIds] = useState(() => getCompletedMaterials(user?.id))
+
+  useEffect(() => {
+    let active = true
+
+    async function loadMaterials() {
+      if (!appContext?.accessToken) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        const rows = await fetchMaterials({ accessToken: appContext.accessToken, publishedOnly: true })
+        if (active) {
+          setRemoteMaterials(rows)
+          setError('')
+        }
+      } catch (loadError) {
+        if (active) setError(loadError.message)
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadMaterials()
+    return () => {
+      active = false
+    }
+  }, [appContext?.accessToken])
+
+  const data = remoteMaterials.length > 0 ? remoteMaterials : materials
+  const subjectsFilter = ['Semua', ...Array.from(new Set(data.map((item) => item.subject))), 'Selesai', 'Dipelajari', 'Belum Mulai']
+  const enriched = data.map((item) => completedIds.includes(item.id) ? { ...item, status: 'Selesai', progress: 100 } : item)
+  const filtered = enriched.filter((item) => (filter === 'Semua' || item.status === filter || item.subject === filter) && item.title.toLowerCase().includes(search.toLowerCase()))
+
+  function markComplete(item) {
+    const next = Array.from(new Set([...completedIds, item.id]))
+    setCompletedIds(next)
+    setCompletedMaterials(user?.id, next)
+    notify(`${item.title} ditandai selesai.`)
+  }
+
+  if (selected) {
+    return <MaterialDetail item={selected} onBack={() => setSelected(null)} onComplete={() => markComplete(selected)} notify={notify} />
+  }
+
   return (
     <div>
-      <PageHeader eyebrow="Materi Belajar" title="Jelajahi materi baru hari ini." description="Semua materi diberi label ringan dibuka untuk wilayah kepulauan." />
-      <SearchFilterBar search={search} setSearch={setSearch} filters={['Semua', 'Bahasa Inggris', 'Matematika', 'Selesai', 'Dipelajari', 'Belum Mulai']} activeFilter={filter} setActiveFilter={setFilter} />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {filtered.map((item) => <MaterialCard key={item.id} item={item} notify={notify} />)}
-      </div>
+      <PageHeader eyebrow="Materi Belajar" title="Jelajahi materi baru hari ini." description={remoteMaterials.length > 0 ? 'Materi sudah dibaca dari Supabase dan diberi label ringan dibuka.' : 'Materi dummy tampil sebagai fallback sampai data Supabase diisi.'} />
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Fallback dummy tetap ditampilkan.</div>}
+      <SearchFilterBar search={search} setSearch={setSearch} filters={subjectsFilter} activeFilter={filter} setActiveFilter={setFilter} />
+      {loading ? <LoadingState label="Memuat materi dari Supabase..." /> : (
+        filtered.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {filtered.map((item) => <MaterialCard key={item.id} item={item} onOpen={() => setSelected(item)} notify={notify} />)}
+          </div>
+        ) : (
+          <EmptyState title="Belum ada materi di pulau ini." description="Guru akan segera menambahkan materi baru untuk kelasmu." />
+        )
+      )}
     </div>
   )
 }
 
-function MaterialCard({ item, notify }) {
+function MaterialCard({ item, onOpen, notify }) {
   return (
     <SectionCard>
       <div className="mb-4 flex items-center justify-between"><StatusBadge tone="cyan">{item.subject}</StatusBadge><StatusBadge tone="green">Ringan dibuka</StatusBadge></div>
@@ -253,11 +315,52 @@ function MaterialCard({ item, notify }) {
       <p className="mt-2 text-sm leading-6 text-gray-500">{item.description}</p>
       <div className="mt-4 h-2 rounded-full bg-galaxy-lavender"><div className="h-2 rounded-full bg-galaxy-action" style={{ width: `${item.progress}%` }} /></div>
       <div className="mt-5 grid grid-cols-2 gap-2">
-        <button onClick={() => notify(`Membuka ${item.title}`)} className="rounded-2xl bg-galaxy-deep px-4 py-3 text-sm font-bold text-white">Lanjutkan</button>
+        <button onClick={onOpen} className="rounded-2xl bg-galaxy-deep px-4 py-3 text-sm font-bold text-white">Lanjutkan</button>
         <button onClick={() => notify('AI Tutor siap membantu materi ini.')} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Tanya AI</button>
       </div>
     </SectionCard>
   )
+}
+
+function MaterialDetail({ item, onBack, onComplete, notify }) {
+  return (
+    <div>
+      <PageHeader eyebrow={item.subject} title={item.title} description={`${item.className} · ${item.topic} · ${item.type || 'Teks'} · Ringan dibuka`} action={<button onClick={onBack} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>} />
+      <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
+        <SectionCard>
+          <StatusBadge tone={item.status === 'Selesai' ? 'green' : 'cyan'}>{item.status}</StatusBadge>
+          <div className="prose prose-slate mt-5 max-w-none">
+            <p className="text-base leading-8 text-slate-700">{item.content}</p>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <button onClick={onComplete} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white">Tandai selesai</button>
+            <button onClick={() => notify('AI Tutor siap membantu materi ini.')} className="rounded-2xl bg-galaxy-surface px-5 py-3 text-sm font-bold text-galaxy-purple">Tanya AI Tutor</button>
+          </div>
+        </SectionCard>
+        <SectionCard>
+          <p className="text-sm font-extrabold text-gray-950">Info Materi</p>
+          <div className="mt-4 space-y-3 text-sm text-slate-600">
+            <p><b>Mapel:</b> {item.subject}</p>
+            <p><b>Kelas:</b> {item.className}</p>
+            <p><b>Guru:</b> {item.teacher}</p>
+            <p><b>Status:</b> {item.status}</p>
+          </div>
+        </SectionCard>
+      </div>
+    </div>
+  )
+}
+
+function getCompletedMaterials(userId) {
+  try {
+    return JSON.parse(localStorage.getItem(`sea-learning-material-progress-${userId || 'demo'}`)) || []
+  } catch (error) {
+    return []
+  }
+}
+
+function setCompletedMaterials(userId, ids) {
+  localStorage.setItem(`sea-learning-material-progress-${userId || 'demo'}`, JSON.stringify(ids))
 }
 
 function LatihanPage({ notify }) {
@@ -298,20 +401,135 @@ function PracticeDetail({ item, onBack, notify }) {
   )
 }
 
-function KuisPage({ notify }) {
+function KuisPage({ user, notify, appContext }) {
+  const [quizRows, setQuizRows] = useState([])
+  const [selected, setSelected] = useState(null)
+  const [quizQuestions, setQuizQuestions] = useState([])
+  const [answers, setAnswers] = useState({})
+  const [result, setResult] = useState(null)
+  const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+
+    async function loadQuizzes() {
+      if (!appContext?.accessToken) {
+        setQuizRows(quizzes)
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        const rows = await fetchQuizzes({ accessToken: appContext.accessToken, publishedOnly: true })
+        if (active) {
+          setQuizRows(rows.length > 0 ? rows : quizzes)
+          setError('')
+        }
+      } catch (loadError) {
+        if (active) {
+          setQuizRows(quizzes)
+          setError(loadError.message)
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadQuizzes()
+    return () => {
+      active = false
+    }
+  }, [appContext?.accessToken])
+
+  async function openQuiz(quiz) {
+    setSelected(quiz)
+    setAnswers({})
+    setResult(null)
+
+    if (!appContext?.accessToken || quiz.source !== 'supabase') {
+      setQuizQuestions(questions.filter((item) => item.subject === quiz.subject).slice(0, 5))
+      return
+    }
+
+    try {
+      const rows = await fetchQuizQuestions({ accessToken: appContext.accessToken, quizId: quiz.id })
+      setQuizQuestions(rows.length > 0 ? rows : questions.filter((item) => item.subject === quiz.subject).slice(0, 5))
+    } catch (loadError) {
+      notify(`Gagal membuka soal kuis: ${loadError.message}`)
+      setQuizQuestions(questions.filter((item) => item.subject === quiz.subject).slice(0, 5))
+    }
+  }
+
+  async function submitQuiz() {
+    if (!selected) return
+    const total = quizQuestions.length || 1
+    const correct = quizQuestions.filter((question) => answers[question.id] === question.correctAnswer).length
+
+    if (!appContext?.accessToken || selected.source !== 'supabase') {
+      setResult({ score: Math.round((correct / total) * 100), correct, total })
+      notify('Kuis demo berhasil dikirim.')
+      return
+    }
+
+    try {
+      const student = isUuid(user?.id) ? await fetchStudentRecord({ accessToken: appContext.accessToken, profileId: user.id }) : null
+      const attempt = await submitQuizAttempt({ accessToken: appContext.accessToken, quiz: selected, questions: quizQuestions, answers, studentId: student?.id })
+      setResult(attempt)
+      notify('Jawaban kuis tersimpan di Supabase.')
+    } catch (submitError) {
+      notify(`Gagal submit kuis: ${submitError.message}`)
+    }
+  }
+
+  if (selected) {
+    return (
+      <div>
+        <PageHeader eyebrow={selected.subject} title={selected.title} description={`${selected.duration} menit · ${selected.teacher}`} action={<button onClick={() => setSelected(null)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>} />
+        <SectionCard>
+          <div className="space-y-4">
+            {quizQuestions.map((question, index) => (
+              <div key={question.id} className="rounded-3xl bg-galaxy-surface p-4 ring-1 ring-purple-100">
+                <p className="text-sm font-extrabold text-gray-950">{index + 1}. {question.questionText}</p>
+                <div className="mt-3 grid gap-2">
+                  {(question.options || []).map((option) => (
+                    <button key={option} onClick={() => setAnswers((current) => ({ ...current, [question.id]: option }))} className={`rounded-2xl px-4 py-3 text-left text-sm font-bold ring-1 ${answers[question.id] === option ? 'bg-galaxy-deep text-white ring-galaxy-deep' : 'bg-white text-gray-700 ring-purple-100'}`}>
+                      {option}
+                    </button>
+                  ))}
+                </div>
+                {result && <p className="mt-3 text-sm text-slate-600"><b>Pembahasan:</b> {question.explanation}</p>}
+              </div>
+            ))}
+          </div>
+          {result ? (
+            <div className="mt-5 rounded-3xl bg-emerald-50 p-5 text-emerald-800 ring-1 ring-emerald-100">
+              <p className="text-lg font-extrabold">Skor: {result.score}</p>
+              <p className="mt-1 text-sm">Benar {result.correct} dari {result.total} soal.</p>
+            </div>
+          ) : (
+            <button onClick={submitQuiz} disabled={quizQuestions.length === 0} className="mt-5 rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Submit jawaban</button>
+          )}
+        </SectionCard>
+      </div>
+    )
+  }
+
   return (
     <div>
       <PageHeader eyebrow="Kuis / Ujian" title="Kuis aktif dan ujian resmi" description="Cek status sebelum mulai. Tidak ada autoplay, ringan dibuka." />
-      <div className="grid gap-4 md:grid-cols-2">
-        {quizzes.map((quiz) => (
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Fallback dummy ditampilkan.</div>}
+      {loading ? <LoadingState label="Memuat kuis dari Supabase..." /> : <div className="grid gap-4 md:grid-cols-2">
+        {quizRows.map((quiz) => (
           <SectionCard key={quiz.id}>
             <div className="flex items-center justify-between gap-3"><StatusBadge tone={statusTone(quiz.status)}>{quiz.status}</StatusBadge><span className="text-sm font-bold text-gray-500">{quiz.duration} menit</span></div>
             <h2 className="mt-4 text-xl font-extrabold">{quiz.title}</h2>
             <p className="mt-2 text-sm text-gray-500">{quiz.subject} · {quiz.teacher} · {quiz.date}</p>
-            <button onClick={() => notify(quiz.status === 'Selesai' ? `Nilai kamu ${quiz.score}` : 'Membuka mode kuis demo.')} className="mt-5 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">{quiz.status === 'Selesai' ? 'Lihat hasil' : 'Mulai / Detail'}</button>
+            <button onClick={() => openQuiz(quiz)} className="mt-5 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">{quiz.status === 'Selesai' ? 'Lihat hasil' : 'Mulai / Detail'}</button>
           </SectionCard>
         ))}
-      </div>
+      </div>}
     </div>
   )
 }
@@ -472,46 +690,589 @@ function GuruKelas() {
   return <CardsPage eyebrow="Kelas" title="Kelas yang diajar" items={classes.map((c) => ({ title: `${c.name} Bahasa Inggris`, meta: `${c.students} siswa · rata-rata ${c.average}`, value: `${c.progress}% progress`, status: `${Math.max(1, 6 - c.grade + 10)} remedial` }))} />
 }
 
-function GuruMateri({ user, notify }) {
+function GuruMateri({ user, notify, appContext }) {
   const teacherSubject = user?.subject || 'Bahasa Inggris'
-  const ownMaterials = materials.filter((item) => item.subject === teacherSubject)
-  return <ManageList eyebrow="Materi" title={`Kelola materi ${teacherSubject}`} rows={ownMaterials} button="Tambah materi" notify={notify} type="materi" emptyTitle={`Belum ada materi ${teacherSubject}.`} emptyDescription="Materi mapel yang Anda ampu akan tampil di sini setelah dibuat." />
-}
+  const [rows, setRows] = useState([])
+  const [lookups, setLookups] = useState({ subjects: [], classes: [] })
+  const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
+  const [error, setError] = useState('')
+  const [editing, setEditing] = useState(null)
+  const [deleting, setDeleting] = useState(null)
 
-function BankSoal({ user, notify, setConfirmOpen }) {
-  const teacherSubject = user?.subject || 'Bahasa Inggris'
-  const ownQuestions = questions.filter((item) => item.subject === teacherSubject)
+  useEffect(() => {
+    let active = true
+
+    async function loadTeacherMaterials() {
+      if (!appContext?.accessToken || !isUuid(user?.id)) {
+        setRows(materials.filter((item) => item.subject === teacherSubject))
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        const [materialRows, lookupRows] = await Promise.all([
+          fetchMaterials({ accessToken: appContext.accessToken, teacherId: user.id }),
+          fetchMaterialLookups({ accessToken: appContext.accessToken }),
+        ])
+        if (active) {
+          setRows(materialRows)
+          setLookups(lookupRows)
+          setError('')
+        }
+      } catch (loadError) {
+        if (active) {
+          setRows(materials.filter((item) => item.subject === teacherSubject))
+          setError(loadError.message)
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadTeacherMaterials()
+    return () => {
+      active = false
+    }
+  }, [appContext?.accessToken, teacherSubject, user?.id])
+
+  async function handleSave(material) {
+    if (!appContext?.accessToken || !isUuid(user?.id)) {
+      const now = Date.now()
+      const localMaterial = { ...material, id: material.id || `local-material-${now}`, subject: teacherSubject, className: 'Kelas demo', teacher: user?.name, progress: material.status === 'Publish' ? 35 : 0 }
+      setRows((current) => material.id ? current.map((item) => item.id === material.id ? { ...item, ...localMaterial } : item) : [localMaterial, ...current])
+      setEditing(null)
+      notify('Materi tersimpan lokal. Login Supabase guru diperlukan untuk menyimpan ke database.')
+      return
+    }
+
+    try {
+      const saved = await saveMaterial({ accessToken: appContext.accessToken, teacherId: user.id, material })
+      setRows((current) => material.id ? current.map((item) => item.id === material.id ? saved : item) : [saved, ...current])
+      setEditing(null)
+      notify(material.id ? 'Materi berhasil diperbarui di Supabase.' : 'Materi berhasil ditambahkan ke Supabase.')
+    } catch (saveError) {
+      notify(`Gagal menyimpan materi: ${saveError.message}`)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleting) return
+    if (!appContext?.accessToken || !isUuid(user?.id) || deleting.source !== 'supabase') {
+      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setDeleting(null)
+      notify('Materi demo dihapus dari tampilan lokal.')
+      return
+    }
+
+    try {
+      await removeMaterial({ accessToken: appContext.accessToken, id: deleting.id })
+      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setDeleting(null)
+      notify('Materi berhasil dihapus dari Supabase.')
+    } catch (deleteError) {
+      notify(`Gagal menghapus materi: ${deleteError.message}`)
+    }
+  }
+
   return (
     <div>
-      <PageHeader eyebrow="Bank Soal" title={`Bank soal ${teacherSubject}`} description="Hanya menampilkan soal dari mata pelajaran yang Anda ampu." action={<QuickActionButton icon={Plus} label="Tambah soal" onClick={() => notify('Form tambah soal placeholder dibuka.')} />} />
-      {ownQuestions.length > 0 ? (
+      <PageHeader eyebrow="Materi" title={`Kelola materi ${teacherSubject}`} description="Materi guru dibatasi berdasarkan akun guru yang login. Data Supabase tampil jika akun guru dan tabel sudah siap." action={<QuickActionButton icon={Plus} label="Tambah materi" onClick={() => setEditing(emptyMaterial(lookups, teacherSubject))} />} />
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Fallback dummy mapel guru ditampilkan.</div>}
+      {editing && <MaterialForm material={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
+      {loading ? <LoadingState label="Memuat materi guru dari Supabase..." /> : (
+        rows.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {rows.map((row) => (
+              <SectionCard key={row.id}>
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>
+                  <StatusBadge tone="cyan">{row.type || 'Teks'}</StatusBadge>
+                </div>
+                <h2 className="text-lg font-extrabold">{row.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-gray-500">{row.description}</p>
+                <p className="mt-3 text-xs font-bold text-slate-500">{row.subject} · {row.className} · {row.topic}</p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button onClick={() => setEditing(row)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Edit</button>
+                  <button onClick={() => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{row.status === 'Publish' ? 'Unpublish' : 'Publish'}</button>
+                  <button onClick={() => setDeleting(row)} className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">Hapus</button>
+                </div>
+              </SectionCard>
+            ))}
+          </div>
+        ) : (
+          <EmptyState title={`Belum ada materi ${teacherSubject}.`} description="Klik Tambah materi untuk membuat materi pertama." />
+        )
+      )}
+      <ConfirmDialog open={Boolean(deleting)} title="Hapus materi?" description={`Materi "${deleting?.title || ''}" akan dihapus. Aksi ini membutuhkan konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
+    </div>
+  )
+}
+
+function MaterialForm({ material, lookups, onCancel, onSave }) {
+  const [form, setForm] = useState(material)
+  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: material.subject || 'Bahasa Inggris' }]
+  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: material.className || 'Kelas demo' }]
+
+  function updateField(field, value) {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  return (
+    <SectionCard className="mb-5">
+      <h2 className="text-xl font-extrabold text-gray-950">{form.id ? 'Edit materi' : 'Tambah materi'}</h2>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Judul
+          <input value={form.title} onChange={(event) => updateField('title', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Topik
+          <input value={form.topic} onChange={(event) => updateField('topic', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
+          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+            {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id}>{subject.name}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Kelas
+          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+            {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id}>{classItem.name}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Jenis
+          <select value={form.type} onChange={(event) => updateField('type', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+            {['Teks', 'PDF', 'Video', 'Link'].map((type) => <option key={type}>{type}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Status
+          <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+            {['Draft', 'Publish'].map((status) => <option key={status}>{status}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Deskripsi
+          <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={3} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Konten materi
+          <textarea value={form.content} onChange={(event) => updateField('content', event.target.value)} rows={6} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
+        <button onClick={() => onSave(form)} disabled={!form.title.trim()} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan materi</button>
+      </div>
+    </SectionCard>
+  )
+}
+
+function emptyMaterial(lookups, teacherSubject) {
+  const subject = lookups.subjects.find((item) => item.name === teacherSubject) || lookups.subjects[0]
+  const classItem = lookups.classes[0]
+  return {
+    title: '',
+    description: '',
+    content: '',
+    subjectId: subject?.id || '',
+    classId: classItem?.id || '',
+    subject: subject?.name || teacherSubject,
+    className: classItem?.name || 'Kelas demo',
+    topic: '',
+    type: 'Teks',
+    status: 'Draft',
+  }
+}
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '')
+}
+
+function BankSoal({ user, notify, appContext }) {
+  const teacherSubject = user?.subject || 'Bahasa Inggris'
+  const [rows, setRows] = useState([])
+  const [lookups, setLookups] = useState({ subjects: [], classes: [] })
+  const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
+  const [error, setError] = useState('')
+  const [editing, setEditing] = useState(null)
+  const [deleting, setDeleting] = useState(null)
+
+  useEffect(() => {
+    let active = true
+
+    async function loadQuestions() {
+      if (!appContext?.accessToken || !isUuid(user?.id)) {
+        setRows(questions.filter((item) => item.subject === teacherSubject))
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        const [questionRows, lookupRows] = await Promise.all([
+          fetchQuestions({ accessToken: appContext.accessToken, teacherId: user.id }),
+          fetchMaterialLookups({ accessToken: appContext.accessToken }),
+        ])
+        if (active) {
+          setRows(questionRows)
+          setLookups(lookupRows)
+          setError('')
+        }
+      } catch (loadError) {
+        if (active) {
+          setRows(questions.filter((item) => item.subject === teacherSubject))
+          setError(loadError.message)
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadQuestions()
+    return () => {
+      active = false
+    }
+  }, [appContext?.accessToken, teacherSubject, user?.id])
+
+  async function handleSave(question) {
+    if (!appContext?.accessToken || !isUuid(user?.id)) {
+      const localQuestion = { ...question, id: question.id || `local-question-${Date.now()}`, subject: teacherSubject, className: 'Kelas demo', source: 'local' }
+      setRows((current) => question.id ? current.map((item) => item.id === question.id ? { ...item, ...localQuestion } : item) : [localQuestion, ...current])
+      setEditing(null)
+      notify('Soal tersimpan lokal. Login Supabase guru diperlukan untuk menyimpan ke database.')
+      return
+    }
+
+    try {
+      const saved = await saveQuestion({ accessToken: appContext.accessToken, teacherId: user.id, question })
+      setRows((current) => question.id ? current.map((item) => item.id === question.id ? saved : item) : [saved, ...current])
+      setEditing(null)
+      notify(question.id ? 'Soal berhasil diperbarui di Supabase.' : 'Soal berhasil ditambahkan ke Supabase.')
+    } catch (saveError) {
+      notify(`Gagal menyimpan soal: ${saveError.message}`)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleting) return
+    if (!appContext?.accessToken || !isUuid(user?.id) || deleting.source !== 'supabase') {
+      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setDeleting(null)
+      notify('Soal demo dihapus dari tampilan lokal.')
+      return
+    }
+
+    try {
+      await removeQuestion({ accessToken: appContext.accessToken, id: deleting.id })
+      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setDeleting(null)
+      notify('Soal berhasil dihapus dari Supabase.')
+    } catch (deleteError) {
+      notify(`Gagal menghapus soal: ${deleteError.message}`)
+    }
+  }
+
+  return (
+    <div>
+      <PageHeader eyebrow="Bank Soal" title={`Bank soal ${teacherSubject}`} description="Soal dibatasi berdasarkan akun guru yang login dan siap dipakai untuk kuis berikutnya." action={<QuickActionButton icon={Plus} label="Tambah soal" onClick={() => setEditing(emptyQuestion(lookups, teacherSubject))} />} />
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data soal: {error}. Fallback dummy mapel guru ditampilkan.</div>}
+      {editing && <QuestionForm question={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
+      {loading ? <LoadingState label="Memuat bank soal dari Supabase..." /> : rows.length > 0 ? (
         <DataTable columns={[
           { key: 'questionText', label: 'Soal' },
           { key: 'subject', label: 'Mapel' },
           { key: 'topic', label: 'Topik' },
           { key: 'difficulty', label: 'Level' },
           { key: 'type', label: 'Jenis' },
-          { key: 'action', label: 'Aksi', render: () => <button onClick={() => setConfirmOpen(true)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit/Hapus</button> },
-        ]} rows={ownQuestions} />
+          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
+        ]} rows={rows} />
       ) : (
         <EmptyState title={`Belum ada soal ${teacherSubject}.`} description="Soal mapel yang Anda ampu akan tampil di sini setelah dibuat." />
       )}
+      <ConfirmDialog open={Boolean(deleting)} title="Hapus soal?" description="Soal akan dihapus dari bank soal setelah konfirmasi." onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
     </div>
   )
+}
+
+function QuestionForm({ question, lookups, onCancel, onSave }) {
+  const [form, setForm] = useState({
+    ...question,
+    optionsText: (question.options || []).join('\n'),
+  })
+  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: question.subject || 'Bahasa Inggris' }]
+  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: question.className || 'Kelas demo' }]
+
+  function updateField(field, value) {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function submit() {
+    onSave({
+      ...form,
+      options: form.optionsText.split('\n').map((item) => item.trim()).filter(Boolean),
+    })
+  }
+
+  return (
+    <SectionCard className="mb-5">
+      <h2 className="text-xl font-extrabold text-gray-950">{form.id ? 'Edit soal' : 'Tambah soal'}</h2>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Pertanyaan
+          <textarea value={form.questionText} onChange={(event) => updateField('questionText', event.target.value)} rows={3} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
+          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+            {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id}>{subject.name}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Kelas
+          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+            {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id}>{classItem.name}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Topik
+          <input value={form.topic} onChange={(event) => updateField('topic', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Level
+          <select value={form.difficulty} onChange={(event) => updateField('difficulty', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+            {['Mudah', 'Sedang', 'Sulit'].map((level) => <option key={level}>{level}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Jenis soal
+          <select value={form.type} onChange={(event) => updateField('type', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+            {['Pilihan ganda', 'Benar/salah', 'Isian', 'Essay'].map((type) => <option key={type}>{type}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Jawaban benar
+          <input value={form.correctAnswer} onChange={(event) => updateField('correctAnswer', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Pilihan jawaban, satu baris per opsi
+          <textarea value={form.optionsText} onChange={(event) => updateField('optionsText', event.target.value)} rows={4} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Pembahasan
+          <textarea value={form.explanation} onChange={(event) => updateField('explanation', event.target.value)} rows={3} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
+        <button onClick={submit} disabled={!form.questionText.trim()} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan soal</button>
+      </div>
+    </SectionCard>
+  )
+}
+
+function emptyQuestion(lookups, teacherSubject) {
+  const subject = lookups.subjects.find((item) => item.name === teacherSubject) || lookups.subjects[0]
+  const classItem = lookups.classes[0]
+  return {
+    questionText: '',
+    options: [''],
+    correctAnswer: '',
+    explanation: '',
+    subjectId: subject?.id || '',
+    classId: classItem?.id || '',
+    subject: subject?.name || teacherSubject,
+    className: classItem?.name || 'Kelas demo',
+    topic: '',
+    difficulty: 'Mudah',
+    type: 'Pilihan ganda',
+  }
 }
 
 function GuruTugas({ notify }) {
   return <ManageList eyebrow="Tugas" title="Tugas kelas" rows={assignments} button="Buat tugas" notify={notify} type="tugas" />
 }
 
-function KuisLive({ notify }) {
+function KuisLive({ user, notify, appContext }) {
+  const teacherSubject = user?.subject || 'Bahasa Inggris'
+  const [quizRows, setQuizRows] = useState([])
+  const [questionRows, setQuestionRows] = useState([])
+  const [lookups, setLookups] = useState({ subjects: [], classes: [] })
+  const [editing, setEditing] = useState(null)
+  const [deleting, setDeleting] = useState(null)
+  const [attempts, setAttempts] = useState([])
+  const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+
+    async function loadTeacherQuizzes() {
+      if (!appContext?.accessToken || !isUuid(user?.id)) {
+        setQuizRows(quizzes.filter((item) => item.subject === teacherSubject))
+        setQuestionRows(questions.filter((item) => item.subject === teacherSubject))
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        const [quizData, questionData, lookupRows, attemptRows] = await Promise.all([
+          fetchQuizzes({ accessToken: appContext.accessToken, teacherId: user.id }),
+          fetchQuestions({ accessToken: appContext.accessToken, teacherId: user.id }),
+          fetchMaterialLookups({ accessToken: appContext.accessToken }),
+          fetchQuizAttempts({ accessToken: appContext.accessToken }),
+        ])
+        if (active) {
+          setQuizRows(quizData)
+          setQuestionRows(questionData)
+          setLookups(lookupRows)
+          setAttempts(attemptRows)
+          setError('')
+        }
+      } catch (loadError) {
+        if (active) {
+          setQuizRows(quizzes.filter((item) => item.subject === teacherSubject))
+          setQuestionRows(questions.filter((item) => item.subject === teacherSubject))
+          setError(loadError.message)
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadTeacherQuizzes()
+    return () => {
+      active = false
+    }
+  }, [appContext?.accessToken, teacherSubject, user?.id])
+
+  async function handleSave(quiz, selectedQuestionIds) {
+    if (!appContext?.accessToken || !isUuid(user?.id)) {
+      const localQuiz = { ...quiz, id: quiz.id || `local-quiz-${Date.now()}`, subject: teacherSubject, teacher: user?.name, className: 'Kelas demo', source: 'local' }
+      setQuizRows((current) => quiz.id ? current.map((item) => item.id === quiz.id ? { ...item, ...localQuiz } : item) : [localQuiz, ...current])
+      setEditing(null)
+      notify('Kuis tersimpan lokal. Login Supabase guru diperlukan untuk menyimpan ke database.')
+      return
+    }
+
+    try {
+      const saved = await saveQuiz({ accessToken: appContext.accessToken, teacherId: user.id, quiz, questionIds: selectedQuestionIds })
+      setQuizRows((current) => quiz.id ? current.map((item) => item.id === quiz.id ? saved : item) : [saved, ...current])
+      setEditing(null)
+      notify(quiz.id ? 'Kuis berhasil diperbarui di Supabase.' : 'Kuis berhasil dibuat di Supabase.')
+    } catch (saveError) {
+      notify(`Gagal menyimpan kuis: ${saveError.message}`)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleting) return
+    if (!appContext?.accessToken || !isUuid(user?.id) || deleting.source !== 'supabase') {
+      setQuizRows((current) => current.filter((item) => item.id !== deleting.id))
+      setDeleting(null)
+      notify('Kuis demo dihapus dari tampilan lokal.')
+      return
+    }
+
+    try {
+      await removeQuiz({ accessToken: appContext.accessToken, id: deleting.id })
+      setQuizRows((current) => current.filter((item) => item.id !== deleting.id))
+      setDeleting(null)
+      notify('Kuis berhasil dihapus dari Supabase.')
+    } catch (deleteError) {
+      notify(`Gagal menghapus kuis: ${deleteError.message}`)
+    }
+  }
+
   return (
     <div>
-      <PageHeader eyebrow="Kuis Live" title="Live quiz seperti Kahoot, dibuat ringan." action={<QuickActionButton icon={FlaskConical} label="Buat Kuis Live" onClick={() => notify('Kode join 482 913 dibuat.')} />} />
+      <PageHeader eyebrow="Kuis Live" title="Kuis dan ujian dari bank soal" description="Buat kuis ringan, publish ke siswa, lalu pantau hasil submit." action={<QuickActionButton icon={FlaskConical} label="Buat Kuis" onClick={() => setEditing(emptyQuiz(lookups, teacherSubject))} />} />
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Fallback dummy mapel guru ditampilkan.</div>}
+      {editing && <QuizForm quiz={editing} lookups={lookups} questions={questionRows} onCancel={() => setEditing(null)} onSave={handleSave} />}
       <SectionCard dark><p className="text-sm text-white/60">Kode join kelas</p><p className="mt-3 text-6xl font-extrabold">482 913</p><p className="mt-3 text-white/70">{liveParticipants.length} peserta bergabung.</p></SectionCard>
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">{liveParticipants.map((name, index) => <SectionCard key={name}><p className="text-sm font-extrabold">{name}</p><p className="text-sm text-gray-500">Skor live {800 - index * 54}</p></SectionCard>)}</div>
+      {loading ? <LoadingState label="Memuat kuis guru dari Supabase..." /> : (
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {quizRows.map((quiz) => (
+            <SectionCard key={quiz.id}>
+              <div className="flex items-center justify-between gap-2"><StatusBadge tone={statusTone(quiz.status)}>{quiz.status}</StatusBadge><StatusBadge tone="cyan">{quiz.duration} menit</StatusBadge></div>
+              <h2 className="mt-4 text-lg font-extrabold">{quiz.title}</h2>
+              <p className="mt-2 text-sm text-gray-500">{quiz.subject} · {quiz.className}</p>
+              <p className="mt-3 text-sm font-bold text-galaxy-purple">{attempts.filter((attempt) => attempt.quiz_id === quiz.id).length} attempt masuk</p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button onClick={() => setEditing(quiz)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Edit</button>
+                <button onClick={() => handleSave({ ...quiz, status: quiz.status === 'Publish' ? 'Draft' : 'Publish' }, [])} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{quiz.status === 'Publish' ? 'Unpublish' : 'Publish'}</button>
+                <button onClick={() => setDeleting(quiz)} className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">Hapus</button>
+              </div>
+            </SectionCard>
+          ))}
+        </div>
+      )}
+      <ConfirmDialog open={Boolean(deleting)} title="Hapus kuis?" description={`Kuis "${deleting?.title || ''}" akan dihapus setelah konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
     </div>
   )
+}
+
+function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSave }) {
+  const [form, setForm] = useState(quiz)
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState([])
+  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: quiz.subject || 'Bahasa Inggris' }]
+  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: quiz.className || 'Kelas demo' }]
+
+  function updateField(field, value) {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function toggleQuestion(questionId) {
+    setSelectedQuestionIds((current) => current.includes(questionId) ? current.filter((id) => id !== questionId) : [...current, questionId])
+  }
+
+  return (
+    <SectionCard className="mb-5">
+      <h2 className="text-xl font-extrabold text-gray-950">{form.id ? 'Edit kuis' : 'Buat kuis'}</h2>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Judul
+          <input value={form.title} onChange={(event) => updateField('title', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Durasi menit
+          <input type="number" value={form.duration} onChange={(event) => updateField('duration', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
+          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+            {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id}>{subject.name}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Kelas
+          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+            {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id}>{classItem.name}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Status
+          <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+            {['Draft', 'Publish'].map((status) => <option key={status}>{status}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Deskripsi
+          <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={3} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+      </div>
+      <div className="mt-5">
+        <p className="text-sm font-extrabold text-gray-950">Pilih soal dari bank soal</p>
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          {availableQuestions.map((question) => (
+            <button key={question.id} onClick={() => toggleQuestion(question.id)} className={`rounded-2xl p-3 text-left text-sm font-semibold ring-1 ${selectedQuestionIds.includes(question.id) ? 'bg-galaxy-deep text-white ring-galaxy-deep' : 'bg-galaxy-surface text-gray-700 ring-purple-100'}`}>
+              {question.questionText}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
+        <button onClick={() => onSave(form, selectedQuestionIds)} disabled={!form.title.trim()} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan kuis</button>
+      </div>
+    </SectionCard>
+  )
+}
+
+function emptyQuiz(lookups, teacherSubject) {
+  const subject = lookups.subjects.find((item) => item.name === teacherSubject) || lookups.subjects[0]
+  const classItem = lookups.classes[0]
+  return {
+    title: '',
+    description: '',
+    subjectId: subject?.id || '',
+    classId: classItem?.id || '',
+    subject: subject?.name || teacherSubject,
+    className: classItem?.name || 'Kelas demo',
+    duration: 30,
+    status: 'Draft',
+  }
 }
 
 function AnalisisNilai() {
@@ -613,20 +1374,356 @@ function AdminDashboard() {
   )
 }
 
-function AdminGuru({ notify, setConfirmOpen }) {
-  return <AdminTable title="Data Guru" rows={teachers} columns={[['name', 'Nama'], ['nip', 'NIP'], ['email', 'Email'], ['subject', 'Mapel'], ['status', 'Status']]} button="Tambah guru" notify={notify} setConfirmOpen={setConfirmOpen} />
+function AdminProfiles({ role, title, notify, appContext }) {
+  const fallbackRows = role === 'guru' ? teachers.map((teacher) => ({ ...teacher, role: 'guru' })) : students.map((student) => ({ ...student, role: 'siswa' }))
+  const [rows, setRows] = useState([])
+  const [editing, setEditing] = useState(null)
+  const [deleting, setDeleting] = useState(null)
+  const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+
+    async function loadProfiles() {
+      if (!appContext?.accessToken) {
+        setRows(fallbackRows)
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        const profileRows = await fetchProfiles({ accessToken: appContext.accessToken, role })
+        if (active) {
+          setRows(profileRows.length > 0 ? profileRows : fallbackRows)
+          setError('')
+        }
+      } catch (loadError) {
+        if (active) {
+          setRows(fallbackRows)
+          setError(loadError.message)
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadProfiles()
+    return () => {
+      active = false
+    }
+  }, [appContext?.accessToken, role])
+
+  async function handleSave(profile) {
+    if (!appContext?.accessToken) {
+      const localProfile = { ...profile, id: profile.id || `local-${role}-${Date.now()}`, role }
+      setRows((current) => profile.id ? current.map((item) => item.id === profile.id ? localProfile : item) : [localProfile, ...current])
+      setEditing(null)
+      notify(`${title} tersimpan lokal. Login admin Supabase diperlukan untuk menyimpan ke database.`)
+      return
+    }
+
+    try {
+      const saved = await saveProfile({ accessToken: appContext.accessToken, profile: { ...profile, role } })
+      setRows((current) => profile.id ? current.map((item) => item.id === profile.id ? saved : item) : [saved, ...current])
+      setEditing(null)
+      notify(`${title} berhasil disimpan di Supabase.`)
+    } catch (saveError) {
+      notify(`Gagal menyimpan data: ${saveError.message}`)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleting) return
+    if (!appContext?.accessToken || !isUuid(deleting.id)) {
+      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setDeleting(null)
+      notify('Data demo dihapus dari tampilan lokal.')
+      return
+    }
+
+    try {
+      await removeProfile({ accessToken: appContext.accessToken, id: deleting.id })
+      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setDeleting(null)
+      notify('Data berhasil dihapus dari Supabase.')
+    } catch (deleteError) {
+      notify(`Gagal menghapus data: ${deleteError.message}`)
+    }
+  }
+
+  return (
+    <div>
+      <PageHeader eyebrow="Manajemen Data" title={title} description="Admin mengelola data profil aplikasi. Akun login Auth dibuat terpisah di Supabase Authentication." action={<QuickActionButton icon={Plus} label={`Tambah ${role === 'guru' ? 'guru' : 'siswa'}`} onClick={() => setEditing({ name: '', email: '', role, status: 'Aktif' })} />} />
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data: {error}. Fallback dummy ditampilkan.</div>}
+      {editing && <ProfileForm title={title} profile={editing} onCancel={() => setEditing(null)} onSave={handleSave} />}
+      {loading ? <LoadingState label={`Memuat ${title.toLowerCase()} dari Supabase...`} /> : (
+        <DataTable columns={[
+          { key: 'name', label: 'Nama' },
+          { key: 'email', label: 'Email' },
+          { key: 'role', label: 'Role' },
+          { key: 'status', label: 'Status' },
+          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
+        ]} rows={rows} />
+      )}
+      <ConfirmDialog open={Boolean(deleting)} title="Hapus data?" description={`Data "${deleting?.name || ''}" akan dihapus setelah konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
+    </div>
+  )
 }
 
-function AdminSiswa({ notify, setConfirmOpen }) {
-  return <AdminTable title="Data Siswa" rows={students} columns={[['name', 'Nama'], ['nis', 'NIS'], ['nisn', 'NISN'], ['className', 'Kelas'], ['status', 'Status']]} button="Tambah siswa / Import Excel" notify={notify} setConfirmOpen={setConfirmOpen} />
+function ProfileForm({ title, profile, onCancel, onSave }) {
+  const [form, setForm] = useState(profile)
+
+  function updateField(field, value) {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  return (
+    <SectionCard className="mb-5">
+      <h2 className="text-xl font-extrabold text-gray-950">{profile.id ? `Edit ${title}` : `Tambah ${title}`}</h2>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Nama
+          <input value={form.name} onChange={(event) => updateField('name', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Email
+          <input value={form.email} onChange={(event) => updateField('email', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Status
+          <select value={form.status || 'Aktif'} onChange={(event) => updateField('status', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+            {['Aktif', 'Nonaktif', 'Perlu perhatian'].map((status) => <option key={status}>{status}</option>)}
+          </select>
+        </label>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
+        <button onClick={() => onSave(form)} disabled={!form.name.trim() || !form.email.trim()} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
+      </div>
+    </SectionCard>
+  )
 }
 
-function AdminKelas({ notify }) {
-  return <CardsPage eyebrow="Data Kelas" title="Kelola rombel" items={classes.map((c) => ({ title: c.name, meta: `Wali kelas ${c.homeroom}`, value: `${c.students} siswa`, status: `${c.progress}% progress` }))} action={<QuickActionButton icon={Plus} label="Tambah kelas" onClick={() => notify('Form tambah kelas placeholder.')} />} />
+function AdminKelas({ notify, appContext }) {
+  const [rows, setRows] = useState([])
+  const [editing, setEditing] = useState(null)
+  const [deleting, setDeleting] = useState(null)
+  const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    async function loadClasses() {
+      if (!appContext?.accessToken) {
+        setRows(classes)
+        setLoading(false)
+        return
+      }
+      try {
+        setLoading(true)
+        const classRows = await fetchClasses({ accessToken: appContext.accessToken })
+        if (active) {
+          setRows(classRows.length > 0 ? classRows : classes)
+          setError('')
+        }
+      } catch (loadError) {
+        if (active) {
+          setRows(classes)
+          setError(loadError.message)
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    loadClasses()
+    return () => { active = false }
+  }, [appContext?.accessToken])
+
+  async function handleSave(classItem) {
+    if (!appContext?.accessToken) {
+      const localClass = { ...classItem, id: classItem.id || `local-class-${Date.now()}` }
+      setRows((current) => classItem.id ? current.map((item) => item.id === classItem.id ? localClass : item) : [localClass, ...current])
+      setEditing(null)
+      notify('Kelas tersimpan lokal.')
+      return
+    }
+    try {
+      const saved = await saveClass({ accessToken: appContext.accessToken, classItem })
+      setRows((current) => classItem.id ? current.map((item) => item.id === classItem.id ? saved : item) : [saved, ...current])
+      setEditing(null)
+      notify('Kelas berhasil disimpan di Supabase.')
+    } catch (saveError) {
+      notify(`Gagal menyimpan kelas: ${saveError.message}`)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleting) return
+    if (!appContext?.accessToken || !isUuid(deleting.id)) {
+      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setDeleting(null)
+      notify('Kelas demo dihapus.')
+      return
+    }
+    try {
+      await removeClass({ accessToken: appContext.accessToken, id: deleting.id })
+      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setDeleting(null)
+      notify('Kelas berhasil dihapus.')
+    } catch (deleteError) {
+      notify(`Gagal menghapus kelas: ${deleteError.message}`)
+    }
+  }
+
+  return (
+    <div>
+      <PageHeader eyebrow="Data Kelas" title="Kelola rombel" action={<QuickActionButton icon={Plus} label="Tambah kelas" onClick={() => setEditing({ name: '', grade: 10, academicYear: '2026/2027' })} />} />
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kelas: {error}. Fallback dummy ditampilkan.</div>}
+      {editing && <ClassForm classItem={editing} onCancel={() => setEditing(null)} onSave={handleSave} />}
+      {loading ? <LoadingState label="Memuat kelas dari Supabase..." /> : (
+        <DataTable columns={[
+          { key: 'name', label: 'Kelas' },
+          { key: 'grade', label: 'Tingkat' },
+          { key: 'academic_year', label: 'Tahun Ajaran', render: (row) => row.academic_year || row.academicYear || '2026/2027' },
+          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
+        ]} rows={rows} />
+      )}
+      <ConfirmDialog open={Boolean(deleting)} title="Hapus kelas?" description={`Kelas "${deleting?.name || ''}" akan dihapus setelah konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
+    </div>
+  )
 }
 
-function AdminMapel({ notify }) {
-  return <AdminTable title="Mata Pelajaran" rows={subjects} columns={[['name', 'Nama Mapel'], ['code', 'Kode'], ['teacher', 'Guru Pengampu'], ['classes', 'Kelas Terkait']]} button="Tambah mapel" notify={notify} />
+function ClassForm({ classItem, onCancel, onSave }) {
+  const [form, setForm] = useState({ ...classItem, academicYear: classItem.academicYear || classItem.academic_year || '2026/2027' })
+  return (
+    <SectionCard className="mb-5">
+      <h2 className="text-xl font-extrabold text-gray-950">{form.id ? 'Edit kelas' : 'Tambah kelas'}</h2>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Nama kelas
+          <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Tingkat
+          <input type="number" value={form.grade} onChange={(event) => setForm((current) => ({ ...current, grade: event.target.value }))} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Tahun ajaran
+          <input value={form.academicYear} onChange={(event) => setForm((current) => ({ ...current, academicYear: event.target.value }))} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
+        <button onClick={() => onSave(form)} disabled={!form.name.trim()} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
+      </div>
+    </SectionCard>
+  )
+}
+
+function AdminMapel({ notify, appContext }) {
+  const [rows, setRows] = useState([])
+  const [editing, setEditing] = useState(null)
+  const [deleting, setDeleting] = useState(null)
+  const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    async function loadSubjects() {
+      if (!appContext?.accessToken) {
+        setRows(subjects)
+        setLoading(false)
+        return
+      }
+      try {
+        setLoading(true)
+        const subjectRows = await fetchSubjects({ accessToken: appContext.accessToken })
+        if (active) {
+          setRows(subjectRows.length > 0 ? subjectRows.map((item) => ({ ...item, teacher: item.users_profile?.name || '-' })) : subjects)
+          setError('')
+        }
+      } catch (loadError) {
+        if (active) {
+          setRows(subjects)
+          setError(loadError.message)
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    loadSubjects()
+    return () => { active = false }
+  }, [appContext?.accessToken])
+
+  async function handleSave(subject) {
+    if (!appContext?.accessToken) {
+      const localSubject = { ...subject, id: subject.id || `local-subject-${Date.now()}` }
+      setRows((current) => subject.id ? current.map((item) => item.id === subject.id ? localSubject : item) : [localSubject, ...current])
+      setEditing(null)
+      notify('Mapel tersimpan lokal.')
+      return
+    }
+    try {
+      const saved = await saveSubject({ accessToken: appContext.accessToken, subject })
+      setRows((current) => subject.id ? current.map((item) => item.id === subject.id ? saved : item) : [saved, ...current])
+      setEditing(null)
+      notify('Mapel berhasil disimpan di Supabase.')
+    } catch (saveError) {
+      notify(`Gagal menyimpan mapel: ${saveError.message}`)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleting) return
+    if (!appContext?.accessToken || !isUuid(deleting.id)) {
+      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setDeleting(null)
+      notify('Mapel demo dihapus.')
+      return
+    }
+    try {
+      await removeSubject({ accessToken: appContext.accessToken, id: deleting.id })
+      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setDeleting(null)
+      notify('Mapel berhasil dihapus.')
+    } catch (deleteError) {
+      notify(`Gagal menghapus mapel: ${deleteError.message}`)
+    }
+  }
+
+  return (
+    <div>
+      <PageHeader eyebrow="Manajemen Data" title="Mata Pelajaran" action={<QuickActionButton icon={Plus} label="Tambah mapel" onClick={() => setEditing({ name: '', code: '' })} />} />
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data mapel: {error}. Fallback dummy ditampilkan.</div>}
+      {editing && <SubjectForm subject={editing} onCancel={() => setEditing(null)} onSave={handleSave} />}
+      {loading ? <LoadingState label="Memuat mata pelajaran dari Supabase..." /> : (
+        <DataTable columns={[
+          { key: 'name', label: 'Nama Mapel' },
+          { key: 'code', label: 'Kode' },
+          { key: 'teacher', label: 'Guru Pengampu' },
+          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
+        ]} rows={rows} />
+      )}
+      <ConfirmDialog open={Boolean(deleting)} title="Hapus mapel?" description={`Mapel "${deleting?.name || ''}" akan dihapus setelah konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
+    </div>
+  )
+}
+
+function SubjectForm({ subject, onCancel, onSave }) {
+  const [form, setForm] = useState(subject)
+  return (
+    <SectionCard className="mb-5">
+      <h2 className="text-xl font-extrabold text-gray-950">{form.id ? 'Edit mapel' : 'Tambah mapel'}</h2>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Nama mapel
+          <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Kode
+          <input value={form.code} onChange={(event) => setForm((current) => ({ ...current, code: event.target.value.toUpperCase() }))} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
+        <button onClick={() => onSave(form)} disabled={!form.name.trim() || !form.code.trim()} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
+      </div>
+    </SectionCard>
+  )
 }
 
 function Pengaturan({ notify }) {
@@ -639,10 +1736,47 @@ function LaporanSekolah({ notify }) {
   return <ReportPage eyebrow="Laporan Sekolah" title="Aktivitas, nilai, ujian, dan remedial" notify={notify} />
 }
 
-function BackupPage({ notify, setConfirmOpen }) {
+function BackupPage({ notify, setConfirmOpen, appContext }) {
+  const [exporting, setExporting] = useState(false)
+
+  async function handleBackup() {
+    if (!appContext?.accessToken) {
+      const fallback = {
+        exportedAt: new Date().toISOString(),
+        app: 'SEA Learning',
+        school: 'SMA Negeri 6 Pangkajene dan Kepulauan',
+        data: { students, teachers, classes, subjects, materials, questions, quizzes },
+      }
+      downloadJson(fallback)
+      notify('Backup JSON demo dibuat dari data lokal.')
+      return
+    }
+
+    try {
+      setExporting(true)
+      const backup = await exportBackupData({ accessToken: appContext.accessToken })
+      downloadJson(backup)
+      notify('Backup JSON Supabase berhasil dibuat.')
+    } catch (backupError) {
+      notify(`Gagal membuat backup: ${backupError.message}`)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
-    <div><PageHeader eyebrow="Backup" title="Backup aman dan terkendali" /><SectionCard><StatusBadge tone="green">Backup terakhir: 2 Mei 2026 08.00</StatusBadge><p className="mt-4 text-sm text-gray-500">Restore dinonaktifkan di demo dan membutuhkan konfirmasi berlapis di aplikasi nyata.</p><div className="mt-5 flex gap-2"><QuickActionButton icon={Download} label="Backup sekarang" onClick={() => notify('Backup demo dibuat.')} /><button onClick={() => setConfirmOpen(true)} className="rounded-2xl bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700">Restore disabled</button></div></SectionCard></div>
+    <div><PageHeader eyebrow="Backup" title="Backup aman dan terkendali" /><SectionCard><StatusBadge tone="green">Backup JSON tersedia</StatusBadge><p className="mt-4 text-sm text-gray-500">Backup mengekspor data utama ke file JSON. Restore tetap dinonaktifkan karena berisiko menghapus atau menimpa data dan perlu konfirmasi berlapis.</p><div className="mt-5 flex flex-wrap gap-2"><QuickActionButton icon={Download} label={exporting ? 'Membuat backup...' : 'Backup sekarang'} onClick={handleBackup} /><button onClick={() => setConfirmOpen(true)} className="rounded-2xl bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700">Restore disabled</button></div></SectionCard></div>
   )
+}
+
+function downloadJson(data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `sea-learning-backup-${new Date().toISOString().slice(0, 10)}.json`
+  anchor.click()
+  URL.revokeObjectURL(url)
 }
 
 function PimpinanDashboard() {
@@ -705,7 +1839,7 @@ function ReportPage({ eyebrow, title, notify }) {
 }
 
 function statusTone(status) {
-  if (['Aktif', 'Berlangsung', 'Selesai', 'Terkirim'].includes(status)) return 'green'
+  if (['Aktif', 'Berlangsung', 'Selesai', 'Terkirim', 'Publish'].includes(status)) return 'green'
   if (['Draft', 'Belum mulai', 'Dipelajari'].includes(status)) return 'amber'
   if (['Terlambat', 'Dikunci', 'Perlu latihan', 'Perlu perhatian'].includes(status)) return 'red'
   return 'purple'
