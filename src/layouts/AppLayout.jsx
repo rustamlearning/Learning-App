@@ -114,7 +114,7 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
                       className={({ isActive }) =>
                         `group flex items-center gap-2.5 rounded-2xl px-2.5 py-2.5 text-sm font-bold transition duration-200 ${
                           isActive
-                            ? 'bg-[linear-gradient(135deg,#7C3AED,#22D3EE)] text-white shadow-[0_16px_34px_rgba(124,58,237,0.28)] ring-1 ring-white/10'
+                            ? 'bg-[linear-gradient(135deg,#5B21B6,#7C3AED,#8B5CF6)] text-white shadow-[0_16px_34px_rgba(124,58,237,0.30)] ring-1 ring-white/10'
                             : 'text-slate-200/78 hover:bg-white/10 hover:text-white'
                         }`
                       }
@@ -125,7 +125,7 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
                             className={`grid h-8 w-8 flex-shrink-0 place-items-center rounded-xl transition ${
                               isActive
                                 ? 'bg-white/15 text-white shadow-[0_10px_20px_rgba(255,255,255,0.10)]'
-                                : 'bg-white/10 text-cyan-100 group-hover:bg-white/[0.14]'
+                                : 'bg-white/10 text-violet-100 group-hover:bg-white/[0.14]'
                             }`}
                           >
                             <Icon size={17} />
