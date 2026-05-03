@@ -99,7 +99,7 @@ function Info({ label, value }) {
   )
 }
 
-export function AIChatMockup() {
+export function AIChatPanel() {
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Halo, saya AI Tutor SEA Learning. Mau belajar apa hari ini?' },
   ])
@@ -144,7 +144,7 @@ export function AIChatMockup() {
   )
 }
 
-export function AIGeneratorMockup() {
+export function AIGeneratorPanel() {
   const [options, setOptions] = useState({ subject: 'Bahasa Inggris', className: 'X.1', topic: 'Descriptive Text', type: 'Soal pilihan ganda', level: 'Sedang', total: 3 })
   const [output, setOutput] = useState([])
 

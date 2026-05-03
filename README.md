@@ -103,7 +103,7 @@ AI Tutor dan AI Generator menggunakan endpoint server-side:
 
 API key Groq tidak disimpan di frontend. Key hanya digunakan di server melalui environment variable `GROQ_API_KEY`.
 
-Jika API AI belum dikonfigurasi, aplikasi tetap menggunakan fallback/mock mode.
+Jika API AI belum dikonfigurasi, aplikasi tetap menggunakan mode fallback aman.
 
 ## Deploy ke Vercel
 

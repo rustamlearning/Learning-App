@@ -254,7 +254,7 @@ export default function Landing() {
                 ['Word of the Day', 'Explore = menjelajahi'],
                 ['Speaking Challenge', 'Tell us about your island in 5 English sentences.'],
                 ['Writing Prompt', 'Write a short paragraph about your school.'],
-                ['AI English Feedback', 'Placeholder feedback grammar dan vocabulary.'],
+                ['AI English Feedback', 'Feedback grammar dan vocabulary untuk latihan siswa.'],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-3xl bg-white/90 p-5 shadow-[0_14px_35px_rgba(15,23,42,0.06)] ring-1 ring-white/80">
                   <p className="text-xs font-extrabold uppercase tracking-wide text-teal-700">{label}</p>

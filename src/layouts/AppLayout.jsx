@@ -228,7 +228,7 @@ function Topbar({ user, title, onMenu }) {
         </div>
 
         <button
-          aria-label="Theme placeholder"
+          aria-label="Ubah tema"
           className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-[0_12px_28px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:text-violet-700"
         >
           <Moon size={18} />
