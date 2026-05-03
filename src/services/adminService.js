@@ -1,4 +1,4 @@
-import { createRow, deleteRow, listRows, updateRow } from './supabaseClient.js'
+import { createRow, deleteRow, listRows, normalizeLoginIdentifier, updateRow } from './supabaseClient.js'
 
 export async function fetchProfiles({ accessToken, role }) {
   return listRows('users_profile', {
@@ -106,11 +106,40 @@ export async function saveProfile({ accessToken, profile }) {
   const rows = profile.id
     ? await updateRow('users_profile', profile.id, payload, accessToken)
     : await createRow('users_profile', payload, accessToken)
+  await saveLoginAlias({ accessToken, profile: rows[0] })
   return rows[0]
 }
 
 export async function removeProfile({ accessToken, id }) {
+  const aliases = await listRows('login_aliases', {
+    select: 'id',
+    filters: { profile_id: id },
+    accessToken,
+  })
+  await Promise.all(aliases.map((alias) => deleteRow('login_aliases', alias.id, accessToken)))
   await deleteRow('users_profile', id, accessToken)
+}
+
+async function saveLoginAlias({ accessToken, profile }) {
+  if (!profile?.name || !profile?.email) return
+
+  const payload = {
+    profile_id: profile.id,
+    username: normalizeLoginIdentifier(profile.name),
+    email: normalizeLoginIdentifier(profile.email),
+    role: profile.role,
+  }
+  const aliases = await listRows('login_aliases', {
+    select: 'id',
+    filters: { profile_id: profile.id },
+    accessToken,
+  })
+
+  if (aliases[0]) {
+    await updateRow('login_aliases', aliases[0].id, payload, accessToken)
+  } else {
+    await createRow('login_aliases', payload, accessToken)
+  }
 }
 
 export async function fetchClasses({ accessToken }) {

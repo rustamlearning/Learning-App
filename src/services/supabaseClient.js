@@ -67,6 +67,19 @@ export async function getProfileByAuthUserId(authUserId, accessToken) {
   return rows?.[0] || null
 }
 
+export async function getLoginEmailByIdentifier(identifier) {
+  const normalized = normalizeLoginIdentifier(identifier)
+  if (!normalized || normalized.includes('@')) return normalized
+
+  const query = new URLSearchParams({
+    username: `eq.${normalized}`,
+    select: 'email',
+    limit: '1',
+  })
+  const rows = await request(`/rest/v1/login_aliases?${query.toString()}`)
+  return rows?.[0]?.email || normalized
+}
+
 export async function listRows(tableName, { select = '*', filters = {}, accessToken } = {}) {
   const query = new URLSearchParams({ select })
   Object.entries(filters).forEach(([key, value]) => {
@@ -109,4 +122,8 @@ export async function deleteRows(tableName, filters = {}, accessToken) {
     method: 'DELETE',
     accessToken,
   })
+}
+
+export function normalizeLoginIdentifier(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ')
 }

@@ -51,5 +51,6 @@ Current Supabase-backed features:
 - Admin student and teacher pages now save academic details to `students` and `teachers`.
 - Teacher assignments are saved to Supabase through `assignments`.
 - Student material completion is saved to `progress` when a Supabase student profile exists.
+- Temporary username login is supported through `login_aliases`, so users can sign in with names like `Andi Saputra` plus their Supabase Auth password.
 
 Important: after creating Auth users in Supabase, connect each Auth user to `users_profile.auth_user_id` so role-based login and teacher-owned materials work correctly.

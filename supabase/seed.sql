@@ -9,6 +9,20 @@ on conflict (email) do update set
   role = excluded.role,
   status = excluded.status;
 
+insert into login_aliases (profile_id, username, email, role)
+select id, lower(regexp_replace(name, '\s+', ' ', 'g')), lower(email), role
+from users_profile
+where email in (
+  'siswa@sea-learning.local',
+  'guru@sea-learning.local',
+  'admin@sea-learning.local',
+  'pimpinan@sea-learning.local'
+)
+on conflict (username) do update set
+  profile_id = excluded.profile_id,
+  email = excluded.email,
+  role = excluded.role;
+
 insert into classes (name, grade, academic_year)
 values
   ('X.1', 10, '2026/2027'),

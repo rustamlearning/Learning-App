@@ -162,6 +162,15 @@ create table if not exists announcements (
   created_at timestamptz not null default now()
 );
 
+create table if not exists login_aliases (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid references users_profile(id) on delete cascade,
+  username text unique not null,
+  email text not null,
+  role text not null check (role in ('siswa', 'guru', 'admin', 'pimpinan')),
+  created_at timestamptz not null default now()
+);
+
 create unique index if not exists classes_name_academic_year_uidx on classes (name, academic_year);
 create unique index if not exists materials_title_subject_class_uidx on materials (title, subject_id, class_id);
 create unique index if not exists questions_text_subject_class_uidx on questions (question_text, subject_id, class_id);
@@ -198,6 +207,7 @@ alter table progress enable row level security;
 alter table badges enable row level security;
 alter table student_badges enable row level security;
 alter table announcements enable row level security;
+alter table login_aliases enable row level security;
 
 alter table materials add column if not exists topic text;
 alter table materials add column if not exists type text not null default 'Teks';
@@ -237,6 +247,8 @@ drop policy if exists "Students can read own student row" on students;
 drop policy if exists "Teachers can manage assignments" on assignments;
 drop policy if exists "Students can manage own progress" on progress;
 drop policy if exists "Students can read own progress" on progress;
+drop policy if exists "Anyone can resolve login aliases" on login_aliases;
+drop policy if exists "Admins can manage login aliases" on login_aliases;
 
 create policy "Authenticated users can read profiles" on users_profile for select to authenticated using (true);
 create policy "Authenticated users can read classes" on classes for select to authenticated using (true);
@@ -247,6 +259,10 @@ create policy "Authenticated users can read quizzes" on quizzes for select to au
 create policy "Authenticated users can read quiz questions" on quiz_questions for select to authenticated using (true);
 create policy "Authenticated users can read assignments" on assignments for select to authenticated using (true);
 create policy "Authenticated users can read badges" on badges for select to authenticated using (true);
+
+create policy "Anyone can resolve login aliases" on login_aliases
+  for select to anon, authenticated
+  using (true);
 
 create policy "Students can read own student row" on students
   for select to authenticated
@@ -279,6 +295,11 @@ create policy "Admins can manage students" on students
   with check (current_user_role() = 'admin');
 
 create policy "Admins can manage teachers" on teachers
+  for all to authenticated
+  using (current_user_role() = 'admin')
+  with check (current_user_role() = 'admin');
+
+create policy "Admins can manage login aliases" on login_aliases
   for all to authenticated
   using (current_user_role() = 'admin')
   with check (current_user_role() = 'admin');

@@ -7,8 +7,8 @@ import { demoUsers, roleHome, roleLabels, school } from '../data/dummyData.js'
 export default function Login() {
   const navigate = useNavigate()
   const { loginAs, loginWithEmail } = useAuth()
-  const [email, setEmail] = useState('andi@sman6pangkep.sch.id')
-  const [password, setPassword] = useState('demo123')
+  const [identifier, setIdentifier] = useState('Andi Saputra')
+  const [password, setPassword] = useState('password123')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -22,10 +22,10 @@ export default function Login() {
     setLoading(true)
     setError('')
     try {
-      const user = await loginWithEmail(email, password)
+      const user = await loginWithEmail(identifier, password)
       finish(user)
     } catch (error) {
-      setError(error.message || 'Login gagal. Periksa email dan password.')
+      setError(error.message || 'Login gagal. Periksa username dan password.')
     } finally {
       setLoading(false)
     }
@@ -58,8 +58,8 @@ export default function Login() {
 
           <form onSubmit={submit} className="mt-6 space-y-4">
             <label className="grid gap-2 text-sm font-bold text-gray-700">
-              Username atau Email
-              <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nama@sman6pangkep.sch.id" className="h-12 rounded-2xl border border-purple-500/[0.12] bg-white px-4 outline-none transition focus:border-galaxy-purple focus:ring-4 focus:ring-purple-500/[0.14]" />
+              Username
+              <input value={identifier} onChange={(event) => setIdentifier(event.target.value)} placeholder="Contoh: Andi Saputra" className="h-12 rounded-2xl border border-purple-500/[0.12] bg-white px-4 outline-none transition focus:border-galaxy-purple focus:ring-4 focus:ring-purple-500/[0.14]" />
             </label>
             <label className="grid gap-2 text-sm font-bold text-gray-700">
               Password

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { demoUsers } from '../data/dummyData.js'
-import { getCurrentAuthUser, getProfileByAuthUserId, isSupabaseConfigured, signInWithPassword, signOut } from '../services/supabaseClient.js'
+import { getCurrentAuthUser, getLoginEmailByIdentifier, getProfileByAuthUserId, isSupabaseConfigured, normalizeLoginIdentifier, signInWithPassword, signOut } from '../services/supabaseClient.js'
 
 const AuthContext = createContext(null)
 const STORAGE_KEY = 'sea-learning-auth'
@@ -56,12 +56,13 @@ export function AuthProvider({ children }) {
     return demo
   }
 
-  async function loginWithEmail(email, password) {
-    const normalized = email.toLowerCase()
+  async function loginWithEmail(identifier, password) {
+    const normalized = normalizeLoginIdentifier(identifier)
 
     if (isSupabaseConfigured()) {
       try {
-        const session = await signInWithPassword(normalized, password)
+        const authEmail = await getLoginEmailByIdentifier(normalized)
+        const session = await signInWithPassword(authEmail, password)
         const profile = await getProfileByAuthUserId(session.user.id, session.access_token)
         const appUser = toAppUser(session.user, profile)
         localStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(session))
@@ -70,12 +71,12 @@ export function AuthProvider({ children }) {
         setUser(appUser)
         return appUser
       } catch (error) {
-        const demo = Object.values(demoUsers).find((item) => item.email === normalized)
+        const demo = findDemoUser(normalized)
         if (!demo) throw error
       }
     }
 
-    const demo = Object.values(demoUsers).find((item) => item.email === normalized) || demoUsers.siswa
+    const demo = findDemoUser(normalized) || demoUsers.siswa
     localStorage.setItem(STORAGE_KEY, JSON.stringify(demo))
     localStorage.removeItem(SUPABASE_SESSION_KEY)
     setSession(null)
@@ -113,6 +114,14 @@ export function AuthProvider({ children }) {
     supabaseEnabled: isSupabaseConfigured(),
   }), [user, loading, session])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+function findDemoUser(identifier) {
+  return Object.values(demoUsers).find((item) => (
+    item.email.toLowerCase() === identifier
+    || item.name.toLowerCase() === identifier
+    || item.role.toLowerCase() === identifier
+  ))
 }
 
 export function useAuth() {
