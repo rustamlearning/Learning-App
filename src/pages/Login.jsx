@@ -44,18 +44,18 @@ export default function Login() {
   }
 
   return (
-    <main className="grid min-h-dvh overflow-hidden bg-[#F8FAFC] lg:grid-cols-[1.02fr_0.98fr]">
-      <section className="relative flex min-h-[42dvh] items-center overflow-hidden bg-[#0F172A] px-6 py-12 text-white lg:min-h-dvh lg:px-12">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(124,58,237,0.34),transparent_30%),radial-gradient(circle_at_82%_72%,rgba(34,211,238,0.16),transparent_28%),linear-gradient(135deg,#0F172A_0%,#1E1B4B_48%,#4C1D95_100%)]" />
+    <main className="grid min-h-dvh overflow-hidden bg-slate-50 lg:grid-cols-[1.02fr_0.98fr]">
+      <section className="relative flex min-h-[44dvh] items-center overflow-hidden bg-slate-950 px-6 py-12 text-white lg:min-h-dvh lg:px-14">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(34,211,238,0.22),transparent_28%),radial-gradient(circle_at_82%_72%,rgba(139,92,246,0.34),transparent_32%),linear-gradient(135deg,#0F172A_0%,#1E1B4B_48%,#4C1D95_100%)]" />
         <div className="absolute -left-24 top-20 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
-        <div className="absolute -right-24 bottom-10 h-80 w-80 rounded-full bg-violet-400/15 blur-3xl" />
+        <div className="absolute -right-24 bottom-10 h-80 w-80 rounded-full bg-violet-400/20 blur-3xl" />
 
-        <div className="relative mx-auto w-full max-w-xl">
+        <div className="relative mx-auto w-full max-w-2xl">
           <div className="mb-9">
             <SandeqLogo />
           </div>
 
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-cyan-100 ring-1 ring-white/15">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-cyan-100 shadow-lg ring-1 ring-white/15 backdrop-blur-md">
             <Sparkles size={15} />
             Digital Learning Platform
           </div>
@@ -69,29 +69,29 @@ export default function Login() {
           </p>
 
           <p className="mt-7 max-w-xl text-balance text-3xl font-black leading-tight tracking-[-0.04em] text-white sm:text-4xl">
-            Dari Kepulauan, Menuju Masa Depan.
+            Dari Pesisir ke Masa Depan Digital.
           </p>
 
-          <p className="mt-5 max-w-lg text-base leading-8 text-slate-200/82">
-            Platform pembelajaran digital yang ringan, rapi, dan terintegrasi untuk siswa,
-            guru, admin, dan pimpinan sekolah.
+          <p className="mt-5 max-w-xl text-base leading-8 text-slate-200/85">
+            Platform pembelajaran digital modern yang cepat, stabil, dan terintegrasi
+            untuk siswa, guru, admin, dan pimpinan sekolah.
           </p>
 
-          <div className="mt-9 grid max-w-lg gap-3 sm:grid-cols-3">
-            <MiniInfo icon={Waves} title="Ringan" text="Ramah jaringan" />
-            <MiniInfo icon={UserRound} title="Role-based" text="Sesuai akses" />
-            <MiniInfo icon={ShieldCheck} title="Terintegrasi" text="Siap produksi" />
+          <div className="mt-9 grid max-w-xl gap-3 sm:grid-cols-3">
+            <MiniInfo icon={Waves} title="Cepat" text="Akses stabil di semua jaringan" />
+            <MiniInfo icon={UserRound} title="Multi User" text="Guru & siswa terintegrasi" />
+            <MiniInfo icon={ShieldCheck} title="Aman" text="Data terlindungi & terpercaya" />
           </div>
         </div>
       </section>
 
-      <section className="flex min-h-[58dvh] items-center justify-center px-5 py-10 lg:min-h-dvh lg:px-10">
+      <section className="flex min-h-[56dvh] items-center justify-center px-5 py-10 lg:min-h-dvh lg:px-10">
         <div className="w-full max-w-md">
-          <div className="rounded-[2rem] bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200 sm:p-8">
+          <div className="rounded-[2rem] bg-white p-6 shadow-[0_24px_90px_rgba(15,23,42,0.11)] ring-1 ring-slate-200 sm:p-8">
             <header className="mb-7">
               <p className="text-sm font-extrabold text-violet-700">Masuk ke aplikasi</p>
               <h2 className="mt-2 text-3xl font-black tracking-[-0.04em] text-slate-950">
-                Selamat datang kembali.
+                Selamat datang di SEA Learning.
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
                 Gunakan akun sekolah atau pilih akses demo sesuai role.
@@ -132,7 +132,7 @@ export default function Login() {
 
               <button
                 disabled={loading}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#7C3AED_0%,#8B5CF6_48%,#22D3EE_100%)] text-sm font-extrabold text-white shadow-[0_16px_36px_rgba(124,58,237,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_42px_rgba(124,58,237,0.26)] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 via-violet-500 to-cyan-400 text-sm font-extrabold text-white shadow-lg transition hover:scale-[1.02] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100"
               >
                 {loading ? (
                   <Loader2 className="animate-spin" size={18} />
@@ -182,8 +182,8 @@ export default function Login() {
 
 function MiniInfo({ icon: Icon, title, text }) {
   return (
-    <div className="rounded-3xl bg-white/10 p-4 ring-1 ring-white/10">
-      <Icon className="text-cyan-200" size={20} />
+    <div className="rounded-3xl bg-white/10 p-4 shadow-lg ring-1 ring-white/15 backdrop-blur-md transition hover:scale-105 hover:bg-white/15">
+      <Icon className="text-cyan-200" size={22} />
       <p className="mt-3 text-sm font-extrabold text-white">{title}</p>
       <p className="mt-1 text-xs leading-5 text-slate-300">{text}</p>
     </div>
@@ -192,32 +192,20 @@ function MiniInfo({ icon: Icon, title, text }) {
 
 function SandeqLogo() {
   return (
-    <div className="inline-flex h-20 w-20 items-center justify-center rounded-[1.65rem] bg-white/10 ring-1 ring-white/15">
+    <div className="inline-flex h-24 w-24 items-center justify-center rounded-[2rem] bg-gradient-to-br from-cyan-400/20 to-violet-500/25 shadow-xl ring-1 ring-white/20 backdrop-blur-md">
       <svg
         viewBox="0 0 128 128"
-        className="h-14 w-14 text-white"
+        className="h-16 w-16 text-white"
         fill="none"
         role="img"
         aria-label="Logo SEA Learning"
       >
         <g stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M64 19V80" strokeWidth="5.5" />
-          <path d="M68 25L99 78H68V25Z" fill="currentColor" strokeWidth="0" opacity="0.96" />
-          <path d="M58 35L30 78H58V35Z" fill="currentColor" strokeWidth="0" opacity="0.72" />
-          <path
-            d="M27 84C38 94 51 99 65 98C80 97 93 92 104 84"
-            strokeWidth="6"
-          />
-          <path
-            d="M20 101C30 106 40 106 50 101C60 96 69 96 79 101C89 106 99 106 109 101"
-            strokeWidth="4.2"
-            opacity="0.68"
-          />
-          <path
-            d="M34 113C43 110 52 110 61 113C70 116 78 116 87 113C95 110 103 110 111 113"
-            strokeWidth="3.4"
-            opacity="0.42"
-          />
+          <path d="M64 19V84" strokeWidth="6" />
+          <path d="M68 25L101 80H68V25Z" fill="currentColor" strokeWidth="0" opacity="0.96" />
+          <path d="M58 35L28 80H58V35Z" fill="currentColor" strokeWidth="0" opacity="0.72" />
+          <path d="M24 89C38 100 53 104 66 103C81 102 96 97 108 89" strokeWidth="6" />
+          <path d="M22 106C33 111 43 111 53 106C63 101 72 101 82 106C92 111 101 111 112 106" strokeWidth="4.3" opacity="0.62" />
         </g>
       </svg>
     </div>
