@@ -25,9 +25,9 @@ import {
 
 export const school = {
   name: 'SMA Negeri 6 Pangkajene dan Kepulauan',
-  shortName: 'SMA Negeri 6 Pangkajene dan Kepulauan',
+  shortName: 'SMAN 6 Pangkep',
   appName: 'SEA Learning',
-  tagline: 'Your Learning Galaxy Starts Here',
+  tagline: 'Dari Pesisir ke Masa Depan Digital',
 }
 
 export const demoUsers = {
@@ -94,7 +94,7 @@ export const navItems = {
     { label: 'Profil', path: '/siswa/profil', icon: UserRound },
   ],
   guru: [
-    { label: 'Dashboard Guru', path: '/guru/dashboard', icon: Home },
+    { label: 'Dashboard', path: '/guru/dashboard', icon: Home },
     { label: 'Kelas', path: '/guru/kelas', icon: School },
     { label: 'Materi', path: '/guru/materi', icon: BookOpen },
     { label: 'Bank Soal', path: '/guru/bank-soal', icon: FileQuestion },
@@ -106,17 +106,17 @@ export const navItems = {
     { label: 'Laporan', path: '/guru/laporan', icon: LineChart },
   ],
   admin: [
-    { label: 'Dashboard Admin', path: '/admin/dashboard', icon: Home },
+    { label: 'Dashboard', path: '/admin/dashboard', icon: Home },
     { label: 'Data Guru', path: '/admin/guru', icon: GraduationCap },
     { label: 'Data Siswa', path: '/admin/siswa', icon: UsersRound },
     { label: 'Data Kelas', path: '/admin/kelas', icon: School },
     { label: 'Mata Pelajaran', path: '/admin/mapel', icon: BookOpen },
-    { label: 'Pengaturan Aplikasi', path: '/admin/pengaturan', icon: Settings },
+    { label: 'Pengaturan', path: '/admin/pengaturan', icon: Settings },
     { label: 'Laporan Sekolah', path: '/admin/laporan', icon: LineChart },
     { label: 'Backup', path: '/admin/backup', icon: DatabaseBackup },
   ],
   pimpinan: [
-    { label: 'Dashboard Pimpinan', path: '/pimpinan/dashboard', icon: Home },
+    { label: 'Dashboard', path: '/pimpinan/dashboard', icon: Home },
     { label: 'Monitoring Kelas', path: '/pimpinan/monitoring-kelas', icon: School },
     { label: 'Monitoring Guru', path: '/pimpinan/monitoring-guru', icon: GraduationCap },
     { label: 'Monitoring Siswa', path: '/pimpinan/monitoring-siswa', icon: UsersRound },
