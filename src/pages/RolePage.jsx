@@ -191,10 +191,37 @@ function SiswaDashboard({ user, notify }) {
         <StatCard icon={Award} label="Nilai Rata-rata" value="84" caption="Naik 3 poin" tone="green" />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid items-start gap-5 lg:grid-cols-[0.9fr_1.1fr]">
         <DailyMissionCard />
-        <DashboardCard title="Learning Path">
-          <LearningPath />
+        <DashboardCard title="Learning Path" className="pt-7">
+          <div className="mt-2">
+            <LearningPath />
+          </div>
+
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            {[
+              ['Materi Berikutnya', 'Descriptive Text', '65% selesai', BookOpen, 'cyan'],
+              ['Latihan Fokus', 'Simple Past Tense', '10 menit', FileQuestion, 'amber'],
+              ['Target Minggu Ini', 'Mastery Badge', '+50 XP lagi', Trophy, 'purple'],
+            ].map(([label, title, detail, Icon, tone]) => (
+              <div key={label} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-violet-700 shadow-[0_10px_24px_rgba(15,23,42,0.06)] ring-1 ring-slate-200">
+                    <Icon size={18} />
+                  </span>
+                  <StatusBadge tone={tone}>{detail}</StatusBadge>
+                </div>
+                <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400">{label}</p>
+                <p className="mt-1 text-sm font-black text-slate-950">{title}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 rounded-3xl bg-gradient-to-r from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
+            <p className="text-sm font-bold leading-6 text-slate-700">
+              Saran hari ini: selesaikan materi Descriptive Text, lanjutkan 5 soal latihan, lalu cek kesiapan kuis.
+            </p>
+          </div>
         </DashboardCard>
       </div>
 
