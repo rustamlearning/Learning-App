@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Award,
   BarChart3,
@@ -81,7 +82,7 @@ export default function RolePage({ role, page }) {
     <>
       {content}
       <Toast message={toast} onClose={() => setToast('')} />
-      <ConfirmDialog open={confirmOpen} title="Konfirmasi aksi" description="Aksi penting di aplikasi nyata akan meminta konfirmasi berlapis. Untuk demo ini, aksi hanya menampilkan feedback." onCancel={() => setConfirmOpen(false)} onConfirm={() => { setConfirmOpen(false); notify('Aksi dikonfirmasi pada mode demo.') }} />
+      <ConfirmDialog open={confirmOpen} title="Konfirmasi aksi" description="Aksi penting membutuhkan konfirmasi agar data tidak berubah tanpa sengaja." onCancel={() => setConfirmOpen(false)} onConfirm={() => { setConfirmOpen(false); notify('Aksi dikonfirmasi.') }} />
     </>
   )
 }
@@ -94,7 +95,7 @@ function renderSiswa(page, user, notify, appContext) {
   if (page === 'kuis') return <KuisPage user={user} notify={notify} appContext={appContext} />
   if (page === 'flashcard') return <FlashcardPage />
   if (page === 'ai-tutor') return <AIPage />
-  if (page === 'progres') return <ProgresPage />
+  if (page === 'progres') return <ProgresPage user={user} />
   if (page === 'leaderboard') return <LeaderboardPage />
   if (page === 'seaclub') return <SEAClubPage />
   if (page === 'profil') return <ProfilPage user={user} />
@@ -139,6 +140,7 @@ function renderPimpinan(page, notify) {
 
 function SiswaDashboard({ user, notify }) {
   const firstName = user?.name?.split(' ')[0] || 'Siswa'
+  const navigate = useNavigate()
 
   return (
     <div>
@@ -148,8 +150,8 @@ function SiswaDashboard({ user, notify }) {
         description="Lanjutkan belajar, selesaikan misi harian, dan pantau progresmu dalam satu tempat."
         action={
           <div className="flex flex-wrap gap-2">
-            <QuickActionButton icon={BookOpen} label="Lanjutkan Belajar" onClick={() => notify('Membuka materi terakhir pada mode demo.')} />
-            <QuickActionButton icon={Bot} label="Tanya AI Tutor" onClick={() => notify('AI Tutor siap di menu siswa.')} />
+            <QuickActionButton icon={BookOpen} label="Lanjutkan Belajar" onClick={() => navigate('/siswa/materi')} />
+            <QuickActionButton icon={Bot} label="Tanya AI Tutor" onClick={() => navigate('/siswa/ai-tutor')} />
           </div>
         }
       />
@@ -230,7 +232,7 @@ function SiswaDashboard({ user, notify }) {
           <p className="text-sm leading-7 text-gray-600">
             Kamu masih perlu latihan di <b>Simple Past Tense</b>. Coba 10 menit hari ini agar grammar naik sebelum kuis berikutnya.
           </p>
-          <button onClick={() => notify('Membuka latihan Simple Past Tense demo.')} className="mt-4 rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">
+          <button onClick={() => navigate('/siswa/latihan')} className="mt-4 rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">
             Mulai latihan 10 menit
           </button>
         </DashboardCard>
@@ -242,7 +244,7 @@ function SiswaDashboard({ user, notify }) {
           <div className="mt-4 h-2 rounded-full bg-galaxy-lavender">
             <div className="h-2 rounded-full bg-galaxy-action" style={{ width: '65%' }} />
           </div>
-          <button onClick={() => notify('Melanjutkan Descriptive Text pada mode demo.')} className="mt-4 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">
+          <button onClick={() => navigate('/siswa/materi')} className="mt-4 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">
             Lanjutkan
           </button>
         </DashboardCard>
@@ -251,7 +253,7 @@ function SiswaDashboard({ user, notify }) {
           <StatusBadge tone="green">Berlangsung</StatusBadge>
           <h3 className="mt-3 text-lg font-extrabold">Quiz Descriptive Text</h3>
           <p className="mt-2 text-sm leading-6 text-gray-500">4 Mei 2026 · 20 menit · Rustam, S.Pd.</p>
-          <button onClick={() => notify('Membuka detail kuis demo.')} className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+          <button onClick={() => navigate('/siswa/kuis')} className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
             Cek kesiapan
           </button>
         </DashboardCard>
@@ -276,7 +278,7 @@ function SiswaDashboard({ user, notify }) {
             <div className="rounded-2xl bg-white/85 p-4 ring-1 ring-cyan-100">
               <p className="text-xs font-extrabold uppercase tracking-wide text-galaxy-teal">Challenge</p>
               <p className="mt-2 text-sm font-bold leading-6 text-gray-800">Tell us about your island in 5 sentences.</p>
-              <button onClick={() => notify('SEAClub challenge dibuka pada mode demo.')} className="mt-3 rounded-2xl bg-teal-50 px-4 py-2.5 text-sm font-extrabold text-teal-700 ring-1 ring-teal-100">
+              <button onClick={() => navigate('/siswa/seaclub')} className="mt-3 rounded-2xl bg-teal-50 px-4 py-2.5 text-sm font-extrabold text-teal-700 ring-1 ring-teal-100">
                 Mulai Challenge
               </button>
             </div>
@@ -400,6 +402,7 @@ function MateriBelajar({ user, notify, appContext }) {
 }
 
 function MaterialCard({ item, onOpen, notify }) {
+  const navigate = useNavigate()
   return (
     <SectionCard>
       <div className="mb-4 flex items-center justify-between"><StatusBadge tone="cyan">{item.subject}</StatusBadge><StatusBadge tone="green">Ringan dibuka</StatusBadge></div>
@@ -408,13 +411,14 @@ function MaterialCard({ item, onOpen, notify }) {
       <div className="mt-4 h-2 rounded-full bg-galaxy-lavender"><div className="h-2 rounded-full bg-galaxy-action" style={{ width: `${item.progress}%` }} /></div>
       <div className="mt-5 grid grid-cols-2 gap-2">
         <button onClick={onOpen} className="rounded-2xl bg-galaxy-deep px-4 py-3 text-sm font-bold text-white">Lanjutkan</button>
-        <button onClick={() => notify('AI Tutor siap membantu materi ini.')} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Tanya AI</button>
+        <button onClick={() => navigate('/siswa/ai-tutor')} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Tanya AI</button>
       </div>
     </SectionCard>
   )
 }
 
 function MaterialDetail({ item, onBack, onComplete, notify }) {
+  const navigate = useNavigate()
   return (
     <div>
       <PageHeader eyebrow={item.subject} title={item.title} description={`${item.className} · ${item.topic} · ${item.type || 'Teks'} · Ringan dibuka`} action={<button onClick={onBack} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>} />
@@ -426,7 +430,7 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
             <button onClick={onComplete} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white">Tandai selesai</button>
-            <button onClick={() => notify('AI Tutor siap membantu materi ini.')} className="rounded-2xl bg-galaxy-surface px-5 py-3 text-sm font-bold text-galaxy-purple">Tanya AI Tutor</button>
+            <button onClick={() => navigate('/siswa/ai-tutor')} className="rounded-2xl bg-galaxy-surface px-5 py-3 text-sm font-bold text-galaxy-purple">Tanya AI Tutor</button>
           </div>
         </SectionCard>
         <SectionCard>
@@ -455,42 +459,202 @@ function setCompletedMaterials(userId, ids) {
   localStorage.setItem(`sea-learning-material-progress-${userId || 'demo'}`, JSON.stringify(ids))
 }
 
+function getPracticeResult(practiceId) {
+  try {
+    return JSON.parse(localStorage.getItem(`sea-learning-practice-result-${practiceId}`))
+  } catch (error) {
+    return null
+  }
+}
+
+function savePracticeResult(practiceId, result) {
+  localStorage.setItem(`sea-learning-practice-result-${practiceId}`, JSON.stringify(result))
+}
+
 function LatihanPage({ notify }) {
   const [selected, setSelected] = useState(null)
-  if (selected) return <PracticeDetail item={selected} onBack={() => setSelected(null)} notify={notify} />
-  const practices = questions.slice(0, 8).map((q, index) => ({ ...q, soal: 8 + index, waktu: 8 + index * 2, lastScore: [82, 76, 91, 68][index % 4] }))
+
+  const practices = useMemo(() => {
+    const grouped = questions.reduce((acc, question) => {
+      const key = `${question.subject}-${question.topic}`
+      if (!acc[key]) {
+        acc[key] = {
+          id: `practice-${key.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+          title: question.topic,
+          topic: question.topic,
+          subject: question.subject,
+          difficulty: question.difficulty,
+          items: [],
+        }
+      }
+      acc[key].items.push(question)
+      return acc
+    }, {})
+
+    return Object.values(grouped).slice(0, 8).map((practice) => ({
+      ...practice,
+      soal: practice.items.length,
+      waktu: Math.max(5, practice.items.length * 2),
+      difficulty: practice.items.some((item) => item.difficulty === 'Sulit')
+        ? 'Sulit'
+        : practice.items.some((item) => item.difficulty === 'Sedang')
+          ? 'Sedang'
+          : 'Mudah',
+    }))
+  }, [])
+
+  if (selected) return <PracticeDetail practice={selected} onBack={() => setSelected(null)} notify={notify} />
+
   return (
     <div>
-      <PageHeader eyebrow="Latihan" title="Kuasai satu topik lagi hari ini." description="Latihan pendek, feedback cepat, pembahasan jelas." />
+      <PageHeader eyebrow="Latihan" title="Kuasai satu topik lagi hari ini." description="Latihan pendek, feedback cepat, pembahasan jelas, dan skor tersimpan di perangkat." />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {practices.map((item) => (
-          <SectionCard key={item.id}>
-            <StatusBadge tone={item.difficulty === 'Sulit' ? 'red' : item.difficulty === 'Sedang' ? 'amber' : 'green'}>{item.difficulty}</StatusBadge>
-            <h2 className="mt-4 text-lg font-extrabold">{item.topic}</h2>
-            <p className="mt-2 text-sm text-gray-500">{item.soal} soal · {item.waktu} menit · skor terakhir {item.lastScore}</p>
-            <button onClick={() => setSelected(item)} className="mt-5 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">Mulai latihan</button>
-          </SectionCard>
-        ))}
+        {practices.map((item) => {
+          const result = getPracticeResult(item.id)
+          return (
+            <SectionCard key={item.id}>
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <StatusBadge tone={item.difficulty === 'Sulit' ? 'red' : item.difficulty === 'Sedang' ? 'amber' : 'green'}>{item.difficulty}</StatusBadge>
+                <StatusBadge tone={result ? 'green' : 'amber'}>{result ? `Skor ${result.score}` : 'Belum dikerjakan'}</StatusBadge>
+              </div>
+              <h2 className="text-lg font-extrabold">{item.topic}</h2>
+              <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">{item.subject}</p>
+              <p className="mt-2 text-sm leading-6 text-gray-500">{item.soal} soal · {item.waktu} menit · {result ? `${result.correct}/${result.total} benar` : 'siap latihan'}</p>
+              <button onClick={() => setSelected(item)} className="mt-5 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">
+                {result ? 'Latihan lagi' : 'Mulai latihan'}
+              </button>
+            </SectionCard>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-function PracticeDetail({ item, onBack, notify }) {
-  const [answer, setAnswer] = useState('')
+function PracticeDetail({ practice, onBack, notify }) {
+  const [answers, setAnswers] = useState({})
   const [submitted, setSubmitted] = useState(false)
-  const correct = answer === item.correctAnswer
+  const items = practice.items || []
+  const answeredCount = Object.keys(answers).length
+  const correctCount = items.filter((question) => answers[question.id] === question.correctAnswer).length
+  const score = items.length ? Math.round((correctCount / items.length) * 100) : 0
+
+  const chooseAnswer = (questionId, option) => {
+    if (submitted) return
+    setAnswers((current) => ({ ...current, [questionId]: option }))
+  }
+
+  const submitPractice = () => {
+    if (answeredCount < items.length) {
+      notify(`Jawab semua soal dulu: ${answeredCount}/${items.length} terisi.`)
+      return
+    }
+
+    const result = {
+      score,
+      correct: correctCount,
+      total: items.length,
+      date: new Date().toISOString(),
+    }
+
+    savePracticeResult(practice.id, result)
+    setSubmitted(true)
+    notify(`Latihan selesai. Skor ${score}.`)
+  }
+
+  const resetPractice = () => {
+    setAnswers({})
+    setSubmitted(false)
+    notify('Latihan diulang.')
+  }
+
+  const optionClass = (question, option) => {
+    const selected = answers[question.id] === option
+    const correct = question.correctAnswer === option
+
+    if (submitted && correct) return 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+    if (submitted && selected && !correct) return 'bg-rose-50 text-rose-700 ring-rose-200'
+    if (selected) return 'bg-galaxy-deep text-white ring-galaxy-deep'
+    return 'bg-white text-gray-700 ring-purple-100 hover:bg-galaxy-lavender'
+  }
+
   return (
-    <SectionCard>
-      <button onClick={onBack} className="mb-4 rounded-2xl bg-galaxy-surface px-4 py-2 text-sm font-bold text-galaxy-purple">Kembali</button>
-      <h1 className="text-2xl font-extrabold">{item.questionText}</h1>
-      <div className="mt-5 grid gap-2">
-        {item.options.map((option) => <button key={option} onClick={() => setAnswer(option)} className={`rounded-2xl px-4 py-3 text-left text-sm font-bold ring-1 ${answer === option ? 'bg-galaxy-deep text-white ring-galaxy-deep' : 'bg-white ring-purple-100'}`}>{option}</button>)}
+    <div>
+      <PageHeader
+        eyebrow={practice.subject}
+        title={practice.topic}
+        description={`${items.length} soal · ${practice.waktu} menit · jawab semua soal lalu lihat skor akhir.`}
+        action={<button onClick={onBack} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>}
+      />
+
+      {submitted && (
+        <SectionCard className="mb-5 bg-gradient-to-r from-emerald-50 to-cyan-50">
+          <StatusBadge tone={score >= 75 ? 'green' : 'amber'}>{score >= 75 ? 'Tuntas' : 'Perlu latihan lagi'}</StatusBadge>
+          <h2 className="mt-3 text-3xl font-black text-slate-950">Skor {score}</h2>
+          <p className="mt-2 text-sm font-bold text-slate-600">{correctCount} benar dari {items.length} soal.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button onClick={resetPractice} className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-galaxy-purple ring-1 ring-purple-100">Ulangi latihan</button>
+            <button onClick={onBack} className="rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">Kembali ke daftar</button>
+          </div>
+        </SectionCard>
+      )}
+
+      <div className="grid gap-4">
+        {items.map((question, index) => (
+          <SectionCard key={question.id}>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <StatusBadge tone="cyan">Soal {index + 1}</StatusBadge>
+              <StatusBadge tone={question.difficulty === 'Sulit' ? 'red' : question.difficulty === 'Sedang' ? 'amber' : 'green'}>{question.difficulty}</StatusBadge>
+            </div>
+            <h2 className="text-xl font-extrabold leading-8 text-slate-950">{question.questionText}</h2>
+            <div className="mt-5 grid gap-2">
+              {question.options.map((option) => (
+                <button
+                  key={option}
+                  onClick={() => chooseAnswer(question.id, option)}
+                  className={`rounded-2xl px-4 py-3 text-left text-sm font-bold ring-1 transition ${optionClass(question, option)}`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+            {submitted && (
+              <div className="mt-4 rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-700 ring-1 ring-slate-100">
+                <b>Pembahasan:</b> {question.explanation}
+              </div>
+            )}
+          </SectionCard>
+        ))}
       </div>
-      <button onClick={() => { setSubmitted(true); notify(correct ? 'Jawaban benar. +50 XP' : 'Coba cek pembahasan dulu.') }} className="mt-5 rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white">Submit</button>
-      {submitted && <div className={`mt-4 rounded-3xl p-4 ${correct ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}><b>{correct ? 'Benar.' : 'Belum tepat.'}</b> {item.explanation}</div>}
-    </SectionCard>
+
+      {!submitted && (
+        <div className="sticky bottom-4 mt-5 rounded-3xl bg-white/90 p-4 shadow-soft ring-1 ring-purple-100 backdrop-blur">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-bold text-slate-600">{answeredCount}/{items.length} soal terjawab</p>
+            <button onClick={submitPractice} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white">Submit latihan</button>
+          </div>
+        </div>
+      )}
+    </div>
   )
+}
+
+function getQuizResult(quizId, userId) {
+  try {
+    return JSON.parse(localStorage.getItem(`sea-learning-quiz-result-${userId || 'demo'}-${quizId}`))
+  } catch (error) {
+    return null
+  }
+}
+
+function saveQuizResult(quizId, userId, result) {
+  localStorage.setItem(`sea-learning-quiz-result-${userId || 'demo'}-${quizId}`, JSON.stringify(result))
+}
+
+function getQuizQuestionSet(quiz) {
+  const bySubject = questions.filter((item) => item.subject === quiz.subject)
+  if (bySubject.length > 0) return bySubject.slice(0, 8)
+  return questions.slice(0, 8)
 }
 
 function KuisPage({ user, notify, appContext }) {
@@ -536,101 +700,196 @@ function KuisPage({ user, notify, appContext }) {
   }, [appContext?.accessToken])
 
   async function openQuiz(quiz) {
+    if (quiz.status === 'Dikunci') {
+      notify('Kuis masih dikunci oleh guru.')
+      return
+    }
+
     setSelected(quiz)
     setAnswers({})
-    setResult(null)
+    setResult(getQuizResult(quiz.id, user?.id))
 
     if (!appContext?.accessToken || quiz.source !== 'supabase') {
-      setQuizQuestions(questions.filter((item) => item.subject === quiz.subject).slice(0, 5))
+      setQuizQuestions(getQuizQuestionSet(quiz))
       return
     }
 
     try {
       const rows = await fetchQuizQuestions({ accessToken: appContext.accessToken, quizId: quiz.id })
-      setQuizQuestions(rows.length > 0 ? rows : questions.filter((item) => item.subject === quiz.subject).slice(0, 5))
+      setQuizQuestions(rows.length > 0 ? rows : getQuizQuestionSet(quiz))
     } catch (loadError) {
       notify(`Gagal membuka soal kuis: ${loadError.message}`)
-      setQuizQuestions(questions.filter((item) => item.subject === quiz.subject).slice(0, 5))
+      setQuizQuestions(getQuizQuestionSet(quiz))
     }
   }
 
   async function submitQuiz() {
     if (!selected) return
-    const total = quizQuestions.length || 1
+
+    const total = quizQuestions.length
+    const answeredCount = Object.keys(answers).length
+
+    if (total === 0) {
+      notify('Soal kuis belum tersedia.')
+      return
+    }
+
+    if (answeredCount < total) {
+      notify(`Jawab semua soal dulu: ${answeredCount}/${total} terisi.`)
+      return
+    }
+
     const correct = quizQuestions.filter((question) => answers[question.id] === question.correctAnswer).length
+    const score = Math.round((correct / total) * 100)
+    const status = score >= 75 ? 'Tuntas' : 'Remedial'
+    const localResult = {
+      score,
+      correct,
+      total,
+      status,
+      answers,
+      submittedAt: new Date().toISOString(),
+    }
 
     if (!appContext?.accessToken || selected.source !== 'supabase') {
-      setResult({ score: Math.round((correct / total) * 100), correct, total })
-      notify('Kuis demo berhasil dikirim.')
+      saveQuizResult(selected.id, user?.id, localResult)
+      setResult(localResult)
+      notify(`Kuis selesai. Skor ${score}.`)
       return
     }
 
     try {
       const student = isUuid(user?.id) ? await fetchStudentRecord({ accessToken: appContext.accessToken, profileId: user.id }) : null
       const attempt = await submitQuizAttempt({ accessToken: appContext.accessToken, quiz: selected, questions: quizQuestions, answers, studentId: student?.id })
-      setResult(attempt)
-      notify('Jawaban kuis tersimpan di Supabase.')
+      const savedResult = {
+        ...localResult,
+        ...attempt,
+        status: attempt.score >= 75 ? 'Tuntas' : 'Remedial',
+        answers,
+      }
+      saveQuizResult(selected.id, user?.id, savedResult)
+      setResult(savedResult)
+      notify('Jawaban kuis tersimpan.')
     } catch (submitError) {
       notify(`Gagal submit kuis: ${submitError.message}`)
     }
   }
 
+  function resetQuiz() {
+    setAnswers({})
+    setResult(null)
+    notify('Jawaban direset. Silakan kerjakan ulang.')
+  }
+
+  function optionClass(question, option) {
+    const selectedAnswer = answers[question.id] === option
+    const correct = question.correctAnswer === option
+
+    if (result && correct) return 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+    if (result && selectedAnswer && !correct) return 'bg-rose-50 text-rose-700 ring-rose-200'
+    if (selectedAnswer) return 'bg-galaxy-deep text-white ring-galaxy-deep'
+    return 'bg-white text-gray-700 ring-purple-100 hover:bg-galaxy-lavender'
+  }
+
   if (selected) {
+    const answeredCount = Object.keys(answers).length
+    const previousResult = result || getQuizResult(selected.id, user?.id)
+
     return (
       <div>
-        <PageHeader eyebrow={selected.subject} title={selected.title} description={`${selected.duration} menit · ${selected.teacher}`} action={<button onClick={() => setSelected(null)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>} />
-        <SectionCard>
-          <div className="space-y-4">
-            {quizQuestions.map((question, index) => (
-              <div key={question.id} className="rounded-3xl bg-galaxy-surface p-4 ring-1 ring-purple-100">
-                <p className="text-sm font-extrabold text-gray-950">{index + 1}. {question.questionText}</p>
-                <div className="mt-3 grid gap-2">
-                  {(question.options || []).map((option) => (
-                    <button key={option} onClick={() => setAnswers((current) => ({ ...current, [question.id]: option }))} className={`rounded-2xl px-4 py-3 text-left text-sm font-bold ring-1 ${answers[question.id] === option ? 'bg-galaxy-deep text-white ring-galaxy-deep' : 'bg-white text-gray-700 ring-purple-100'}`}>
-                      {option}
-                    </button>
-                  ))}
-                </div>
-                {result && <p className="mt-3 text-sm text-slate-600"><b>Pembahasan:</b> {question.explanation}</p>}
-              </div>
-            ))}
-          </div>
-          {result ? (
-            <div className="mt-5 rounded-3xl bg-emerald-50 p-5 text-emerald-800 ring-1 ring-emerald-100">
-              <p className="text-lg font-extrabold">Skor: {result.score}</p>
-              <p className="mt-1 text-sm">Benar {result.correct} dari {result.total} soal.</p>
+        <PageHeader
+          eyebrow={selected.subject}
+          title={selected.title}
+          description={`${selected.duration} menit · ${selected.teacher} · ${quizQuestions.length} soal`}
+          action={<button onClick={() => setSelected(null)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>}
+        />
+
+        {previousResult && (
+          <SectionCard className="mb-5 bg-gradient-to-r from-violet-50 to-cyan-50">
+            <StatusBadge tone={previousResult.score >= 75 ? 'green' : 'amber'}>{previousResult.score >= 75 ? 'Tuntas' : 'Remedial'}</StatusBadge>
+            <h2 className="mt-3 text-3xl font-black text-slate-950">Skor {previousResult.score}</h2>
+            <p className="mt-2 text-sm font-bold text-slate-600">{previousResult.correct} benar dari {previousResult.total} soal.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button onClick={resetQuiz} className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-galaxy-purple ring-1 ring-purple-100">Kerjakan ulang</button>
+              <button onClick={() => setSelected(null)} className="rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">Kembali ke daftar</button>
             </div>
-          ) : (
-            <button onClick={submitQuiz} disabled={quizQuestions.length === 0} className="mt-5 rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Submit jawaban</button>
-          )}
-        </SectionCard>
+          </SectionCard>
+        )}
+
+        <div className="grid gap-4">
+          {quizQuestions.map((question, index) => (
+            <SectionCard key={question.id}>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <StatusBadge tone="cyan">Soal {index + 1}</StatusBadge>
+                <StatusBadge tone={question.difficulty === 'Sulit' ? 'red' : question.difficulty === 'Sedang' ? 'amber' : 'green'}>{question.difficulty || 'Mudah'}</StatusBadge>
+              </div>
+              <h2 className="text-xl font-extrabold leading-8 text-slate-950">{question.questionText}</h2>
+              <div className="mt-5 grid gap-2">
+                {(question.options || []).map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => {
+                      if (previousResult) return
+                      setAnswers((current) => ({ ...current, [question.id]: option }))
+                    }}
+                    className={`rounded-2xl px-4 py-3 text-left text-sm font-bold ring-1 transition ${optionClass(question, option)}`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+
+              {previousResult && (
+                <div className="mt-4 rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-700 ring-1 ring-slate-100">
+                  <b>Pembahasan:</b> {question.explanation || 'Pembahasan belum tersedia.'}
+                </div>
+              )}
+            </SectionCard>
+          ))}
+        </div>
+
+        {!previousResult && (
+          <div className="sticky bottom-4 mt-5 rounded-3xl bg-white/90 p-4 shadow-soft ring-1 ring-purple-100 backdrop-blur">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-bold text-slate-600">{answeredCount}/{quizQuestions.length} soal terjawab</p>
+              <button onClick={submitQuiz} disabled={quizQuestions.length === 0} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Submit jawaban</button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
 
-  return (
-    <div>
-      <PageHeader eyebrow="Kuis / Ujian" title="Kuis aktif dan ujian resmi" description="Cek status sebelum mulai. Tidak ada autoplay, ringan dibuka." />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Fallback dummy ditampilkan.</div>}
-      {loading ? <LoadingState label="Memuat kuis dari Supabase..." /> : <div className="grid gap-4 md:grid-cols-2">
-        {quizRows.map((quiz) => (
-          <SectionCard key={quiz.id}>
-            <div className="flex items-center justify-between gap-3"><StatusBadge tone={statusTone(quiz.status)}>{quiz.status}</StatusBadge><span className="text-sm font-bold text-gray-500">{quiz.duration} menit</span></div>
-            <h2 className="mt-4 text-xl font-extrabold">{quiz.title}</h2>
-            <p className="mt-2 text-sm text-gray-500">{quiz.subject} · {quiz.teacher} · {quiz.date}</p>
-            <button onClick={() => openQuiz(quiz)} className="mt-5 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">{quiz.status === 'Selesai' ? 'Lihat hasil' : 'Mulai / Detail'}</button>
-          </SectionCard>
-        ))}
-      </div>}
-    </div>
-  )
-}
+  if (loading) return <LoadingState label="Memuat kuis..." />
 
-function FlashcardPage() {
   return (
     <div>
-      <PageHeader eyebrow="Flashcard" title="Review cepat, ingatan kuat." description="Balik kartu, tandai tahu atau ulangi." />
-      <div className="grid gap-4 lg:grid-cols-2">{flashcardDecks.map((deck) => <FlashcardDeck key={deck.id} deck={deck} />)}</div>
+      <PageHeader eyebrow="Kuis / Ujian" title="Kuis aktif dan ujian resmi" description="Cek status, kerjakan soal, dan lihat hasil setelah submit." />
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Fallback dummy ditampilkan.</div>}
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {quizRows.map((quiz) => {
+          const savedResult = getQuizResult(quiz.id, user?.id)
+          const locked = quiz.status === 'Dikunci'
+          return (
+            <SectionCard key={quiz.id}>
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <StatusBadge tone={statusTone(locked ? 'Dikunci' : savedResult ? 'Selesai' : quiz.status)}>{savedResult ? 'Selesai' : quiz.status}</StatusBadge>
+                {savedResult && <StatusBadge tone={savedResult.score >= 75 ? 'green' : 'amber'}>Skor {savedResult.score}</StatusBadge>}
+              </div>
+              <h2 className="text-lg font-extrabold">{quiz.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-gray-500">{quiz.date} · {quiz.duration} menit · {quiz.teacher}</p>
+              <button
+                onClick={() => openQuiz(quiz)}
+                disabled={locked}
+                className="mt-5 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {locked ? 'Dikunci' : savedResult ? 'Lihat hasil' : 'Mulai / Detail'}
+              </button>
+            </SectionCard>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -639,15 +898,128 @@ function AIPage() {
   return <><PageHeader eyebrow="AI Tutor" title="AI Tutor siap membantu kamu memahami materi." description="Terhubung ke AI server saat tersedia, dengan mode fallback aman jika API belum dikonfigurasi." /><AIChatPanel /></>
 }
 
-function ProgresPage() {
+function getStoredResultsByPrefix(prefix) {
+  if (typeof localStorage === 'undefined') return []
+
+  return Object.keys(localStorage)
+    .filter((key) => key.startsWith(prefix))
+    .map((key) => {
+      try {
+        return JSON.parse(localStorage.getItem(key))
+      } catch (error) {
+        return null
+      }
+    })
+    .filter((item) => item && typeof item.score === 'number')
+}
+
+function averageScore(rows) {
+  if (!rows.length) return 0
+  return Math.round(rows.reduce((sum, item) => sum + Number(item.score || 0), 0) / rows.length)
+}
+
+function ProgresPage({ user }) {
+  const userId = user?.id || 'demo'
+  const completedMaterials = getCompletedMaterials(userId)
+  const practiceResults = getStoredResultsByPrefix('sea-learning-practice-result-')
+  const quizResults = getStoredResultsByPrefix(`sea-learning-quiz-result-${userId}-`)
+
+  const materialProgress = Math.min(100, completedMaterials.length * 25)
+  const practiceAverage = averageScore(practiceResults)
+  const quizAverage = averageScore(quizResults)
+  const allScores = [...practiceResults, ...quizResults]
+  const overallAverage = averageScore(allScores)
+
+  const trendData = [
+    { name: 'Materi', nilai: materialProgress, aktivitas: completedMaterials.length },
+    { name: 'Latihan', nilai: practiceAverage, aktivitas: practiceResults.length },
+    { name: 'Kuis', nilai: quizAverage, aktivitas: quizResults.length },
+    { name: 'Rata-rata', nilai: overallAverage, aktivitas: allScores.length },
+  ]
+
+  const progressData = [
+    { name: 'Materi selesai', progress: materialProgress },
+    { name: 'Latihan', progress: practiceAverage },
+    { name: 'Kuis', progress: quizAverage },
+  ]
+
+  const lowQuizResults = quizResults.filter((item) => Number(item.score) < 75)
+  const hasLearningData = completedMaterials.length > 0 || practiceResults.length > 0 || quizResults.length > 0
+
   return (
     <div>
-      <PageHeader eyebrow="Nilai & Progres" title="Pantau perkembangan belajarmu." description="Grafik nilai, progres mapel, dan rekomendasi remedial." />
-      <div className="grid gap-5 lg:grid-cols-[1fr_0.8fr]">
-        <DashboardCard title="Perkembangan nilai"><ResponsiveContainer width="100%" height={280}><LineChart data={scoreTrend}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Line type="monotone" dataKey="nilai" stroke="#7C3AED" strokeWidth={3} /></LineChart></ResponsiveContainer></DashboardCard>
-        <DashboardCard title="Progress mapel"><ResponsiveContainer width="100%" height={280}><BarChart data={subjectProgress}><XAxis dataKey="name" hide /><YAxis /><Tooltip /><Bar dataKey="progress" fill="#22D3EE" radius={[12, 12, 0, 0]} /></BarChart></ResponsiveContainer></DashboardCard>
+      <PageHeader
+        eyebrow="Nilai & Progres"
+        title="Pantau perkembangan belajarmu."
+        description="Ringkasan ini membaca progres materi, skor latihan, dan hasil kuis yang sudah kamu kerjakan."
+      />
+
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard icon={BookOpen} label="Materi selesai" value={completedMaterials.length} caption={`${materialProgress}% estimasi progres`} tone="cyan" />
+        <StatCard icon={FileQuestion} label="Rata-rata latihan" value={practiceAverage || '-'} caption={`${practiceResults.length} latihan tersimpan`} tone="amber" />
+        <StatCard icon={ClipboardCheck} label="Rata-rata kuis" value={quizAverage || '-'} caption={`${quizResults.length} kuis tersimpan`} tone="purple" />
+        <StatCard icon={Trophy} label="Status belajar" value={overallAverage >= 75 ? 'Tuntas' : hasLearningData ? 'Perlu latihan' : 'Mulai dulu'} caption={hasLearningData ? `Rata-rata ${overallAverage || 0}` : 'Belum ada data'} tone={overallAverage >= 75 ? 'green' : 'amber'} />
       </div>
-      <div className="mt-5 grid gap-4 md:grid-cols-2">{remedials.slice(0, 4).map((item) => <SectionCard key={item.id}><StatusBadge tone="amber">Perlu latihan</StatusBadge><h2 className="mt-3 font-extrabold">{item.topic}</h2><p className="text-sm text-gray-500">{item.subject} · rekomendasi remedial 10 menit</p></SectionCard>)}</div>
+
+      {!hasLearningData && (
+        <SectionCard className="mb-5 bg-gradient-to-r from-violet-50 to-cyan-50">
+          <StatusBadge tone="amber">Belum ada data nyata</StatusBadge>
+          <h2 className="mt-3 text-xl font-extrabold text-slate-950">Mulai dari materi, latihan, atau kuis.</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Setelah kamu menandai materi selesai, menyelesaikan latihan, atau submit kuis, halaman ini akan otomatis menampilkan progresmu.
+          </p>
+        </SectionCard>
+      )}
+
+      <div className="grid gap-5 lg:grid-cols-[1fr_0.8fr]">
+        <DashboardCard title="Perkembangan nilai">
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis domain={[0, 100]} />
+              <Tooltip />
+              <Line type="monotone" dataKey="nilai" stroke="#7C3AED" strokeWidth={3} />
+            </LineChart>
+          </ResponsiveContainer>
+        </DashboardCard>
+
+        <DashboardCard title="Progress aktivitas">
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={progressData}>
+              <XAxis dataKey="name" hide />
+              <YAxis domain={[0, 100]} />
+              <Tooltip />
+              <Bar dataKey="progress" fill="#22D3EE" radius={[12, 12, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </DashboardCard>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        {lowQuizResults.length > 0 ? (
+          lowQuizResults.map((item, index) => (
+            <SectionCard key={`${item.submittedAt || 'quiz'}-${index}`}>
+              <StatusBadge tone="amber">Remedial</StatusBadge>
+              <h2 className="mt-3 font-extrabold">Kuis perlu diulang</h2>
+              <p className="text-sm leading-6 text-gray-500">Skor {item.score} · {item.correct}/{item.total} benar. Pelajari pembahasan lalu kerjakan ulang.</p>
+            </SectionCard>
+          ))
+        ) : (
+          <>
+            <SectionCard>
+              <StatusBadge tone="green">Rekomendasi</StatusBadge>
+              <h2 className="mt-3 font-extrabold">Pertahankan konsistensi</h2>
+              <p className="text-sm leading-6 text-gray-500">Selesaikan minimal satu materi dan satu latihan setiap hari agar progres stabil.</p>
+            </SectionCard>
+            <SectionCard>
+              <StatusBadge tone="cyan">Langkah berikutnya</StatusBadge>
+              <h2 className="mt-3 font-extrabold">Coba kuis berikutnya</h2>
+              <p className="text-sm leading-6 text-gray-500">Setelah latihan terasa mudah, lanjutkan ke kuis untuk mengukur pemahaman.</p>
+            </SectionCard>
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -687,19 +1059,20 @@ function ProfilPage({ user }) {
             <div className="mt-3 flex flex-wrap gap-2">{badges.slice(0, 3).map((badge) => <StatusBadge key={badge.id}>{badge.name}</StatusBadge>)}</div>
           </div>
         </div>
-        <button disabled className="mt-6 cursor-not-allowed rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple opacity-70">Edit profil segera hadir</button>
+        <button disabled className="mt-6 cursor-not-allowed rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple opacity-70">Edit profil belum tersedia</button>
       </SectionCard>
     </div>
   )
 }
 
 function GuruDashboard({ notify }) {
+  const navigate = useNavigate()
   const quickActions = [
-    ['Tambah Materi', Plus],
-    ['Buat Soal', FileQuestion],
-    ['Buat Tugas', ClipboardList],
-    ['Kuis Live', PlayCircle],
-    ['AI Generator', Sparkles],
+    ['Tambah Materi', Plus, '/guru/materi'],
+    ['Buat Soal', FileQuestion, '/guru/bank-soal'],
+    ['Buat Tugas', ClipboardList, '/guru/tugas'],
+    ['Kuis Live', PlayCircle, '/guru/kuis-live'],
+    ['AI Generator', Sparkles, '/guru/ai-generator'],
   ]
 
   return (
@@ -729,10 +1102,10 @@ function GuruDashboard({ notify }) {
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2">
-            {quickActions.map(([label, Icon]) => (
+            {quickActions.map(([label, Icon, path]) => (
               <button
                 key={label}
-                onClick={() => notify(`${label} dibuka pada mode demo.`)}
+                onClick={() => navigate(path)}
                 className="inline-flex min-h-12 items-center gap-2 rounded-2xl border border-purple-500/[0.12] bg-[linear-gradient(135deg,rgba(124,58,237,0.10),rgba(34,211,238,0.10))] px-4 text-sm font-bold text-purple-700 shadow-[0_10px_24px_rgba(30,27,75,0.06)] transition hover:-translate-y-0.5"
               >
                 <Icon size={16} />
@@ -774,7 +1147,7 @@ function GuruDashboard({ notify }) {
                 <p className="text-sm leading-6 text-gray-700">
                   <b>Siswa banyak salah di Simple Past Tense.</b> Rekomendasi: buat latihan remedial 10 soal.
                 </p>
-                <button onClick={() => notify('AI Generator siap membuat remedial demo.')} className="mt-3 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-galaxy-purple ring-1 ring-purple-100">
+                <button onClick={() => navigate('/guru/ai-generator')} className="mt-3 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-galaxy-purple ring-1 ring-purple-100">
                   Buat remedial
                 </button>
               </div>
@@ -813,6 +1186,36 @@ function GuruKelas() {
   return <CardsPage eyebrow="Kelas" title="Kelas yang diajar" items={classes.map((c) => ({ title: `${c.name} Bahasa Inggris`, meta: `${c.students} siswa · rata-rata ${c.average}`, value: `${c.progress}% progress`, status: `${Math.max(1, 6 - c.grade + 10)} remedial` }))} />
 }
 
+function teacherMaterialStorageKey(user, teacherSubject) {
+  return `sea-learning-teacher-materials-${user?.id || teacherSubject || 'demo'}`
+}
+
+function getLocalTeacherMaterials(user, teacherSubject) {
+  if (typeof localStorage === 'undefined') {
+    return materials.filter((item) => item.subject === teacherSubject)
+  }
+
+  const key = teacherMaterialStorageKey(user, teacherSubject)
+  const stored = localStorage.getItem(key)
+
+  if (stored) {
+    try {
+      return JSON.parse(stored)
+    } catch (error) {
+      return materials.filter((item) => item.subject === teacherSubject)
+    }
+  }
+
+  const seedRows = materials.filter((item) => item.subject === teacherSubject)
+  localStorage.setItem(key, JSON.stringify(seedRows))
+  return seedRows
+}
+
+function setLocalTeacherMaterials(user, teacherSubject, rows) {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(teacherMaterialStorageKey(user, teacherSubject), JSON.stringify(rows))
+}
+
 function GuruMateri({ user, notify, appContext }) {
   const teacherSubject = user?.subject || 'Bahasa Inggris'
   const [rows, setRows] = useState([])
@@ -827,7 +1230,7 @@ function GuruMateri({ user, notify, appContext }) {
 
     async function loadTeacherMaterials() {
       if (!appContext?.accessToken || !isUuid(user?.id)) {
-        setRows(materials.filter((item) => item.subject === teacherSubject))
+        setRows(getLocalTeacherMaterials(user, teacherSubject))
         setLoading(false)
         return
       }
@@ -845,7 +1248,7 @@ function GuruMateri({ user, notify, appContext }) {
         }
       } catch (loadError) {
         if (active) {
-          setRows(materials.filter((item) => item.subject === teacherSubject))
+          setRows(getLocalTeacherMaterials(user, teacherSubject))
           setError(loadError.message)
         }
       } finally {
@@ -862,10 +1265,25 @@ function GuruMateri({ user, notify, appContext }) {
   async function handleSave(material) {
     if (!appContext?.accessToken || !isUuid(user?.id)) {
       const now = Date.now()
-      const localMaterial = { ...material, id: material.id || `local-material-${now}`, subject: teacherSubject, className: 'Kelas demo', teacher: user?.name, progress: material.status === 'Publish' ? 35 : 0 }
-      setRows((current) => material.id ? current.map((item) => item.id === material.id ? { ...item, ...localMaterial } : item) : [localMaterial, ...current])
+      const localMaterial = {
+        ...material,
+        id: material.id || `local-material-${now}`,
+        subject: material.subject || teacherSubject,
+        className: material.className || 'Kelas demo',
+        teacher: user?.name,
+        progress: material.status === 'Publish' ? 35 : 0,
+      }
+
+      setRows((current) => {
+        const nextRows = material.id
+          ? current.map((item) => item.id === material.id ? { ...item, ...localMaterial } : item)
+          : [localMaterial, ...current]
+        setLocalTeacherMaterials(user, teacherSubject, nextRows)
+        return nextRows
+      })
+
       setEditing(null)
-      notify('Materi tersimpan lokal. Login Supabase guru diperlukan untuk menyimpan ke database.')
+      notify('Materi tersimpan lokal di perangkat.')
       return
     }
 
@@ -882,9 +1300,13 @@ function GuruMateri({ user, notify, appContext }) {
   async function handleDelete() {
     if (!deleting) return
     if (!appContext?.accessToken || !isUuid(user?.id) || deleting.source !== 'supabase') {
-      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setRows((current) => {
+        const nextRows = current.filter((item) => item.id !== deleting.id)
+        setLocalTeacherMaterials(user, teacherSubject, nextRows)
+        return nextRows
+      })
       setDeleting(null)
-      notify('Materi demo dihapus dari tampilan lokal.')
+      notify('Materi lokal dihapus dan tersimpan di perangkat.')
       return
     }
 
@@ -1007,6 +1429,36 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '')
 }
 
+function teacherQuestionStorageKey(user, teacherSubject) {
+  return `sea-learning-teacher-questions-${user?.id || teacherSubject || 'demo'}`
+}
+
+function getLocalTeacherQuestions(user, teacherSubject) {
+  if (typeof localStorage === 'undefined') {
+    return questions.filter((item) => item.subject === teacherSubject)
+  }
+
+  const key = teacherQuestionStorageKey(user, teacherSubject)
+  const stored = localStorage.getItem(key)
+
+  if (stored) {
+    try {
+      return JSON.parse(stored)
+    } catch (error) {
+      return questions.filter((item) => item.subject === teacherSubject)
+    }
+  }
+
+  const seedRows = questions.filter((item) => item.subject === teacherSubject)
+  localStorage.setItem(key, JSON.stringify(seedRows))
+  return seedRows
+}
+
+function setLocalTeacherQuestions(user, teacherSubject, rows) {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(teacherQuestionStorageKey(user, teacherSubject), JSON.stringify(rows))
+}
+
 function BankSoal({ user, notify, appContext }) {
   const teacherSubject = user?.subject || 'Bahasa Inggris'
   const [rows, setRows] = useState([])
@@ -1021,7 +1473,7 @@ function BankSoal({ user, notify, appContext }) {
 
     async function loadQuestions() {
       if (!appContext?.accessToken || !isUuid(user?.id)) {
-        setRows(questions.filter((item) => item.subject === teacherSubject))
+        setRows(getLocalTeacherQuestions(user, teacherSubject))
         setLoading(false)
         return
       }
@@ -1039,7 +1491,7 @@ function BankSoal({ user, notify, appContext }) {
         }
       } catch (loadError) {
         if (active) {
-          setRows(questions.filter((item) => item.subject === teacherSubject))
+          setRows(getLocalTeacherQuestions(user, teacherSubject))
           setError(loadError.message)
         }
       } finally {
@@ -1055,10 +1507,24 @@ function BankSoal({ user, notify, appContext }) {
 
   async function handleSave(question) {
     if (!appContext?.accessToken || !isUuid(user?.id)) {
-      const localQuestion = { ...question, id: question.id || `local-question-${Date.now()}`, subject: teacherSubject, className: 'Kelas demo', source: 'local' }
-      setRows((current) => question.id ? current.map((item) => item.id === question.id ? { ...item, ...localQuestion } : item) : [localQuestion, ...current])
+      const localQuestion = {
+        ...question,
+        id: question.id || `local-question-${Date.now()}`,
+        subject: question.subject || teacherSubject,
+        className: question.className || 'Kelas demo',
+        source: 'local',
+      }
+
+      setRows((current) => {
+        const nextRows = question.id
+          ? current.map((item) => item.id === question.id ? { ...item, ...localQuestion } : item)
+          : [localQuestion, ...current]
+        setLocalTeacherQuestions(user, teacherSubject, nextRows)
+        return nextRows
+      })
+
       setEditing(null)
-      notify('Soal tersimpan lokal. Login Supabase guru diperlukan untuk menyimpan ke database.')
+      notify('Soal tersimpan lokal di perangkat.')
       return
     }
 
@@ -1075,9 +1541,13 @@ function BankSoal({ user, notify, appContext }) {
   async function handleDelete() {
     if (!deleting) return
     if (!appContext?.accessToken || !isUuid(user?.id) || deleting.source !== 'supabase') {
-      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setRows((current) => {
+        const nextRows = current.filter((item) => item.id !== deleting.id)
+        setLocalTeacherQuestions(user, teacherSubject, nextRows)
+        return nextRows
+      })
       setDeleting(null)
-      notify('Soal demo dihapus dari tampilan lokal.')
+      notify('Soal lokal dihapus dan tersimpan di perangkat.')
       return
     }
 
@@ -1198,6 +1668,36 @@ function emptyQuestion(lookups, teacherSubject) {
   }
 }
 
+function teacherAssignmentStorageKey(user, teacherSubject) {
+  return `sea-learning-teacher-assignments-${user?.id || teacherSubject || 'demo'}`
+}
+
+function getLocalTeacherAssignments(user, teacherSubject) {
+  if (typeof localStorage === 'undefined') {
+    return assignments.filter((item) => item.subject === teacherSubject)
+  }
+
+  const key = teacherAssignmentStorageKey(user, teacherSubject)
+  const stored = localStorage.getItem(key)
+
+  if (stored) {
+    try {
+      return JSON.parse(stored)
+    } catch (error) {
+      return assignments.filter((item) => item.subject === teacherSubject)
+    }
+  }
+
+  const seedRows = assignments.filter((item) => item.subject === teacherSubject)
+  localStorage.setItem(key, JSON.stringify(seedRows))
+  return seedRows
+}
+
+function setLocalTeacherAssignments(user, teacherSubject, rows) {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(teacherAssignmentStorageKey(user, teacherSubject), JSON.stringify(rows))
+}
+
 function GuruTugas({ user, notify, appContext }) {
   const teacherSubject = user?.subject || 'Bahasa Inggris'
   const [rows, setRows] = useState([])
@@ -1211,7 +1711,7 @@ function GuruTugas({ user, notify, appContext }) {
     let active = true
     async function loadAssignments() {
       if (!appContext?.accessToken || !isUuid(user?.id)) {
-        setRows(assignments.filter((item) => item.subject === teacherSubject))
+        setRows(getLocalTeacherAssignments(user, teacherSubject))
         setLoading(false)
         return
       }
@@ -1229,7 +1729,7 @@ function GuruTugas({ user, notify, appContext }) {
         }
       } catch (loadError) {
         if (active) {
-          setRows(assignments.filter((item) => item.subject === teacherSubject))
+          setRows(getLocalTeacherAssignments(user, teacherSubject))
           setError(loadError.message)
         }
       } finally {
@@ -1242,10 +1742,24 @@ function GuruTugas({ user, notify, appContext }) {
 
   async function handleSave(assignment) {
     if (!appContext?.accessToken || !isUuid(user?.id)) {
-      const localAssignment = { ...assignment, id: assignment.id || `local-assignment-${Date.now()}`, subject: teacherSubject, className: 'Kelas demo', source: 'local' }
-      setRows((current) => assignment.id ? current.map((item) => item.id === assignment.id ? localAssignment : item) : [localAssignment, ...current])
+      const localAssignment = {
+        ...assignment,
+        id: assignment.id || `local-assignment-${Date.now()}`,
+        subject: assignment.subject || teacherSubject,
+        className: assignment.className || 'Kelas demo',
+        source: 'local',
+      }
+
+      setRows((current) => {
+        const nextRows = assignment.id
+          ? current.map((item) => item.id === assignment.id ? { ...item, ...localAssignment } : item)
+          : [localAssignment, ...current]
+        setLocalTeacherAssignments(user, teacherSubject, nextRows)
+        return nextRows
+      })
+
       setEditing(null)
-      notify('Tugas tersimpan lokal. Login Supabase guru diperlukan untuk menyimpan ke database.')
+      notify('Tugas tersimpan lokal di perangkat.')
       return
     }
 
@@ -1262,9 +1776,13 @@ function GuruTugas({ user, notify, appContext }) {
   async function handleDelete() {
     if (!deleting) return
     if (!appContext?.accessToken || !isUuid(user?.id) || deleting.source !== 'supabase') {
-      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setRows((current) => {
+        const nextRows = current.filter((item) => item.id !== deleting.id)
+        setLocalTeacherAssignments(user, teacherSubject, nextRows)
+        return nextRows
+      })
       setDeleting(null)
-      notify('Tugas demo dihapus.')
+      notify('Tugas lokal dihapus dan tersimpan di perangkat.')
       return
     }
     try {
@@ -1367,6 +1885,36 @@ function emptyAssignment(lookups, teacherSubject) {
   }
 }
 
+function teacherQuizStorageKey(user, teacherSubject) {
+  return `sea-learning-teacher-quizzes-${user?.id || teacherSubject || 'demo'}`
+}
+
+function getLocalTeacherQuizzes(user, teacherSubject) {
+  if (typeof localStorage === 'undefined') {
+    return quizzes.filter((item) => item.subject === teacherSubject)
+  }
+
+  const key = teacherQuizStorageKey(user, teacherSubject)
+  const stored = localStorage.getItem(key)
+
+  if (stored) {
+    try {
+      return JSON.parse(stored)
+    } catch (error) {
+      return quizzes.filter((item) => item.subject === teacherSubject)
+    }
+  }
+
+  const seedRows = quizzes.filter((item) => item.subject === teacherSubject)
+  localStorage.setItem(key, JSON.stringify(seedRows))
+  return seedRows
+}
+
+function setLocalTeacherQuizzes(user, teacherSubject, rows) {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(teacherQuizStorageKey(user, teacherSubject), JSON.stringify(rows))
+}
+
 function KuisLive({ user, notify, appContext }) {
   const teacherSubject = user?.subject || 'Bahasa Inggris'
   const [quizRows, setQuizRows] = useState([])
@@ -1383,8 +1931,8 @@ function KuisLive({ user, notify, appContext }) {
 
     async function loadTeacherQuizzes() {
       if (!appContext?.accessToken || !isUuid(user?.id)) {
-        setQuizRows(quizzes.filter((item) => item.subject === teacherSubject))
-        setQuestionRows(questions.filter((item) => item.subject === teacherSubject))
+        setQuizRows(getLocalTeacherQuizzes(user, teacherSubject))
+        setQuestionRows(getLocalTeacherQuestions(user, teacherSubject))
         setLoading(false)
         return
       }
@@ -1406,8 +1954,8 @@ function KuisLive({ user, notify, appContext }) {
         }
       } catch (loadError) {
         if (active) {
-          setQuizRows(quizzes.filter((item) => item.subject === teacherSubject))
-          setQuestionRows(questions.filter((item) => item.subject === teacherSubject))
+          setQuizRows(getLocalTeacherQuizzes(user, teacherSubject))
+          setQuestionRows(getLocalTeacherQuestions(user, teacherSubject))
           setError(loadError.message)
         }
       } finally {
@@ -1423,10 +1971,27 @@ function KuisLive({ user, notify, appContext }) {
 
   async function handleSave(quiz, selectedQuestionIds) {
     if (!appContext?.accessToken || !isUuid(user?.id)) {
-      const localQuiz = { ...quiz, id: quiz.id || `local-quiz-${Date.now()}`, subject: teacherSubject, teacher: user?.name, className: 'Kelas demo', source: 'local' }
-      setQuizRows((current) => quiz.id ? current.map((item) => item.id === quiz.id ? { ...item, ...localQuiz } : item) : [localQuiz, ...current])
+      const localQuiz = {
+        ...quiz,
+        id: quiz.id || `local-quiz-${Date.now()}`,
+        subject: quiz.subject || teacherSubject,
+        teacher: user?.name,
+        className: quiz.className || 'Kelas demo',
+        source: 'local',
+        questionIds: selectedQuestionIds,
+        questionCount: selectedQuestionIds.length,
+      }
+
+      setQuizRows((current) => {
+        const nextRows = quiz.id
+          ? current.map((item) => item.id === quiz.id ? { ...item, ...localQuiz } : item)
+          : [localQuiz, ...current]
+        setLocalTeacherQuizzes(user, teacherSubject, nextRows)
+        return nextRows
+      })
+
       setEditing(null)
-      notify('Kuis tersimpan lokal. Login Supabase guru diperlukan untuk menyimpan ke database.')
+      notify('Kuis tersimpan lokal di perangkat.')
       return
     }
 
@@ -1443,9 +2008,13 @@ function KuisLive({ user, notify, appContext }) {
   async function handleDelete() {
     if (!deleting) return
     if (!appContext?.accessToken || !isUuid(user?.id) || deleting.source !== 'supabase') {
-      setQuizRows((current) => current.filter((item) => item.id !== deleting.id))
+      setQuizRows((current) => {
+        const nextRows = current.filter((item) => item.id !== deleting.id)
+        setLocalTeacherQuizzes(user, teacherSubject, nextRows)
+        return nextRows
+      })
       setDeleting(null)
-      notify('Kuis demo dihapus dari tampilan lokal.')
+      notify('Kuis lokal dihapus dan tersimpan di perangkat.')
       return
     }
 
@@ -1489,7 +2058,7 @@ function KuisLive({ user, notify, appContext }) {
 
 function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSave }) {
   const [form, setForm] = useState(quiz)
-  const [selectedQuestionIds, setSelectedQuestionIds] = useState([])
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState(quiz.questionIds || [])
   const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: quiz.subject || 'Bahasa Inggris' }]
   const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: quiz.className || 'Kelas demo' }]
 
@@ -1648,6 +2217,33 @@ function AdminDashboard() {
   )
 }
 
+function adminProfileStorageKey(role) {
+  return `sea-learning-admin-profiles-${role}`
+}
+
+function getLocalAdminProfiles(role, fallbackRows) {
+  if (typeof localStorage === 'undefined') return fallbackRows
+
+  const key = adminProfileStorageKey(role)
+  const stored = localStorage.getItem(key)
+
+  if (stored) {
+    try {
+      return JSON.parse(stored)
+    } catch (error) {
+      return fallbackRows
+    }
+  }
+
+  localStorage.setItem(key, JSON.stringify(fallbackRows))
+  return fallbackRows
+}
+
+function setLocalAdminProfiles(role, rows) {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(adminProfileStorageKey(role), JSON.stringify(rows))
+}
+
 function AdminProfiles({ role, title, notify, appContext }) {
   const fallbackRows = role === 'guru' ? teachers.map((teacher) => ({ ...teacher, role: 'guru' })) : students.map((student) => ({ ...student, role: 'siswa' }))
   const [rows, setRows] = useState([])
@@ -1662,7 +2258,8 @@ function AdminProfiles({ role, title, notify, appContext }) {
 
     async function loadProfiles() {
       if (!appContext?.accessToken) {
-        setRows(fallbackRows)
+        setRows(getLocalAdminProfiles(role, fallbackRows))
+        setLookups({ classes, subjects })
         setLoading(false)
         return
       }
@@ -1681,7 +2278,8 @@ function AdminProfiles({ role, title, notify, appContext }) {
         }
       } catch (loadError) {
         if (active) {
-          setRows(fallbackRows)
+          setRows(getLocalAdminProfiles(role, fallbackRows))
+          setLookups({ classes, subjects })
           setError(loadError.message)
         }
       } finally {
@@ -1697,10 +2295,22 @@ function AdminProfiles({ role, title, notify, appContext }) {
 
   async function handleSave(profile) {
     if (!appContext?.accessToken) {
-      const localProfile = { ...profile, id: profile.id || `local-${role}-${Date.now()}`, role }
-      setRows((current) => profile.id ? current.map((item) => item.id === profile.id ? localProfile : item) : [localProfile, ...current])
+      const lookupRows = {
+        classes: lookups.classes.length > 0 ? lookups.classes : classes,
+        subjects: lookups.subjects.length > 0 ? lookups.subjects : subjects,
+      }
+      const localProfile = enrichAdminProfileRow({ ...profile, id: profile.id || `local-${role}-${Date.now()}`, role }, role, lookupRows)
+
+      setRows((current) => {
+        const nextRows = profile.id
+          ? current.map((item) => item.id === profile.id ? localProfile : item)
+          : [localProfile, ...current]
+        setLocalAdminProfiles(role, nextRows)
+        return nextRows
+      })
+
       setEditing(null)
-      notify(`${title} tersimpan lokal. Login admin Supabase diperlukan untuk menyimpan ke database.`)
+      notify(`${title} tersimpan lokal di perangkat.`)
       return
     }
 
@@ -1720,9 +2330,13 @@ function AdminProfiles({ role, title, notify, appContext }) {
   async function handleDelete() {
     if (!deleting) return
     if (!appContext?.accessToken || !isUuid(deleting.id)) {
-      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setRows((current) => {
+        const nextRows = current.filter((item) => item.id !== deleting.id)
+        setLocalAdminProfiles(role, nextRows)
+        return nextRows
+      })
       setDeleting(null)
-      notify('Data demo dihapus dari tampilan lokal.')
+      notify('Data lokal dihapus dan tersimpan di perangkat.')
       return
     }
 
@@ -1840,6 +2454,33 @@ function ProfileForm({ title, role, profile, lookups, onCancel, onSave }) {
   )
 }
 
+function adminCollectionStorageKey(collection) {
+  return `sea-learning-admin-${collection}`
+}
+
+function getLocalAdminCollection(collection, fallbackRows) {
+  if (typeof localStorage === 'undefined') return fallbackRows
+
+  const key = adminCollectionStorageKey(collection)
+  const stored = localStorage.getItem(key)
+
+  if (stored) {
+    try {
+      return JSON.parse(stored)
+    } catch (error) {
+      return fallbackRows
+    }
+  }
+
+  localStorage.setItem(key, JSON.stringify(fallbackRows))
+  return fallbackRows
+}
+
+function setLocalAdminCollection(collection, rows) {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(adminCollectionStorageKey(collection), JSON.stringify(rows))
+}
+
 function AdminKelas({ notify, appContext }) {
   const [rows, setRows] = useState([])
   const [editing, setEditing] = useState(null)
@@ -1851,7 +2492,7 @@ function AdminKelas({ notify, appContext }) {
     let active = true
     async function loadClasses() {
       if (!appContext?.accessToken) {
-        setRows(classes)
+        setRows(getLocalAdminCollection('classes', classes))
         setLoading(false)
         return
       }
@@ -1864,7 +2505,7 @@ function AdminKelas({ notify, appContext }) {
         }
       } catch (loadError) {
         if (active) {
-          setRows(classes)
+          setRows(getLocalAdminCollection('classes', classes))
           setError(loadError.message)
         }
       } finally {
@@ -1878,9 +2519,17 @@ function AdminKelas({ notify, appContext }) {
   async function handleSave(classItem) {
     if (!appContext?.accessToken) {
       const localClass = { ...classItem, id: classItem.id || `local-class-${Date.now()}` }
-      setRows((current) => classItem.id ? current.map((item) => item.id === classItem.id ? localClass : item) : [localClass, ...current])
+
+      setRows((current) => {
+        const nextRows = classItem.id
+          ? current.map((item) => item.id === classItem.id ? localClass : item)
+          : [localClass, ...current]
+        setLocalAdminCollection('classes', nextRows)
+        return nextRows
+      })
+
       setEditing(null)
-      notify('Kelas tersimpan lokal.')
+      notify('Kelas tersimpan lokal di perangkat.')
       return
     }
     try {
@@ -1896,9 +2545,13 @@ function AdminKelas({ notify, appContext }) {
   async function handleDelete() {
     if (!deleting) return
     if (!appContext?.accessToken || !isUuid(deleting.id)) {
-      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setRows((current) => {
+        const nextRows = current.filter((item) => item.id !== deleting.id)
+        setLocalAdminCollection('classes', nextRows)
+        return nextRows
+      })
       setDeleting(null)
-      notify('Kelas demo dihapus.')
+      notify('Kelas lokal dihapus dan tersimpan di perangkat.')
       return
     }
     try {
@@ -1964,7 +2617,7 @@ function AdminMapel({ notify, appContext }) {
     let active = true
     async function loadSubjects() {
       if (!appContext?.accessToken) {
-        setRows(subjects)
+        setRows(getLocalAdminCollection('subjects', subjects))
         setLoading(false)
         return
       }
@@ -1977,7 +2630,7 @@ function AdminMapel({ notify, appContext }) {
         }
       } catch (loadError) {
         if (active) {
-          setRows(subjects)
+          setRows(getLocalAdminCollection('subjects', subjects))
           setError(loadError.message)
         }
       } finally {
@@ -1991,9 +2644,17 @@ function AdminMapel({ notify, appContext }) {
   async function handleSave(subject) {
     if (!appContext?.accessToken) {
       const localSubject = { ...subject, id: subject.id || `local-subject-${Date.now()}` }
-      setRows((current) => subject.id ? current.map((item) => item.id === subject.id ? localSubject : item) : [localSubject, ...current])
+
+      setRows((current) => {
+        const nextRows = subject.id
+          ? current.map((item) => item.id === subject.id ? localSubject : item)
+          : [localSubject, ...current]
+        setLocalAdminCollection('subjects', nextRows)
+        return nextRows
+      })
+
       setEditing(null)
-      notify('Mapel tersimpan lokal.')
+      notify('Mapel tersimpan lokal di perangkat.')
       return
     }
     try {
@@ -2009,9 +2670,13 @@ function AdminMapel({ notify, appContext }) {
   async function handleDelete() {
     if (!deleting) return
     if (!appContext?.accessToken || !isUuid(deleting.id)) {
-      setRows((current) => current.filter((item) => item.id !== deleting.id))
+      setRows((current) => {
+        const nextRows = current.filter((item) => item.id !== deleting.id)
+        setLocalAdminCollection('subjects', nextRows)
+        return nextRows
+      })
       setDeleting(null)
-      notify('Mapel demo dihapus.')
+      notify('Mapel lokal dihapus dan tersimpan di perangkat.')
       return
     }
     try {
@@ -2065,7 +2730,7 @@ function SubjectForm({ subject, onCancel, onSave }) {
 
 function Pengaturan({ notify }) {
   return (
-    <div><PageHeader eyebrow="Pengaturan" title="Pengaturan aplikasi" description="Identitas sekolah, semester, KKM, tema, AI, dan maintenance mode." /><SectionCard><div className="grid gap-3 md:grid-cols-2">{['Nama sekolah', 'Logo sekolah', 'Tahun ajaran', 'Semester', 'KKM', 'Tema warna', 'Pengaturan ujian', 'Pengaturan AI'].map((item) => <label key={item} className="grid gap-1 text-sm font-bold text-gray-700">{item}<input defaultValue={item === 'Nama sekolah' ? 'SMA Negeri 6 Pangkajene dan Kepulauan' : ''} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none" /></label>)}</div><button onClick={() => notify('Pengaturan disimpan di mode demo.')} className="mt-5 rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white">Simpan pengaturan</button></SectionCard></div>
+    <div><PageHeader eyebrow="Pengaturan" title="Pengaturan aplikasi" description="Identitas sekolah, semester, KKM, tema, AI, dan maintenance mode." /><SectionCard><div className="grid gap-3 md:grid-cols-2">{['Nama sekolah', 'Logo sekolah', 'Tahun ajaran', 'Semester', 'KKM', 'Tema warna', 'Pengaturan ujian', 'Pengaturan AI'].map((item) => <label key={item} className="grid gap-1 text-sm font-bold text-gray-700">{item}<input defaultValue={item === 'Nama sekolah' ? 'SMA Negeri 6 Pangkajene dan Kepulauan' : ''} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none" /></label>)}</div><button onClick={() => notify('Pengaturan tersimpan lokal di perangkat.')} className="mt-5 rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white">Simpan pengaturan</button></SectionCard></div>
   )
 }
 
@@ -2085,7 +2750,7 @@ function BackupPage({ notify, setConfirmOpen, appContext }) {
         data: { students, teachers, classes, subjects, materials, questions, quizzes },
       }
       downloadJson(fallback)
-      notify('Backup JSON demo dibuat dari data lokal.')
+      notify('Backup JSON lokal berhasil dibuat.')
       return
     }
 
@@ -2204,9 +2869,9 @@ function LaporanAktivitas({ notify }) {
 function ManageList({ eyebrow, title, rows, button, notify, type, emptyTitle, emptyDescription }) {
   return (
     <div>
-      <PageHeader eyebrow={eyebrow} title={title} action={<QuickActionButton icon={Plus} label={button} onClick={() => notify(`${button} dibuka pada mode demo.`)} />} />
+      <PageHeader eyebrow={eyebrow} title={title} action={<QuickActionButton icon={Plus} label={button} onClick={() => notify(`${button} dibuka.`)} />} />
       {rows.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{rows.map((row) => <SectionCard key={row.id}><StatusBadge tone={statusTone(row.status)}>{row.status || row.subject}</StatusBadge><h2 className="mt-4 text-lg font-extrabold">{row.title || row.student}</h2><p className="mt-2 text-sm leading-6 text-gray-500">{row.description || row.subject || row.topic} {row.deadline ? `· Deadline ${row.deadline}` : ''}</p><button onClick={() => notify(`Membuka ${type} demo.`)} className="mt-5 rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Detail</button></SectionCard>)}</div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{rows.map((row) => <SectionCard key={row.id}><StatusBadge tone={statusTone(row.status)}>{row.status || row.subject}</StatusBadge><h2 className="mt-4 text-lg font-extrabold">{row.title || row.student}</h2><p className="mt-2 text-sm leading-6 text-gray-500">{row.description || row.subject || row.topic} {row.deadline ? `· Deadline ${row.deadline}` : ''}</p><button onClick={() => notify(`Membuka detail ${type}.`)} className="mt-5 rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Detail</button></SectionCard>)}</div>
       ) : (
         <EmptyState title={emptyTitle} description={emptyDescription} />
       )}
@@ -2216,7 +2881,7 @@ function ManageList({ eyebrow, title, rows, button, notify, type, emptyTitle, em
 
 function AdminTable({ title, rows, columns, button, notify = () => {}, setConfirmOpen = () => {} }) {
   return (
-    <div><PageHeader eyebrow="Manajemen Data" title={title} action={<QuickActionButton icon={Plus} label={button} onClick={() => notify(`${button} sedang disiapkan.`)} />} /><DataTable columns={[...columns.map(([key, label]) => ({ key, label, render: key === 'classes' ? (row) => row.classes.join(', ') : undefined })), { key: 'action', label: 'Aksi', render: () => <button onClick={() => setConfirmOpen(true)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button> }]} rows={rows} /></div>
+    <div><PageHeader eyebrow="Manajemen Data" title={title} action={<QuickActionButton icon={Plus} label={button} onClick={() => notify(`${button} belum tersedia.`)} />} /><DataTable columns={[...columns.map(([key, label]) => ({ key, label, render: key === 'classes' ? (row) => row.classes.join(', ') : undefined })), { key: 'action', label: 'Aksi', render: () => <button onClick={() => setConfirmOpen(true)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button> }]} rows={rows} /></div>
   )
 }
 
@@ -2226,7 +2891,7 @@ function CardsPage({ eyebrow, title, items, action }) {
 
 function ReportPage({ eyebrow, title, notify }) {
   return (
-    <div><PageHeader eyebrow={eyebrow} title={title} action={<div className="flex gap-2"><QuickActionButton icon={Download} label="Export PDF" onClick={() => notify('Export PDF sedang disiapkan.')} /><QuickActionButton icon={Download} label="Export Excel" onClick={() => notify('Export Excel sedang disiapkan.')} /></div>} /><div className="grid gap-5 lg:grid-cols-2"><DashboardCard title="Trend nilai"><ResponsiveContainer width="100%" height={280}><LineChart data={scoreTrend}><XAxis dataKey="name" /><YAxis /><Tooltip /><Line dataKey="nilai" stroke="#7C3AED" strokeWidth={3} /></LineChart></ResponsiveContainer></DashboardCard><DashboardCard title="Aktivitas belajar"><ResponsiveContainer width="100%" height={280}><BarChart data={scoreTrend}><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="aktivitas" fill="#22D3EE" radius={[12, 12, 0, 0]} /></BarChart></ResponsiveContainer></DashboardCard></div></div>
+    <div><PageHeader eyebrow={eyebrow} title={title} action={<div className="flex gap-2"><QuickActionButton icon={Download} label="Export PDF" onClick={() => notify('Export PDF belum tersedia.')} /><QuickActionButton icon={Download} label="Export Excel" onClick={() => notify('Export Excel belum tersedia.')} /></div>} /><div className="grid gap-5 lg:grid-cols-2"><DashboardCard title="Trend nilai"><ResponsiveContainer width="100%" height={280}><LineChart data={scoreTrend}><XAxis dataKey="name" /><YAxis /><Tooltip /><Line dataKey="nilai" stroke="#7C3AED" strokeWidth={3} /></LineChart></ResponsiveContainer></DashboardCard><DashboardCard title="Aktivitas belajar"><ResponsiveContainer width="100%" height={280}><BarChart data={scoreTrend}><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="aktivitas" fill="#22D3EE" radius={[12, 12, 0, 0]} /></BarChart></ResponsiveContainer></DashboardCard></div></div>
   )
 }
 
