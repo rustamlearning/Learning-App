@@ -41,6 +41,50 @@ export async function removeMaterial({ accessToken, id }) {
   await deleteRow('materials', id, accessToken)
 }
 
+export async function fetchStudentMaterialProgress({ accessToken, profileId }) {
+  const studentRows = await listRows('students', {
+    select: 'id,user_id',
+    filters: { user_id: profileId },
+    accessToken,
+  })
+  const student = studentRows[0]
+  if (!student) return { student: null, completedIds: [] }
+
+  const progressRows = await listRows('progress', {
+    select: 'id,student_id,material_id,status,completed_at',
+    filters: { student_id: student.id },
+    accessToken,
+  })
+
+  return {
+    student,
+    completedIds: progressRows.filter((item) => item.status === 'Selesai').map((item) => item.material_id),
+  }
+}
+
+export async function markMaterialCompleted({ accessToken, profileId, materialId }) {
+  const { student } = await fetchStudentMaterialProgress({ accessToken, profileId })
+  if (!student) throw new Error('Data siswa belum terhubung ke profile.')
+
+  const existing = await listRows('progress', {
+    select: 'id,student_id,material_id,status',
+    filters: { student_id: student.id, material_id: materialId },
+    accessToken,
+  })
+  const payload = {
+    student_id: student.id,
+    material_id: materialId,
+    status: 'Selesai',
+    completed_at: new Date().toISOString(),
+  }
+
+  const rows = existing[0]
+    ? await updateRow('progress', existing[0].id, payload, accessToken)
+    : await createRow('progress', payload, accessToken)
+
+  return rows[0]
+}
+
 function toMaterialPayload(material, teacherId) {
   return {
     title: material.title,

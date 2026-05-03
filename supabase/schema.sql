@@ -169,6 +169,8 @@ create unique index if not exists quizzes_title_subject_class_uidx on quizzes (t
 create unique index if not exists quiz_questions_quiz_question_uidx on quiz_questions (quiz_id, question_id);
 create unique index if not exists students_user_uidx on students (user_id);
 create unique index if not exists teachers_user_uidx on teachers (user_id);
+create unique index if not exists progress_student_material_uidx on progress (student_id, material_id);
+create unique index if not exists assignments_title_subject_class_uidx on assignments (title, subject_id, class_id);
 
 create or replace function current_user_role()
 returns text
@@ -231,6 +233,10 @@ drop policy if exists "Admins can read submissions" on submissions;
 drop policy if exists "Admins can read progress" on progress;
 drop policy if exists "Admins can read student badges" on student_badges;
 drop policy if exists "Admins can read announcements" on announcements;
+drop policy if exists "Students can read own student row" on students;
+drop policy if exists "Teachers can manage assignments" on assignments;
+drop policy if exists "Students can manage own progress" on progress;
+drop policy if exists "Students can read own progress" on progress;
 
 create policy "Authenticated users can read profiles" on users_profile for select to authenticated using (true);
 create policy "Authenticated users can read classes" on classes for select to authenticated using (true);
@@ -241,6 +247,16 @@ create policy "Authenticated users can read quizzes" on quizzes for select to au
 create policy "Authenticated users can read quiz questions" on quiz_questions for select to authenticated using (true);
 create policy "Authenticated users can read assignments" on assignments for select to authenticated using (true);
 create policy "Authenticated users can read badges" on badges for select to authenticated using (true);
+
+create policy "Students can read own student row" on students
+  for select to authenticated
+  using (
+    exists (
+      select 1 from users_profile profile
+      where profile.id = students.user_id
+        and profile.auth_user_id = auth.uid()
+    )
+  );
 
 create policy "Admins can manage profiles" on users_profile
   for all to authenticated
@@ -430,6 +446,27 @@ create policy "Teachers and admins can delete quizzes" on quizzes
     )
   );
 
+create policy "Teachers can manage assignments" on assignments
+  for all to authenticated
+  using (
+    current_user_role() = 'admin'
+    or exists (
+      select 1 from users_profile profile
+      where profile.auth_user_id = auth.uid()
+        and profile.role = 'guru'
+        and profile.id = assignments.teacher_id
+    )
+  )
+  with check (
+    current_user_role() = 'admin'
+    or exists (
+      select 1 from users_profile profile
+      where profile.auth_user_id = auth.uid()
+        and profile.role = 'guru'
+        and profile.id = teacher_id
+    )
+  );
+
 create policy "Teachers and admins can manage quiz questions" on quiz_questions
   for all to authenticated
   using (
@@ -481,6 +518,40 @@ create policy "Students and teachers can read quiz attempts" on quiz_attempts
       from students student
       join users_profile profile on profile.id = student.user_id
       where student.id = student_id
+        and profile.auth_user_id = auth.uid()
+    )
+  );
+
+create policy "Students can read own progress" on progress
+  for select to authenticated
+  using (
+    current_user_role() in ('admin', 'guru', 'pimpinan')
+    or exists (
+      select 1
+      from students student
+      join users_profile profile on profile.id = student.user_id
+      where student.id = progress.student_id
+        and profile.auth_user_id = auth.uid()
+    )
+  );
+
+create policy "Students can manage own progress" on progress
+  for all to authenticated
+  using (
+    exists (
+      select 1
+      from students student
+      join users_profile profile on profile.id = student.user_id
+      where student.id = progress.student_id
+        and profile.auth_user_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1
+      from students student
+      join users_profile profile on profile.id = student.user_id
+      where student.id = progress.student_id
         and profile.auth_user_id = auth.uid()
     )
   );

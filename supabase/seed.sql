@@ -176,3 +176,29 @@ from questions question
 where question.subject_id = (select id from subjects where code = 'BIG')
   and question.class_id = (select id from classes where name = 'X.1' and academic_year = '2026/2027')
 on conflict do nothing;
+
+insert into assignments (title, description, subject_id, class_id, teacher_id, deadline, status)
+values
+  (
+    'Daily Writing: My Island',
+    'Write five English sentences about your island or neighborhood.',
+    (select id from subjects where code = 'BIG'),
+    (select id from classes where name = 'X.1' and academic_year = '2026/2027'),
+    (select id from users_profile where email = 'guru@sea-learning.local'),
+    '2026-05-06 23:59:00+08',
+    'Aktif'
+  ),
+  (
+    'Vocabulary Journal',
+    'Collect ten new English words from your daily life and write the meanings.',
+    (select id from subjects where code = 'BIG'),
+    (select id from classes where name = 'X.1' and academic_year = '2026/2027'),
+    (select id from users_profile where email = 'guru@sea-learning.local'),
+    '2026-05-10 23:59:00+08',
+    'Draft'
+  )
+on conflict (title, subject_id, class_id) do update set
+  description = excluded.description,
+  teacher_id = excluded.teacher_id,
+  deadline = excluded.deadline,
+  status = excluded.status;

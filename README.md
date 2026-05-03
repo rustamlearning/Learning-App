@@ -48,5 +48,8 @@ Current Supabase-backed features:
 - Teacher quiz page can create/publish quizzes from bank soal, and students can submit quiz answers with scores saved to `quiz_attempts`.
 - Admin can manage basic guru/siswa profiles, classes, subjects, and export a JSON backup.
 - AI Tutor and AI Generator call the server-side `/api/ai` endpoint on Vercel when `GROQ_API_KEY` is configured, with safe mock fallback when the endpoint is unavailable.
+- Admin student and teacher pages now save academic details to `students` and `teachers`.
+- Teacher assignments are saved to Supabase through `assignments`.
+- Student material completion is saved to `progress` when a Supabase student profile exists.
 
 Important: after creating Auth users in Supabase, connect each Auth user to `users_profile.auth_user_id` so role-based login and teacher-owned materials work correctly.
