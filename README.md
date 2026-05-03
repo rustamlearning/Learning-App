@@ -1,56 +1,148 @@
-# Learning-App
+# SEA Learning App
 
-SEA Learning adalah aplikasi learning app untuk SMA Negeri 6 Pangkajene dan Kepulauan.
+SEA Learning App adalah aplikasi pembelajaran digital untuk SMA Negeri 6 Pangkajene dan Kepulauan. Aplikasi ini dirancang ringan, modern, role-based, dan cocok digunakan untuk lingkungan sekolah kepulauan dengan kondisi jaringan yang beragam.
 
-## Development
+## Fitur Utama
 
-```bash
-npm install
-npm run dev
-```
+- Landing page modern dan responsif
+- Login page role-based
+- Dashboard siswa, guru, admin, dan pimpinan
+- Materi belajar
+- Latihan dan kuis
+- Flashcard
+- AI Tutor dan AI Generator
+- Bank soal guru
+- Tugas guru
+- Monitoring nilai dan progres belajar
+- Admin data guru, siswa, kelas, dan mata pelajaran
+- Backup data
+- Integrasi Supabase
+- API AI server-side melalui Vercel Function
 
-## Build
-
-```bash
-npm run build
-```
-
-## Demo Role
+## Role Pengguna
 
 - Siswa
 - Guru
 - Admin
 - Pimpinan
 
-## Supabase
+## Tech Stack
 
-Copy `.env.example` to `.env.local`, then fill the Supabase anon key.
+- React
+- Vite
+- Tailwind CSS
+- React Router
+- Lucide React
+- Recharts
+- Framer Motion
+- Supabase
+- Vercel Serverless Function
+- Groq API untuk fitur AI
+
+## Menjalankan Project Lokal
 
 ```bash
-VITE_SUPABASE_URL=https://qhxlsczsbgxfilvzzads.supabase.co
-VITE_SUPABASE_ANON_KEY=your_supabase_publishable_or_anon_key
-GROQ_API_KEY=your_groq_api_key
+npm install
+npm run dev
+```
+
+## Build Production
+
+```bash
+npm run build
+```
+
+## Preview Build
+
+```bash
+npm run preview
+```
+
+## Environment Variables
+
+Copy file `.env.example` menjadi `.env.local`, lalu isi value yang sesuai.
+
+```bash
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+GROQ_API_KEY=your-groq-api-key
 GROQ_MODEL=llama-3.1-8b-instant
 ```
 
-Run the SQL in `supabase/schema.sql` from the Supabase SQL editor to create the initial tables and policies. Then run `supabase/seed.sql` to add starter classes, subjects, and materials.
+## Setup Supabase
 
-When Supabase env variables are available, email/password login will use Supabase Auth and load the role from `users_profile`. Demo role buttons remain available for local testing.
+1. Buat project Supabase.
+2. Buka Supabase SQL Editor.
+3. Jalankan file `supabase/schema.sql`.
+4. Jalankan file `supabase/seed.sql`.
+5. Buat Auth user di Supabase.
+6. Hubungkan Auth user ke tabel `users_profile` melalui kolom `auth_user_id`.
 
-Current Supabase-backed features:
+Jika Supabase belum dikonfigurasi, aplikasi tetap bisa berjalan menggunakan mode demo.
 
-- Email/password login through Supabase Auth.
-- Role loading from `users_profile`.
-- Student material list reads published materials from Supabase with dummy fallback.
-- Student material detail can be opened and marked complete locally.
-- Teacher material page can create, edit, publish/unpublish, and delete materials in Supabase when the logged-in teacher profile exists.
-- Teacher bank soal can create, edit, and delete questions in Supabase when the logged-in teacher profile exists.
-- Teacher quiz page can create/publish quizzes from bank soal, and students can submit quiz answers with scores saved to `quiz_attempts`.
-- Admin can manage basic guru/siswa profiles, classes, subjects, and export a JSON backup.
-- AI Tutor and AI Generator call the server-side `/api/ai` endpoint on Vercel when `GROQ_API_KEY` is configured, with safe mock fallback when the endpoint is unavailable.
-- Admin student and teacher pages now save academic details to `students` and `teachers`.
-- Teacher assignments are saved to Supabase through `assignments`.
-- Student material completion is saved to `progress` when a Supabase student profile exists.
-- Temporary username login is supported through `login_aliases`, so users can sign in with names like `Andi Saputra` plus their Supabase Auth password.
+## Fitur Supabase
 
-Important: after creating Auth users in Supabase, connect each Auth user to `users_profile.auth_user_id` so role-based login and teacher-owned materials work correctly.
+- Email/password login melalui Supabase Auth
+- Role pengguna dari tabel `users_profile`
+- Materi siswa dari tabel `materials`
+- Progress materi siswa dari tabel `progress`
+- CRUD materi guru
+- CRUD bank soal guru
+- Kuis dan attempt siswa
+- Data guru, siswa, kelas, dan mata pelajaran
+- Backup data admin
+- Login alias melalui tabel `login_aliases`
+
+## Fitur AI
+
+AI Tutor dan AI Generator menggunakan endpoint server-side:
+
+```bash
+/api/ai
+```
+
+API key Groq tidak disimpan di frontend. Key hanya digunakan di server melalui environment variable `GROQ_API_KEY`.
+
+Jika API AI belum dikonfigurasi, aplikasi tetap menggunakan fallback/mock mode.
+
+## Deploy ke Vercel
+
+Project ini siap dideploy ke Vercel.
+
+Pastikan environment variables berikut sudah ditambahkan di Vercel:
+
+```bash
+VITE_SUPABASE_URL
+VITE_SUPABASE_ANON_KEY
+GROQ_API_KEY
+GROQ_MODEL
+```
+
+Vercel akan otomatis deploy setiap kali branch `main` di-push ke GitHub.
+
+## Struktur Folder
+
+```bash
+src/
+  components/
+  context/
+  data/
+  hooks/
+  layouts/
+  pages/
+  routes/
+  services/
+
+api/
+  ai.js
+
+supabase/
+  schema.sql
+  seed.sql
+```
+
+## Status Project
+
+SEA Learning App saat ini sudah memiliki UI utama, routing role-based, demo login, optimasi bundle production, struktur Supabase, dan endpoint AI server-side.
+
+Project masih dapat dikembangkan lebih lanjut untuk fitur real production seperti upload file, manajemen akun lengkap, absensi, notifikasi real-time, dan laporan PDF.
