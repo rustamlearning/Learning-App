@@ -1633,6 +1633,46 @@ export default function ContentStudio({ user: propUser }) {
     }
   }
 
+  function useSmartTemplate(template) {
+    const nextForm = {
+      ...form,
+      subject: template.subject || form.subject,
+      topic: template.topic || template.sampleTopic || form.topic,
+      contentType: template.contentType || template.type || form.contentType,
+      outputType: template.outputType || form.outputType || 'Materi',
+      level: template.level || form.level || 'Standar',
+      duration: template.duration || form.duration || '2 JP',
+    }
+
+    const draft = buildSmartTemplateDraft(template, nextForm)
+
+    setForm(nextForm)
+    setPreview(draft)
+    setDeliveryStatus(null)
+    setActiveTab('builder')
+    setToast(`Template "${template.title}" siap digunakan. Cek preview lalu kirim ke fitur aplikasi.`)
+  }
+
+  function applyQualitySuggestion() {
+    const topic = preview.topic || form.topic || 'topik pembelajaran'
+    const qualitySection = {
+      title: 'Catatan Perbaikan dari Quality Check',
+      body: `Perkuat draft ini dengan tujuan pembelajaran yang terukur, contoh kontekstual untuk siswa, minimal 3 pertanyaan cek pemahaman, aktivitas diferensiasi, dan exit ticket tentang ${topic}.`,
+    }
+
+    const currentSections = Array.isArray(preview.sections) ? preview.sections : []
+    const cleanedSections = currentSections.filter((section) => section.title !== qualitySection.title)
+
+    setPreview({
+      ...preview,
+      sections: [...cleanedSections, qualitySection],
+      tools: Array.from(new Set([...(preview.tools || []), 'Quality checklist', 'Exit ticket', 'Diferensiasi'])),
+    })
+    setDeliveryStatus(null)
+    setActiveTab('builder')
+    setToast('Saran Quality Check ditambahkan ke preview draft.')
+  }
+
   function createFromText() {
     if (!form.sourceText.trim()) {
       setToast('Tempel teks materi terlebih dahulu.')
@@ -1732,9 +1772,15 @@ export default function ContentStudio({ user: propUser }) {
         </div>
       )}
 
-      {activeTab === 'quality' && <QualityCheckPanel contentRows={contentRows} rubricRows={rubricRows} />}
+      {activeTab === 'quality' && (
+        <QualityCheckPanel preview={preview} form={form} onApplySuggestion={applyQualitySuggestion} />
+      )}
 
-      {activeTab === 'analytics' && <TeacherAnalyticsPanel contentRows={contentRows} rubricRows={rubricRows} onCreatePack={createRecommendedPack} />}
+
+      {activeTab === 'analytics' && (
+        <AnalyticsPanel contentRows={contentRows} rubricRows={rubricRows} preview={preview} />
+      )}
+
 
       {activeTab === 'archive' && <ArchivePanel contentRows={contentRows} rubricRows={rubricRows} />}
 
@@ -1826,6 +1872,205 @@ function BuilderPanel({ form, template, availableContentTypes, updateForm, gener
     </SectionCard>
   )
 }
+
+
+function buildContentQualityReport(preview, form) {
+  const text = previewToPlainText(preview)
+  const words = text.split(/\s+/).filter(Boolean)
+  const sections = Array.isArray(preview.sections) ? preview.sections : []
+  const questions = Array.isArray(preview.generatedQuestions) ? preview.generatedQuestions : []
+  const tools = Array.isArray(preview.tools) ? preview.tools : []
+
+  const checks = [
+    {
+      label: 'Judul jelas dan sesuai topik',
+      passed: String(preview.title || '').trim().length >= 8,
+      suggestion: 'Buat judul lebih spesifik sesuai topik dan kelas.',
+    },
+    {
+      label: 'Struktur materi minimal 3 bagian',
+      passed: sections.length >= 3,
+      suggestion: 'Tambahkan tujuan, aktivitas, latihan, dan penutup.',
+    },
+    {
+      label: 'Konten cukup lengkap untuk dipakai guru',
+      passed: words.length >= 120,
+      suggestion: 'Perpanjang penjelasan, contoh, dan langkah kegiatan.',
+    },
+    {
+      label: 'Ada pertanyaan cek pemahaman',
+      passed: questions.length >= 3 || text.toLowerCase().includes('pertanyaan'),
+      suggestion: 'Tambahkan minimal 3 pertanyaan formatif.',
+    },
+    {
+      label: 'Ada aktivitas siswa',
+      passed: text.toLowerCase().includes('aktivitas') || text.toLowerCase().includes('diskusi') || text.toLowerCase().includes('latihan'),
+      suggestion: 'Tambahkan aktivitas individu/kelompok yang jelas.',
+    },
+    {
+      label: 'Ada alat bantu atau strategi pembelajaran',
+      passed: tools.length > 0,
+      suggestion: 'Tambahkan tools, media, rubrik, atau strategi diferensiasi.',
+    },
+  ]
+
+  const passed = checks.filter((item) => item.passed).length
+  const score = Math.round((passed / checks.length) * 100)
+
+  return {
+    score,
+    words: words.length,
+    sections: sections.length,
+    questions: questions.length,
+    tools: tools.length,
+    checks,
+    tone: score >= 80 ? 'green' : score >= 60 ? 'amber' : 'rose',
+    label: score >= 80 ? 'Siap dipakai' : score >= 60 ? 'Perlu sedikit revisi' : 'Perlu dilengkapi',
+  }
+}
+
+function QualityCheckPanel({ preview, form, onApplySuggestion }) {
+  const report = buildContentQualityReport(preview, form)
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
+      <SectionCard>
+        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Quality Check</p>
+        <h2 className="mt-1 text-2xl font-black text-slate-950">Cek kelayakan draft sebelum publish.</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          Panel ini membantu guru melihat apakah konten sudah punya struktur, aktivitas, pertanyaan, dan alat bantu yang cukup.
+        </p>
+
+        <div className="mt-5 rounded-[1.75rem] bg-galaxy-surface p-5 ring-1 ring-purple-100">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-slate-500">Skor kualitas</p>
+              <p className="mt-1 text-5xl font-black text-slate-950">{report.score}%</p>
+            </div>
+            <StatusBadge tone={report.tone}>{report.label}</StatusBadge>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <StatCard label="Kata" value={report.words} tone="cyan" />
+            <StatCard label="Bagian" value={report.sections} tone="purple" />
+            <StatCard label="Soal" value={report.questions} tone="amber" />
+            <StatCard label="Tools" value={report.tools} tone="green" />
+          </div>
+        </div>
+
+        <button
+          onClick={onApplySuggestion}
+          className="mt-5 w-full rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-extrabold text-white shadow-glow"
+        >
+          Terapkan saran kualitas ke draft
+        </button>
+      </SectionCard>
+
+      <SectionCard>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Checklist Publish</p>
+            <h2 className="text-xl font-black text-slate-950">Yang perlu dicek guru</h2>
+          </div>
+          <StatusBadge tone={report.tone}>{report.score}%</StatusBadge>
+        </div>
+
+        <div className="grid gap-3">
+          {report.checks.map((check) => (
+            <div key={check.label} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <div className="flex items-start gap-3">
+                <span className={`grid h-9 w-9 flex-shrink-0 place-items-center rounded-2xl ${
+                  check.passed ? 'bg-emerald-50 text-emerald-600 ring-emerald-100' : 'bg-amber-50 text-amber-600 ring-amber-100'
+                } ring-1`}>
+                  {check.passed ? '✓' : '!'}
+                </span>
+                <div>
+                  <p className="font-extrabold text-slate-950">{check.label}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    {check.passed ? 'Sudah terpenuhi.' : check.suggestion}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
+function AnalyticsPanel({ contentRows, rubricRows, preview }) {
+  const rows = Array.isArray(contentRows) ? contentRows : []
+  const rubrics = Array.isArray(rubricRows) ? rubricRows : []
+  const byType = rows.reduce((acc, row) => {
+    const key = row.savedAs || row.outputType || 'Draft'
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
+
+  const bySubject = rows.reduce((acc, row) => {
+    const key = row.subject || 'Umum'
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
+
+  const topTypes = Object.entries(byType).sort((a, b) => b[1] - a[1])
+  const topSubjects = Object.entries(bySubject).sort((a, b) => b[1] - a[1])
+  const previewReport = buildContentQualityReport(preview, { topic: preview.topic })
+
+  return (
+    <div className="grid gap-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Konten arsip" value={rows.length} tone="cyan" />
+        <StatCard label="Rubrik" value={rubrics.length} tone="purple" />
+        <StatCard label="Kuis draft" value={rows.filter((row) => row.outputType === 'Kuis' || row.savedAs === 'Kuis').length} tone="amber" />
+        <StatCard label="Kualitas draft" value={`${previewReport.score}%`} tone="green" />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <SectionCard>
+          <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Distribusi Konten</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Jenis konten yang dibuat</h2>
+          <div className="mt-4 grid gap-3">
+            {(topTypes.length ? topTypes : [['Belum ada arsip', 0]]).map(([label, total]) => (
+              <div key={label} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+                <span className="font-bold text-slate-700">{label}</span>
+                <StatusBadge tone="cyan">{total}</StatusBadge>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard>
+          <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Sebaran Mapel</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Mapel paling sering dibuat</h2>
+          <div className="mt-4 grid gap-3">
+            {(topSubjects.length ? topSubjects : [['Belum ada arsip', 0]]).map(([label, total]) => (
+              <div key={label} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+                <span className="font-bold text-slate-700">{label}</span>
+                <StatusBadge tone="purple">{total}</StatusBadge>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      </div>
+
+      <SectionCard>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Draft Aktif</p>
+            <h2 className="mt-1 text-xl font-black text-slate-950">{preview.title}</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+              Analitik ini membantu guru melihat kesiapan draft sebelum dikirim ke Materi, Bank Soal, Kuis Live, atau Flashcard.
+            </p>
+          </div>
+          <StatusBadge tone={previewReport.tone}>{previewReport.label}</StatusBadge>
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
 
 function PreviewPanel({ preview, publishToFeature, deliveryStatus, savingTarget }) {
   return (
