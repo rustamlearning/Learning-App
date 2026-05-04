@@ -1436,6 +1436,7 @@ export default function ContentStudio({ user }) {
           ['stem', 'STEM Tools', FlaskConical],
           ['rubric', 'Rubric Builder', ClipboardList],
           ['import', 'Import Teks/Video', LinkIcon],
+          ['quality', 'Quality Check', CheckCircle2],
           ['analytics', 'Analitik Guru', Target],
           ['archive', 'Arsip Lokal', Save],
         ].map(([id, label, Icon]) => (
@@ -1485,6 +1486,8 @@ export default function ContentStudio({ user }) {
           <PreviewPanel preview={preview} publishToFeature={publishToFeature} deliveryStatus={deliveryStatus} />
         </div>
       )}
+
+      {activeTab === 'quality' && <QualityCheckPanel contentRows={contentRows} rubricRows={rubricRows} />}
 
       {activeTab === 'analytics' && <TeacherAnalyticsPanel contentRows={contentRows} rubricRows={rubricRows} onCreatePack={createRecommendedPack} />}
 
@@ -2434,6 +2437,174 @@ function ImportPanel({ form, updateForm, createFromText, createVideoInteractive 
   )
 }
 
+
+
+function QualityCheckPanel({ contentRows, rubricRows }) {
+  const flashcards = readStorage(FLASHCARD_KEY, [])
+  const teacherMaterials = readRowsByPrefix('sea-learning-teacher-materials-')
+  const teacherQuestions = readRowsByPrefix('sea-learning-teacher-questions-')
+  const teacherQuizzes = readRowsByPrefix('sea-learning-teacher-quizzes-')
+  const teacherAssignments = readRowsByPrefix('sea-learning-teacher-assignments-')
+
+  const checks = [
+    {
+      title: 'Studio Konten bisa membuat draft',
+      description: 'AI Lesson Builder, Smart Templates, Import Teks, dan Video Builder menghasilkan preview konten.',
+      passed: contentRows.length > 0 || teacherMaterials.length > 0 || teacherQuestions.length > 0 || teacherQuizzes.length > 0,
+      action: 'Buat satu draft dari AI Lesson Builder atau Smart Templates.',
+    },
+    {
+      title: 'Materi terkirim ke workflow guru',
+      description: 'Draft dari Studio Konten bisa masuk ke halaman Materi Guru.',
+      passed: teacherMaterials.length > 0,
+      action: 'Klik Simpan sebagai Materi, lalu buka halaman Materi Guru.',
+    },
+    {
+      title: 'Bank soal terisi dari Studio Konten',
+      description: 'Import teks, video builder, atau draft konten bisa menghasilkan soal pilihan ganda.',
+      passed: teacherQuestions.length > 0,
+      action: 'Klik Kirim ke Bank Soal, lalu cek halaman Bank Soal.',
+    },
+    {
+      title: 'Kuis Live bisa dibuat',
+      description: 'Draft bisa dikirim menjadi Kuis Live dan memakai soal yang dibuat otomatis.',
+      passed: teacherQuizzes.length > 0,
+      action: 'Klik Buat Kuis Live, lalu cek halaman Kuis Live.',
+    },
+    {
+      title: 'Flashcard tersedia untuk siswa',
+      description: 'Flashcard dari Studio Konten tersimpan dan bisa dibaca halaman siswa.',
+      passed: flashcards.length > 0,
+      action: 'Klik Buat Flashcard, lalu buka halaman siswa Flashcard.',
+    },
+    {
+      title: 'Rubrik tersedia',
+      description: 'Rubric Builder bisa menyimpan rubrik lokal untuk tugas proyek, writing, speaking, atau LKPD.',
+      passed: rubricRows.length > 0,
+      action: 'Buka Rubric Builder, lalu klik Simpan rubrik.',
+    },
+    {
+      title: 'Remedial/Pengayaan tersedia',
+      description: 'Paket remedial dan pengayaan dari Studio Konten bisa tampil di halaman siswa.',
+      passed: contentRows.some((item) => ['Remedial', 'Pengayaan'].includes(item.outputType || item.savedAs)),
+      action: 'Klik Buat Remedial Otomatis atau Buat Pengayaan Otomatis di Analitik Guru.',
+    },
+  ]
+
+  const passedCount = checks.filter((item) => item.passed).length
+  const totalCount = checks.length
+  const score = Math.round((passedCount / totalCount) * 100)
+
+  const storageRows = [
+    ['Arsip Studio Konten', contentRows.length, CONTENT_KEY],
+    ['Rubrik Studio', rubricRows.length, RUBRIC_KEY],
+    ['Flashcard Studio', flashcards.length, FLASHCARD_KEY],
+    ['Materi Guru', teacherMaterials.length, 'sea-learning-teacher-materials-*'],
+    ['Bank Soal Guru', teacherQuestions.length, 'sea-learning-teacher-questions-*'],
+    ['Kuis Live Guru', teacherQuizzes.length, 'sea-learning-teacher-quizzes-*'],
+    ['Tugas Guru', teacherAssignments.length, 'sea-learning-teacher-assignments-*'],
+  ]
+
+  const polishTips = [
+    'Gunakan Smart Templates untuk membuat konten mapel yang lebih spesifik.',
+    'Setelah mengirim ke Materi atau Kuis Live, buka halaman tujuan dan klik Publish agar siswa bisa melihatnya.',
+    'Gunakan Import Teks untuk mengubah modul menjadi materi, soal, flashcard, LKPD, dan exit ticket.',
+    'Gunakan Video Builder untuk membuat pertanyaan berbasis timestamp.',
+    'Gunakan Analitik Guru untuk membuat remedial dan pengayaan otomatis.',
+  ]
+
+  return (
+    <div className="grid gap-5">
+      <SectionCard>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Quality Check</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">Cek kesiapan Studio Konten sebelum dipakai guru.</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+              Panel ini membantu mengecek apakah alur pembuatan konten, pengiriman ke fitur guru, dan tampilan ke siswa sudah berjalan.
+            </p>
+          </div>
+          <StatusBadge tone={score >= 70 ? 'green' : 'amber'}>{score}% siap</StatusBadge>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <StatCard icon={CheckCircle2} label="Checklist lolos" value={`${passedCount}/${totalCount}`} caption="Alur utama Studio Konten" tone={score >= 70 ? 'green' : 'amber'} />
+          <StatCard icon={Save} label="Total data lokal" value={storageRows.reduce((sum, item) => sum + item[1], 0)} caption="Semua storage workflow" tone="cyan" />
+          <StatCard icon={Sparkles} label="Polish status" value={score >= 70 ? 'Baik' : 'Perlu tes'} caption="Cek sebelum deploy" tone="purple" />
+        </div>
+      </SectionCard>
+
+      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+        <SectionCard>
+          <h2 className="text-xl font-extrabold text-slate-950">Checklist alur utama</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Checklist ini berbasis data lokal yang sudah dibuat selama pengujian.
+          </p>
+
+          <div className="mt-5 space-y-3">
+            {checks.map((check) => (
+              <div key={check.title} className={`rounded-3xl p-4 ring-1 ${check.passed ? 'bg-emerald-50 ring-emerald-100' : 'bg-amber-50 ring-amber-100'}`}>
+                <div className="flex gap-3">
+                  <span className={`grid h-10 w-10 flex-shrink-0 place-items-center rounded-2xl ${check.passed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                    <CheckCircle2 size={18} />
+                  </span>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-extrabold text-slate-950">{check.title}</h3>
+                      <StatusBadge tone={check.passed ? 'green' : 'amber'}>{check.passed ? 'Lolos' : 'Perlu tes'}</StatusBadge>
+                    </div>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">{check.description}</p>
+                    {!check.passed && <p className="mt-2 text-xs font-bold text-amber-700">Saran: {check.action}</p>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard>
+          <h2 className="text-xl font-extrabold text-slate-950">Kesehatan data lokal</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Data ini tersimpan di browser melalui localStorage sebagai fallback sebelum integrasi database penuh.
+          </p>
+
+          <div className="mt-5 space-y-3">
+            {storageRows.map(([label, count, key]) => (
+              <div key={label} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-extrabold text-slate-950">{label}</h3>
+                  <StatusBadge tone={count > 0 ? 'green' : 'amber'}>{count}</StatusBadge>
+                </div>
+                <p className="mt-1 break-all text-xs font-semibold text-slate-400">{key}</p>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      </div>
+
+      <SectionCard>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-extrabold text-slate-950">Panduan tes sebelum publish</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Gunakan daftar ini setiap kali menambah fitur baru agar aplikasi tidak kembali terasa seperti demo.
+            </p>
+          </div>
+          <StatusBadge tone="cyan">Production checklist</StatusBadge>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {polishTips.map((tip, index) => (
+            <div key={tip} className="rounded-3xl bg-gradient-to-br from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
+              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Step {index + 1}</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{tip}</p>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
 
 function TeacherAnalyticsPanel({ contentRows, rubricRows, onCreatePack }) {
   const analytics = getTeacherAnalyticsSnapshot(contentRows, rubricRows)
