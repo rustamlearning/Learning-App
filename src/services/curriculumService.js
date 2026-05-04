@@ -83,3 +83,86 @@ export async function fetchCurriculumOverview({ accessToken } = {}) {
 export function emptyCurriculumOverview() {
   return EMPTY_CURRICULUM
 }
+
+
+export async function fetchCurriculumContentAudit({ accessToken } = {}) {
+  if (!accessToken) {
+    return {
+      totals: { total: 0, linked: 0, unlinked: 0, percentage: 0 },
+      summary: [],
+      unlinkedItems: [],
+    }
+  }
+
+  const [materials, assignments, questions, quizzes] = await Promise.all([
+    listRows('materials', {
+      select: 'id,title,status,topic,learning_objective_id,created_at,subjects(name),classes(name),users_profile(name)',
+      accessToken,
+    }),
+    listRows('assignments', {
+      select: 'id,title,status,deadline,learning_objective_id,created_at,subjects(name),classes(name),users_profile(name)',
+      accessToken,
+    }),
+    listRows('questions', {
+      select: 'id,question_text,topic,difficulty,learning_objective_id,created_at,subjects(name),classes(name),users_profile(name)',
+      accessToken,
+    }),
+    listRows('quizzes', {
+      select: 'id,title,status,duration,learning_objective_id,created_at,subjects(name),classes(name),users_profile(name)',
+      accessToken,
+    }),
+  ])
+
+  const groups = [
+    { id: 'materials', label: 'Materi', rows: materials, titleKey: 'title', type: 'Materi' },
+    { id: 'assignments', label: 'Tugas', rows: assignments, titleKey: 'title', type: 'Tugas' },
+    { id: 'questions', label: 'Bank Soal', rows: questions, titleKey: 'question_text', type: 'Soal' },
+    { id: 'quizzes', label: 'Kuis', rows: quizzes, titleKey: 'title', type: 'Kuis' },
+  ]
+
+  const summary = groups.map((group) => {
+    const total = group.rows.length
+    const linked = group.rows.filter((item) => item.learning_objective_id).length
+    const unlinked = total - linked
+    const percentage = total ? Math.round((linked / total) * 100) : 0
+
+    return {
+      id: group.id,
+      label: group.label,
+      total,
+      linked,
+      unlinked,
+      percentage,
+    }
+  })
+
+  const unlinkedItems = groups.flatMap((group) => (
+    group.rows
+      .filter((item) => !item.learning_objective_id)
+      .map((item) => ({
+        id: item.id,
+        type: group.type,
+        title: item[group.titleKey] || 'Tanpa judul',
+        status: item.status || item.difficulty || '-',
+        subject: item.subjects?.name || 'Mata pelajaran',
+        className: item.classes?.name || 'Kelas umum',
+        teacher: item.users_profile?.name || 'Guru',
+        createdAt: item.created_at,
+      }))
+  ))
+
+  const total = summary.reduce((sum, item) => sum + item.total, 0)
+  const linked = summary.reduce((sum, item) => sum + item.linked, 0)
+  const unlinked = summary.reduce((sum, item) => sum + item.unlinked, 0)
+
+  return {
+    totals: {
+      total,
+      linked,
+      unlinked,
+      percentage: total ? Math.round((linked / total) * 100) : 0,
+    },
+    summary,
+    unlinkedItems,
+  }
+}

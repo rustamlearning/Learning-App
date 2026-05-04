@@ -62,7 +62,7 @@ import { AIChatPanel, AIGeneratorPanel, BadgeCard, DailyMissionCard, FlashcardDe
 import { fetchMaterialLookups, fetchMaterials, fetchStudentMaterialProgress, markMaterialCompleted, removeMaterial, saveMaterial } from '../services/materialService.js'
 import { fetchQuestions, removeQuestion, saveQuestion } from '../services/questionService.js'
 import { fetchQuizAttempts, fetchQuizQuestions, fetchQuizzes, fetchStudentRecord, removeQuiz, saveQuiz, submitQuizAttempt } from '../services/quizService.js'
-import { fetchCurriculumOverview } from '../services/curriculumService.js'
+import { fetchCurriculumContentAudit, fetchCurriculumOverview } from '../services/curriculumService.js'
 import { exportBackupData, fetchAdminStudents, fetchAdminTeachers, fetchClasses, fetchSubjects, removeAdminStudent, removeAdminTeacher, removeClass, removeSubject, saveAdminStudent, saveAdminTeacher, saveClass, saveSubject } from '../services/adminService.js'
 import { fetchAssignments, removeAssignment, saveAssignment } from '../services/assignmentService.js'
 
@@ -3047,6 +3047,123 @@ function LaporanSekolah({ notify }) {
 }
 
 
+
+function CurriculumAuditPanel() {
+  const { accessToken } = useAuth()
+  const [audit, setAudit] = useState({
+    totals: { total: 0, linked: 0, unlinked: 0, percentage: 0 },
+    summary: [],
+    unlinkedItems: [],
+  })
+  const [loading, setLoading] = useState(Boolean(accessToken))
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+
+    async function loadAudit() {
+      if (!accessToken) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        const data = await fetchCurriculumContentAudit({ accessToken })
+        if (active) {
+          setAudit(data)
+          setError('')
+        }
+      } catch (auditError) {
+        if (active) setError(auditError.message || 'Audit kurikulum gagal dimuat.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadAudit()
+    return () => {
+      active = false
+    }
+  }, [accessToken])
+
+  return (
+    <SectionCard className="mb-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Audit Keterhubungan Konten</p>
+          <h2 className="mt-1 text-2xl font-black text-slate-950">Cek konten yang sudah terhubung ke TP/ATP.</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+            Panel ini membantu admin melihat materi, tugas, bank soal, dan kuis yang sudah atau belum terhubung ke tujuan pembelajaran.
+          </p>
+        </div>
+        <StatusBadge tone={audit.totals.percentage >= 80 ? 'green' : audit.totals.percentage >= 50 ? 'amber' : 'red'}>
+          {audit.totals.percentage}% lengkap
+        </StatusBadge>
+      </div>
+
+      {error && (
+        <div className="mt-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
+          Audit belum bisa dimuat: {error}
+        </div>
+      )}
+
+      {loading ? (
+        <LoadingState label="Memuat audit keterhubungan kurikulum..." />
+      ) : (
+        <>
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            {audit.summary.map((item) => (
+              <div key={item.id} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-extrabold text-slate-950">{item.label}</p>
+                  <StatusBadge tone={item.unlinked === 0 ? 'green' : 'amber'}>{item.percentage}%</StatusBadge>
+                </div>
+                <p className="mt-3 text-3xl font-black text-slate-950">{item.linked}/{item.total}</p>
+                <p className="mt-1 text-xs font-bold text-slate-500">{item.unlinked} belum terhubung TP</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 rounded-3xl bg-white p-4 ring-1 ring-slate-100">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-extrabold text-slate-950">Daftar prioritas perbaikan</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  Tampilkan maksimal 12 konten lama yang perlu dihubungkan ke TP.
+                </p>
+              </div>
+              <StatusBadge tone={audit.totals.unlinked === 0 ? 'green' : 'amber'}>
+                {audit.totals.unlinked} belum terhubung
+              </StatusBadge>
+            </div>
+
+            {audit.unlinkedItems.length > 0 ? (
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                {audit.unlinkedItems.slice(0, 12).map((item) => (
+                  <div key={`${item.type}-${item.id}`} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <StatusBadge tone="amber">{item.type}</StatusBadge>
+                      <StatusBadge>{item.status}</StatusBadge>
+                    </div>
+                    <p className="text-sm font-extrabold text-slate-950">{item.title}</p>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">{item.subject} · {item.className} · {item.teacher}</p>
+                    <p className="mt-3 text-xs font-bold text-amber-600">Rekomendasi: edit dari halaman guru atau buat ulang dari Studio Konten dengan memilih TP/ATP.</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-3xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700 ring-1 ring-emerald-100">
+                Semua konten utama sudah terhubung ke TP/ATP.
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </SectionCard>
+  )
+}
+
 function CurriculumAdminPage() {
   const { accessToken } = useAuth()
   const [data, setData] = useState(() => ({
@@ -3098,6 +3215,8 @@ function CurriculumAdminPage() {
         title="Bank CP/TP/ATP sekolah"
         description="Pusat data kurikulum untuk menghubungkan materi, soal, kuis, tugas, remedial, pengayaan, dan laporan ke tujuan pembelajaran."
       />
+
+      <CurriculumAuditPanel />
 
       {error && (
         <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
