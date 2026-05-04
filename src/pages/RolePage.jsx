@@ -764,7 +764,8 @@ function LatihanPage({ notify }) {
   const [selected, setSelected] = useState(null)
 
   const practices = useMemo(() => {
-    const grouped = questions.reduce((acc, question) => {
+    const availableQuestions = uniqueRowsById([...questions, ...getAllLocalTeacherQuestions()])
+    const grouped = availableQuestions.reduce((acc, question) => {
       const key = `${question.subject}-${question.topic}`
       if (!acc[key]) {
         acc[key] = {
@@ -2063,6 +2064,12 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
   })
   const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: question.subject || 'Bahasa Inggris' }]
   const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: question.className || 'Kelas umum' }]
+  const options = form.optionsText.split('\n').map((item) => item.trim()).filter(Boolean)
+  const isMultipleChoice = form.type === 'Pilihan ganda'
+  const validQuestion = form.questionText.trim()
+    && form.correctAnswer.trim()
+    && (!isMultipleChoice || options.length >= 2)
+    && (!isMultipleChoice || options.includes(form.correctAnswer.trim()))
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -2078,9 +2085,10 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
   }
 
   function submit() {
+    if (!validQuestion) return
     onSave({
       ...form,
-      options: form.optionsText.split('\n').map((item) => item.trim()).filter(Boolean),
+      options,
     })
   }
 
@@ -2130,13 +2138,18 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Pilihan jawaban, satu baris per opsi
           <textarea value={form.optionsText} onChange={(event) => updateField('optionsText', event.target.value)} rows={4} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
         </label>
+        {!validQuestion && (
+          <div className="rounded-3xl bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100 md:col-span-2">
+            Pertanyaan dan jawaban benar wajib diisi. Untuk pilihan ganda, minimal 2 opsi dan jawaban benar harus sama persis dengan salah satu opsi.
+          </div>
+        )}
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Pembahasan
           <textarea value={form.explanation} onChange={(event) => updateField('explanation', event.target.value)} rows={3} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
         </label>
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={submit} disabled={!form.questionText.trim()} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan soal</button>
+        <button onClick={submit} disabled={!validQuestion} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan soal</button>
       </div>
     </SectionCard>
   )
@@ -2559,7 +2572,7 @@ function KuisLive({ user, notify, appContext }) {
               <p className="mt-3 text-sm font-bold text-galaxy-purple">{attempts.filter((attempt) => attempt.quiz_id === quiz.id).length} attempt masuk</p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <button onClick={() => setEditing(quiz)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Edit</button>
-                <button onClick={() => handleSave({ ...quiz, status: quiz.status === 'Publish' ? 'Draft' : 'Publish' }, [])} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{quiz.status === 'Publish' ? 'Unpublish' : 'Publish'}</button>
+                <button onClick={() => handleSave({ ...quiz, status: quiz.status === 'Publish' ? 'Draft' : 'Publish' }, quiz.questionIds || [])} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{quiz.status === 'Publish' ? 'Unpublish' : 'Publish'}</button>
                 <button onClick={() => setDeleting(quiz)} className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">Hapus</button>
               </div>
             </SectionCard>
@@ -2576,6 +2589,8 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSa
   const [selectedQuestionIds, setSelectedQuestionIds] = useState(quiz.questionIds || [])
   const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: quiz.subject || 'Bahasa Inggris' }]
   const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: quiz.className || 'Kelas umum' }]
+  const selectedCount = selectedQuestionIds.length
+  const validQuiz = form.title.trim() && selectedCount > 0
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -2634,18 +2649,26 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSa
         </label>
       </div>
       <div className="mt-5">
-        <p className="text-sm font-extrabold text-gray-950">Pilih soal dari bank soal</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-extrabold text-gray-950">Pilih soal dari bank soal</p>
+          <StatusBadge tone={selectedCount > 0 ? 'green' : 'amber'}>{selectedCount} soal dipilih</StatusBadge>
+        </div>
         <div className="mt-3 grid gap-2 md:grid-cols-2">
-          {availableQuestions.map((question) => (
+          {availableQuestions.length > 0 ? availableQuestions.map((question) => (
             <button key={question.id} onClick={() => toggleQuestion(question.id)} className={`rounded-2xl p-3 text-left text-sm font-semibold ring-1 ${selectedQuestionIds.includes(question.id) ? 'bg-galaxy-deep text-white ring-galaxy-deep' : 'bg-galaxy-surface text-gray-700 ring-purple-100'}`}>
-              {question.questionText}
+              <span className="block">{question.questionText}</span>
+              <span className="mt-2 block text-xs opacity-75">{question.topic || 'Topik umum'} · {question.difficulty || 'Mudah'}</span>
             </button>
-          ))}
+          )) : (
+            <div className="rounded-3xl bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100 md:col-span-2">
+              Bank soal belum tersedia. Buat soal terlebih dahulu di menu Bank Soal, lalu kembali membuat kuis.
+            </div>
+          )}
         </div>
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form, selectedQuestionIds)} disabled={!form.title.trim()} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan kuis</button>
+        <button onClick={() => onSave(form, selectedQuestionIds)} disabled={!validQuiz} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan kuis</button>
       </div>
     </SectionCard>
   )
