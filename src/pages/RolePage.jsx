@@ -153,6 +153,14 @@ function renderPimpinan(page, notify) {
 function SiswaDashboard({ user, notify }) {
   const firstName = user?.name?.split(' ')[0] || 'Siswa'
   const navigate = useNavigate()
+  const userId = user?.id || 'demo'
+  const completedMaterials = getCompletedMaterials(userId)
+  const practiceResults = getStoredResultsByPrefix('sea-learning-practice-result-')
+  const quizResults = getStoredResultsByPrefix(`sea-learning-quiz-result-${userId}-`)
+  const assignmentSubmissions = readLocalRowsByPrefix('sea-learning-assignment-submissions-').filter((item) => item.userId === userId)
+  const average = averageScore([...practiceResults, ...quizResults])
+  const missionDone = Math.min(3, Number(completedMaterials.length > 0) + Number(practiceResults.length > 0) + Number(assignmentSubmissions.length > 0 || quizResults.length > 0))
+  const learningProgress = Math.min(100, completedMaterials.length * 20 + practiceResults.length * 10 + quizResults.length * 15 + assignmentSubmissions.length * 15)
 
   return (
     <div>
@@ -178,31 +186,31 @@ function SiswaDashboard({ user, notify }) {
               SEA Learning Mission
             </p>
             <h2 className="mt-2 text-balance text-3xl font-black tracking-[-0.04em] sm:text-4xl">
-              Misi hari ini: 2 dari 3 selesai.
+              Misi hari ini: {missionDone} dari 3 selesai.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-purple-100/85">
-              Selesaikan satu materi, satu latihan, dan satu refleksi singkat untuk menjaga progres belajarmu tetap konsisten.
+              Data ini bergerak setelah kamu menyelesaikan materi, latihan, kuis, atau submit tugas.
             </p>
 
             <div className="mt-5 h-3 max-w-md rounded-full bg-white/15">
-              <div className="h-3 rounded-full bg-gradient-to-r from-galaxy-cyan via-galaxy-teal to-galaxy-gold" style={{ width: '67%' }} />
+              <div className="h-3 rounded-full bg-gradient-to-r from-galaxy-cyan via-galaxy-teal to-galaxy-gold" style={{ width: `${learningProgress}%` }} />
             </div>
             <p className="mt-2 text-xs font-bold text-cyan-100">
-              Progress misi 67% · reward +50 XP
+              Progress belajar {learningProgress}% · {assignmentSubmissions.length} tugas terkirim
             </p>
           </div>
 
           <div className="rounded-3xl bg-white p-4 text-gray-950 shadow-soft">
-            <ProgressRing value={72} label="Progress belajar" />
+            <ProgressRing value={learningProgress} label="Progress belajar" />
           </div>
         </div>
       </section>
 
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={LineChartIcon} label="Progress Belajar" value="72%" caption="Target minggu ini 85%" tone="purple" />
-        <StatCard icon={Sparkles} label="XP Hari Ini" value="120 XP" caption="Target +50 XP lagi" tone="cyan" />
-        <StatCard icon={CalendarClock} label="Streak" value="5 hari" caption="Jaga konsistensi" tone="amber" />
-        <StatCard icon={Award} label="Nilai Rata-rata" value="84" caption="Naik 3 poin" tone="green" />
+        <StatCard icon={LineChartIcon} label="Progress Belajar" value={`${learningProgress}%`} caption={`${completedMaterials.length} materi selesai`} tone="purple" />
+        <StatCard icon={ClipboardCheck} label="Tugas Terkirim" value={assignmentSubmissions.length} caption="submission lokal" tone="cyan" />
+        <StatCard icon={CalendarClock} label="Aktivitas" value={practiceResults.length + quizResults.length} caption="latihan/kuis tersimpan" tone="amber" />
+        <StatCard icon={Award} label="Nilai Rata-rata" value={average || '-'} caption={average ? 'berdasarkan latihan & kuis' : 'belum ada skor'} tone="green" />
       </div>
 
       <div className="grid items-start gap-5 lg:grid-cols-[0.9fr_1.1fr]">
@@ -1726,6 +1734,13 @@ function ProfilPage({ user }) {
 
 function GuruDashboard({ notify }) {
   const navigate = useNavigate()
+  const teacherMaterials = readLocalRowsByPrefix('sea-learning-teacher-materials-')
+  const teacherAssignments = readLocalRowsByPrefix('sea-learning-teacher-assignments-')
+  const teacherQuestions = readLocalRowsByPrefix('sea-learning-teacher-questions-')
+  const teacherQuizzes = readLocalRowsByPrefix('sea-learning-teacher-quizzes-')
+  const activeAssignments = teacherAssignments.filter((item) => item.status === 'Aktif')
+  const publishedQuizzes = teacherQuizzes.filter((item) => item.status === 'Publish')
+  const unlinkedContent = [...teacherMaterials, ...teacherAssignments, ...teacherQuestions, ...teacherQuizzes].filter((item) => !item.learningObjectiveId).length
   const quickActions = [
     ['Tambah Materi', Plus, '/guru/materi'],
     ['Buat Soal', FileQuestion, '/guru/bank-soal'],
@@ -1748,16 +1763,16 @@ function GuruDashboard({ notify }) {
           <div>
             <p className="text-sm font-extrabold text-galaxy-purple">Fokus Mengajar Hari Ini</p>
             <h2 className="mt-2 text-balance text-3xl font-black tracking-[-0.04em] text-gray-950 sm:text-4xl">
-              117 siswa aktif belajar minggu ini.
+              {teacherMaterials.length + teacherAssignments.length + teacherQuestions.length + teacherQuizzes.length} konten guru terbaca.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
-              3 siswa perlu perhatian, 2 kuis berjalan, dan 5 tugas menunggu pantauan.
+              {activeAssignments.length} tugas aktif, {publishedQuizzes.length} kuis publish, dan {unlinkedContent} konten perlu dihubungkan ke TP.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <StatusBadge>4 kelas aktif</StatusBadge>
-              <StatusBadge tone="cyan">117 siswa aktif</StatusBadge>
-              <StatusBadge tone="amber">5 tugas aktif</StatusBadge>
-              <StatusBadge tone="purple">2 kuis berjalan</StatusBadge>
+              <StatusBadge tone="cyan">{teacherMaterials.length} materi</StatusBadge>
+              <StatusBadge tone="amber">{activeAssignments.length} tugas aktif</StatusBadge>
+              <StatusBadge tone="purple">{publishedQuizzes.length} kuis publish</StatusBadge>
             </div>
           </div>
 
@@ -1778,10 +1793,10 @@ function GuruDashboard({ notify }) {
 
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard icon={School} label="Kelas" value="4" caption="aktif diajar" tone="purple" />
-        <StatCard icon={UsersRound} label="Siswa aktif" value="117" caption="minggu ini" tone="cyan" />
-        <StatCard icon={ClipboardCheck} label="Tugas aktif" value="5" caption="butuh pantauan" tone="amber" />
-        <StatCard icon={FileQuestion} label="Kuis berjalan" value="2" caption="hari ini" tone="quiz" />
-        <StatCard icon={BarChart3} label="Rata-rata" value="84" caption="kelas utama" tone="green" />
+        <StatCard icon={BookOpen} label="Materi" value={teacherMaterials.length} caption="lokal/studio" tone="cyan" />
+        <StatCard icon={ClipboardCheck} label="Tugas aktif" value={activeAssignments.length} caption="perlu pantauan" tone="amber" />
+        <StatCard icon={FileQuestion} label="Bank soal" value={teacherQuestions.length} caption="siap asesmen" tone="purple" />
+        <StatCard icon={Target} label="Belum TP" value={unlinkedContent} caption="prioritas kurikulum" tone={unlinkedContent > 0 ? 'amber' : 'green'} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -3025,6 +3040,14 @@ function LaporanGuru({ notify }) {
 }
 
 function AdminDashboard() {
+  const localMaterials = readLocalRowsByPrefix('sea-learning-teacher-materials-')
+  const localAssignments = readLocalRowsByPrefix('sea-learning-teacher-assignments-')
+  const localQuestions = readLocalRowsByPrefix('sea-learning-teacher-questions-')
+  const localQuizzes = readLocalRowsByPrefix('sea-learning-teacher-quizzes-')
+  const localContent = [...localMaterials, ...localAssignments, ...localQuestions, ...localQuizzes]
+  const linkedContent = localContent.filter((item) => item.learningObjectiveId).length
+  const localCoverage = localContent.length ? Math.round((linkedContent / localContent.length) * 100) : 0
+
   return (
     <div>
       <PageHeader
@@ -3044,9 +3067,9 @@ function AdminDashboard() {
               Gunakan menu admin untuk menjaga data guru, siswa, kelas, dan mata pelajaran tetap rapi.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
-              <StatusBadge tone="green">Database aktif</StatusBadge>
+              <StatusBadge tone="green">Data utama aktif</StatusBadge>
               <StatusBadge tone="cyan">Backup tersedia</StatusBadge>
-              <StatusBadge tone="purple">Role-based access</StatusBadge>
+              <StatusBadge tone="purple">Coverage lokal {localCoverage}%</StatusBadge>
             </div>
           </div>
 
@@ -3061,7 +3084,7 @@ function AdminDashboard() {
         <StatCard icon={UsersRound} label="Guru" value={teachers.length} caption="terdaftar" tone="purple" />
         <StatCard icon={School} label="Siswa" value={students.length} caption="terdata" tone="cyan" />
         <StatCard icon={BookOpen} label="Kelas" value={classes.length} caption="aktif" tone="amber" />
-        <StatCard icon={ClipboardCheck} label="Mapel" value={subjects.length} caption="tersedia" tone="green" />
+        <StatCard icon={ClipboardCheck} label="Coverage TP lokal" value={`${localCoverage}%`} caption={`${localContent.length - linkedContent} belum TP`} tone={localCoverage >= 80 ? 'green' : 'amber'} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -3986,6 +4009,11 @@ function downloadJson(data) {
 }
 
 function PimpinanDashboard() {
+  const practiceResults = getStoredResultsByPrefix('sea-learning-practice-result-')
+  const quizResults = getStoredResultsByPrefix('sea-learning-quiz-result-')
+  const assignmentSubmissions = readLocalRowsByPrefix('sea-learning-assignment-submissions-')
+  const localAverage = averageScore([...practiceResults, ...quizResults])
+
   return (
     <div>
       <PageHeader
@@ -3999,15 +4027,15 @@ function PimpinanDashboard() {
           <div>
             <p className="text-sm font-extrabold uppercase tracking-[0.16em] text-cyan-100">School Performance</p>
             <h2 className="mt-2 text-balance text-3xl font-black tracking-[-0.04em] sm:text-4xl">
-              Rata-rata akademik sekolah: 84.
+              Rata-rata akademik sekolah: {localAverage || 'data belum tersedia'}.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-purple-100/85">
-              Mayoritas kelas stabil, beberapa siswa membutuhkan perhatian lanjutan pada remedial dan kehadiran belajar.
+              Ringkasan membaca latihan, kuis, dan submission lokal yang sudah dibuat di aplikasi.
             </p>
           </div>
 
           <div className="rounded-3xl bg-white p-4 text-gray-950 shadow-soft">
-            <ProgressRing value={84} label="Indeks akademik" />
+            <ProgressRing value={localAverage || 0} label="Indeks akademik" />
           </div>
         </div>
       </section>
@@ -4015,8 +4043,8 @@ function PimpinanDashboard() {
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={School} label="Kelas aktif" value={classes.length} caption="terpantau" tone="purple" />
         <StatCard icon={UsersRound} label="Siswa" value={students.length} caption="dalam sistem" tone="cyan" />
-        <StatCard icon={Trophy} label="Rata-rata" value="84" caption="akademik" tone="green" />
-        <StatCard icon={Target} label="Perhatian" value="3" caption="kelas prioritas" tone="amber" />
+        <StatCard icon={Trophy} label="Rata-rata" value={localAverage || '-'} caption="latihan/kuis lokal" tone="green" />
+        <StatCard icon={Target} label="Submission" value={assignmentSubmissions.length} caption="tugas terkirim" tone="amber" />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
