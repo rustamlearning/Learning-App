@@ -488,6 +488,159 @@ function makeFlashcards(preview, form) {
 }
 
 
+
+function splitSourceSentences(text) {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .split(/[.!?]\s+/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 24)
+}
+
+function extractSourceKeywords(text, limit = 10) {
+  const stopWords = new Set([
+    'yang', 'dan', 'atau', 'dengan', 'untuk', 'pada', 'dalam', 'dari', 'adalah', 'sebagai',
+    'karena', 'yaitu', 'agar', 'oleh', 'ke', 'di', 'ini', 'itu', 'akan', 'dapat', 'siswa',
+    'guru', 'materi', 'pembelajaran', 'the', 'and', 'for', 'with', 'from', 'that', 'this',
+  ])
+
+  const words = String(text || '')
+    .toLowerCase()
+    .replace(/[^a-zA-ZÀ-ž0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((word) => word.length > 4 && !stopWords.has(word))
+
+  const frequency = words.reduce((acc, word) => {
+    acc[word] = (acc[word] || 0) + 1
+    return acc
+  }, {})
+
+  return Object.entries(frequency)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([word]) => word)
+}
+
+function titleCase(text) {
+  return String(text || '')
+    .split(' ')
+    .map((word) => word ? word[0].toUpperCase() + word.slice(1) : word)
+    .join(' ')
+}
+
+function buildQuestionsFromText(text, topic, form) {
+  const sentences = splitSourceSentences(text)
+  const keywords = extractSourceKeywords(text, 8)
+  const base = sentences.length > 0 ? sentences : [
+    `${topic} memiliki konsep utama yang perlu dipahami melalui contoh dan latihan.`,
+    `Pemahaman ${topic} dapat ditingkatkan melalui diskusi dan refleksi.`,
+  ]
+
+  return Array.from({ length: 5 }).map((_, index) => {
+    const keyword = keywords[index] || topic
+    const sentence = base[index % base.length]
+    const correctAnswer = sentence.slice(0, 120) || `Konsep ${topic} dijelaskan dalam teks.`
+
+    return {
+      id: `import-question-${Date.now()}-${index + 1}`,
+      questionText: index === 0
+        ? `Apa gagasan utama dari teks tentang ${topic}?`
+        : `Berdasarkan teks, pernyataan mana yang paling sesuai dengan konsep "${keyword}"?`,
+      options: [
+        correctAnswer,
+        `Konsep ${topic} tidak perlu dikaitkan dengan contoh.`,
+        'Siswa cukup menghafal tanpa memahami hubungan konsep.',
+        'Teks tidak memiliki informasi penting untuk dipelajari.',
+      ],
+      correctAnswer,
+      explanation: `Jawaban benar karena didukung oleh bagian teks yang membahas ${keyword}.`,
+      subject: form.subject,
+      className: `Kelas ${form.className}`,
+      topic,
+      difficulty: form.level === 'Menantang' ? 'Sulit' : form.level === 'Mudah' ? 'Mudah' : 'Sedang',
+      type: 'Pilihan ganda',
+      source: 'import-text',
+    }
+  })
+}
+
+function buildFlashcardsFromText(text, topic, form) {
+  const keywords = extractSourceKeywords(text, 8)
+  const sourceWords = keywords.length > 0 ? keywords : [topic, 'konsep utama', 'contoh', 'latihan', 'refleksi']
+
+  const cards = sourceWords.slice(0, 8).map((keyword, index) => ({
+    id: `import-card-${Date.now()}-${index + 1}`,
+    front: titleCase(keyword),
+    back: `Jelaskan makna "${keyword}" berdasarkan teks tentang ${topic}.`,
+  }))
+
+  return {
+    id: `import-flashcard-${Date.now()}`,
+    title: `Flashcard ${topic}`,
+    subject: form.subject,
+    className: `Kelas ${form.className}`,
+    topic,
+    count: cards.length,
+    progress: 0,
+    cards,
+    source: 'import-text',
+  }
+}
+
+function buildImportTextDraft(form) {
+  const text = form.sourceText.trim()
+  const topic = form.topic.trim() || 'Materi dari teks'
+  const sentences = splitSourceSentences(text)
+  const keywords = extractSourceKeywords(text, 10)
+  const questions = buildQuestionsFromText(text, topic, form)
+  const flashcards = buildFlashcardsFromText(text, topic, form)
+
+  const summary = sentences.slice(0, 3).join('. ') || `Teks ini membahas ${topic}. Guru dapat mengembangkan materi dengan contoh, latihan, dan refleksi.`
+  const importantPoints = keywords.length > 0
+    ? keywords.slice(0, 6).map((keyword, index) => `${index + 1}. ${titleCase(keyword)}`).join('\n')
+    : `1. Konsep utama ${topic}\n2. Contoh penerapan\n3. Latihan pemahaman\n4. Refleksi siswa`
+
+  return {
+    id: `studio-import-text-${Date.now()}`,
+    title: `Import Teks: ${topic}`,
+    subject: form.subject,
+    className: form.className,
+    topic,
+    contentType: 'Import teks',
+    outputType: form.outputType || 'Materi',
+    level: form.level,
+    duration: form.duration,
+    createdAt: new Date().toISOString(),
+    source: 'import-text',
+    importedText: text,
+    generatedQuestions: questions,
+    generatedFlashcard: flashcards,
+    sections: [
+      { title: 'Ringkasan materi', body: summary },
+      { title: 'Poin penting', body: importantPoints },
+      { title: 'Glosarium / flashcard', body: flashcards.cards.map((card) => `${card.front}: ${card.back}`).join('\n') },
+      { title: '5 soal pilihan ganda', body: questions.map((question, index) => `${index + 1}. ${question.questionText}\nJawaban: ${question.correctAnswer}`).join('\n\n') },
+      {
+        title: '3 pertanyaan refleksi',
+        body: [
+          `Apa gagasan paling penting dari teks tentang ${topic}?`,
+          `Bagian mana yang masih membingungkan dan perlu dijelaskan ulang?`,
+          `Bagaimana konsep ${topic} bisa digunakan dalam kehidupan sehari-hari atau lingkungan sekolah?`,
+        ].join('\n'),
+      },
+      {
+        title: 'LKPD singkat',
+        body: `A. Baca teks dengan teliti.\nB. Tandai 5 kata/konsep penting.\nC. Buat peta konsep sederhana.\nD. Jawab 5 soal pilihan ganda.\nE. Tulis kesimpulan ${topic} dengan bahasa sendiri.`,
+      },
+      {
+        title: 'Exit ticket',
+        body: `Sebelum keluar kelas, tuliskan: 1 hal yang dipahami, 1 pertanyaan, dan 1 contoh penerapan ${topic}.`,
+      },
+    ],
+    tools: ['Text Analyzer', 'Flashcard Maker', 'Quiz Maker', 'LKPD Builder', 'Exit Ticket'],
+  }
+}
+
 function buildFallbackLesson(form) {
   const template = subjectTemplates[form.subject] || subjectTemplates.Umum
   const topic = form.topic?.trim() || template.sampleTopic
@@ -851,14 +1004,14 @@ export default function ContentStudio({ user }) {
     }
 
     if (target === 'bank-soal') {
-      const generatedQuestions = makeGeneratedQuestions(preview, form, 5)
+      const generatedQuestions = preview.generatedQuestions || makeGeneratedQuestions(preview, form, 5)
       appendStorageRows(teacherStorageKey('questions', user, subject), generatedQuestions)
       showDeliverySuccess('bank-soal')
       return
     }
 
     if (target === 'kuis') {
-      const generatedQuestions = makeGeneratedQuestions(preview, form, 5)
+      const generatedQuestions = preview.generatedQuestions || makeGeneratedQuestions(preview, form, 5)
       appendStorageRows(teacherStorageKey('questions', user, subject), generatedQuestions)
 
       appendStorageRows(teacherStorageKey('quizzes', user, subject), [{
@@ -879,7 +1032,7 @@ export default function ContentStudio({ user }) {
     }
 
     if (target === 'flashcard') {
-      const flashcard = makeFlashcards(preview, form)
+      const flashcard = preview.generatedFlashcard || makeFlashcards(preview, form)
       appendStorageRows(FLASHCARD_KEY, [flashcard])
       showDeliverySuccess('flashcard')
       return
@@ -907,27 +1060,15 @@ export default function ContentStudio({ user }) {
   }
 
   function createFromText() {
-    const text = form.sourceText.trim()
-    const topic = form.topic.trim() || 'Materi dari teks'
-    const summary = text
-      ? text.split(/[.!?]/).map((item) => item.trim()).filter(Boolean).slice(0, 3).join('. ')
-      : `Ringkasan otomatis untuk ${topic}.`
-
-    const draft = {
-      ...buildFallbackLesson(form),
-      id: `studio-text-${Date.now()}`,
-      title: `Materi dari teks: ${topic}`,
-      sections: [
-        { title: 'Ringkasan', body: summary || `Materi tentang ${topic}.` },
-        { title: 'Poin penting', body: '1. Pahami konsep utama. 2. Catat istilah penting. 3. Hubungkan dengan contoh nyata.' },
-        { title: '5 pertanyaan pilihan ganda', body: 'Buat 5 soal pilihan ganda berdasarkan teks, lengkap dengan kunci jawaban dan pembahasan.' },
-        { title: '3 pertanyaan refleksi', body: 'Apa yang kamu pahami? Bagian mana yang sulit? Bagaimana konsep ini digunakan dalam kehidupan sehari-hari?' },
-        { title: 'Flashcard konsep', body: 'Ambil istilah penting dari teks dan ubah menjadi kartu tanya-jawab.' },
-      ],
+    if (!form.sourceText.trim()) {
+      setToast('Tempel teks materi terlebih dahulu.')
+      return
     }
 
+    const draft = buildImportTextDraft(form)
     setPreview(draft)
-    setToast('Teks berhasil diubah menjadi struktur materi.')
+    setDeliveryStatus(null)
+    setToast('Teks berhasil diubah menjadi materi, soal, flashcard, LKPD, dan exit ticket.')
   }
 
   function createVideoInteractive() {
@@ -1844,30 +1985,79 @@ function RubricPreview({ rubric }) {
 }
 
 function ImportPanel({ form, updateForm, createFromText, createVideoInteractive }) {
+  const textLength = form.sourceText.trim().length
+  const estimatedSentences = splitSourceSentences(form.sourceText).length
+  const keywords = extractSourceKeywords(form.sourceText, 6)
+
   return (
     <SectionCard>
-      <h2 className="text-xl font-extrabold text-slate-950">Import teks dan video</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-500">
-        Tempel teks materi atau link video, lalu ubah menjadi struktur materi, pertanyaan, flashcard, dan exit ticket.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Import Teks & Video</p>
+          <h2 className="mt-1 text-2xl font-black text-slate-950">Ubah teks modul menjadi paket belajar.</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+            Guru bisa menyalin teks dari buku, modul, artikel, atau PDF, lalu aplikasi membuat ringkasan, soal, flashcard, LKPD, dan exit ticket.
+          </p>
+        </div>
+        <StatusBadge tone="green">Tahap 7</StatusBadge>
+      </div>
 
-      <div className="mt-5 grid gap-3">
+      <div className="mt-5 grid gap-3 md:grid-cols-3">
+        <SelectField label="Mata pelajaran" value={form.subject} onChange={(value) => updateForm('subject', value)} options={Object.keys(subjectTemplates)} />
+        <SelectField label="Kelas" value={form.className} onChange={(value) => updateForm('className', value)} options={classOptions} />
         <TextField label="Topik" value={form.topic} onChange={(value) => updateForm('topic', value)} placeholder="Masukkan topik" />
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_18rem]">
         <label className="grid gap-2 text-sm font-bold text-slate-700">
           Tempel teks materi
           <textarea
             value={form.sourceText}
             onChange={(event) => updateForm('sourceText', event.target.value)}
-            rows={8}
-            placeholder="Tempel materi dari buku, catatan, artikel, atau modul..."
+            rows={12}
+            placeholder="Tempel materi dari buku, catatan, artikel, modul, atau teks hasil copy dari PDF..."
             className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300"
           />
         </label>
-        <button onClick={createFromText} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-extrabold text-white">
-          Ubah teks menjadi materi
-        </button>
 
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
+        <div className="space-y-3">
+          <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+            <p className="text-sm font-extrabold text-slate-950">Analisis teks</p>
+            <div className="mt-3 space-y-2 text-sm text-slate-600">
+              <p><b>Karakter:</b> {textLength}</p>
+              <p><b>Kalimat terdeteksi:</b> {estimatedSentences}</p>
+              <p><b>Kata kunci:</b></p>
+              <div className="flex flex-wrap gap-2">
+                {keywords.length > 0
+                  ? keywords.map((keyword) => <StatusBadge key={keyword} tone="cyan">{keyword}</StatusBadge>)
+                  : <span className="text-xs text-slate-400">Belum ada teks</span>}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl bg-gradient-to-br from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
+            <p className="text-sm font-extrabold text-slate-950">Output yang dibuat</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {['Ringkasan', 'Poin penting', 'Glosarium', '5 Soal PG', 'Refleksi', 'LKPD', 'Exit ticket'].map((item) => (
+                <StatusBadge key={item} tone="purple">{item}</StatusBadge>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button onClick={createFromText} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-extrabold text-white">
+        <Wand2 size={16} />
+        Ubah teks menjadi paket belajar
+      </button>
+
+      <div className="mt-7 border-t border-purple-100 pt-5">
+        <h3 className="text-lg font-black text-slate-950">Video interaktif</h3>
+        <p className="mt-1 text-sm leading-6 text-slate-500">
+          Tambahkan link video untuk membuat pertanyaan awal, tengah, akhir, dan exit ticket.
+        </p>
+
+        <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
           Link video
           <input
             value={form.videoUrl}
@@ -1876,7 +2066,8 @@ function ImportPanel({ form, updateForm, createFromText, createVideoInteractive 
             className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300"
           />
         </label>
-        <button onClick={createVideoInteractive} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-50 px-5 py-3 text-sm font-extrabold text-cyan-700">
+
+        <button onClick={createVideoInteractive} className="mt-3 inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-50 px-5 py-3 text-sm font-extrabold text-cyan-700">
           <PlayCircle size={16} />
           Buat video interaktif
         </button>
