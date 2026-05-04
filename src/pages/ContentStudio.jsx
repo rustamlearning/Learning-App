@@ -1557,18 +1557,35 @@ function resolveStudioClassId(lookups, className) {
   return partial?.id || ''
 }
 
-function enrichStudioQuestion(question, { subjectId, classId, topic }) {
+function shortStudioToken() {
+  return new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)
+}
+
+function isDuplicateQuestionError(error) {
+  const message = String(error?.message || '').toLowerCase()
+  return message.includes('questions_text_subject_class_uidx')
+    || message.includes('duplicate key')
+    || message.includes('unique constraint')
+}
+
+function enrichStudioQuestion(question, { subjectId, classId, topic, learningObjectiveId, token, sequence, forceUnique = false }) {
   const options = Array.isArray(question.options) && question.options.length > 0
     ? question.options
     : ['Benar', 'Salah', 'Perlu diskusi', 'Belum cukup informasi']
 
+  const baseQuestion = question.questionText || question.prompt || `Pertanyaan tentang ${topic}`
+  const questionText = forceUnique
+    ? `${baseQuestion} [Studio ${token || shortStudioToken()}-${sequence || 1}]`
+    : baseQuestion
+
   return {
-    questionText: question.questionText || question.prompt || `Pertanyaan tentang ${topic}`,
+    questionText,
     options,
     correctAnswer: question.correctAnswer || question.answer || options[0],
     explanation: question.explanation || `Pembahasan terkait ${topic}.`,
     subjectId,
     classId,
+    learningObjectiveId: learningObjectiveId || question.learningObjectiveId || '',
     topic,
     difficulty: question.difficulty || 'Sedang',
     type: question.type || 'Pilihan ganda',
@@ -1577,14 +1594,35 @@ function enrichStudioQuestion(question, { subjectId, classId, topic }) {
 
 async function saveStudioQuestionsToSupabase({ accessToken, teacherId, questions, context }) {
   const savedQuestions = []
-  for (const question of questions) {
-    const saved = await saveQuestion({
-      accessToken,
-      teacherId,
-      question: enrichStudioQuestion(question, context),
-    })
-    savedQuestions.push(saved)
+  const token = context.token || shortStudioToken()
+
+  for (const [index, question] of questions.entries()) {
+    const sequence = index + 1
+
+    try {
+      const saved = await saveQuestion({
+        accessToken,
+        teacherId,
+        question: enrichStudioQuestion(question, { ...context, token, sequence }),
+      })
+      savedQuestions.push(saved)
+    } catch (error) {
+      if (!isDuplicateQuestionError(error)) throw error
+
+      const saved = await saveQuestion({
+        accessToken,
+        teacherId,
+        question: enrichStudioQuestion(question, {
+          ...context,
+          token,
+          sequence,
+          forceUnique: true,
+        }),
+      })
+      savedQuestions.push(saved)
+    }
   }
+
   return savedQuestions
 }
 
@@ -1596,7 +1634,8 @@ async function publishStudioDraftToSupabase({ target, accessToken, user, form, p
   const subjectId = resolveStudioSubjectId(lookups, subject)
   const classId = resolveStudioClassId(lookups, form.className)
 
-  const context = { subjectId, classId, topic }
+  const token = shortStudioToken()
+  const context = { subjectId, classId, topic, learningObjectiveId: form.learningObjectiveId || '', token }
 
   if (target === 'materi') {
     await saveMaterial({
@@ -1630,6 +1669,7 @@ async function publishStudioDraftToSupabase({ target, accessToken, user, form, p
         classId,
         subject,
         className,
+        learningObjectiveId: form.learningObjectiveId || '',
         deadline: '',
         status: 'Draft',
       },
@@ -1661,12 +1701,13 @@ async function publishStudioDraftToSupabase({ target, accessToken, user, form, p
       accessToken,
       teacherId: user.id,
       quiz: {
-        title: `Kuis ${topic}`,
+        title: `Kuis ${topic} · ${token}`,
         description: contentText.slice(0, 700),
         subjectId,
         classId,
         subject,
         className,
+        learningObjectiveId: form.learningObjectiveId || '',
         duration: 30,
         status: 'Draft',
       },
@@ -1913,14 +1954,20 @@ export default function ContentStudio({ user: propUser }) {
     }
 
     if (target === 'bank-soal') {
-      const generatedQuestions = preview.generatedQuestions || makeGeneratedQuestions(preview, form, 5)
+      const generatedQuestions = (preview.generatedQuestions || makeGeneratedQuestions(preview, form, 5)).map((question) => ({
+        ...question,
+        learningObjectiveId: form.learningObjectiveId || '',
+      }))
       appendStorageRows(teacherStorageKey('questions', user, subject), generatedQuestions)
       showDeliverySuccess('bank-soal')
       return
     }
 
     if (target === 'kuis') {
-      const generatedQuestions = preview.generatedQuestions || makeGeneratedQuestions(preview, form, 5)
+      const generatedQuestions = (preview.generatedQuestions || makeGeneratedQuestions(preview, form, 5)).map((question) => ({
+        ...question,
+        learningObjectiveId: form.learningObjectiveId || '',
+      }))
       appendStorageRows(teacherStorageKey('questions', user, subject), generatedQuestions)
 
       appendStorageRows(teacherStorageKey('quizzes', user, subject), [{
@@ -1930,6 +1977,7 @@ export default function ContentStudio({ user: propUser }) {
         subject,
         className,
         teacher: user?.name || 'Guru',
+        learningObjectiveId: form.learningObjectiveId || '',
         duration: 30,
         status: 'Draft',
         source: 'local',

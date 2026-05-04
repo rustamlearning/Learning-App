@@ -23,6 +23,7 @@ export async function saveAssignment({ accessToken, teacherId, assignment }) {
     subject_id: assignment.subjectId || assignment.subject_id || null,
     class_id: assignment.classId || assignment.class_id || null,
     teacher_id: teacherId || null,
+    learning_objective_id: assignment.learningObjectiveId || assignment.learning_objective_id || null,
     deadline: assignment.deadline || null,
     status: assignment.status || 'Draft',
   }
@@ -45,6 +46,7 @@ function toAssignmentItem(row) {
     subjectId: row.subject_id,
     classId: row.class_id,
     teacherId: row.teacher_id,
+    learningObjectiveId: row.learning_objective_id || '',
     subject: row.subjects?.name || 'Mata pelajaran',
     className: row.classes?.name || 'Semua kelas',
     teacher: row.users_profile?.name || 'Guru',
