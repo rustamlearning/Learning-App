@@ -1272,59 +1272,527 @@ function TemplatePanel({ onUseSubject, onUseSmartTemplate }) {
 
 
 function StemToolsPanel() {
+  const [activeTool, setActiveTool] = useState('graph')
+
+  const tools = [
+    ['graph', 'Graphing Tool', Calculator, 'Grafik fungsi linear dan kuadrat sederhana.'],
+    ['unit', 'Unit Converter', Calculator, 'Konversi satuan panjang, massa, suhu, dan waktu.'],
+    ['physics', 'Physics Helper', Atom, 'Rumus fisika populer dengan kalkulasi cepat.'],
+    ['chemistry', 'Chemistry Helper', Beaker, 'Stoikiometri dasar dan catatan persamaan reaksi.'],
+    ['periodic', 'Periodic Table Mini', FlaskConical, 'Data unsur penting untuk pembelajaran kimia.'],
+  ]
+
   return (
-    <div className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
+    <div className="grid gap-5">
       <SectionCard>
-        <h2 className="text-xl font-extrabold text-slate-950">Resource STEM</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
-          Untuk Matematika, Fisika, Kimia, dan Biologi, guru dapat memakai resource interaktif eksternal tanpa API berbayar.
-        </p>
-        <div className="mt-5 grid gap-3">
-          {stemResources.map((resource) => {
-            const Icon = resource.icon
-            return (
-              <div key={resource.title} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
-                <div className="flex gap-3">
-                  <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-galaxy-purple ring-1 ring-purple-100">
-                    <Icon size={20} />
-                  </span>
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="font-extrabold text-slate-950">{resource.title}</h3>
-                      <StatusBadge tone="cyan">{resource.subject}</StatusBadge>
-                    </div>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">{resource.description}</p>
-                    <a href={resource.url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-galaxy-purple ring-1 ring-purple-100">
-                      Buka resource <LinkIcon size={15} />
-                    </a>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Smart STEM Tools</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">Tools interaktif untuk Matematika, Fisika, Kimia, dan Biologi.</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+              Guru bisa memakai tools ini untuk membuat contoh, aktivitas kelas, LKPD, latihan, dan demonstrasi konsep tanpa API berbayar.
+            </p>
+          </div>
+          <StatusBadge tone="green">Tahap 6</StatusBadge>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {tools.map(([id, label, Icon, description]) => (
+            <button
+              key={id}
+              onClick={() => setActiveTool(id)}
+              className={`rounded-[1.5rem] p-4 text-left ring-1 transition hover:-translate-y-0.5 hover:shadow-soft ${
+                activeTool === id
+                  ? 'bg-galaxy-action text-white ring-galaxy-action'
+                  : 'bg-white text-slate-700 ring-purple-100 hover:bg-galaxy-lavender'
+              }`}
+            >
+              <Icon size={22} />
+              <p className="mt-3 font-extrabold">{label}</p>
+              <p className={`mt-1 text-xs leading-5 ${activeTool === id ? 'text-white/80' : 'text-slate-500'}`}>{description}</p>
+            </button>
+          ))}
         </div>
       </SectionCard>
 
+      {activeTool === 'graph' && <GraphingTool />}
+      {activeTool === 'unit' && <UnitConverterTool />}
+      {activeTool === 'physics' && <PhysicsFormulaHelper />}
+      {activeTool === 'chemistry' && <ChemistryHelper />}
+      {activeTool === 'periodic' && <PeriodicTableMini />}
+
       <SectionCard>
-        <h2 className="text-xl font-extrabold text-slate-950">Mini tools lokal</h2>
-        <div className="mt-4 grid gap-3">
-          {[
-            ['Formula editor', 'Tulis rumus dan penjelasan singkat untuk materi.'],
-            ['Graphing helper', 'Siapkan fungsi y = ax + b atau y = ax² + bx + c.'],
-            ['Unit converter', 'Buat latihan konversi satuan sederhana.'],
-            ['Physics formula helper', 'Bantu siswa memilih rumus sesuai kasus.'],
-            ['Chemistry equation helper', 'Siapkan persamaan reaksi dan langkah penyetaraan.'],
-            ['Periodic table note', 'Catatan unsur penting untuk pembelajaran kimia.'],
-          ].map(([title, text]) => (
-            <div key={title} className="rounded-3xl bg-galaxy-surface p-4 ring-1 ring-purple-100">
-              <h3 className="font-extrabold text-slate-950">{title}</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-500">{text}</p>
-            </div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Resource eksternal</p>
+            <h2 className="mt-1 text-xl font-black text-slate-950">Simulasi dan kalkulator siap pakai.</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Gunakan resource ini untuk membuat pembelajaran STEM lebih visual dan interaktif.
+            </p>
+          </div>
+          <StatusBadge tone="cyan">GeoGebra · Desmos · PhET</StatusBadge>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {stemResources.map((resource) => (
+            <StemResourceCard key={resource.title} resource={resource} />
           ))}
         </div>
       </SectionCard>
     </div>
   )
+}
+
+function GraphingTool() {
+  const [mode, setMode] = useState('quadratic')
+  const [a, setA] = useState('1')
+  const [b, setB] = useState('0')
+  const [c, setC] = useState('0')
+  const [m, setM] = useState('1')
+  const [n, setN] = useState('0')
+
+  const A = Number(a) || 0
+  const B = Number(b) || 0
+  const C = Number(c) || 0
+  const M = Number(m) || 0
+  const N = Number(n) || 0
+
+  const points = Array.from({ length: 41 }).map((_, index) => {
+    const x = -10 + index * 0.5
+    const y = mode === 'quadratic' ? A * x * x + B * x + C : M * x + N
+    return { x, y }
+  })
+
+  const yValues = points.map((point) => point.y)
+  const minY = Math.min(-10, ...yValues)
+  const maxY = Math.max(10, ...yValues)
+  const spanY = maxY - minY || 1
+
+  const polyline = points
+    .map((point) => {
+      const sx = ((point.x + 10) / 20) * 360
+      const sy = 220 - ((point.y - minY) / spanY) * 200
+      return `${sx},${sy}`
+    })
+    .join(' ')
+
+  const equation = mode === 'quadratic'
+    ? `y = ${A}x² ${B >= 0 ? '+' : '-'} ${Math.abs(B)}x ${C >= 0 ? '+' : '-'} ${Math.abs(C)}`
+    : `y = ${M}x ${N >= 0 ? '+' : '-'} ${Math.abs(N)}`
+
+  const vertexX = mode === 'quadratic' && A !== 0 ? -B / (2 * A) : null
+  const vertexY = vertexX !== null ? A * vertexX * vertexX + B * vertexX + C : null
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+      <SectionCard>
+        <h2 className="text-xl font-extrabold text-slate-950">Graphing Tool</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          Buat visual fungsi linear atau kuadrat untuk membantu siswa memahami bentuk grafik.
+        </p>
+
+        <div className="mt-5 grid gap-3">
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            Jenis fungsi
+            <select value={mode} onChange={(event) => setMode(event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+              <option value="quadratic">Kuadrat: y = ax² + bx + c</option>
+              <option value="linear">Linear: y = mx + c</option>
+            </select>
+          </label>
+
+          {mode === 'quadratic' ? (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <MiniNumberInput label="a" value={a} setValue={setA} />
+              <MiniNumberInput label="b" value={b} setValue={setB} />
+              <MiniNumberInput label="c" value={c} setValue={setC} />
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <MiniNumberInput label="m" value={m} setValue={setM} />
+              <MiniNumberInput label="c" value={n} setValue={setN} />
+            </div>
+          )}
+        </div>
+
+        <div className="mt-5 rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+          <p className="text-sm font-extrabold text-slate-950">Persamaan</p>
+          <p className="mt-2 text-2xl font-black text-galaxy-purple">{equation}</p>
+          {mode === 'quadratic' && vertexX !== null && (
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Titik puncak kira-kira di x = {formatNumber(vertexX)}, y = {formatNumber(vertexY)}.
+            </p>
+          )}
+        </div>
+      </SectionCard>
+
+      <SectionCard>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-extrabold text-slate-950">Preview grafik</h2>
+          <StatusBadge tone="purple">{mode === 'quadratic' ? 'Kuadrat' : 'Linear'}</StatusBadge>
+        </div>
+
+        <div className="mt-5 overflow-hidden rounded-3xl bg-white p-4 ring-1 ring-slate-100">
+          <svg viewBox="0 0 360 240" className="h-72 w-full">
+            <rect x="0" y="0" width="360" height="240" rx="18" fill="#F8FAFC" />
+            <line x1="180" y1="10" x2="180" y2="230" stroke="#CBD5E1" strokeWidth="1.5" />
+            <line x1="10" y1="120" x2="350" y2="120" stroke="#CBD5E1" strokeWidth="1.5" />
+            {Array.from({ length: 9 }).map((_, index) => {
+              const x = 20 + index * 40
+              return <line key={`vx-${index}`} x1={x} y1="20" x2={x} y2="220" stroke="#E2E8F0" strokeWidth="0.8" />
+            })}
+            {Array.from({ length: 6 }).map((_, index) => {
+              const y = 30 + index * 35
+              return <line key={`hy-${index}`} x1="20" y1={y} x2="340" y2={y} stroke="#E2E8F0" strokeWidth="0.8" />
+            })}
+            <polyline points={polyline} fill="none" stroke="#7C3AED" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+
+        <p className="mt-4 text-sm leading-6 text-slate-500">
+          Gunakan grafik ini sebagai ilustrasi cepat. Untuk eksplorasi lebih detail, buka GeoGebra atau Desmos di resource eksternal.
+        </p>
+      </SectionCard>
+    </div>
+  )
+}
+
+function UnitConverterTool() {
+  const [category, setCategory] = useState('length')
+  const [value, setValue] = useState('1')
+  const [fromUnit, setFromUnit] = useState('m')
+  const [toUnit, setToUnit] = useState('cm')
+
+  const unitGroups = {
+    length: {
+      label: 'Panjang',
+      units: { mm: 0.001, cm: 0.01, m: 1, km: 1000 },
+    },
+    mass: {
+      label: 'Massa',
+      units: { mg: 0.000001, g: 0.001, kg: 1, ton: 1000 },
+    },
+    time: {
+      label: 'Waktu',
+      units: { detik: 1, menit: 60, jam: 3600 },
+    },
+  }
+
+  const group = unitGroups[category]
+  const result = (Number(value) || 0) * group.units[fromUnit] / group.units[toUnit]
+
+  function changeCategory(nextCategory) {
+    const nextUnits = Object.keys(unitGroups[nextCategory].units)
+    setCategory(nextCategory)
+    setFromUnit(nextUnits[0])
+    setToUnit(nextUnits[1] || nextUnits[0])
+  }
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+      <SectionCard>
+        <h2 className="text-xl font-extrabold text-slate-950">Unit Converter</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500">Konversi satuan dasar untuk Matematika, Fisika, dan Kimia.</p>
+
+        <div className="mt-5 grid gap-3">
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            Kategori
+            <select value={category} onChange={(event) => changeCategory(event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+              {Object.entries(unitGroups).map(([id, item]) => <option key={id} value={id}>{item.label}</option>)}
+            </select>
+          </label>
+
+          <MiniNumberInput label="Nilai" value={value} setValue={setValue} />
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Dari
+              <select value={fromUnit} onChange={(event) => setFromUnit(event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+                {Object.keys(group.units).map((unit) => <option key={unit}>{unit}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Ke
+              <select value={toUnit} onChange={(event) => setToUnit(event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+                {Object.keys(group.units).map((unit) => <option key={unit}>{unit}</option>)}
+              </select>
+            </label>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard className="bg-gradient-to-br from-violet-50 to-cyan-50">
+        <StatusBadge tone="cyan">Hasil konversi</StatusBadge>
+        <p className="mt-5 text-4xl font-black text-slate-950">{formatNumber(result)} {toUnit}</p>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          {value || 0} {fromUnit} = {formatNumber(result)} {toUnit}
+        </p>
+        <div className="mt-5 rounded-3xl bg-white p-4 ring-1 ring-cyan-100">
+          <p className="text-sm font-extrabold text-slate-950">Ide aktivitas</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Minta siswa membuat 5 contoh konversi satuan dari kehidupan sehari-hari, misalnya jarak rumah ke sekolah, massa benda, atau durasi kegiatan.
+          </p>
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
+function PhysicsFormulaHelper() {
+  const [formula, setFormula] = useState('newton')
+  const [x, setX] = useState('10')
+  const [y, setY] = useState('2')
+
+  const formulas = {
+    newton: {
+      label: 'Hukum II Newton',
+      equation: 'F = m × a',
+      xLabel: 'massa m (kg)',
+      yLabel: 'percepatan a (m/s²)',
+      resultLabel: 'gaya F',
+      unit: 'N',
+      calculate: (a, b) => a * b,
+      explanation: 'Gaya adalah hasil kali massa dan percepatan.',
+    },
+    density: {
+      label: 'Massa Jenis',
+      equation: 'ρ = m ÷ V',
+      xLabel: 'massa m (kg)',
+      yLabel: 'volume V (m³)',
+      resultLabel: 'massa jenis ρ',
+      unit: 'kg/m³',
+      calculate: (a, b) => b === 0 ? 0 : a / b,
+      explanation: 'Massa jenis menunjukkan massa tiap satuan volume.',
+    },
+    wave: {
+      label: 'Kecepatan Gelombang',
+      equation: 'v = f × λ',
+      xLabel: 'frekuensi f (Hz)',
+      yLabel: 'panjang gelombang λ (m)',
+      resultLabel: 'kecepatan v',
+      unit: 'm/s',
+      calculate: (a, b) => a * b,
+      explanation: 'Kecepatan gelombang bergantung pada frekuensi dan panjang gelombang.',
+    },
+    ohm: {
+      label: 'Hukum Ohm',
+      equation: 'V = I × R',
+      xLabel: 'arus I (A)',
+      yLabel: 'hambatan R (Ω)',
+      resultLabel: 'tegangan V',
+      unit: 'V',
+      calculate: (a, b) => a * b,
+      explanation: 'Tegangan adalah hasil kali arus dan hambatan.',
+    },
+    kinetic: {
+      label: 'Energi Kinetik',
+      equation: 'Ek = ½ × m × v²',
+      xLabel: 'massa m (kg)',
+      yLabel: 'kecepatan v (m/s)',
+      resultLabel: 'energi kinetik Ek',
+      unit: 'J',
+      calculate: (a, b) => 0.5 * a * b * b,
+      explanation: 'Energi kinetik dipengaruhi oleh massa dan kuadrat kecepatan.',
+    },
+  }
+
+  const current = formulas[formula]
+  const result = current.calculate(Number(x) || 0, Number(y) || 0)
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+      <SectionCard>
+        <h2 className="text-xl font-extrabold text-slate-950">Physics Formula Helper</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500">Pilih rumus, masukkan nilai, lalu gunakan hasilnya sebagai contoh pembelajaran.</p>
+
+        <div className="mt-5 grid gap-3">
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            Rumus
+            <select value={formula} onChange={(event) => setFormula(event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+              {Object.entries(formulas).map(([id, item]) => <option key={id} value={id}>{item.label}</option>)}
+            </select>
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <MiniNumberInput label={current.xLabel} value={x} setValue={setX} />
+            <MiniNumberInput label={current.yLabel} value={y} setValue={setY} />
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard className="bg-gradient-to-br from-cyan-50 to-violet-50">
+        <StatusBadge tone="cyan">{current.label}</StatusBadge>
+        <p className="mt-4 text-3xl font-black text-galaxy-purple">{current.equation}</p>
+        <p className="mt-5 text-4xl font-black text-slate-950">{formatNumber(result)} {current.unit}</p>
+        <p className="mt-2 text-sm font-bold text-slate-600">{current.resultLabel}</p>
+        <div className="mt-5 rounded-3xl bg-white p-4 ring-1 ring-cyan-100">
+          <p className="text-sm font-extrabold text-slate-950">Pembahasan singkat</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{current.explanation}</p>
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
+function ChemistryHelper() {
+  const [mass, setMass] = useState('18')
+  const [mr, setMr] = useState('18')
+  const [equation, setEquation] = useState('2H₂ + O₂ → 2H₂O')
+  const mol = (Number(mass) || 0) / ((Number(mr) || 1) || 1)
+
+  const examples = [
+    ['Pembentukan air', '2H₂ + O₂ → 2H₂O', 'Jumlah atom H dan O seimbang di kedua ruas.'],
+    ['Pembakaran metana', 'CH₄ + 2O₂ → CO₂ + 2H₂O', 'Contoh reaksi pembakaran hidrokarbon sederhana.'],
+    ['Pembentukan amonia', 'N₂ + 3H₂ → 2NH₃', 'Koefisien menunjukkan perbandingan mol zat.'],
+  ]
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+      <SectionCard>
+        <h2 className="text-xl font-extrabold text-slate-950">Chemistry Helper</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500">Bantu guru menjelaskan mol, Mr, dan persamaan reaksi sederhana.</p>
+
+        <div className="mt-5 grid gap-3">
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            Persamaan reaksi
+            <input value={equation} onChange={(event) => setEquation(event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <MiniNumberInput label="massa zat (gram)" value={mass} setValue={setMass} />
+            <MiniNumberInput label="Mr zat" value={mr} setValue={setMr} />
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-3xl bg-amber-50 p-4 ring-1 ring-amber-100">
+          <p className="text-sm font-extrabold text-amber-800">Catatan penyetaraan</p>
+          <p className="mt-2 text-sm leading-6 text-amber-800">
+            Saat menyetarakan reaksi, ubah koefisien di depan zat, bukan indeks dalam rumus kimia.
+          </p>
+        </div>
+      </SectionCard>
+
+      <SectionCard>
+        <StatusBadge tone="amber">Stoikiometri dasar</StatusBadge>
+        <p className="mt-4 text-2xl font-black text-slate-950">{equation}</p>
+        <p className="mt-5 text-4xl font-black text-galaxy-purple">{formatNumber(mol)} mol</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">n = massa ÷ Mr = {mass || 0} ÷ {mr || 1}</p>
+
+        <div className="mt-5 grid gap-3">
+          {examples.map(([title, eq, note]) => (
+            <button key={title} onClick={() => setEquation(eq)} className="rounded-3xl bg-slate-50 p-4 text-left ring-1 ring-slate-100 transition hover:bg-galaxy-lavender">
+              <p className="font-extrabold text-slate-950">{title}</p>
+              <p className="mt-1 text-sm font-bold text-galaxy-purple">{eq}</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">{note}</p>
+            </button>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
+function PeriodicTableMini() {
+  const elements = [
+    ['H', 'Hidrogen', 1, 1.008, 'Nonlogam'],
+    ['C', 'Karbon', 6, 12.011, 'Nonlogam'],
+    ['N', 'Nitrogen', 7, 14.007, 'Nonlogam'],
+    ['O', 'Oksigen', 8, 15.999, 'Nonlogam'],
+    ['Na', 'Natrium', 11, 22.99, 'Logam alkali'],
+    ['Mg', 'Magnesium', 12, 24.305, 'Logam alkali tanah'],
+    ['Al', 'Aluminium', 13, 26.982, 'Logam'],
+    ['Si', 'Silikon', 14, 28.085, 'Metaloid'],
+    ['P', 'Fosfor', 15, 30.974, 'Nonlogam'],
+    ['S', 'Sulfur', 16, 32.06, 'Nonlogam'],
+    ['Cl', 'Klorin', 17, 35.45, 'Halogen'],
+    ['K', 'Kalium', 19, 39.098, 'Logam alkali'],
+    ['Ca', 'Kalsium', 20, 40.078, 'Logam alkali tanah'],
+    ['Fe', 'Besi', 26, 55.845, 'Logam transisi'],
+    ['Cu', 'Tembaga', 29, 63.546, 'Logam transisi'],
+    ['Zn', 'Seng', 30, 65.38, 'Logam transisi'],
+  ]
+
+  const [selected, setSelected] = useState(elements[0])
+  const [symbol, name, atomicNumber, mass, group] = selected
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[1fr_0.8fr]">
+      <SectionCard>
+        <h2 className="text-xl font-extrabold text-slate-950">Periodic Table Mini</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500">Data unsur populer untuk contoh cepat di kelas kimia.</p>
+
+        <div className="mt-5 grid grid-cols-4 gap-2 sm:grid-cols-8">
+          {elements.map((element) => (
+            <button
+              key={element[0]}
+              onClick={() => setSelected(element)}
+              className={`rounded-2xl p-3 text-center ring-1 transition hover:-translate-y-0.5 ${
+                selected[0] === element[0]
+                  ? 'bg-galaxy-action text-white ring-galaxy-action'
+                  : 'bg-white text-slate-700 ring-purple-100 hover:bg-galaxy-lavender'
+              }`}
+            >
+              <p className="text-xl font-black">{element[0]}</p>
+              <p className="mt-1 text-[10px] font-bold">{element[2]}</p>
+            </button>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard className="bg-gradient-to-br from-amber-50 to-cyan-50">
+        <StatusBadge tone="amber">Unsur terpilih</StatusBadge>
+        <p className="mt-5 text-6xl font-black text-slate-950">{symbol}</p>
+        <h3 className="mt-2 text-2xl font-black text-slate-950">{name}</h3>
+        <div className="mt-5 grid gap-3 text-sm text-slate-700">
+          <p className="rounded-2xl bg-white p-3 ring-1 ring-amber-100"><b>Nomor atom:</b> {atomicNumber}</p>
+          <p className="rounded-2xl bg-white p-3 ring-1 ring-amber-100"><b>Massa atom relatif:</b> {mass}</p>
+          <p className="rounded-2xl bg-white p-3 ring-1 ring-amber-100"><b>Golongan sederhana:</b> {group}</p>
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
+function StemResourceCard({ resource }) {
+  const Icon = resource.icon
+
+  return (
+    <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+      <div className="flex gap-3">
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-galaxy-purple ring-1 ring-purple-100">
+          <Icon size={20} />
+        </span>
+        <div className="flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-extrabold text-slate-950">{resource.title}</h3>
+            <StatusBadge tone="cyan">{resource.subject}</StatusBadge>
+          </div>
+          <p className="mt-1 text-sm leading-6 text-slate-600">{resource.description}</p>
+          <a href={resource.url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-galaxy-purple ring-1 ring-purple-100">
+            Buka resource <LinkIcon size={15} />
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MiniNumberInput({ label, value, setValue }) {
+  return (
+    <label className="grid gap-2 text-sm font-bold text-slate-700">
+      {label}
+      <input
+        type="number"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300"
+      />
+    </label>
+  )
+}
+
+function formatNumber(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '0'
+  if (Math.abs(number) >= 1000) return number.toLocaleString('id-ID', { maximumFractionDigits: 2 })
+  return Number(number.toFixed(3)).toString()
 }
 
 function RubricPanel({ form, updateForm, saveRubric }) {
