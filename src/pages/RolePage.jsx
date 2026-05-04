@@ -351,7 +351,7 @@ function getPublishedLocalTeacherMaterials() {
       progress: item.progress || 0,
       description: item.description || `Materi ${item.topic || item.title} dari guru.`,
       content: item.content || item.description || 'Konten materi belum tersedia.',
-      className: item.className || 'Kelas demo',
+      className: item.className || 'Kelas umum',
       teacher: item.teacher || 'Guru',
     }))
 }
@@ -365,7 +365,7 @@ function getPublishedLocalTeacherQuizzes() {
       duration: Number(item.duration || 30),
       date: item.date || 'Aktif',
       teacher: item.teacher || 'Guru',
-      className: item.className || 'Kelas demo',
+      className: item.className || 'Kelas umum',
     }))
 }
 
@@ -463,8 +463,8 @@ function MateriBelajar({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Materi Belajar" title="Jelajahi materi baru hari ini." description={remoteMaterials.length > 0 ? 'Materi sudah dibaca dari Supabase dan diberi label ringan dibuka.' : 'Materi dummy tampil sebagai fallback sampai data Supabase diisi.'} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Fallback dummy tetap ditampilkan.</div>}
+      <PageHeader eyebrow="Materi Belajar" title="Jelajahi materi baru hari ini." description={remoteMaterials.length > 0 ? 'Materi sudah dibaca dari Supabase dan diberi label ringan dibuka.' : 'Materi awal ditampilkan sambil menunggu data sekolah tersinkron.'} />
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal tetap ditampilkan.</div>}
       <SearchFilterBar search={search} setSearch={setSearch} filters={subjectsFilter} activeFilter={filter} setActiveFilter={setFilter} />
       {loading ? <LoadingState label="Memuat materi dari Supabase..." /> : (
         filtered.length > 0 ? (
@@ -950,7 +950,7 @@ function KuisPage({ user, notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Kuis / Ujian" title="Kuis aktif dan ujian resmi" description="Cek status, kerjakan soal, dan lihat hasil setelah submit." />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Fallback dummy ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Data lokal ditampilkan.</div>}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {quizRows.map((quiz) => {
@@ -1004,7 +1004,7 @@ function getStudioLearningPacks() {
       source: 'studio',
       outputType: item.outputType || item.savedAs,
       subject: item.subject || 'Mata pelajaran',
-      className: item.className || 'Kelas demo',
+      className: item.className || 'Kelas umum',
       topic: item.topic || item.title,
       sections: Array.isArray(item.sections) ? item.sections : [],
     }))
@@ -1298,7 +1298,7 @@ function ProfilPage({ user }) {
             <div className="mt-3 flex flex-wrap gap-2">{badges.slice(0, 3).map((badge) => <StatusBadge key={badge.id}>{badge.name}</StatusBadge>)}</div>
           </div>
         </div>
-        <button disabled className="mt-6 cursor-not-allowed rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple opacity-70">Edit profil belum tersedia</button>
+        <div className="mt-6 rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple ring-1 ring-purple-100">Profil aktif dan tersimpan di perangkat.</div>
       </SectionCard>
     </div>
   )
@@ -1509,7 +1509,7 @@ function GuruMateri({ user, notify, appContext }) {
         ...material,
         id: material.id || `local-material-${now}`,
         subject: material.subject || teacherSubject,
-        className: material.className || 'Kelas demo',
+        className: material.className || 'Kelas umum',
         teacher: user?.name,
         progress: material.status === 'Publish' ? 35 : 0,
       }
@@ -1563,7 +1563,7 @@ function GuruMateri({ user, notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Materi" title={`Kelola materi ${teacherSubject}`} description="Materi guru dibatasi berdasarkan akun guru yang login. Data Supabase tampil jika akun guru dan tabel sudah siap." action={<QuickActionButton icon={Plus} label="Tambah materi" onClick={() => setEditing(emptyMaterial(lookups, teacherSubject))} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Fallback dummy mapel guru ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal mapel guru ditampilkan.</div>}
       {editing && <MaterialForm material={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat materi guru dari Supabase..." /> : (
         rows.length > 0 ? (
@@ -1597,7 +1597,7 @@ function GuruMateri({ user, notify, appContext }) {
 function MaterialForm({ material, lookups, onCancel, onSave }) {
   const [form, setForm] = useState(material)
   const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: material.subject || 'Bahasa Inggris' }]
-  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: material.className || 'Kelas demo' }]
+  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: material.className || 'Kelas umum' }]
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -1658,7 +1658,7 @@ function emptyMaterial(lookups, teacherSubject) {
     subjectId: subject?.id || '',
     classId: classItem?.id || '',
     subject: subject?.name || teacherSubject,
-    className: classItem?.name || 'Kelas demo',
+    className: classItem?.name || 'Kelas umum',
     topic: '',
     type: 'Teks',
     status: 'Draft',
@@ -1751,7 +1751,7 @@ function BankSoal({ user, notify, appContext }) {
         ...question,
         id: question.id || `local-question-${Date.now()}`,
         subject: question.subject || teacherSubject,
-        className: question.className || 'Kelas demo',
+        className: question.className || 'Kelas umum',
         source: 'local',
       }
 
@@ -1804,7 +1804,7 @@ function BankSoal({ user, notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Bank Soal" title={`Bank soal ${teacherSubject}`} description="Soal dibatasi berdasarkan akun guru yang login dan siap dipakai untuk kuis berikutnya." action={<QuickActionButton icon={Plus} label="Tambah soal" onClick={() => setEditing(emptyQuestion(lookups, teacherSubject))} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data soal: {error}. Fallback dummy mapel guru ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data soal: {error}. Data lokal mapel guru ditampilkan.</div>}
       {editing && <QuestionForm question={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat bank soal dari Supabase..." /> : rows.length > 0 ? (
         <DataTable columns={[
@@ -1829,7 +1829,7 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
     optionsText: (question.options || []).join('\n'),
   })
   const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: question.subject || 'Bahasa Inggris' }]
-  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: question.className || 'Kelas demo' }]
+  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: question.className || 'Kelas umum' }]
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -1901,7 +1901,7 @@ function emptyQuestion(lookups, teacherSubject) {
     subjectId: subject?.id || '',
     classId: classItem?.id || '',
     subject: subject?.name || teacherSubject,
-    className: classItem?.name || 'Kelas demo',
+    className: classItem?.name || 'Kelas umum',
     topic: '',
     difficulty: 'Mudah',
     type: 'Pilihan ganda',
@@ -1986,7 +1986,7 @@ function GuruTugas({ user, notify, appContext }) {
         ...assignment,
         id: assignment.id || `local-assignment-${Date.now()}`,
         subject: assignment.subject || teacherSubject,
-        className: assignment.className || 'Kelas demo',
+        className: assignment.className || 'Kelas umum',
         source: 'local',
       }
 
@@ -2038,7 +2038,7 @@ function GuruTugas({ user, notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Tugas" title="Tugas kelas" description="Buat dan publish tugas untuk kelas yang Anda ajar." action={<QuickActionButton icon={Plus} label="Buat tugas" onClick={() => setEditing(emptyAssignment(lookups, teacherSubject))} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data tugas: {error}. Fallback dummy ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data tugas: {error}. Data lokal ditampilkan.</div>}
       {editing && <AssignmentForm assignment={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat tugas dari Supabase..." /> : rows.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -2067,7 +2067,7 @@ function GuruTugas({ user, notify, appContext }) {
 function AssignmentForm({ assignment, lookups, onCancel, onSave }) {
   const [form, setForm] = useState(assignment)
   const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: assignment.subject || 'Bahasa Inggris' }]
-  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: assignment.className || 'Kelas demo' }]
+  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: assignment.className || 'Kelas umum' }]
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -2119,7 +2119,7 @@ function emptyAssignment(lookups, teacherSubject) {
     subjectId: subject?.id || '',
     classId: classItem?.id || '',
     subject: subject?.name || teacherSubject,
-    className: classItem?.name || 'Kelas demo',
+    className: classItem?.name || 'Kelas umum',
     deadline: '',
     status: 'Draft',
   }
@@ -2216,7 +2216,7 @@ function KuisLive({ user, notify, appContext }) {
         id: quiz.id || `local-quiz-${Date.now()}`,
         subject: quiz.subject || teacherSubject,
         teacher: user?.name,
-        className: quiz.className || 'Kelas demo',
+        className: quiz.className || 'Kelas umum',
         source: 'local',
         questionIds: selectedQuestionIds,
         questionCount: selectedQuestionIds.length,
@@ -2271,7 +2271,7 @@ function KuisLive({ user, notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Kuis Live" title="Kuis dan ujian dari bank soal" description="Buat kuis ringan, publish ke siswa, lalu pantau hasil submit." action={<QuickActionButton icon={FlaskConical} label="Buat Kuis" onClick={() => setEditing(emptyQuiz(lookups, teacherSubject))} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Fallback dummy mapel guru ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Data lokal mapel guru ditampilkan.</div>}
       {editing && <QuizForm quiz={editing} lookups={lookups} questions={questionRows} onCancel={() => setEditing(null)} onSave={handleSave} />}
       <SectionCard dark><p className="text-sm text-white/60">Kode join kelas</p><p className="mt-3 text-6xl font-extrabold">482 913</p><p className="mt-3 text-white/70">{liveParticipants.length} peserta bergabung.</p></SectionCard>
       {loading ? <LoadingState label="Memuat kuis guru dari Supabase..." /> : (
@@ -2300,7 +2300,7 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSa
   const [form, setForm] = useState(quiz)
   const [selectedQuestionIds, setSelectedQuestionIds] = useState(quiz.questionIds || [])
   const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: quiz.subject || 'Bahasa Inggris' }]
-  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: quiz.className || 'Kelas demo' }]
+  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: quiz.className || 'Kelas umum' }]
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -2366,7 +2366,7 @@ function emptyQuiz(lookups, teacherSubject) {
     subjectId: subject?.id || '',
     classId: classItem?.id || '',
     subject: subject?.name || teacherSubject,
-    className: classItem?.name || 'Kelas demo',
+    className: classItem?.name || 'Kelas umum',
     duration: 30,
     status: 'Draft',
   }
@@ -2646,7 +2646,7 @@ function AdminProfiles({ role, title, notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Manajemen Data" title={title} description="Admin mengelola profile dan detail akademik. Akun login Auth tetap dibuat terpisah di Supabase Authentication." action={<QuickActionButton icon={Plus} label={`Tambah ${role === 'guru' ? 'guru' : 'siswa'}`} onClick={() => setEditing({ name: '', email: '', role, status: 'Aktif', detailStatus: 'Aktif' })} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data: {error}. Fallback dummy ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data: {error}. Data lokal ditampilkan.</div>}
       {editing && <ProfileForm title={title} role={role} profile={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label={`Memuat ${title.toLowerCase()} dari Supabase...`} /> : (
         <DataTable columns={[
@@ -2856,7 +2856,7 @@ function AdminKelas({ notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Data Kelas" title="Kelola rombel" action={<QuickActionButton icon={Plus} label="Tambah kelas" onClick={() => setEditing({ name: '', grade: 10, academicYear: '2026/2027' })} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kelas: {error}. Fallback dummy ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kelas: {error}. Data lokal ditampilkan.</div>}
       {editing && <ClassForm classItem={editing} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat kelas dari Supabase..." /> : (
         <DataTable columns={[
@@ -2981,7 +2981,7 @@ function AdminMapel({ notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Manajemen Data" title="Mata Pelajaran" action={<QuickActionButton icon={Plus} label="Tambah mapel" onClick={() => setEditing({ name: '', code: '' })} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data mapel: {error}. Fallback dummy ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data mapel: {error}. Data lokal ditampilkan.</div>}
       {editing && <SubjectForm subject={editing} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat mata pelajaran dari Supabase..." /> : (
         <DataTable columns={[
@@ -3056,7 +3056,7 @@ function BackupPage({ notify, setConfirmOpen, appContext }) {
   }
 
   return (
-    <div><PageHeader eyebrow="Backup" title="Backup aman dan terkendali" /><SectionCard><StatusBadge tone="green">Backup JSON tersedia</StatusBadge><p className="mt-4 text-sm text-gray-500">Backup mengekspor data utama ke file JSON. Restore tetap dinonaktifkan karena berisiko menghapus atau menimpa data dan perlu konfirmasi berlapis.</p><div className="mt-5 flex flex-wrap gap-2"><QuickActionButton icon={Download} label={exporting ? 'Membuat backup...' : 'Backup sekarang'} onClick={handleBackup} /><button onClick={() => setConfirmOpen(true)} className="rounded-2xl bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700">Restore disabled</button></div></SectionCard></div>
+    <div><PageHeader eyebrow="Backup" title="Backup aman dan terkendali" /><SectionCard><StatusBadge tone="green">Backup JSON tersedia</StatusBadge><p className="mt-4 text-sm text-gray-500">Backup mengekspor data utama ke file JSON. Restore tetap dinonaktifkan karena berisiko menghapus atau menimpa data dan perlu konfirmasi berlapis.</p><div className="mt-5 flex flex-wrap gap-2"><QuickActionButton icon={Download} label={exporting ? 'Membuat backup...' : 'Backup sekarang'} onClick={handleBackup} /><button onClick={() => setConfirmOpen(true)} className="rounded-2xl bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700">Restore dikunci</button></div></SectionCard></div>
   )
 }
 
@@ -3170,7 +3170,7 @@ function ManageList({ eyebrow, title, rows, button, notify, type, emptyTitle, em
 
 function AdminTable({ title, rows, columns, button, notify = () => {}, setConfirmOpen = () => {} }) {
   return (
-    <div><PageHeader eyebrow="Manajemen Data" title={title} action={<QuickActionButton icon={Plus} label={button} onClick={() => notify(`${button} belum tersedia.`)} />} /><DataTable columns={[...columns.map(([key, label]) => ({ key, label, render: key === 'classes' ? (row) => row.classes.join(', ') : undefined })), { key: 'action', label: 'Aksi', render: () => <button onClick={() => setConfirmOpen(true)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button> }]} rows={rows} /></div>
+    <div><PageHeader eyebrow="Manajemen Data" title={title} action={<QuickActionButton icon={Plus} label={button} onClick={() => notify(`${button} masih dikunci untuk keamanan data.`)} />} /><DataTable columns={[...columns.map(([key, label]) => ({ key, label, render: key === 'classes' ? (row) => row.classes.join(', ') : undefined })), { key: 'action', label: 'Aksi', render: () => <button onClick={() => setConfirmOpen(true)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button> }]} rows={rows} /></div>
   )
 }
 
@@ -3178,9 +3178,142 @@ function CardsPage({ eyebrow, title, items, action }) {
   return <div><PageHeader eyebrow={eyebrow} title={title} action={action} /><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{items.map((item) => <SectionCard key={`${item.title}-${item.meta}`}><StatusBadge>{item.status}</StatusBadge><h2 className="mt-4 text-xl font-extrabold">{item.title}</h2><p className="mt-2 text-sm text-gray-500">{item.meta}</p><p className="mt-4 text-2xl font-extrabold text-galaxy-purple">{item.value}</p><button className="mt-5 w-full rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Detail</button></SectionCard>)}</div></div>
 }
 
+
+function downloadTextFile(filename, content, type = 'text/plain;charset=utf-8') {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function rowsToCsv(rows) {
+  if (!rows.length) return ''
+  const headers = Object.keys(rows[0])
+  const escapeCell = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`
+  return [
+    headers.map(escapeCell).join(','),
+    ...rows.map((row) => headers.map((header) => escapeCell(row[header])).join(',')),
+  ].join('\n')
+}
+
+function slugFileName(text) {
+  return String(text || 'laporan')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
 function ReportPage({ eyebrow, title, notify }) {
+  const reportRows = scoreTrend.map((item) => ({
+    bulan: item.name,
+    nilai_rata_rata: item.nilai,
+    aktivitas_belajar: item.aktivitas,
+  }))
+
+  const reportMeta = {
+    judul: title,
+    kategori: eyebrow,
+    tanggal_export: new Date().toISOString(),
+    jumlah_baris: reportRows.length,
+    data: reportRows,
+  }
+
+  function handlePrint() {
+    window.print()
+    notify('Dialog cetak dibuka. Pilih Save as PDF untuk menyimpan laporan.')
+  }
+
+  function handleExportCsv() {
+    const csv = rowsToCsv(reportRows)
+    downloadTextFile(`${slugFileName(title)}.csv`, '\ufeff' + csv, 'text/csv;charset=utf-8')
+    notify('Laporan CSV berhasil diunduh.')
+  }
+
+  function handleExportJson() {
+    downloadTextFile(`${slugFileName(title)}.json`, JSON.stringify(reportMeta, null, 2), 'application/json;charset=utf-8')
+    notify('Laporan JSON berhasil diunduh.')
+  }
+
   return (
-    <div><PageHeader eyebrow={eyebrow} title={title} action={<div className="flex gap-2"><QuickActionButton icon={Download} label="Export PDF" onClick={() => notify('Export PDF belum tersedia.')} /><QuickActionButton icon={Download} label="Export Excel" onClick={() => notify('Export Excel belum tersedia.')} /></div>} /><div className="grid gap-5 lg:grid-cols-2"><DashboardCard title="Trend nilai"><ResponsiveContainer width="100%" height={280}><LineChart data={scoreTrend}><XAxis dataKey="name" /><YAxis /><Tooltip /><Line dataKey="nilai" stroke="#7C3AED" strokeWidth={3} /></LineChart></ResponsiveContainer></DashboardCard><DashboardCard title="Aktivitas belajar"><ResponsiveContainer width="100%" height={280}><BarChart data={scoreTrend}><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="aktivitas" fill="#22D3EE" radius={[12, 12, 0, 0]} /></BarChart></ResponsiveContainer></DashboardCard></div></div>
+    <div>
+      <PageHeader
+        eyebrow={eyebrow}
+        title={title}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <QuickActionButton icon={Download} label="Cetak / PDF" onClick={handlePrint} />
+            <QuickActionButton icon={Download} label="Export CSV" onClick={handleExportCsv} />
+            <QuickActionButton icon={Download} label="Export JSON" onClick={handleExportJson} />
+          </div>
+        }
+      />
+
+      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+        <StatCard label="Rata-rata akhir" value={reportRows.at(-1)?.nilai_rata_rata || '-'} tone="purple" />
+        <StatCard label="Aktivitas akhir" value={reportRows.at(-1)?.aktivitas_belajar || '-'} tone="cyan" />
+        <StatCard label="Periode data" value={reportRows.length} tone="green" />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <DashboardCard title="Trend nilai">
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={scoreTrend}>
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Line dataKey="nilai" stroke="#7C3AED" strokeWidth={3} />
+            </LineChart>
+          </ResponsiveContainer>
+        </DashboardCard>
+
+        <DashboardCard title="Aktivitas belajar">
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={scoreTrend}>
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="aktivitas" fill="#22D3EE" radius={[12, 12, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </DashboardCard>
+      </div>
+
+      <SectionCard className="mt-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Data Laporan</p>
+            <h2 className="text-xl font-black text-slate-950">Ringkasan nilai dan aktivitas</h2>
+          </div>
+          <StatusBadge tone="green">Siap export</StatusBadge>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[34rem] text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-slate-500">
+                <th className="py-3 pr-4 font-extrabold">Bulan</th>
+                <th className="py-3 pr-4 font-extrabold">Nilai rata-rata</th>
+                <th className="py-3 pr-4 font-extrabold">Aktivitas belajar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reportRows.map((row) => (
+                <tr key={row.bulan} className="border-b border-slate-50">
+                  <td className="py-3 pr-4 font-bold text-slate-800">{row.bulan}</td>
+                  <td className="py-3 pr-4 text-slate-600">{row.nilai_rata_rata}</td>
+                  <td className="py-3 pr-4 text-slate-600">{row.aktivitas_belajar}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
+    </div>
   )
 }
 

@@ -56,7 +56,7 @@ function RouteLoading() {
 function Unauthorized() {
   return (
     <main className="grid min-h-dvh place-items-center bg-galaxy-surface p-4">
-      <EmptyState title="Akses tidak sesuai role" description="Silakan kembali ke dashboard sesuai akun demo yang sedang aktif." />
+      <EmptyState title="Akses tidak sesuai role" description="Silakan kembali ke dashboard sesuai akun yang sedang aktif." />
     </main>
   )
 }
