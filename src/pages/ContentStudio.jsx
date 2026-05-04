@@ -1,3 +1,4 @@
+import { fetchCurriculumOverview } from '../services/curriculumService.js'
 import { useEffect, useMemo, useState } from 'react'
 import {
   Atom,
@@ -243,6 +244,7 @@ const smartTemplates = [
     outputType: 'Materi',
     level: 'Standar',
     duration: '2 JP',
+    learningObjectiveId: '',
     icon: Calculator,
     tone: 'purple',
     summary: 'Template untuk menjelaskan bentuk grafik, titik puncak, sumbu simetri, dan latihan membaca grafik.',
@@ -1609,6 +1611,7 @@ async function publishStudioDraftToSupabase({ target, accessToken, user, form, p
         subject,
         className,
         topic,
+        learningObjectiveId: form.learningObjectiveId || '',
         type: 'Teks',
         status: 'Draft',
       },
@@ -1706,6 +1709,8 @@ export default function ContentStudio({ user: propUser }) {
   const [contentRows, setContentRows] = useState(() => readStorage(CONTENT_KEY, []))
   const [rubricRows, setRubricRows] = useState(() => readStorage(RUBRIC_KEY, []))
   const [deliveryStatus, setDeliveryStatus] = useState(null)
+  const [curriculumData, setCurriculumData] = useState(() => ({ subjects: [], phases: [], elements: [], outcomes: [], objectives: [], flows: [] }))
+  const [curriculumError, setCurriculumError] = useState('')
   const [lookups, setLookups] = useState({ subjects: [], classes: [] })
   const [savingTarget, setSavingTarget] = useState('')
 
@@ -1748,6 +1753,53 @@ export default function ContentStudio({ user: propUser }) {
       active = false
     }
   }, [accessToken])
+
+
+  useEffect(() => {
+    let active = true
+
+    async function loadCurriculum() {
+      if (!accessToken) {
+        setCurriculumData({ subjects: [], phases: [], elements: [], outcomes: [], objectives: [], flows: [] })
+        return
+      }
+
+      try {
+        const overview = await fetchCurriculumOverview({ accessToken })
+        if (active) {
+          setCurriculumData(overview)
+          setCurriculumError('')
+        }
+      } catch (error) {
+        if (active) {
+          setCurriculumError(error.message || 'Bank kurikulum belum tersedia.')
+          setCurriculumData({ subjects: [], phases: [], elements: [], outcomes: [], objectives: [], flows: [] })
+        }
+      }
+    }
+
+    loadCurriculum()
+
+    return () => {
+      active = false
+    }
+  }, [accessToken])
+
+  const selectedLearningObjective = useMemo(() => {
+    return curriculumData.objectives.find((objective) => objective.id === form.learningObjectiveId) || null
+  }, [curriculumData.objectives, form.learningObjectiveId])
+
+  function selectLearningObjective(objectiveId) {
+    const objective = curriculumData.objectives.find((item) => item.id === objectiveId)
+    setForm((current) => ({
+      ...current,
+      learningObjectiveId: objectiveId,
+      subject: objective?.subjectName || current.subject,
+      className: objective?.grade ? String(objective.grade) : current.className,
+      topic: objective?.objective ? objective.objective.slice(0, 70) : current.topic,
+    }))
+    setDeliveryStatus(null)
+  }
 
   function updateForm(field, value) {
     setForm((current) => {
@@ -1831,6 +1883,7 @@ export default function ContentStudio({ user: propUser }) {
         content: contentText,
         subject,
         className,
+        learningObjectiveId: form.learningObjectiveId || '',
         teacher: user?.name || 'Guru',
         topic,
         type: 'Teks',
@@ -1849,6 +1902,7 @@ export default function ContentStudio({ user: propUser }) {
         description: contentText.slice(0, 600),
         subject,
         className,
+        learningObjectiveId: form.learningObjectiveId || '',
         teacher: user?.name || 'Guru',
         deadline: '',
         status: 'Draft',
@@ -1992,6 +2046,14 @@ export default function ContentStudio({ user: propUser }) {
         <StatCard icon={FileQuestion} label="Kuis draft" value={stats.quizzes} caption="Siap dipakai ulang" tone="amber" />
         <StatCard icon={Target} label="Remedial/Pengayaan" value={stats.remedials} caption="Diferensiasi belajar" tone="green" />
       </div>
+
+      <CurriculumPickerPanel
+        curriculumData={curriculumData}
+        curriculumError={curriculumError}
+        selectedLearningObjective={selectedLearningObjective}
+        selectedObjectiveId={form.learningObjectiveId}
+        onSelectObjective={selectLearningObjective}
+      />
 
       <StudioWorkflowGuide activeTab={activeTab} />
 
@@ -2364,6 +2426,79 @@ function AnalyticsPanel({ contentRows, rubricRows, preview }) {
         </div>
       </SectionCard>
     </div>
+  )
+}
+
+
+
+function CurriculumPickerPanel({ curriculumData, curriculumError, selectedLearningObjective, selectedObjectiveId, onSelectObjective }) {
+  const objectives = curriculumData.objectives || []
+  const activeSubjects = (curriculumData.subjects || []).filter((item) => item.is_active !== false)
+
+  return (
+    <SectionCard>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Kurikulum Merdeka</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Hubungkan draft ke CP/TP/ATP.</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+            Pilih tujuan pembelajaran agar materi, soal, kuis, tugas, remedial, pengayaan, dan laporan bisa terbaca sebagai capaian kurikulum.
+          </p>
+        </div>
+        <StatusBadge tone={selectedLearningObjective ? 'green' : 'amber'}>
+          {selectedLearningObjective ? 'TP terhubung' : 'Belum pilih TP'}
+        </StatusBadge>
+      </div>
+
+      {curriculumError && (
+        <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
+          {curriculumError}. Jalankan migration dan seed kurikulum di Supabase jika data belum muncul.
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
+        <label className="grid gap-2 text-sm font-bold text-slate-700">
+          Pilih TP/ATP
+          <select
+            value={selectedObjectiveId || ''}
+            onChange={(event) => onSelectObjective(event.target.value)}
+            className="min-h-12 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"
+          >
+            <option value="">Belum memilih TP</option>
+            {objectives.slice(0, 300).map((objective) => (
+              <option key={objective.id} value={objective.id}>
+                {objective.subjectCode} · K{objective.grade} S{objective.semester} · {objective.code}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+          {selectedLearningObjective ? (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <StatusBadge tone="purple">{selectedLearningObjective.subjectName}</StatusBadge>
+                <StatusBadge tone="cyan">{selectedLearningObjective.phaseName}</StatusBadge>
+                <StatusBadge tone="amber">Kelas {selectedLearningObjective.grade} · S{selectedLearningObjective.semester}</StatusBadge>
+              </div>
+              <p className="mt-3 text-sm font-extrabold text-slate-950">{selectedLearningObjective.code}</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">{selectedLearningObjective.objective}</p>
+              <p className="mt-2 text-xs font-bold text-amber-600">{selectedLearningObjective.verification_status}</p>
+            </>
+          ) : (
+            <>
+              <p className="font-extrabold text-slate-950">Draft belum terhubung ke TP.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                Guru tetap bisa membuat draft, tetapi konten perlu dihubungkan ke TP agar masuk laporan kurikulum dan mastery learning.
+              </p>
+              <p className="mt-3 text-xs font-bold text-slate-400">
+                Mapel aktif tersedia: {activeSubjects.length || 0}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    </SectionCard>
   )
 }
 

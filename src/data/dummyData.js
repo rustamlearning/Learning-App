@@ -112,6 +112,7 @@ export const navItems = {
     { label: 'Data Siswa', path: '/admin/siswa', icon: UsersRound },
     { label: 'Data Kelas', path: '/admin/kelas', icon: School },
     { label: 'Mata Pelajaran', path: '/admin/mapel', icon: BookOpen },
+    { label: 'Kurikulum', path: '/admin/kurikulum', icon: BookOpen },
     { label: 'Pengaturan', path: '/admin/pengaturan', icon: Settings },
     { label: 'Laporan Sekolah', path: '/admin/laporan', icon: LineChart },
     { label: 'Backup', path: '/admin/backup', icon: DatabaseBackup },

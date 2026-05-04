@@ -182,7 +182,7 @@ function groupNavItems(role, items) {
     admin: [
       ['Konsol', ['/dashboard']],
       ['Data Sekolah', ['/guru', '/siswa', '/kelas', '/mapel']],
-      ['Sistem', ['/pengaturan', '/laporan', '/backup']],
+      ['Sistem', ['/kurikulum', '/pengaturan', '/laporan', '/backup']],
     ],
     pimpinan: [
       ['Monitoring', ['/dashboard', '/monitoring-kelas', '/monitoring-guru', '/monitoring-siswa']],

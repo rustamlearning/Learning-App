@@ -62,6 +62,7 @@ import { AIChatPanel, AIGeneratorPanel, BadgeCard, DailyMissionCard, FlashcardDe
 import { fetchMaterialLookups, fetchMaterials, fetchStudentMaterialProgress, markMaterialCompleted, removeMaterial, saveMaterial } from '../services/materialService.js'
 import { fetchQuestions, removeQuestion, saveQuestion } from '../services/questionService.js'
 import { fetchQuizAttempts, fetchQuizQuestions, fetchQuizzes, fetchStudentRecord, removeQuiz, saveQuiz, submitQuizAttempt } from '../services/quizService.js'
+import { fetchCurriculumOverview } from '../services/curriculumService.js'
 import { exportBackupData, fetchAdminStudents, fetchAdminTeachers, fetchClasses, fetchSubjects, removeAdminStudent, removeAdminTeacher, removeClass, removeSubject, saveAdminStudent, saveAdminTeacher, saveClass, saveSubject } from '../services/adminService.js'
 import { fetchAssignments, removeAssignment, saveAssignment } from '../services/assignmentService.js'
 
@@ -131,6 +132,7 @@ function renderAdmin(page, notify, setConfirmOpen, appContext) {
   if (page === 'siswa') return <AdminProfiles role="siswa" title="Data Siswa" notify={notify} appContext={appContext} />
   if (page === 'kelas') return <AdminKelas notify={notify} appContext={appContext} />
   if (page === 'mapel') return <AdminMapel notify={notify} appContext={appContext} />
+  if (page === 'kurikulum') return <CurriculumAdminPage />
   if (page === 'pengaturan') return <Pengaturan notify={notify} />
   if (page === 'laporan') return <LaporanSekolah notify={notify} />
   if (page === 'backup') return <BackupPage notify={notify} setConfirmOpen={setConfirmOpen} appContext={appContext} />
@@ -3026,6 +3028,140 @@ function Pengaturan({ notify }) {
 function LaporanSekolah({ notify }) {
   return <ReportPage eyebrow="Laporan Sekolah" title="Aktivitas, nilai, ujian, dan remedial" notify={notify} />
 }
+
+
+function CurriculumAdminPage() {
+  const { accessToken } = useAuth()
+  const [data, setData] = useState(() => ({
+    subjects: [],
+    phases: [],
+    elements: [],
+    outcomes: [],
+    objectives: [],
+    flows: [],
+  }))
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+
+    async function loadCurriculum() {
+      setLoading(true)
+      setError('')
+
+      try {
+        const overview = await fetchCurriculumOverview({ accessToken })
+        if (active) setData(overview)
+      } catch (loadError) {
+        if (active) {
+          setError(loadError.message || 'Data kurikulum belum tersedia.')
+          setData({ subjects: [], phases: [], elements: [], outcomes: [], objectives: [], flows: [] })
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadCurriculum()
+
+    return () => {
+      active = false
+    }
+  }, [accessToken])
+
+  const activeSubjects = data.subjects.filter((item) => item.is_active !== false)
+  const verifiedOutcomes = data.outcomes.filter((item) => !String(item.verification_status || '').toLowerCase().includes('perlu verifikasi'))
+  const templateObjectives = data.objectives.filter((item) => String(item.verification_status || '').toLowerCase().includes('template'))
+
+  return (
+    <div>
+      <PageHeader
+        eyebrow="Kurikulum Merdeka"
+        title="Bank CP/TP/ATP sekolah"
+        description="Pusat data kurikulum untuk menghubungkan materi, soal, kuis, tugas, remedial, pengayaan, dan laporan ke tujuan pembelajaran."
+      />
+
+      {error && (
+        <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
+          {error}. Jalankan migration dan seed kurikulum di Supabase SQL Editor.
+        </div>
+      )}
+
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          ['Mapel aktif', activeSubjects.length, 'Termasuk Pendidikan Agama Islam saja sebagai mapel agama default'],
+          ['Fase', data.phases.length, 'Fase E dan F'],
+          ['CP', data.outcomes.length, `${verifiedOutcomes.length} terverifikasi`],
+          ['TP template', data.objectives.length, `${templateObjectives.length} template sekolah`],
+        ].map(([label, value, caption]) => (
+          <div key={label} className="rounded-3xl bg-white p-5 shadow-soft ring-1 ring-purple-100">
+            <p className="text-sm font-bold text-slate-500">{label}</p>
+            <p className="mt-2 text-3xl font-black text-slate-950">{loading ? '...' : value}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">{caption}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
+        <SectionCard>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Mata Pelajaran</p>
+              <h2 className="text-xl font-black text-slate-950">Mapel default SMA</h2>
+            </div>
+            <StatusBadge tone="green">Agama Islam default</StatusBadge>
+          </div>
+
+          <div className="grid gap-2">
+            {activeSubjects.slice(0, 24).map((subject) => (
+              <div key={subject.id} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+                <div>
+                  <p className="font-bold text-slate-800">{subject.name}</p>
+                  <p className="text-xs font-semibold text-slate-400">{subject.code} · {subject.group_name}</p>
+                </div>
+                <StatusBadge tone={subject.code === 'PAI' ? 'green' : 'cyan'}>{subject.is_active ? 'Aktif' : 'Nonaktif'}</StatusBadge>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">CP/TP/ATP</p>
+              <h2 className="text-xl font-black text-slate-950">Tujuan pembelajaran awal</h2>
+            </div>
+            <StatusBadge tone="amber">Perlu verifikasi sekolah</StatusBadge>
+          </div>
+
+          <div className="grid gap-3">
+            {data.objectives.slice(0, 12).map((objective) => (
+              <div key={objective.id} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge tone="purple">{objective.subjectCode}</StatusBadge>
+                  <StatusBadge tone="cyan">{objective.phaseName}</StatusBadge>
+                  <StatusBadge tone="amber">Kelas {objective.grade} · S{objective.semester}</StatusBadge>
+                </div>
+                <p className="mt-3 text-sm font-extrabold text-slate-950">{objective.code}</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">{objective.objective}</p>
+                <p className="mt-2 text-xs font-bold text-amber-600">{objective.verification_status}</p>
+              </div>
+            ))}
+
+            {!loading && data.objectives.length === 0 && (
+              <EmptyState
+                title="Bank TP belum tersedia."
+                description="Jalankan migration dan curriculum-seed.sql di Supabase SQL Editor untuk mengisi data awal CP/TP/ATP."
+              />
+            )}
+          </div>
+        </SectionCard>
+      </div>
+    </div>
+  )
+}
+
 
 function BackupPage({ notify, setConfirmOpen, appContext }) {
   const [exporting, setExporting] = useState(false)
