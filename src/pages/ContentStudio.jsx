@@ -1144,12 +1144,13 @@ function isEnglishSubject(subject) {
 function studioLanguageInstruction(form) {
   if (isEnglishSubject(form.subject)) {
     return [
-      'LANGUAGE RULE:',
-      '- Subject is English.',
-      '- Student-facing content MUST be in English.',
-      '- Reading passages, dialogues, examples, questions, answer options, and activities MUST use English.',
-      '- Teacher guidance may include short Indonesian support, but the learning content must remain English.',
-      '- Do not generate Indonesian reading passages unless the task is translation.',
+      'ATURAN KHUSUS MAPEL BAHASA INGGRIS:',
+      '- Gunakan format bilingual pedagogis.',
+      '- Contoh teks, model text, dialogue, vocabulary, sentence examples, questions, answer options, and correct answers MUST be in English.',
+      '- Penjelasan konsep, instruksi bantuan, arahan guru, scaffolding, dan pembahasan jawaban HARUS menggunakan Bahasa Indonesia yang mudah dipahami siswa.',
+      '- Jangan membuat contoh teks Bahasa Inggris dalam Bahasa Indonesia.',
+      '- Jangan membuat soal Bahasa Inggris dalam Bahasa Indonesia.',
+      '- Struktur ideal section: Penjelasan singkat dalam Bahasa Indonesia, lalu Model Text/Examples in English, lalu guided practice dengan arahan Bahasa Indonesia.',
     ].join('\n')
   }
 
@@ -1162,7 +1163,7 @@ function studioLanguageInstruction(form) {
 
 function englishFallbackLesson(form) {
   const topic = form.topic || 'Learning Topic'
-  const subject = form.subject || 'English'
+  const subject = form.subject || 'Bahasa Inggris'
   const className = form.className || 'X'
   const contentType = form.contentType || 'Reading passage'
 
@@ -1174,56 +1175,60 @@ function englishFallbackLesson(form) {
     topic,
     contentType,
     outputType: form.outputType || 'Materi',
-    level: form.level || 'Standard',
+    level: form.level || 'Standar',
     duration: form.duration || '2 JP',
     sections: [
       {
-        title: 'Learning Objectives',
-        body: `By the end of the lesson, students are able to understand the main idea of ${topic}, identify key vocabulary, and use the language feature in a short spoken or written response.`,
+        title: 'Tujuan Pembelajaran',
+        body: `Setelah pembelajaran, siswa diharapkan mampu memahami contoh ${topic} dalam Bahasa Inggris, menemukan ide utama, mengenali kosakata penting, dan membuat respons sederhana dalam Bahasa Inggris.`,
       },
       {
-        title: 'Contextual Reading / Model Text',
-        body: `Read the following short model text about ${topic}. Pay attention to the structure, vocabulary, and expressions used in the text. Students should underline unfamiliar words, discuss their meaning, and explain the main message in their own words.`,
+        title: 'Model Text / Example in English',
+        body: `Read the following example carefully.\n\nLast Sunday, I visited a small island near my village. The weather was bright, and the sea looked very beautiful. I went there with my friends by boat. We walked along the beach, took some pictures, and talked with local fishermen. It was a simple trip, but it was very memorable because I learned how people live close to the sea.`,
       },
       {
-        title: 'Language Focus',
-        body: `Key expressions and vocabulary related to ${topic}: describe, explain, sequence, character, setting, problem, solution, opinion, evidence, and conclusion. Students practise using these words in simple sentences.`,
+        title: 'Penjelasan Konsep',
+        body: `Teks contoh di atas menggunakan Bahasa Inggris sederhana agar siswa dapat memahami isi bacaan secara bertahap. Guru dapat membantu siswa menemukan main idea, supporting details, vocabulary, dan struktur kalimat yang digunakan dalam teks.`,
       },
       {
-        title: 'Student Activity',
-        body: `In pairs, students discuss the text, answer comprehension questions, and create a short response. Each pair presents one idea to the class using simple and clear English.`,
+        title: 'Vocabulary Focus',
+        body: `Important words: visited, island, village, weather, sea, boat, beach, fishermen, memorable, learned.\n\nArahan untuk siswa: cari arti kata-kata tersebut, lalu gunakan minimal tiga kata dalam kalimat Bahasa Inggris sederhana.`,
       },
       {
-        title: 'Assessment / Exit Ticket',
-        body: `Before leaving the class, students write three things: one new word they learned, one sentence using the target language, and one question they still have about ${topic}.`,
+        title: 'Guided Practice',
+        body: `Answer the questions in English.\n1. Where did the writer go last Sunday?\n2. How did the writer go there?\n3. What did the writer do on the beach?\n4. Why was the trip memorable?\n\nPembahasan dapat dilakukan dalam Bahasa Indonesia agar siswa memahami alasan jawabannya.`,
+      },
+      {
+        title: 'Exit Ticket',
+        body: `Write two English sentences about your own experience.\n\nBantuan: siswa boleh menulis dulu ide dalam Bahasa Indonesia, lalu mengubahnya menjadi kalimat Bahasa Inggris sederhana.`,
       },
     ],
-    tools: ['Vocabulary builder', 'Speaking prompt', 'Reading questions', 'Exit ticket'],
+    tools: ['Vocabulary builder', 'Reading questions', 'Guided practice', 'Exit ticket'],
     generatedQuestions: [
       {
         id: `english-question-${Date.now()}-1`,
-        questionText: `What is the main idea of the text about ${topic}?`,
-        options: ['The main topic of the text', 'The writer’s address', 'The number of paragraphs', 'The title font'],
-        correctAnswer: 'The main topic of the text',
-        explanation: 'The main idea tells what the text is mostly about.',
+        questionText: 'Where did the writer go last Sunday?',
+        options: ['A small island', 'A big city', 'A mountain', 'A school library'],
+        correctAnswer: 'A small island',
+        explanation: 'Jawaban benar adalah “A small island” karena teks menyebutkan “I visited a small island near my village.”',
         difficulty: 'Easy',
         type: 'Multiple choice',
       },
       {
         id: `english-question-${Date.now()}-2`,
-        questionText: `Which activity helps students understand vocabulary?`,
-        options: ['Underline unfamiliar words', 'Close the book', 'Skip the text', 'Ignore the title'],
-        correctAnswer: 'Underline unfamiliar words',
-        explanation: 'Underlining unfamiliar words helps students notice and learn new vocabulary.',
+        questionText: 'How did the writer go to the island?',
+        options: ['By boat', 'By train', 'By plane', 'By bicycle'],
+        correctAnswer: 'By boat',
+        explanation: 'Jawaban benar adalah “By boat” karena dalam teks tertulis “I went there with my friends by boat.”',
         difficulty: 'Easy',
         type: 'Multiple choice',
       },
       {
         id: `english-question-${Date.now()}-3`,
-        questionText: `What should students do in the exit ticket?`,
-        options: ['Write a new word and one sentence', 'Leave the class early', 'Delete their notes', 'Copy the teacher’s password'],
-        correctAnswer: 'Write a new word and one sentence',
-        explanation: 'The exit ticket checks what students learned before the lesson ends.',
+        questionText: 'Which word has a similar meaning to “memorable”?',
+        options: ['Unforgettable', 'Dangerous', 'Expensive', 'Difficult'],
+        correctAnswer: 'Unforgettable',
+        explanation: '“Memorable” berarti mudah diingat atau berkesan. Kata yang paling dekat maknanya adalah “unforgettable”.',
         difficulty: 'Medium',
         type: 'Multiple choice',
       },
@@ -1250,8 +1255,9 @@ function buildStudioPrompt(form) {
     `Durasi: ${form.duration}`,
     '',
     'Buat draft pembelajaran yang siap dipakai guru.',
+    'Untuk mapel Bahasa Inggris, pastikan model text, contoh kalimat, dialog, soal, opsi jawaban, dan correct answer berbahasa Inggris.',
+    'Untuk mapel Bahasa Inggris, pastikan penjelasan konsep, pembahasan jawaban, instruksi bantuan, dan arahan belajar menggunakan Bahasa Indonesia.',
     'Sertakan tujuan pembelajaran, ringkasan/model text, aktivitas siswa, latihan/pertanyaan, dan exit ticket.',
-    'Pastikan contoh dan soal sesuai mata pelajaran, bukan contoh generik.',
   ].join('\n')
 }
 
