@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Atom,
   Beaker,
@@ -28,6 +28,12 @@ import {
   StatusBadge,
   Toast,
 } from '../components/ui.jsx'
+
+import { useAuth } from '../context/AuthContext.jsx'
+import { fetchMaterialLookups, saveMaterial } from '../services/materialService.js'
+import { saveQuestion } from '../services/questionService.js'
+import { saveQuiz } from '../services/quizService.js'
+import { saveAssignment } from '../services/assignmentService.js'
 
 const CONTENT_KEY = 'sman6_studio_content_v1'
 const RUBRIC_KEY = 'sman6_studio_rubrics_v1'
@@ -1233,7 +1239,164 @@ async function requestStudioAIDraft(form) {
   return normalizeAILesson(text, form)
 }
 
-export default function ContentStudio({ user }) {
+
+function gradeNumberFromClassName(className) {
+  const value = String(className || '').toUpperCase()
+  if (value.includes('XII')) return 12
+  if (value.includes('XI')) return 11
+  if (value.includes('X')) return 10
+  const number = Number(value.replace(/[^0-9]/g, ''))
+  return Number.isFinite(number) && number > 0 ? number : null
+}
+
+function resolveStudioSubjectId(lookups, subjectName) {
+  const normalized = String(subjectName || '').trim().toLowerCase()
+  if (!normalized) return ''
+  const subject = lookups.subjects.find((item) => (
+    String(item.name || '').trim().toLowerCase() === normalized
+    || String(item.code || '').trim().toLowerCase() === normalized
+  ))
+  return subject?.id || ''
+}
+
+function resolveStudioClassId(lookups, className) {
+  const normalized = String(className || '').replace(/^kelas\s+/i, '').trim().toLowerCase()
+  if (!normalized) return ''
+  const exact = lookups.classes.find((item) => String(item.name || '').trim().toLowerCase() === normalized)
+  if (exact) return exact.id
+
+  const grade = gradeNumberFromClassName(normalized)
+  if (grade) {
+    const gradeMatch = lookups.classes.find((item) => Number(item.grade) === grade)
+    if (gradeMatch) return gradeMatch.id
+  }
+
+  const partial = lookups.classes.find((item) => String(item.name || '').trim().toLowerCase().startsWith(normalized))
+  return partial?.id || ''
+}
+
+function enrichStudioQuestion(question, { subjectId, classId, topic }) {
+  const options = Array.isArray(question.options) && question.options.length > 0
+    ? question.options
+    : ['Benar', 'Salah', 'Perlu diskusi', 'Belum cukup informasi']
+
+  return {
+    questionText: question.questionText || question.prompt || `Pertanyaan tentang ${topic}`,
+    options,
+    correctAnswer: question.correctAnswer || question.answer || options[0],
+    explanation: question.explanation || `Pembahasan terkait ${topic}.`,
+    subjectId,
+    classId,
+    topic,
+    difficulty: question.difficulty || 'Sedang',
+    type: question.type || 'Pilihan ganda',
+  }
+}
+
+async function saveStudioQuestionsToSupabase({ accessToken, teacherId, questions, context }) {
+  const savedQuestions = []
+  for (const question of questions) {
+    const saved = await saveQuestion({
+      accessToken,
+      teacherId,
+      question: enrichStudioQuestion(question, context),
+    })
+    savedQuestions.push(saved)
+  }
+  return savedQuestions
+}
+
+async function publishStudioDraftToSupabase({ target, accessToken, user, form, preview, lookups }) {
+  const subject = form.subject || user?.subject || 'Bahasa Inggris'
+  const className = String(form.className || '').startsWith('Kelas') ? form.className : `Kelas ${form.className || 'umum'}`
+  const topic = preview.topic || form.topic || 'Topik pembelajaran'
+  const contentText = previewToPlainText(preview)
+  const subjectId = resolveStudioSubjectId(lookups, subject)
+  const classId = resolveStudioClassId(lookups, form.className)
+
+  const context = { subjectId, classId, topic }
+
+  if (target === 'materi') {
+    await saveMaterial({
+      accessToken,
+      teacherId: user.id,
+      material: {
+        title: preview.title || `Materi ${topic}`,
+        description: `Draft materi dari Studio Konten untuk topik ${topic}.`,
+        content: contentText,
+        subjectId,
+        classId,
+        subject,
+        className,
+        topic,
+        type: 'Teks',
+        status: 'Draft',
+      },
+    })
+    return
+  }
+
+  if (target === 'tugas') {
+    await saveAssignment({
+      accessToken,
+      teacherId: user.id,
+      assignment: {
+        title: `Tugas ${topic}`,
+        description: contentText.slice(0, 900),
+        subjectId,
+        classId,
+        subject,
+        className,
+        deadline: '',
+        status: 'Draft',
+      },
+    })
+    return
+  }
+
+  if (target === 'bank-soal') {
+    const generatedQuestions = preview.generatedQuestions || makeGeneratedQuestions(preview, form, 5)
+    await saveStudioQuestionsToSupabase({
+      accessToken,
+      teacherId: user.id,
+      questions: generatedQuestions.slice(0, 8),
+      context,
+    })
+    return
+  }
+
+  if (target === 'kuis') {
+    const generatedQuestions = preview.generatedQuestions || makeGeneratedQuestions(preview, form, 5)
+    const savedQuestions = await saveStudioQuestionsToSupabase({
+      accessToken,
+      teacherId: user.id,
+      questions: generatedQuestions.slice(0, 8),
+      context,
+    })
+
+    await saveQuiz({
+      accessToken,
+      teacherId: user.id,
+      quiz: {
+        title: `Kuis ${topic}`,
+        description: contentText.slice(0, 700),
+        subjectId,
+        classId,
+        subject,
+        className,
+        duration: 30,
+        status: 'Draft',
+      },
+      questionIds: savedQuestions.map((question) => question.id),
+    })
+  }
+}
+
+
+export default function ContentStudio({ user: propUser }) {
+  const authContext = useAuth()
+  const user = propUser || authContext.user
+  const accessToken = authContext.accessToken
   const [toast, setToast] = useState('')
   const [activeTab, setActiveTab] = useState('builder')
   const [form, setForm] = useState({
@@ -1262,6 +1425,8 @@ export default function ContentStudio({ user }) {
   const [contentRows, setContentRows] = useState(() => readStorage(CONTENT_KEY, []))
   const [rubricRows, setRubricRows] = useState(() => readStorage(RUBRIC_KEY, []))
   const [deliveryStatus, setDeliveryStatus] = useState(null)
+  const [lookups, setLookups] = useState({ subjects: [], classes: [] })
+  const [savingTarget, setSavingTarget] = useState('')
 
   const template = subjectTemplates[form.subject] || subjectTemplates.Umum
   const availableContentTypes = template.contentTypes
@@ -1274,6 +1439,34 @@ export default function ContentStudio({ user }) {
       remedials: contentRows.filter((item) => ['Remedial', 'Pengayaan'].includes(item.outputType)).length,
     }
   }, [contentRows, rubricRows])
+
+
+  useEffect(() => {
+    let active = true
+
+    async function loadLookups() {
+      if (!accessToken) {
+        setLookups({ subjects: [], classes: [] })
+        return
+      }
+
+      try {
+        const lookupRows = await fetchMaterialLookups({ accessToken })
+        if (active) setLookups(lookupRows)
+      } catch (lookupError) {
+        if (active) {
+          setLookups({ subjects: [], classes: [] })
+          setToast(`Lookup Supabase belum tersedia: ${lookupError.message}`)
+        }
+      }
+    }
+
+    loadLookups()
+
+    return () => {
+      active = false
+    }
+  }, [accessToken])
 
   function updateForm(field, value) {
     setForm((current) => {
@@ -1327,11 +1520,27 @@ export default function ContentStudio({ user }) {
     setToast(info.success)
   }
 
-  function publishToFeature(target) {
+  async function publishToFeature(target) {
     const subject = form.subject || user?.subject || 'Bahasa Inggris'
     const className = `Kelas ${form.className}`
     const topic = preview.topic || form.topic || 'Topik pembelajaran'
     const contentText = previewToPlainText(preview)
+    const supabaseTargets = ['materi', 'tugas', 'bank-soal', 'kuis']
+
+    if (supabaseTargets.includes(target) && accessToken && user?.id) {
+      try {
+        setSavingTarget(target)
+        setToast('Menyimpan draft ke Supabase...')
+        await publishStudioDraftToSupabase({ target, accessToken, user, form, preview, lookups })
+        showDeliverySuccess(target)
+      } catch (publishError) {
+        setToast(`Gagal mengirim ke Supabase: ${publishError.message}`)
+      } finally {
+        setSavingTarget('')
+      }
+      return
+    }
+
 
     if (target === 'materi') {
       appendStorageRows(teacherStorageKey('materials', user, subject), [{
@@ -1501,7 +1710,7 @@ export default function ContentStudio({ user }) {
             generateDraft={generateDraft}
             saveContent={saveContent}
           />
-          <PreviewPanel preview={preview} publishToFeature={publishToFeature} deliveryStatus={deliveryStatus} />
+          <PreviewPanel preview={preview} publishToFeature={publishToFeature} deliveryStatus={deliveryStatus} savingTarget={savingTarget} />
         </div>
       )}
 
@@ -1519,7 +1728,7 @@ export default function ContentStudio({ user }) {
       {activeTab === 'import' && (
         <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
           <ImportPanel form={form} updateForm={updateForm} createFromText={createFromText} createVideoInteractive={createVideoInteractive} />
-          <PreviewPanel preview={preview} publishToFeature={publishToFeature} deliveryStatus={deliveryStatus} />
+          <PreviewPanel preview={preview} publishToFeature={publishToFeature} deliveryStatus={deliveryStatus} savingTarget={savingTarget} />
         </div>
       )}
 
@@ -1618,7 +1827,7 @@ function BuilderPanel({ form, template, availableContentTypes, updateForm, gener
   )
 }
 
-function PreviewPanel({ preview, publishToFeature, deliveryStatus }) {
+function PreviewPanel({ preview, publishToFeature, deliveryStatus, savingTarget }) {
   return (
     <SectionCard>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -1706,7 +1915,8 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus }) {
                 <button
                   key={target.id}
                   onClick={() => publishToFeature(target.id)}
-                  className="group rounded-3xl bg-white p-4 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft hover:ring-purple-200"
+                  disabled={savingTarget === target.id}
+                  className="group rounded-3xl bg-white p-4 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft hover:ring-purple-200 disabled:cursor-wait disabled:opacity-70"
                 >
                   <div className="flex items-start gap-3">
                     <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-2xl bg-galaxy-lavender text-galaxy-purple ring-1 ring-purple-100 group-hover:bg-galaxy-action group-hover:text-white">
@@ -1714,7 +1924,7 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus }) {
                     </span>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-extrabold text-slate-950">{target.label}</p>
+                        <p className="font-extrabold text-slate-950">{savingTarget === target.id ? "Menyimpan..." : target.label}</p>
                         <StatusBadge tone={target.tone}>{target.shortLabel}</StatusBadge>
                       </div>
                       <p className="mt-1 text-sm leading-6 text-slate-500">{target.description}</p>
