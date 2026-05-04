@@ -641,6 +641,157 @@ function buildImportTextDraft(form) {
   }
 }
 
+
+function parseVideoQuestions(text) {
+  const lines = String(text || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  const parsed = lines.map((line, index) => {
+    const parts = line.split('|').map((item) => item.trim())
+    if (parts.length >= 2) {
+      return {
+        id: `video-question-${Date.now()}-${index + 1}`,
+        timestamp: parts[0],
+        question: parts.slice(1).join(' | '),
+      }
+    }
+
+    return {
+      id: `video-question-${Date.now()}-${index + 1}`,
+      timestamp: `0${index + 1}:00`,
+      question: line,
+    }
+  })
+
+  return parsed.length > 0 ? parsed : [
+    {
+      id: `video-question-${Date.now()}-1`,
+      timestamp: '00:30',
+      question: 'Apa konsep awal yang dijelaskan dalam video?',
+    },
+    {
+      id: `video-question-${Date.now()}-2`,
+      timestamp: '03:00',
+      question: 'Contoh apa yang muncul dan bagaimana siswa menjelaskannya kembali?',
+    },
+    {
+      id: `video-question-${Date.now()}-3`,
+      timestamp: '05:00',
+      question: 'Apa kesimpulan penting dari video?',
+    },
+  ]
+}
+
+function buildVideoQuestions(form, parsedQuestions) {
+  const topic = form.topic?.trim() || form.videoTitle?.trim() || 'Video pembelajaran'
+
+  return parsedQuestions.slice(0, 5).map((item, index) => ({
+    id: `video-quiz-${Date.now()}-${index + 1}`,
+    questionText: `${item.timestamp} — ${item.question}`,
+    options: [
+      `Jawaban sesuai isi video tentang ${topic}.`,
+      'Jawaban tidak berkaitan dengan isi video.',
+      'Siswa tidak perlu menonton bagian tersebut.',
+      'Bagian video tersebut tidak memiliki konsep penting.',
+    ],
+    correctAnswer: `Jawaban sesuai isi video tentang ${topic}.`,
+    explanation: `Pertanyaan ini mengarahkan siswa untuk memperhatikan bagian video pada ${item.timestamp}.`,
+    subject: form.subject,
+    className: `Kelas ${form.className}`,
+    topic,
+    difficulty: form.level === 'Menantang' ? 'Sulit' : form.level === 'Mudah' ? 'Mudah' : 'Sedang',
+    type: 'Pilihan ganda',
+    source: 'video-interactive',
+  }))
+}
+
+function buildVideoFlashcard(form) {
+  const topic = form.topic?.trim() || form.videoTitle?.trim() || 'Video pembelajaran'
+  const cards = [
+    ['Konsep utama video', `Tuliskan ide pokok dari video tentang ${topic}.`],
+    ['Contoh dalam video', 'Contoh nyata yang muncul dalam video dan bisa dijelaskan ulang oleh siswa.'],
+    ['Pertanyaan timestamp', 'Pertanyaan yang dijawab siswa pada menit tertentu saat menonton video.'],
+    ['Catatan guru', 'Arahan tambahan agar siswa menonton video secara aktif.'],
+    ['Exit ticket', 'Refleksi singkat setelah siswa selesai menonton video.'],
+  ]
+
+  return {
+    id: `video-flashcard-${Date.now()}`,
+    title: `Flashcard Video ${topic}`,
+    subject: form.subject,
+    className: `Kelas ${form.className}`,
+    topic,
+    count: cards.length,
+    progress: 0,
+    cards: cards.map(([front, back], index) => ({
+      id: `video-card-${Date.now()}-${index + 1}`,
+      front,
+      back,
+    })),
+    source: 'video-interactive',
+  }
+}
+
+function buildVideoInteractiveDraft(form) {
+  const topic = form.topic?.trim() || form.videoTitle?.trim() || 'Video pembelajaran'
+  const videoTitle = form.videoTitle?.trim() || `Video Interaktif: ${topic}`
+  const parsedQuestions = parseVideoQuestions(form.videoTimestamps)
+  const generatedQuestions = buildVideoQuestions(form, parsedQuestions)
+  const generatedFlashcard = buildVideoFlashcard(form)
+
+  return {
+    id: `studio-video-interactive-${Date.now()}`,
+    title: videoTitle,
+    subject: form.subject,
+    className: form.className,
+    topic,
+    contentType: 'Video interaktif',
+    outputType: 'Video Interaktif',
+    level: form.level,
+    duration: form.duration,
+    createdAt: new Date().toISOString(),
+    source: 'video-interactive',
+    videoUrl: form.videoUrl,
+    videoTitle,
+    videoQuestions: parsedQuestions,
+    generatedQuestions,
+    generatedFlashcard,
+    sections: [
+      {
+        title: 'Link video',
+        body: form.videoUrl || 'Link video belum diisi.',
+      },
+      {
+        title: 'Tujuan menonton',
+        body: `Siswa menonton video untuk memahami konsep ${topic}, mencatat poin penting, dan menjawab pertanyaan pada timestamp tertentu.`,
+      },
+      {
+        title: 'Pertanyaan berbasis timestamp',
+        body: parsedQuestions.map((item, index) => `${index + 1}. ${item.timestamp} — ${item.question}`).join('\n'),
+      },
+      {
+        title: 'Catatan guru',
+        body: form.videoNote?.trim() || 'Minta siswa menonton secara aktif, menjeda video pada timestamp pertanyaan, lalu menulis jawaban singkat.',
+      },
+      {
+        title: 'Aktivitas siswa',
+        body: `A. Tonton video.\nB. Jeda pada timestamp yang ditentukan.\nC. Jawab pertanyaan.\nD. Diskusikan jawaban dengan teman.\nE. Tulis kesimpulan tentang ${topic}.`,
+      },
+      {
+        title: '5 soal pilihan ganda',
+        body: generatedQuestions.map((question, index) => `${index + 1}. ${question.questionText}\nJawaban: ${question.correctAnswer}`).join('\n\n'),
+      },
+      {
+        title: 'Exit ticket',
+        body: `Setelah menonton video, tuliskan 1 hal baru yang dipahami, 1 bagian yang masih membingungkan, dan 1 contoh penerapan ${topic}.`,
+      },
+    ],
+    tools: ['Video Question Builder', 'Timestamp Prompt', 'Quiz Maker', 'Flashcard Maker', 'Exit Ticket'],
+  }
+}
+
 function buildFallbackLesson(form) {
   const template = subjectTemplates[form.subject] || subjectTemplates.Umum
   const topic = form.topic?.trim() || template.sampleTopic
@@ -884,6 +1035,9 @@ export default function ContentStudio({ user }) {
     duration: '2 JP',
     sourceText: '',
     videoUrl: '',
+    videoTitle: '',
+    videoTimestamps: '00:30 | Apa konsep awal yang disampaikan?\n03:00 | Contoh apa yang muncul dalam video?\n05:00 | Apa kesimpulan penting dari video?',
+    videoNote: '',
   })
   const [preview, setPreview] = useState(() => buildFallbackLesson({
     subject: 'Bahasa Inggris',
@@ -1072,39 +1226,15 @@ export default function ContentStudio({ user }) {
   }
 
   function createVideoInteractive() {
-    const draft = {
-      ...buildFallbackLesson(form),
-      id: `studio-video-${Date.now()}`,
-      title: `Video interaktif: ${form.topic || 'Topik video'}`,
-      outputType: 'Video Interaktif',
-      videoUrl: form.videoUrl,
-      sections: [
-        { title: 'Link video', body: form.videoUrl || 'Tempel link video pembelajaran di sini.' },
-        { title: 'Pertanyaan menit awal', body: 'Apa konsep utama yang dikenalkan pada awal video?' },
-        { title: 'Pertanyaan tengah video', body: 'Contoh apa yang muncul dan bagaimana siswa menjelaskannya kembali?' },
-        { title: 'Exit ticket', body: 'Tulis 2 hal yang dipahami dan 1 pertanyaan setelah menonton video.' },
-      ],
+    if (!form.videoUrl.trim()) {
+      setToast('Tempel link video terlebih dahulu.')
+      return
     }
 
+    const draft = buildVideoInteractiveDraft(form)
     setPreview(draft)
-    setToast('Draft video interaktif dibuat.')
-  }
-  function useSmartTemplate(template) {
-    const nextForm = {
-      ...form,
-      subject: template.subject,
-      topic: template.topic,
-      contentType: template.contentType,
-      outputType: template.outputType,
-      level: template.level,
-      duration: template.duration,
-    }
-
-    setForm(nextForm)
-    setPreview(buildSmartTemplateDraft(template, nextForm))
     setDeliveryStatus(null)
-    setActiveTab('builder')
-    setToast(`Template ${template.title} siap diedit.`)
+    setToast('Video interaktif berhasil dibuat dengan pertanyaan timestamp, soal, flashcard, dan exit ticket.')
   }
 
   return (
@@ -2052,22 +2182,70 @@ function ImportPanel({ form, updateForm, createFromText, createVideoInteractive 
       </button>
 
       <div className="mt-7 border-t border-purple-100 pt-5">
-        <h3 className="text-lg font-black text-slate-950">Video interaktif</h3>
-        <p className="mt-1 text-sm leading-6 text-slate-500">
-          Tambahkan link video untuk membuat pertanyaan awal, tengah, akhir, dan exit ticket.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-black text-slate-950">Video Interaktif Builder</h3>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+              Tempel link video, tambahkan pertanyaan timestamp, lalu ubah menjadi aktivitas menonton aktif, soal, flashcard, dan exit ticket.
+            </p>
+          </div>
+          <StatusBadge tone="cyan">Tahap 8</StatusBadge>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            Judul video
+            <input
+              value={form.videoTitle}
+              onChange={(event) => updateForm('videoTitle', event.target.value)}
+              placeholder="Contoh: Video Hukum Newton"
+              className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300"
+            />
+          </label>
+
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            Link video
+            <input
+              value={form.videoUrl}
+              onChange={(event) => updateForm('videoUrl', event.target.value)}
+              placeholder="https://youtube.com/..."
+              className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300"
+            />
+          </label>
+        </div>
 
         <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
-          Link video
-          <input
-            value={form.videoUrl}
-            onChange={(event) => updateForm('videoUrl', event.target.value)}
-            placeholder="https://youtube.com/..."
+          Pertanyaan timestamp
+          <textarea
+            value={form.videoTimestamps}
+            onChange={(event) => updateForm('videoTimestamps', event.target.value)}
+            rows={5}
+            placeholder="00:30 | Apa konsep awal yang disampaikan?"
             className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300"
           />
         </label>
 
-        <button onClick={createVideoInteractive} className="mt-3 inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-50 px-5 py-3 text-sm font-extrabold text-cyan-700">
+        <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
+          Catatan guru
+          <textarea
+            value={form.videoNote}
+            onChange={(event) => updateForm('videoNote', event.target.value)}
+            rows={3}
+            placeholder="Contoh: Minta siswa menjeda video pada setiap timestamp dan menulis jawaban singkat."
+            className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300"
+          />
+        </label>
+
+        <div className="mt-4 rounded-3xl bg-gradient-to-br from-cyan-50 to-violet-50 p-4 ring-1 ring-cyan-100">
+          <p className="text-sm font-extrabold text-slate-950">Output Video Builder</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {['Aktivitas menonton', 'Timestamp Q&A', '5 Soal PG', 'Flashcard', 'Catatan guru', 'Exit ticket'].map((item) => (
+              <StatusBadge key={item} tone="cyan">{item}</StatusBadge>
+            ))}
+          </div>
+        </div>
+
+        <button onClick={createVideoInteractive} className="mt-4 inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-50 px-5 py-3 text-sm font-extrabold text-cyan-700">
           <PlayCircle size={16} />
           Buat video interaktif
         </button>
