@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Award,
@@ -64,7 +64,8 @@ import { fetchQuestions, removeQuestion, saveQuestion } from '../services/questi
 import { fetchQuizAttempts, fetchQuizQuestions, fetchQuizzes, fetchStudentRecord, removeQuiz, saveQuiz, submitQuizAttempt } from '../services/quizService.js'
 import { exportBackupData, fetchAdminStudents, fetchAdminTeachers, fetchClasses, fetchSubjects, removeAdminStudent, removeAdminTeacher, removeClass, removeSubject, saveAdminStudent, saveAdminTeacher, saveClass, saveSubject } from '../services/adminService.js'
 import { fetchAssignments, removeAssignment, saveAssignment } from '../services/assignmentService.js'
-import ContentStudio from './ContentStudio.jsx'
+
+const ContentStudio = lazy(() => import('./ContentStudio.jsx'))
 
 export default function RolePage({ role, page }) {
   const { user, accessToken, supabaseEnabled } = useAuth()
@@ -110,7 +111,13 @@ function renderGuru(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'bank-soal') return <BankSoal user={user} notify={notify} appContext={appContext} />
   if (page === 'tugas') return <GuruTugas user={user} notify={notify} appContext={appContext} />
   if (page === 'kuis-live') return <KuisLive user={user} notify={notify} appContext={appContext} />
-  if (page === 'studio-konten') return <ContentStudio user={user} notify={notify} />
+  if (page === 'studio-konten') {
+    return (
+      <Suspense fallback={<div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm font-bold text-slate-500 shadow-soft">Memuat Studio Konten...</div>}>
+        <ContentStudio user={user} notify={notify} />
+      </Suspense>
+    )
+  }
   if (page === 'analisis-nilai') return <AnalisisNilai />
   if (page === 'remedial') return <RemedialPage notify={notify} />
   if (page === 'ai-generator') return <AIGeneratorPage />

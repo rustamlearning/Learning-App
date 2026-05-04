@@ -1,8 +1,10 @@
+import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import Landing from './pages/Landing.jsx'
-import Login from './pages/Login.jsx'
-import RolePage from './pages/RolePage.jsx'
-import AppLayout from './layouts/AppLayout.jsx'
+
+const Landing = lazy(() => import('./pages/Landing.jsx'))
+const Login = lazy(() => import('./pages/Login.jsx'))
+const RolePage = lazy(() => import('./pages/RolePage.jsx'))
+const AppLayout = lazy(() => import('./layouts/AppLayout.jsx'))
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
 import RoleBasedRoute from './routes/RoleBasedRoute.jsx'
 import { roleHome } from './data/dummyData.js'
@@ -18,7 +20,8 @@ const rolePages = {
 
 export default function App() {
   return (
-    <Routes>
+    <Suspense fallback={<RouteLoading />}>
+      <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
@@ -34,8 +37,19 @@ export default function App() {
           </Route>
         ))}
       </Route>
-      <Route path="*" element={<FallbackRedirect />} />
-    </Routes>
+        <Route path="*" element={<FallbackRedirect />} />
+      </Routes>
+    </Suspense>
+  )
+}
+
+function RouteLoading() {
+  return (
+    <main className="grid min-h-dvh place-items-center bg-galaxy-surface p-4">
+      <div className="rounded-3xl border border-slate-200 bg-white px-6 py-4 text-sm font-bold text-slate-500 shadow-soft">
+        Memuat halaman...
+      </div>
+    </main>
   )
 }
 
