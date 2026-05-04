@@ -100,6 +100,7 @@ export const navItems = {
     { label: 'Bank Soal', path: '/guru/bank-soal', icon: FileQuestion },
     { label: 'Tugas', path: '/guru/tugas', icon: NotebookTabs },
     { label: 'Kuis Live', path: '/guru/kuis-live', icon: FlaskConical },
+    { label: 'Studio Konten', path: '/guru/studio-konten', icon: Sparkles },
     { label: 'Analisis Nilai', path: '/guru/analisis-nilai', icon: BarChart3 },
     { label: 'Remedial', path: '/guru/remedial', icon: Brain },
     { label: 'AI Generator', path: '/guru/ai-generator', icon: Sparkles },

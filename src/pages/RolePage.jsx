@@ -64,6 +64,7 @@ import { fetchQuestions, removeQuestion, saveQuestion } from '../services/questi
 import { fetchQuizAttempts, fetchQuizQuestions, fetchQuizzes, fetchStudentRecord, removeQuiz, saveQuiz, submitQuizAttempt } from '../services/quizService.js'
 import { exportBackupData, fetchAdminStudents, fetchAdminTeachers, fetchClasses, fetchSubjects, removeAdminStudent, removeAdminTeacher, removeClass, removeSubject, saveAdminStudent, saveAdminTeacher, saveClass, saveSubject } from '../services/adminService.js'
 import { fetchAssignments, removeAssignment, saveAssignment } from '../services/assignmentService.js'
+import ContentStudio from './ContentStudio.jsx'
 
 export default function RolePage({ role, page }) {
   const { user, accessToken, supabaseEnabled } = useAuth()
@@ -109,6 +110,7 @@ function renderGuru(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'bank-soal') return <BankSoal user={user} notify={notify} appContext={appContext} />
   if (page === 'tugas') return <GuruTugas user={user} notify={notify} appContext={appContext} />
   if (page === 'kuis-live') return <KuisLive user={user} notify={notify} appContext={appContext} />
+  if (page === 'studio-konten') return <ContentStudio />
   if (page === 'analisis-nilai') return <AnalisisNilai />
   if (page === 'remedial') return <RemedialPage notify={notify} />
   if (page === 'ai-generator') return <AIGeneratorPage />
@@ -1072,6 +1074,7 @@ function GuruDashboard({ notify }) {
     ['Buat Soal', FileQuestion, '/guru/bank-soal'],
     ['Buat Tugas', ClipboardList, '/guru/tugas'],
     ['Kuis Live', PlayCircle, '/guru/kuis-live'],
+    ['Studio Konten', Sparkles, '/guru/studio-konten'],
     ['AI Generator', Sparkles, '/guru/ai-generator'],
   ]
 

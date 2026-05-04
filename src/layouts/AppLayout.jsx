@@ -176,7 +176,7 @@ function groupNavItems(role, items) {
     ],
     guru: [
       ['Mengajar', ['/dashboard', '/kelas', '/materi', '/bank-soal', '/tugas', '/kuis-live']],
-      ['Evaluasi', ['/analisis-nilai', '/remedial', '/ai-generator']],
+      ['Evaluasi', ['/studio-konten', '/analisis-nilai', '/remedial', '/ai-generator']],
       ['Laporan', ['/laporan']],
     ],
     admin: [
