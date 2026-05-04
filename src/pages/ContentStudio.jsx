@@ -134,6 +134,98 @@ const stemResources = [
   },
 ]
 
+
+const featureTargets = [
+  {
+    id: 'materi',
+    label: 'Simpan sebagai Materi',
+    shortLabel: 'Materi',
+    description: 'Kirim draft ke halaman Materi Guru. Setelah itu guru bisa edit dan Publish ke siswa.',
+    success: 'Draft berhasil dikirim ke Materi Guru.',
+    nextStep: 'Buka halaman Materi, cek konten, lalu klik Publish agar muncul di siswa.',
+    path: '/guru/materi',
+    tone: 'cyan',
+    icon: BookOpen,
+  },
+  {
+    id: 'tugas',
+    label: 'Buat Tugas',
+    shortLabel: 'Tugas',
+    description: 'Ubah draft menjadi tugas kelas dengan instruksi awal yang siap diedit.',
+    success: 'Draft berhasil dikirim ke Tugas Guru.',
+    nextStep: 'Buka halaman Tugas, lengkapi deadline, lalu aktifkan tugas.',
+    path: '/guru/tugas',
+    tone: 'amber',
+    icon: ClipboardList,
+  },
+  {
+    id: 'bank-soal',
+    label: 'Kirim ke Bank Soal',
+    shortLabel: 'Bank Soal',
+    description: 'Buat beberapa soal pilihan ganda dari draft dan simpan ke bank soal lokal.',
+    success: '5 soal berhasil dikirim ke Bank Soal.',
+    nextStep: 'Buka Bank Soal untuk mengecek, mengedit, atau memakai soal di kuis.',
+    path: '/guru/bank-soal',
+    tone: 'purple',
+    icon: FileQuestion,
+  },
+  {
+    id: 'kuis',
+    label: 'Buat Kuis Live',
+    shortLabel: 'Kuis Live',
+    description: 'Buat kuis baru sekaligus soal-soalnya, lalu simpan ke Kuis Live.',
+    success: 'Draft kuis berhasil dikirim ke Kuis Live dan Bank Soal.',
+    nextStep: 'Buka Kuis Live, cek soal, lalu klik Publish agar bisa dikerjakan siswa.',
+    path: '/guru/kuis-live',
+    tone: 'green',
+    icon: PlayCircle,
+  },
+  {
+    id: 'flashcard',
+    label: 'Buat Flashcard',
+    shortLabel: 'Flashcard',
+    description: 'Ubah topik menjadi kartu konsep singkat untuk review cepat siswa.',
+    success: 'Flashcard berhasil disimpan ke arsip flashcard Studio Konten.',
+    nextStep: 'Buka halaman siswa Flashcard untuk melihat deck yang tersimpan.',
+    path: '/siswa/flashcard',
+    tone: 'cyan',
+    icon: Layers3,
+  },
+  {
+    id: 'rubrik',
+    label: 'Buat Rubrik',
+    shortLabel: 'Rubrik',
+    description: 'Buat rubrik penilaian proyek, speaking, writing, presentasi, atau LKPD.',
+    success: 'Rubrik tersimpan di arsip lokal.',
+    nextStep: 'Buka tab Arsip Lokal untuk melihat rubrik yang sudah dibuat.',
+    path: '/guru/studio-konten',
+    tone: 'purple',
+    icon: ClipboardList,
+  },
+  {
+    id: 'remedial',
+    label: 'Buat Remedial',
+    shortLabel: 'Remedial',
+    description: 'Buat paket belajar ulang untuk siswa yang belum tuntas.',
+    success: 'Remedial tersimpan di arsip Studio Konten.',
+    nextStep: 'Buka halaman siswa Flashcard untuk melihat paket remedial.',
+    path: '/siswa/flashcard',
+    tone: 'amber',
+    icon: Target,
+  },
+  {
+    id: 'pengayaan',
+    label: 'Buat Pengayaan',
+    shortLabel: 'Pengayaan',
+    description: 'Buat tantangan lanjutan untuk siswa yang sudah memahami materi.',
+    success: 'Pengayaan tersimpan di arsip Studio Konten.',
+    nextStep: 'Buka halaman siswa Flashcard untuk melihat paket pengayaan.',
+    path: '/siswa/flashcard',
+    tone: 'green',
+    icon: Sparkles,
+  },
+]
+
 function readStorage(key, fallback = []) {
   try {
     return JSON.parse(localStorage.getItem(key)) || fallback
@@ -480,6 +572,7 @@ export default function ContentStudio({ user }) {
   }))
   const [contentRows, setContentRows] = useState(() => readStorage(CONTENT_KEY, []))
   const [rubricRows, setRubricRows] = useState(() => readStorage(RUBRIC_KEY, []))
+  const [deliveryStatus, setDeliveryStatus] = useState(null)
 
   const template = subjectTemplates[form.subject] || subjectTemplates.Umum
   const availableContentTypes = template.contentTypes
@@ -534,6 +627,17 @@ export default function ContentStudio({ user }) {
     setToast('Rubrik tersimpan di arsip lokal.')
   }
 
+  function showDeliverySuccess(target) {
+    const info = featureTargets.find((item) => item.id === target)
+    if (!info) return
+
+    setDeliveryStatus({
+      ...info,
+      time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+    })
+    setToast(info.success)
+  }
+
   function publishToFeature(target) {
     const subject = form.subject || user?.subject || 'Bahasa Inggris'
     const className = `Kelas ${form.className}`
@@ -555,7 +659,7 @@ export default function ContentStudio({ user }) {
         progress: 0,
         source: 'local',
       }])
-      setToast('Draft berhasil dikirim ke Materi Guru.')
+      showDeliverySuccess('materi')
       return
     }
 
@@ -571,14 +675,14 @@ export default function ContentStudio({ user }) {
         status: 'Draft',
         source: 'local',
       }])
-      setToast('Draft berhasil dikirim ke Tugas Guru.')
+      showDeliverySuccess('tugas')
       return
     }
 
     if (target === 'bank-soal') {
       const generatedQuestions = makeGeneratedQuestions(preview, form, 5)
       appendStorageRows(teacherStorageKey('questions', user, subject), generatedQuestions)
-      setToast('5 soal berhasil dikirim ke Bank Soal.')
+      showDeliverySuccess('bank-soal')
       return
     }
 
@@ -599,14 +703,14 @@ export default function ContentStudio({ user }) {
         questionIds: generatedQuestions.map((item) => item.id),
         questionCount: generatedQuestions.length,
       }])
-      setToast('Draft kuis berhasil dikirim ke Kuis Live dan Bank Soal.')
+      showDeliverySuccess('kuis')
       return
     }
 
     if (target === 'flashcard') {
       const flashcard = makeFlashcards(preview, form)
       appendStorageRows(FLASHCARD_KEY, [flashcard])
-      setToast('Flashcard berhasil disimpan ke arsip flashcard Studio Konten.')
+      showDeliverySuccess('flashcard')
       return
     }
 
@@ -627,7 +731,7 @@ export default function ContentStudio({ user }) {
       const nextRows = [item, ...contentRows]
       setContentRows(nextRows)
       writeStorage(CONTENT_KEY, nextRows)
-      setToast(`${item.outputType} tersimpan di arsip Studio Konten.`)
+      showDeliverySuccess(target)
     }
   }
 
@@ -723,7 +827,7 @@ export default function ContentStudio({ user }) {
             generateDraft={generateDraft}
             saveContent={saveContent}
           />
-          <PreviewPanel preview={preview} publishToFeature={publishToFeature} />
+          <PreviewPanel preview={preview} publishToFeature={publishToFeature} deliveryStatus={deliveryStatus} />
         </div>
       )}
 
@@ -741,7 +845,7 @@ export default function ContentStudio({ user }) {
       {activeTab === 'import' && (
         <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
           <ImportPanel form={form} updateForm={updateForm} createFromText={createFromText} createVideoInteractive={createVideoInteractive} />
-          <PreviewPanel preview={preview} publishToFeature={publishToFeature} />
+          <PreviewPanel preview={preview} publishToFeature={publishToFeature} deliveryStatus={deliveryStatus} />
         </div>
       )}
 
@@ -796,7 +900,7 @@ function BuilderPanel({ form, template, availableContentTypes, updateForm, gener
   )
 }
 
-function PreviewPanel({ preview, publishToFeature }) {
+function PreviewPanel({ preview, publishToFeature, deliveryStatus }) {
   return (
     <SectionCard>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -832,30 +936,63 @@ function PreviewPanel({ preview, publishToFeature }) {
       )}
 
       {publishToFeature && (
-        <div className="mt-5 rounded-3xl bg-gradient-to-r from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
-          <p className="text-sm font-extrabold text-slate-950">Kirim draft ke fitur aplikasi</p>
-          <p className="mt-1 text-sm leading-6 text-slate-600">
-            Gunakan tombol ini agar hasil Studio Konten langsung masuk ke fitur guru yang sudah ada.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {[
-              ['materi', 'Materi'],
-              ['tugas', 'Tugas'],
-              ['bank-soal', 'Bank Soal'],
-              ['kuis', 'Kuis Live'],
-              ['flashcard', 'Flashcard'],
-              ['rubrik', 'Rubrik'],
-              ['remedial', 'Remedial'],
-              ['pengayaan', 'Pengayaan'],
-            ].map(([target, label]) => (
-              <button
-                key={target}
-                onClick={() => publishToFeature(target)}
-                className="rounded-2xl bg-white px-4 py-3 text-sm font-extrabold text-galaxy-purple ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:bg-galaxy-lavender"
-              >
-                {label}
-              </button>
-            ))}
+        <div className="mt-5 rounded-[1.75rem] bg-gradient-to-br from-violet-50 via-white to-cyan-50 p-4 ring-1 ring-violet-100">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Kirim ke Fitur Aplikasi</p>
+              <h3 className="mt-1 text-xl font-black text-slate-950">Pilih tujuan draft ini.</h3>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                Guru bisa membuat satu draft lalu mengirimnya ke materi, tugas, bank soal, kuis, flashcard, rubrik, remedial, atau pengayaan.
+              </p>
+            </div>
+            <StatusBadge tone="green">Workflow Guru</StatusBadge>
+          </div>
+
+          {deliveryStatus && (
+            <div className="mt-4 rounded-3xl bg-white p-4 shadow-soft ring-1 ring-emerald-100">
+              <div className="flex gap-3">
+                <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+                  <CheckCircle2 size={19} />
+                </span>
+                <div>
+                  <p className="font-extrabold text-slate-950">{deliveryStatus.success}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">{deliveryStatus.nextStep}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <StatusBadge tone={deliveryStatus.tone}>{deliveryStatus.shortLabel}</StatusBadge>
+                    <span className="text-xs font-bold text-slate-400">Dikirim pukul {deliveryStatus.time}</span>
+                    <a href={deliveryStatus.path} className="rounded-2xl bg-galaxy-action px-4 py-2 text-xs font-extrabold text-white">
+                      Buka halaman
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {featureTargets.map((target) => {
+              const Icon = target.icon
+              return (
+                <button
+                  key={target.id}
+                  onClick={() => publishToFeature(target.id)}
+                  className="group rounded-3xl bg-white p-4 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft hover:ring-purple-200"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-2xl bg-galaxy-lavender text-galaxy-purple ring-1 ring-purple-100 group-hover:bg-galaxy-action group-hover:text-white">
+                      <Icon size={19} />
+                    </span>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-extrabold text-slate-950">{target.label}</p>
+                        <StatusBadge tone={target.tone}>{target.shortLabel}</StatusBadge>
+                      </div>
+                      <p className="mt-1 text-sm leading-6 text-slate-500">{target.description}</p>
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
