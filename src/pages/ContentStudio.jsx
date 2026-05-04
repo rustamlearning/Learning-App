@@ -19,6 +19,7 @@ import {
   Save,
   Sparkles,
   Target,
+  Trash2,
   Wand2,
 } from 'lucide-react'
 import {
@@ -498,6 +499,7 @@ function makeGeneratedQuestions(preview, form, total = 5) {
     topic,
     difficulty: form.level === 'Menantang' ? 'Sulit' : form.level === 'Mudah' ? 'Mudah' : 'Sedang',
     type: 'Pilihan ganda',
+    learningObjectiveId: form.learningObjectiveId || '',
     source: 'local',
   }))
 }
@@ -601,6 +603,7 @@ function buildQuestionsFromText(text, topic, form) {
       topic,
       difficulty: form.level === 'Menantang' ? 'Sulit' : form.level === 'Mudah' ? 'Mudah' : 'Sedang',
       type: 'Pilihan ganda',
+      learningObjectiveId: form.learningObjectiveId || '',
       source: 'import-text',
     }
   })
@@ -652,6 +655,7 @@ function buildImportTextDraft(form) {
     outputType: form.outputType || 'Materi',
     level: form.level,
     duration: form.duration,
+    learningObjectiveId: form.learningObjectiveId || '',
     createdAt: new Date().toISOString(),
     source: 'import-text',
     importedText: text,
@@ -745,6 +749,7 @@ function buildVideoQuestions(form, parsedQuestions) {
     topic,
     difficulty: form.level === 'Menantang' ? 'Sulit' : form.level === 'Mudah' ? 'Mudah' : 'Sedang',
     type: 'Pilihan ganda',
+    learningObjectiveId: form.learningObjectiveId || '',
     source: 'video-interactive',
   }))
 }
@@ -793,6 +798,7 @@ function buildVideoInteractiveDraft(form) {
     outputType: 'Video Interaktif',
     level: form.level,
     duration: form.duration,
+    learningObjectiveId: form.learningObjectiveId || '',
     createdAt: new Date().toISOString(),
     source: 'video-interactive',
     videoUrl: form.videoUrl,
@@ -876,6 +882,7 @@ function getTeacherAnalyticsSnapshot(contentRows, rubricRows) {
     ...contentRows,
     ...materials.map((item) => ({ ...item, outputType: 'Materi' })),
     ...assignments.map((item) => ({ ...item, outputType: 'Tugas' })),
+    ...questions.map((item) => ({ ...item, title: item.title || item.questionText, outputType: 'Bank Soal' })),
     ...quizzes.map((item) => ({ ...item, outputType: 'Kuis Live' })),
     ...flashcards.map((item) => ({ ...item, outputType: 'Flashcard' })),
     ...rubricRows.map((item) => ({ ...item, outputType: 'Rubrik' })),
@@ -889,6 +896,8 @@ function getTeacherAnalyticsSnapshot(contentRows, rubricRows) {
     .sort((a, b) => String(b.createdAt || b.id || '').localeCompare(String(a.createdAt || a.id || '')))
     .slice(0, 8)
 
+  const objectiveLinked = allContent.filter((item) => item.learningObjectiveId || item.learning_objective_id).length
+  const objectiveCoverage = allContent.length ? Math.round((objectiveLinked / allContent.length) * 100) : 0
   const recommendations = []
 
   if (materials.length < 3) {
@@ -939,6 +948,14 @@ function getTeacherAnalyticsSnapshot(contentRows, rubricRows) {
     })
   }
 
+  if (allContent.length > 0 && objectiveCoverage < 80) {
+    recommendations.push({
+      title: 'Hubungkan konten ke TP/ATP',
+      description: 'Sebagian konten lokal belum terhubung TP. Pilih TP saat membuat draft baru atau edit konten lama dari halaman guru.',
+      tone: 'purple',
+    })
+  }
+
   return {
     totals: {
       content: contentRows.length,
@@ -949,6 +966,8 @@ function getTeacherAnalyticsSnapshot(contentRows, rubricRows) {
       flashcards: flashcards.length,
       rubrics: rubricRows.length,
       all: allContent.length,
+      objectiveLinked,
+      objectiveCoverage,
     },
     subjectCounts,
     typeCounts,
@@ -1064,7 +1083,17 @@ function buildFallbackLesson(form) {
 
 
 function buildSmartTemplateDraft(template, form) {
-  return {
+  const nextForm = {
+    ...form,
+    subject: template.subject,
+    topic: template.topic,
+    contentType: template.contentType,
+    outputType: template.outputType,
+    level: template.level,
+    duration: template.duration,
+  }
+
+  const draft = {
     id: `studio-smart-template-${Date.now()}`,
     title: template.title,
     subject: template.subject,
@@ -1074,10 +1103,17 @@ function buildSmartTemplateDraft(template, form) {
     outputType: template.outputType,
     level: template.level,
     duration: template.duration,
+    learningObjectiveId: form.learningObjectiveId || template.learningObjectiveId || '',
     createdAt: new Date().toISOString(),
     source: 'smart-template',
     sections: template.sections.map(([title, body]) => ({ title, body })),
     tools: template.tools,
+  }
+
+  return {
+    ...draft,
+    generatedQuestions: makeGeneratedQuestions(draft, nextForm, 5),
+    generatedFlashcard: makeFlashcards(draft, nextForm),
   }
 }
 
@@ -1754,18 +1790,20 @@ export default function ContentStudio({ user: propUser }) {
   const [curriculumError, setCurriculumError] = useState('')
   const [lookups, setLookups] = useState({ subjects: [], classes: [] })
   const [savingTarget, setSavingTarget] = useState('')
+  const [analyticsTick, setAnalyticsTick] = useState(0)
 
   const template = subjectTemplates[form.subject] || subjectTemplates.Umum
   const availableContentTypes = template.contentTypes
+  const analyticsSnapshot = useMemo(() => getTeacherAnalyticsSnapshot(contentRows, rubricRows), [analyticsTick, contentRows, rubricRows])
 
   const stats = useMemo(() => {
     return {
-      content: contentRows.length,
-      rubrics: rubricRows.length,
-      quizzes: contentRows.filter((item) => item.outputType === 'Kuis').length,
+      content: analyticsSnapshot.totals.all,
+      rubrics: analyticsSnapshot.totals.rubrics,
+      quizzes: analyticsSnapshot.totals.quizzes,
       remedials: contentRows.filter((item) => ['Remedial', 'Pengayaan'].includes(item.outputType)).length,
     }
-  }, [contentRows, rubricRows])
+  }, [analyticsSnapshot, contentRows])
 
 
   useEffect(() => {
@@ -1880,7 +1918,41 @@ export default function ContentStudio({ user: propUser }) {
     const nextRows = [rubric, ...rubricRows]
     setRubricRows(nextRows)
     writeStorage(RUBRIC_KEY, nextRows)
+    setPreview({
+      ...rubric,
+      topic: form.topic,
+      contentType: 'Rubrik penilaian',
+      outputType: 'Rubrik',
+      level: form.level,
+      duration: form.duration,
+      learningObjectiveId: form.learningObjectiveId || '',
+      sections: rubric.criteria.map((criterion) => ({
+        title: criterion.aspect,
+        body: Object.entries(criterion.levels).reverse().map(([score, text]) => `Skor ${score}: ${text}`).join('\n'),
+      })),
+      tools: ['Rubric Builder', 'Assessment of learning', 'Feedback guru'],
+    })
+    setAnalyticsTick((current) => current + 1)
     setToast('Rubrik tersimpan di arsip lokal.')
+  }
+
+  function clearArchive(kind) {
+    if (typeof window !== 'undefined' && !window.confirm('Kosongkan arsip lokal ini di perangkat?')) return
+
+    if (kind === 'content') {
+      setContentRows([])
+      writeStorage(CONTENT_KEY, [])
+      setAnalyticsTick((current) => current + 1)
+      setToast('Arsip konten lokal dikosongkan.')
+      return
+    }
+
+    if (kind === 'rubric') {
+      setRubricRows([])
+      writeStorage(RUBRIC_KEY, [])
+      setAnalyticsTick((current) => current + 1)
+      setToast('Arsip rubrik lokal dikosongkan.')
+    }
   }
 
   function showDeliverySuccess(target) {
@@ -1932,6 +2004,7 @@ export default function ContentStudio({ user: propUser }) {
         progress: 0,
         source: 'local',
       }])
+      setAnalyticsTick((current) => current + 1)
       showDeliverySuccess('materi')
       return
     }
@@ -1949,6 +2022,7 @@ export default function ContentStudio({ user: propUser }) {
         status: 'Draft',
         source: 'local',
       }])
+      setAnalyticsTick((current) => current + 1)
       showDeliverySuccess('tugas')
       return
     }
@@ -1959,6 +2033,7 @@ export default function ContentStudio({ user: propUser }) {
         learningObjectiveId: form.learningObjectiveId || '',
       }))
       appendStorageRows(teacherStorageKey('questions', user, subject), generatedQuestions)
+      setAnalyticsTick((current) => current + 1)
       showDeliverySuccess('bank-soal')
       return
     }
@@ -1984,6 +2059,7 @@ export default function ContentStudio({ user: propUser }) {
         questionIds: generatedQuestions.map((item) => item.id),
         questionCount: generatedQuestions.length,
       }])
+      setAnalyticsTick((current) => current + 1)
       showDeliverySuccess('kuis')
       return
     }
@@ -1991,6 +2067,7 @@ export default function ContentStudio({ user: propUser }) {
     if (target === 'flashcard') {
       const flashcard = preview.generatedFlashcard || makeFlashcards(preview, form)
       appendStorageRows(FLASHCARD_KEY, [flashcard])
+      setAnalyticsTick((current) => current + 1)
       showDeliverySuccess('flashcard')
       return
     }
@@ -2025,6 +2102,7 @@ export default function ContentStudio({ user: propUser }) {
       outputType: template.outputType || form.outputType || 'Materi',
       level: template.level || form.level || 'Standar',
       duration: template.duration || form.duration || '2 JP',
+      learningObjectiveId: template.learningObjectiveId || form.learningObjectiveId || '',
     }
 
     const draft = buildSmartTemplateDraft(template, nextForm)
@@ -2038,18 +2116,34 @@ export default function ContentStudio({ user: propUser }) {
 
   function applyQualitySuggestion() {
     const topic = preview.topic || form.topic || 'topik pembelajaran'
-    const qualitySection = {
-      title: 'Catatan Perbaikan dari Quality Check',
-      body: `Perkuat draft ini dengan tujuan pembelajaran yang terukur, contoh kontekstual untuk siswa, minimal 3 pertanyaan cek pemahaman, aktivitas diferensiasi, dan exit ticket tentang ${topic}.`,
-    }
+    const qualitySections = [
+      {
+        title: 'Tujuan Pembelajaran Terukur',
+        body: form.learningObjectiveId
+          ? `Draft ini sudah diarahkan ke TP/ATP terpilih. Guru perlu memastikan aktivitas, soal, dan refleksi tetap sesuai dengan tujuan pembelajaran tentang ${topic}.`
+          : `Pilih TP/ATP terlebih dahulu, lalu pastikan tujuan belajar ${topic} ditulis sebagai kemampuan yang dapat diamati. Contoh: siswa mampu memahami, menerapkan, dan merefleksikan konsep ${topic}.`,
+      },
+      {
+        title: 'Asesmen Formatif',
+        body: `Tambahkan cek pemahaman selama pembelajaran: 3 pertanyaan cepat, 1 latihan penerapan, dan 1 umpan balik guru untuk melihat apakah siswa sudah memahami ${topic}.`,
+      },
+      {
+        title: 'Refleksi dan Diferensiasi',
+        body: `Refleksi: siswa menulis hal yang dipahami, hal yang membingungkan, dan contoh penerapan ${topic}. Diferensiasi: siapkan remedial dengan contoh lebih sederhana dan pengayaan berupa studi kasus atau proyek kecil.`,
+      },
+    ]
 
     const currentSections = Array.isArray(preview.sections) ? preview.sections : []
-    const cleanedSections = currentSections.filter((section) => section.title !== qualitySection.title)
+    const qualityTitles = new Set(qualitySections.map((section) => section.title))
+    const cleanedSections = currentSections.filter((section) => !qualityTitles.has(section.title))
+    const existingQuestions = Array.isArray(preview.generatedQuestions) ? preview.generatedQuestions : []
 
     setPreview({
       ...preview,
-      sections: [...cleanedSections, qualitySection],
-      tools: Array.from(new Set([...(preview.tools || []), 'Quality checklist', 'Exit ticket', 'Diferensiasi'])),
+      learningObjectiveId: form.learningObjectiveId || preview.learningObjectiveId || '',
+      sections: [...cleanedSections, ...qualitySections],
+      generatedQuestions: existingQuestions.length > 0 ? existingQuestions : makeGeneratedQuestions(preview, form, 5),
+      tools: Array.from(new Set([...(preview.tools || []), 'Quality checklist', 'Asesmen formatif', 'Exit ticket', 'Diferensiasi'])),
     })
     setDeliveryStatus(null)
     setActiveTab('builder')
@@ -2169,11 +2263,11 @@ export default function ContentStudio({ user: propUser }) {
 
 
       {activeTab === 'analytics' && (
-        <AnalyticsPanel contentRows={contentRows} rubricRows={rubricRows} preview={preview} />
+        <AnalyticsPanel contentRows={contentRows} rubricRows={rubricRows} preview={preview} snapshot={analyticsSnapshot} />
       )}
 
 
-      {activeTab === 'archive' && <ArchivePanel contentRows={contentRows} rubricRows={rubricRows} />}
+      {activeTab === 'archive' && <ArchivePanel contentRows={contentRows} rubricRows={rubricRows} onClearArchive={clearArchive} />}
 
       <Toast message={toast} onClose={() => setToast('')} />
     </div>
@@ -2188,6 +2282,8 @@ function StudioWorkflowGuide({ activeTab }) {
     stem: 'STEM Tools',
     rubric: 'Rubric Builder',
     import: 'Import Teks/Video',
+    quality: 'Quality Check',
+    analytics: 'Analitik Guru',
     archive: 'Arsip Lokal',
   }
 
@@ -2282,12 +2378,18 @@ function BuilderPanel({ form, template, availableContentTypes, updateForm, gener
 
 function buildContentQualityReport(preview, form) {
   const text = previewToPlainText(preview)
+  const lowerText = text.toLowerCase()
   const words = text.split(/\s+/).filter(Boolean)
   const sections = Array.isArray(preview.sections) ? preview.sections : []
   const questions = Array.isArray(preview.generatedQuestions) ? preview.generatedQuestions : []
   const tools = Array.isArray(preview.tools) ? preview.tools : []
 
   const checks = [
+    {
+      label: 'TP/ATP sudah dipilih',
+      passed: Boolean(form.learningObjectiveId || preview.learningObjectiveId),
+      suggestion: 'Pilih TP/ATP di panel Kurikulum Merdeka sebelum draft dikirim ke fitur aplikasi.',
+    },
     {
       label: 'Judul jelas dan sesuai topik',
       passed: String(preview.title || '').trim().length >= 8,
@@ -2305,13 +2407,28 @@ function buildContentQualityReport(preview, form) {
     },
     {
       label: 'Ada pertanyaan cek pemahaman',
-      passed: questions.length >= 3 || text.toLowerCase().includes('pertanyaan'),
+      passed: questions.length >= 3 || lowerText.includes('pertanyaan'),
       suggestion: 'Tambahkan minimal 3 pertanyaan formatif.',
     },
     {
       label: 'Ada aktivitas siswa',
-      passed: text.toLowerCase().includes('aktivitas') || text.toLowerCase().includes('diskusi') || text.toLowerCase().includes('latihan'),
+      passed: lowerText.includes('aktivitas') || lowerText.includes('diskusi') || lowerText.includes('latihan'),
       suggestion: 'Tambahkan aktivitas individu/kelompok yang jelas.',
+    },
+    {
+      label: 'Ada asesmen atau umpan balik',
+      passed: questions.length > 0 || lowerText.includes('asesmen') || lowerText.includes('penilaian') || lowerText.includes('exit ticket'),
+      suggestion: 'Tambahkan asesmen formatif, exit ticket, atau umpan balik singkat.',
+    },
+    {
+      label: 'Ada refleksi belajar',
+      passed: lowerText.includes('refleksi') || lowerText.includes('exit ticket') || lowerText.includes('hal yang kamu pahami'),
+      suggestion: 'Tambahkan pertanyaan refleksi agar siswa menilai pemahamannya sendiri.',
+    },
+    {
+      label: 'Ada diferensiasi/remedial/pengayaan',
+      passed: lowerText.includes('remedial') || lowerText.includes('pengayaan') || lowerText.includes('diferensiasi'),
+      suggestion: 'Tambahkan opsi remedial dan pengayaan untuk siswa yang kebutuhannya berbeda.',
     },
     {
       label: 'Ada alat bantu atau strategi pembelajaran',
@@ -2330,7 +2447,7 @@ function buildContentQualityReport(preview, form) {
     questions: questions.length,
     tools: tools.length,
     checks,
-    tone: score >= 80 ? 'green' : score >= 60 ? 'amber' : 'rose',
+    tone: score >= 80 ? 'green' : score >= 60 ? 'amber' : 'red',
     label: score >= 80 ? 'Siap dipakai' : score >= 60 ? 'Perlu sedikit revisi' : 'Perlu dilengkapi',
   }
 }
@@ -2405,32 +2522,17 @@ function QualityCheckPanel({ preview, form, onApplySuggestion }) {
   )
 }
 
-function AnalyticsPanel({ contentRows, rubricRows, preview }) {
-  const rows = Array.isArray(contentRows) ? contentRows : []
-  const rubrics = Array.isArray(rubricRows) ? rubricRows : []
-  const byType = rows.reduce((acc, row) => {
-    const key = row.savedAs || row.outputType || 'Draft'
-    acc[key] = (acc[key] || 0) + 1
-    return acc
-  }, {})
-
-  const bySubject = rows.reduce((acc, row) => {
-    const key = row.subject || 'Umum'
-    acc[key] = (acc[key] || 0) + 1
-    return acc
-  }, {})
-
-  const topTypes = Object.entries(byType).sort((a, b) => b[1] - a[1])
-  const topSubjects = Object.entries(bySubject).sort((a, b) => b[1] - a[1])
-  const previewReport = buildContentQualityReport(preview, { topic: preview.topic })
+function AnalyticsPanel({ preview, snapshot }) {
+  const analytics = snapshot || getTeacherAnalyticsSnapshot([], [])
+  const previewReport = buildContentQualityReport(preview, { topic: preview.topic, learningObjectiveId: preview.learningObjectiveId })
 
   return (
     <div className="grid gap-5">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Konten arsip" value={rows.length} tone="cyan" />
-        <StatCard label="Rubrik" value={rubrics.length} tone="purple" />
-        <StatCard label="Kuis draft" value={rows.filter((row) => row.outputType === 'Kuis' || row.savedAs === 'Kuis').length} tone="amber" />
-        <StatCard label="Kualitas draft" value={`${previewReport.score}%`} tone="green" />
+        <StatCard label="Total item lokal" value={analytics.totals.all} tone="cyan" />
+        <StatCard label="Bank soal" value={analytics.totals.questions} tone="purple" />
+        <StatCard label="Kuis" value={analytics.totals.quizzes} tone="amber" />
+        <StatCard label="Coverage TP" value={`${analytics.totals.objectiveCoverage}%`} tone="green" />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -2438,10 +2540,10 @@ function AnalyticsPanel({ contentRows, rubricRows, preview }) {
           <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Distribusi Konten</p>
           <h2 className="mt-1 text-xl font-black text-slate-950">Jenis konten yang dibuat</h2>
           <div className="mt-4 grid gap-3">
-            {(topTypes.length ? topTypes : [['Belum ada arsip', 0]]).map(([label, total]) => (
-              <div key={label} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-                <span className="font-bold text-slate-700">{label}</span>
-                <StatusBadge tone="cyan">{total}</StatusBadge>
+            {(analytics.typeCounts.length ? analytics.typeCounts : [{ name: 'Belum ada arsip', value: 0 }]).map((item) => (
+              <div key={item.name} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+                <span className="font-bold text-slate-700">{item.name}</span>
+                <StatusBadge tone="cyan">{item.value}</StatusBadge>
               </div>
             ))}
           </div>
@@ -2451,12 +2553,51 @@ function AnalyticsPanel({ contentRows, rubricRows, preview }) {
           <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Sebaran Mapel</p>
           <h2 className="mt-1 text-xl font-black text-slate-950">Mapel paling sering dibuat</h2>
           <div className="mt-4 grid gap-3">
-            {(topSubjects.length ? topSubjects : [['Belum ada arsip', 0]]).map(([label, total]) => (
-              <div key={label} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-                <span className="font-bold text-slate-700">{label}</span>
-                <StatusBadge tone="purple">{total}</StatusBadge>
+            {(analytics.subjectCounts.length ? analytics.subjectCounts : [{ name: 'Belum ada arsip', value: 0 }]).map((item) => (
+              <div key={item.name} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+                <span className="font-bold text-slate-700">{item.name}</span>
+                <StatusBadge tone="purple">{item.value}</StatusBadge>
               </div>
             ))}
+          </div>
+        </SectionCard>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <SectionCard>
+          <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Rekomendasi Guru</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Tindakan berikutnya</h2>
+          <div className="mt-4 grid gap-3">
+            {(analytics.recommendations.length ? analytics.recommendations : [{
+              title: 'Data lokal sudah cukup rapi',
+              description: 'Lanjutkan membuat konten baru dengan memilih TP/ATP dan cek Quality Check sebelum publish.',
+              tone: 'green',
+            }]).slice(0, 6).map((item) => (
+              <div key={item.title} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                <StatusBadge tone={item.tone}>{item.title}</StatusBadge>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard>
+          <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Aktivitas Terakhir</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Item lokal terbaru</h2>
+          <div className="mt-4 grid gap-3">
+            {analytics.recentItems.length > 0 ? analytics.recentItems.map((item, index) => (
+              <div key={`${item.outputType}-${item.id || item.title || index}`} className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+                <div>
+                  <p className="font-bold text-slate-800">{item.title}</p>
+                  <p className="text-xs font-semibold text-slate-500">{item.subject || 'Umum'} · {item.topic || item.outputType}</p>
+                </div>
+                <StatusBadge tone={item.learningObjectiveId ? 'green' : 'amber'}>{item.outputType || 'Draft'}</StatusBadge>
+              </div>
+            )) : (
+              <p className="rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-500 ring-1 ring-slate-100">
+                Belum ada aktivitas lokal. Buat draft dari Smart Templates, Import Teks/Video, atau simpan rubrik terlebih dahulu.
+              </p>
+            )}
           </div>
         </SectionCard>
       </div>
@@ -2676,7 +2817,7 @@ function TemplatePanel({ onUseSubject, onUseSmartTemplate }) {
               Pilih template sesuai mapel. Draft akan langsung berisi aktivitas, tools, LKPD, latihan, dan arahan yang lebih spesifik.
             </p>
           </div>
-          <StatusBadge tone="green">Tahap 5</StatusBadge>
+          <StatusBadge tone="green">Siap dipakai</StatusBadge>
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -2699,8 +2840,10 @@ function TemplatePanel({ onUseSubject, onUseSmartTemplate }) {
                     </div>
                     <p className="mt-2 text-sm leading-6 text-slate-500">{template.summary}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
+                      <StatusBadge tone="amber">{template.outputType}</StatusBadge>
                       {template.tools.slice(0, 3).map((tool) => <StatusBadge key={tool} tone="cyan">{tool}</StatusBadge>)}
                     </div>
+                    <p className="mt-3 text-xs font-extrabold text-galaxy-purple">Klik untuk mengisi form dan membuat preview lengkap.</p>
                   </div>
                 </div>
               </button>
@@ -2735,7 +2878,7 @@ function TemplatePanel({ onUseSubject, onUseSmartTemplate }) {
                   {template.contentTypes.slice(0, 3).map((item) => <StatusBadge key={item}>{item}</StatusBadge>)}
                 </div>
                 <button onClick={() => onUseSubject(subject)} className="mt-5 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-extrabold text-white">
-                  Gunakan template
+                  Pakai template dasar
                 </button>
               </SectionCard>
             )
@@ -3414,6 +3557,23 @@ function ImportPanel({ form, updateForm, createFromText, createVideoInteractive 
           />
         </label>
 
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <TextField label="Judul video" value={form.videoTitle} onChange={(value) => updateForm('videoTitle', value)} placeholder="Video Interaktif: Sistem Pernapasan" />
+          <TextField label="Catatan guru" value={form.videoNote} onChange={(value) => updateForm('videoNote', value)} placeholder="Minta siswa menjeda video dan menulis jawaban singkat." />
+        </div>
+
+        <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
+          Pertanyaan timestamp
+          <textarea
+            value={form.videoTimestamps}
+            onChange={(event) => updateForm('videoTimestamps', event.target.value)}
+            rows={4}
+            placeholder="00:30 | Apa konsep awal yang disampaikan?"
+            className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300"
+          />
+          <span className="text-xs font-semibold text-slate-500">Format sederhana: menit | pertanyaan. Satu pertanyaan per baris.</span>
+        </label>
+
         <button onClick={createVideoInteractive} className="mt-3 inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-50 px-5 py-3 text-sm font-extrabold text-cyan-700">
           <PlayCircle size={16} />
           Buat video interaktif
@@ -3423,10 +3583,22 @@ function ImportPanel({ form, updateForm, createFromText, createVideoInteractive 
   )
 }
 
-function ArchivePanel({ contentRows, rubricRows }) {
+function ArchivePanel({ contentRows, rubricRows, onClearArchive }) {
   return (
     <div className="grid gap-5 xl:grid-cols-2">
       <DashboardCard title="Arsip konten lokal">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <StatusBadge tone="cyan">{contentRows.length} item</StatusBadge>
+          <button
+            type="button"
+            onClick={() => onClearArchive('content')}
+            disabled={contentRows.length === 0}
+            className="inline-flex items-center gap-2 rounded-2xl bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700 ring-1 ring-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Trash2 size={14} />
+            Kosongkan
+          </button>
+        </div>
         {contentRows.length === 0 ? (
           <p className="text-sm leading-6 text-slate-500">Belum ada konten tersimpan.</p>
         ) : (
@@ -3445,6 +3617,18 @@ function ArchivePanel({ contentRows, rubricRows }) {
       </DashboardCard>
 
       <DashboardCard title="Arsip rubrik lokal">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <StatusBadge tone="purple">{rubricRows.length} rubrik</StatusBadge>
+          <button
+            type="button"
+            onClick={() => onClearArchive('rubric')}
+            disabled={rubricRows.length === 0}
+            className="inline-flex items-center gap-2 rounded-2xl bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700 ring-1 ring-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Trash2 size={14} />
+            Kosongkan
+          </button>
+        </div>
         {rubricRows.length === 0 ? (
           <p className="text-sm leading-6 text-slate-500">Belum ada rubrik tersimpan.</p>
         ) : (
