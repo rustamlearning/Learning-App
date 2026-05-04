@@ -1354,6 +1354,67 @@ function normalizeAIQuestions(value, form) {
   })
 }
 
+
+function cleanAIPreviewText(value) {
+  return String(value || '')
+    .replace(/\\n/g, '\n')
+    .replace(/\*\*/g, '')
+    .replace(/__/g, '')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*]\s+/gm, '• ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function cleanAIPreviewTitle(value, fallback = 'Bagian') {
+  return cleanAIPreviewText(value)
+    .replace(/^[:\-\s]+/, '')
+    .replace(/[:\-\s]+$/, '')
+    .trim() || fallback
+}
+
+function markdownSectionsFromAIText(aiText, form) {
+  const cleaned = cleanAIPreviewText(aiText)
+  const lines = cleaned.split('\n').map((line) => line.trim()).filter(Boolean)
+  const sections = []
+  let current = null
+
+  const titlePattern = /^(?:\d+\.\s*)?(.{3,90}?):\s*(.*)$/
+  const titleKeywords = /materi|tujuan|ringkasan|model|text|example|contoh|aktivitas|activity|latihan|practice|soal|questions|assessment|asesmen|exit|vocabulary|kosakata|dialogue|dialog|pembahasan|penjelasan|instruksi/i
+
+  lines.forEach((line) => {
+    const match = line.match(titlePattern)
+    const looksLikeTitle = match && titleKeywords.test(match[1])
+
+    if (looksLikeTitle) {
+      if (current && current.body.trim()) sections.push(current)
+
+      current = {
+        title: cleanAIPreviewTitle(match[1], `Bagian ${sections.length + 1}`),
+        body: cleanAIPreviewText(match[2] || ''),
+      }
+      return
+    }
+
+    if (!current) {
+      current = {
+        title: sections.length === 0 ? 'Ringkasan Materi' : `Bagian ${sections.length + 1}`,
+        body: '',
+      }
+    }
+
+    current.body = [current.body, line].filter(Boolean).join('\n')
+  })
+
+  if (current && current.body.trim()) sections.push(current)
+
+  return sections.map((section, index) => ({
+    title: cleanAIPreviewTitle(section.title, `Bagian ${index + 1}`),
+    body: cleanAIPreviewText(section.body),
+  }))
+}
+
 function normalizeAILesson(aiText, form) {
   const fallback = buildFallbackLesson(form)
   const parsed = extractFirstJsonObject(aiText)
@@ -1364,13 +1425,20 @@ function normalizeAILesson(aiText, form) {
       : [
           parsed.objectives && { title: 'Tujuan Pembelajaran', body: parsed.objectives },
           parsed.summary && { title: 'Ringkasan Materi', body: parsed.summary },
+          parsed.modelText && { title: 'Model Text / Example', body: parsed.modelText },
           parsed.activity && { title: 'Aktivitas Siswa', body: parsed.activity },
           parsed.practice && { title: 'Latihan', body: parsed.practice },
           parsed.assessment && { title: 'Asesmen', body: parsed.assessment },
         ].filter(Boolean)
 
     const sections = rawSections.length > 0
-      ? rawSections.map(normalizeAISection)
+      ? rawSections.map((section, index) => {
+          const normalized = normalizeAISection(section, index)
+          return {
+            title: cleanAIPreviewTitle(normalized.title, `Bagian ${index + 1}`),
+            body: cleanAIPreviewText(normalized.body),
+          }
+        })
       : fallback.sections
 
     const generatedQuestions = normalizeAIQuestions(
@@ -1380,7 +1448,7 @@ function normalizeAILesson(aiText, form) {
 
     return {
       ...fallback,
-      title: parsed.title || fallback.title,
+      title: cleanAIPreviewTitle(parsed.title || fallback.title, fallback.title),
       subject: parsed.subject || form.subject || fallback.subject,
       className: parsed.className || form.className || fallback.className,
       topic: parsed.topic || form.topic || fallback.topic,
@@ -1389,26 +1457,18 @@ function normalizeAILesson(aiText, form) {
       level: parsed.level || form.level || fallback.level,
       duration: parsed.duration || form.duration || fallback.duration,
       sections,
-      tools: Array.isArray(parsed.tools) && parsed.tools.length > 0 ? parsed.tools : fallback.tools,
+      tools: Array.isArray(parsed.tools) && parsed.tools.length > 0 ? parsed.tools.map(cleanAIPreviewText) : fallback.tools,
       generatedQuestions: generatedQuestions.length > 0 ? generatedQuestions : fallback.generatedQuestions,
       source: 'ai',
     }
   }
 
-  const cleaned = cleanAIJsonText(aiText)
-  const paragraphs = cleaned
-    .split(/\n{2,}/)
-    .map((item) => item.trim())
-    .filter(Boolean)
+  const markdownSections = markdownSectionsFromAIText(aiText, form)
 
-  if (paragraphs.length >= 2) {
+  if (markdownSections.length > 0) {
     return {
       ...fallback,
-      title: fallback.title,
-      sections: paragraphs.slice(0, 6).map((body, index) => ({
-        title: index === 0 ? 'Draft AI' : `Bagian ${index + 1}`,
-        body,
-      })),
+      sections: markdownSections,
       source: 'ai',
     }
   }
@@ -1418,7 +1478,7 @@ function normalizeAILesson(aiText, form) {
     sections: [
       {
         title: 'Draft AI',
-        body: cleaned || 'AI belum mengembalikan konten yang dapat dibaca.',
+        body: cleanAIPreviewText(aiText) || 'AI belum mengembalikan konten yang dapat dibaca.',
       },
       ...fallback.sections.slice(1),
     ],
@@ -2314,7 +2374,7 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus, savingTarget 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Preview konten</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-950">{preview.title}</h2>
+          <h2 className="mt-1 text-2xl font-black text-slate-950">{cleanAIPreviewTitle(preview.title, preview.title)}</h2>
         </div>
         <StatusBadge tone="cyan">{preview.outputType || preview.savedAs || 'Draft'}</StatusBadge>
       </div>
@@ -2328,8 +2388,8 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus, savingTarget 
       <div className="space-y-3">
         {(preview.sections || []).map((section) => (
           <div key={section.title} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
-            <h3 className="font-extrabold text-slate-950">{section.title}</h3>
-            <p className="mt-2 text-sm leading-7 text-slate-600">{section.body}</p>
+            <h3 className="font-extrabold text-slate-950">{cleanAIPreviewTitle(section.title)}</h3>
+            <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-600">{cleanAIPreviewText(section.body)}</p>
           </div>
         ))}
       </div>
