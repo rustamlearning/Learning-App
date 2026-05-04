@@ -792,6 +792,183 @@ function buildVideoInteractiveDraft(form) {
   }
 }
 
+
+function readRowsByPrefix(prefix) {
+  if (typeof localStorage === 'undefined') return []
+
+  return Object.keys(localStorage)
+    .filter((key) => key.startsWith(prefix))
+    .flatMap((key) => {
+      try {
+        const rows = JSON.parse(localStorage.getItem(key)) || []
+        return Array.isArray(rows) ? rows : []
+      } catch (error) {
+        return []
+      }
+    })
+}
+
+function countByField(rows, field) {
+  return rows.reduce((acc, item) => {
+    const key = item?.[field] || 'Lainnya'
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
+}
+
+function topEntries(counter, limit = 6) {
+  return Object.entries(counter)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([name, value]) => ({ name, value }))
+}
+
+function getTeacherAnalyticsSnapshot(contentRows, rubricRows) {
+  const flashcards = readStorage(FLASHCARD_KEY, [])
+  const materials = readRowsByPrefix('sea-learning-teacher-materials-')
+  const questions = readRowsByPrefix('sea-learning-teacher-questions-')
+  const quizzes = readRowsByPrefix('sea-learning-teacher-quizzes-')
+  const assignments = readRowsByPrefix('sea-learning-teacher-assignments-')
+
+  const allContent = [
+    ...contentRows,
+    ...materials.map((item) => ({ ...item, outputType: 'Materi' })),
+    ...assignments.map((item) => ({ ...item, outputType: 'Tugas' })),
+    ...quizzes.map((item) => ({ ...item, outputType: 'Kuis Live' })),
+    ...flashcards.map((item) => ({ ...item, outputType: 'Flashcard' })),
+    ...rubricRows.map((item) => ({ ...item, outputType: 'Rubrik' })),
+  ]
+
+  const subjectCounts = topEntries(countByField(allContent, 'subject'))
+  const typeCounts = topEntries(countByField(allContent, 'outputType'))
+
+  const recentItems = allContent
+    .filter((item) => item?.title)
+    .sort((a, b) => String(b.createdAt || b.id || '').localeCompare(String(a.createdAt || a.id || '')))
+    .slice(0, 8)
+
+  const recommendations = []
+
+  if (materials.length < 3) {
+    recommendations.push({
+      title: 'Tambah materi inti',
+      description: 'Jumlah materi guru masih sedikit. Buat materi inti dari Smart Templates atau Import Teks.',
+      tone: 'cyan',
+    })
+  }
+
+  if (questions.length < 10) {
+    recommendations.push({
+      title: 'Perbanyak bank soal',
+      description: 'Bank soal masih perlu diperkuat. Gunakan Import Teks atau Video Builder untuk membuat soal otomatis.',
+      tone: 'purple',
+    })
+  }
+
+  if (quizzes.length < 2) {
+    recommendations.push({
+      title: 'Buat kuis diagnostik',
+      description: 'Kuis diagnostik membantu guru melihat pemahaman awal siswa sebelum remedial.',
+      tone: 'amber',
+    })
+  }
+
+  if (flashcards.length < 2) {
+    recommendations.push({
+      title: 'Buat flashcard konsep',
+      description: 'Flashcard membantu siswa mengulang istilah penting dan konsep inti secara cepat.',
+      tone: 'green',
+    })
+  }
+
+  if (!contentRows.some((item) => item.outputType === 'Remedial')) {
+    recommendations.push({
+      title: 'Siapkan remedial otomatis',
+      description: 'Belum ada paket remedial dari Studio Konten. Buat satu paket untuk siswa yang belum tuntas.',
+      tone: 'amber',
+    })
+  }
+
+  if (!contentRows.some((item) => item.outputType === 'Pengayaan')) {
+    recommendations.push({
+      title: 'Siapkan pengayaan',
+      description: 'Belum ada paket pengayaan. Buat tantangan tambahan untuk siswa yang sudah memahami materi.',
+      tone: 'cyan',
+    })
+  }
+
+  return {
+    totals: {
+      content: contentRows.length,
+      materials: materials.length,
+      questions: questions.length,
+      quizzes: quizzes.length,
+      assignments: assignments.length,
+      flashcards: flashcards.length,
+      rubrics: rubricRows.length,
+      all: allContent.length,
+    },
+    subjectCounts,
+    typeCounts,
+    recentItems,
+    recommendations,
+  }
+}
+
+function makeRecommendedLearningPack(kind) {
+  const isRemedial = kind === 'Remedial'
+  const topic = isRemedial ? 'Penguatan konsep dasar' : 'Tantangan lanjutan'
+  const title = isRemedial ? 'Remedial Otomatis: Penguatan Konsep' : 'Pengayaan Otomatis: Tantangan Lanjutan'
+
+  return {
+    id: `studio-auto-${kind.toLowerCase()}-${Date.now()}`,
+    title,
+    subject: 'Umum',
+    className: 'Kelas X',
+    topic,
+    contentType: isRemedial ? 'Remedial' : 'Pengayaan',
+    outputType: kind,
+    savedAs: kind,
+    level: isRemedial ? 'Mudah' : 'Menantang',
+    duration: '1 JP',
+    createdAt: new Date().toISOString(),
+    source: 'analytics-recommendation',
+    sections: [
+      {
+        title: isRemedial ? 'Tujuan remedial' : 'Tujuan pengayaan',
+        body: isRemedial
+          ? 'Membantu siswa mengulang konsep dasar dengan contoh lebih sederhana dan latihan bertahap.'
+          : 'Memberikan tantangan lanjutan bagi siswa yang sudah memahami konsep inti.',
+      },
+      {
+        title: 'Aktivitas siswa',
+        body: isRemedial
+          ? 'A. Baca ringkasan singkat. B. Kerjakan contoh terbimbing. C. Jawab 5 latihan mudah. D. Tulis bagian yang masih sulit.'
+          : 'A. Baca studi kasus. B. Buat solusi atau penjelasan alternatif. C. Presentasikan hasil. D. Tulis refleksi.',
+      },
+      {
+        title: 'Latihan',
+        body: isRemedial
+          ? 'Buat 5 soal dasar, 3 soal penerapan sederhana, dan 1 refleksi pemahaman.'
+          : 'Buat 3 soal HOTS, 1 proyek kecil, dan 1 pertanyaan reflektif.',
+      },
+      {
+        title: 'Feedback guru',
+        body: isRemedial
+          ? 'Berikan umpan balik singkat pada konsep yang belum dikuasai siswa.'
+          : 'Berikan apresiasi pada ide orisinal, argumentasi, dan kerapian produk siswa.',
+      },
+      {
+        title: 'Exit ticket',
+        body: isRemedial
+          ? 'Tulis satu konsep yang sudah lebih dipahami dan satu hal yang masih perlu ditanyakan.'
+          : 'Tulis satu ide baru yang ditemukan dan satu penerapan konsep dalam kehidupan nyata.',
+      },
+    ],
+    tools: isRemedial ? ['Latihan bertahap', 'Feedback singkat', 'Exit Ticket'] : ['Studi kasus', 'Proyek kecil', 'Refleksi'],
+  }
+}
+
 function buildFallbackLesson(form) {
   const template = subjectTemplates[form.subject] || subjectTemplates.Umum
   const topic = form.topic?.trim() || template.sampleTopic
@@ -1259,6 +1436,7 @@ export default function ContentStudio({ user }) {
           ['stem', 'STEM Tools', FlaskConical],
           ['rubric', 'Rubric Builder', ClipboardList],
           ['import', 'Import Teks/Video', LinkIcon],
+          ['analytics', 'Analitik Guru', Target],
           ['archive', 'Arsip Lokal', Save],
         ].map(([id, label, Icon]) => (
           <button
@@ -1307,6 +1485,8 @@ export default function ContentStudio({ user }) {
           <PreviewPanel preview={preview} publishToFeature={publishToFeature} deliveryStatus={deliveryStatus} />
         </div>
       )}
+
+      {activeTab === 'analytics' && <TeacherAnalyticsPanel contentRows={contentRows} rubricRows={rubricRows} onCreatePack={createRecommendedPack} />}
 
       {activeTab === 'archive' && <ArchivePanel contentRows={contentRows} rubricRows={rubricRows} />}
 
@@ -2251,6 +2431,149 @@ function ImportPanel({ form, updateForm, createFromText, createVideoInteractive 
         </button>
       </div>
     </SectionCard>
+  )
+}
+
+
+function TeacherAnalyticsPanel({ contentRows, rubricRows, onCreatePack }) {
+  const analytics = getTeacherAnalyticsSnapshot(contentRows, rubricRows)
+  const maxTypeValue = Math.max(1, ...analytics.typeCounts.map((item) => item.value))
+  const maxSubjectValue = Math.max(1, ...analytics.subjectCounts.map((item) => item.value))
+
+  return (
+    <div className="grid gap-5">
+      <SectionCard>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Analitik Guru</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">Pantau konten, bank soal, kuis, dan kebutuhan tindak lanjut.</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+              Analitik ini membaca data lokal dari Studio Konten dan workflow guru. Gunakan rekomendasi untuk membuat remedial atau pengayaan lebih cepat.
+            </p>
+          </div>
+          <StatusBadge tone="green">Tahap 9</StatusBadge>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard icon={BookOpen} label="Materi" value={analytics.totals.materials} caption="Draft/publish guru" tone="cyan" />
+          <StatCard icon={FileQuestion} label="Bank soal" value={analytics.totals.questions} caption="Soal lokal guru" tone="purple" />
+          <StatCard icon={PlayCircle} label="Kuis Live" value={analytics.totals.quizzes} caption="Kuis tersimpan" tone="amber" />
+          <StatCard icon={Layers3} label="Flashcard" value={analytics.totals.flashcards} caption="Deck konsep" tone="green" />
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard icon={ClipboardList} label="Tugas" value={analytics.totals.assignments} caption="Tugas guru" tone="amber" />
+          <StatCard icon={ClipboardList} label="Rubrik" value={analytics.totals.rubrics} caption="Penilaian proyek" tone="purple" />
+          <StatCard icon={Target} label="Studio konten" value={analytics.totals.content} caption="Arsip lokal studio" tone="cyan" />
+          <StatCard icon={Sparkles} label="Total aset" value={analytics.totals.all} caption="Semua aset terbaca" tone="green" />
+        </div>
+      </SectionCard>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <SectionCard>
+          <h2 className="text-xl font-extrabold text-slate-950">Distribusi jenis konten</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">Lihat bentuk konten yang paling banyak dibuat guru.</p>
+
+          <div className="mt-5 space-y-3">
+            {analytics.typeCounts.length > 0 ? analytics.typeCounts.map((item) => (
+              <div key={item.name}>
+                <div className="mb-1 flex items-center justify-between text-sm">
+                  <span className="font-extrabold text-slate-700">{item.name}</span>
+                  <span className="font-bold text-slate-500">{item.value}</span>
+                </div>
+                <div className="h-3 rounded-full bg-galaxy-lavender">
+                  <div className="h-3 rounded-full bg-galaxy-action" style={{ width: `${Math.max(8, (item.value / maxTypeValue) * 100)}%` }} />
+                </div>
+              </div>
+            )) : (
+              <p className="text-sm text-slate-500">Belum ada data konten.</p>
+            )}
+          </div>
+        </SectionCard>
+
+        <SectionCard>
+          <h2 className="text-xl font-extrabold text-slate-950">Distribusi mata pelajaran</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">Cek apakah konten sudah mencakup banyak mapel.</p>
+
+          <div className="mt-5 space-y-3">
+            {analytics.subjectCounts.length > 0 ? analytics.subjectCounts.map((item) => (
+              <div key={item.name}>
+                <div className="mb-1 flex items-center justify-between text-sm">
+                  <span className="font-extrabold text-slate-700">{item.name}</span>
+                  <span className="font-bold text-slate-500">{item.value}</span>
+                </div>
+                <div className="h-3 rounded-full bg-cyan-50">
+                  <div className="h-3 rounded-full bg-cyan-400" style={{ width: `${Math.max(8, (item.value / maxSubjectValue) * 100)}%` }} />
+                </div>
+              </div>
+            )) : (
+              <p className="text-sm text-slate-500">Belum ada data mapel.</p>
+            )}
+          </div>
+        </SectionCard>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
+        <SectionCard>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-extrabold text-slate-950">Rekomendasi tindak lanjut</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Rekomendasi dibuat dari jumlah konten, bank soal, kuis, flashcard, remedial, dan pengayaan yang tersedia.
+              </p>
+            </div>
+            <StatusBadge tone="amber">Otomatis</StatusBadge>
+          </div>
+
+          <div className="mt-5 grid gap-3">
+            {analytics.recommendations.map((item) => (
+              <div key={item.title} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="font-extrabold text-slate-950">{item.title}</h3>
+                  <StatusBadge tone={item.tone}>{item.tone === 'amber' ? 'Prioritas' : 'Saran'}</StatusBadge>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
+              </div>
+            ))}
+
+            {analytics.recommendations.length === 0 && (
+              <div className="rounded-3xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                Konten sudah cukup seimbang. Tetap pantau hasil kuis dan aktivitas siswa.
+              </div>
+            )}
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button onClick={() => onCreatePack('Remedial')} className="rounded-2xl bg-amber-50 px-5 py-3 text-sm font-extrabold text-amber-700 ring-1 ring-amber-100">
+              Buat Remedial Otomatis
+            </button>
+            <button onClick={() => onCreatePack('Pengayaan')} className="rounded-2xl bg-cyan-50 px-5 py-3 text-sm font-extrabold text-cyan-700 ring-1 ring-cyan-100">
+              Buat Pengayaan Otomatis
+            </button>
+          </div>
+        </SectionCard>
+
+        <SectionCard>
+          <h2 className="text-xl font-extrabold text-slate-950">Aktivitas terbaru</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">Konten terbaru dari Studio Konten dan workflow guru.</p>
+
+          <div className="mt-5 space-y-3">
+            {analytics.recentItems.length > 0 ? analytics.recentItems.map((item) => (
+              <div key={`${item.outputType}-${item.id}`} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <StatusBadge tone="cyan">{item.outputType || item.savedAs || 'Konten'}</StatusBadge>
+                  <span className="text-xs font-bold text-slate-400">{item.subject || 'Umum'}</span>
+                </div>
+                <h3 className="mt-2 font-extrabold text-slate-950">{item.title}</h3>
+                <p className="mt-1 text-sm text-slate-500">{item.topic || item.className || 'Konten pembelajaran'}</p>
+              </div>
+            )) : (
+              <p className="text-sm text-slate-500">Belum ada aktivitas terbaru.</p>
+            )}
+          </div>
+        </SectionCard>
+      </div>
+    </div>
   )
 }
 
