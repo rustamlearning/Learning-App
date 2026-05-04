@@ -377,6 +377,40 @@ const smartTemplates = [
   },
 ]
 
+
+const contentStudioWorkflowSteps = [
+  {
+    title: 'Pilih cara membuat',
+    text: 'Mulai dari AI Lesson Builder, Smart Templates, STEM Tools, atau Import Teks/Video.',
+  },
+  {
+    title: 'Buat draft',
+    text: 'Guru dapat generate draft, memakai template, atau mengubah teks modul menjadi paket belajar.',
+  },
+  {
+    title: 'Review dan edit',
+    text: 'Periksa ringkasan, aktivitas, soal, LKPD, rubrik, flashcard, remedial, dan pengayaan.',
+  },
+  {
+    title: 'Kirim ke fitur aplikasi',
+    text: 'Simpan sebagai Materi, Tugas, Bank Soal, Kuis Live, Flashcard, Rubrik, Remedial, atau Pengayaan.',
+  },
+  {
+    title: 'Publish ke siswa',
+    text: 'Buka halaman tujuan, cek ulang konten, lalu Publish agar siswa bisa mengaksesnya.',
+  },
+]
+
+const publishChecklistItems = [
+  'Judul dan topik sudah jelas',
+  'Kelas dan mata pelajaran sudah sesuai',
+  'Instruksi siswa mudah dipahami',
+  'Soal atau aktivitas punya tujuan yang jelas',
+  'Konten sudah dikirim ke fitur yang tepat',
+]
+
+const sampleImportText = `Sistem pernapasan manusia adalah sistem organ yang berfungsi untuk mengambil oksigen dari udara dan mengeluarkan karbon dioksida dari tubuh. Udara masuk melalui hidung, kemudian melewati faring, laring, trakea, bronkus, dan bronkiolus sebelum sampai ke alveolus. Di alveolus terjadi pertukaran gas antara oksigen dan karbon dioksida. Oksigen kemudian dibawa oleh darah ke seluruh tubuh, sedangkan karbon dioksida dikeluarkan saat kita menghembuskan napas. Menjaga kesehatan sistem pernapasan dapat dilakukan dengan menghindari asap rokok, berolahraga secara teratur, menjaga kebersihan lingkungan, dan menggunakan masker saat udara berdebu.`
+
 function readStorage(key, fallback = []) {
   try {
     return JSON.parse(localStorage.getItem(key)) || fallback
@@ -1429,6 +1463,8 @@ export default function ContentStudio({ user }) {
         <StatCard icon={Target} label="Remedial/Pengayaan" value={stats.remedials} caption="Diferensiasi belajar" tone="green" />
       </div>
 
+      <StudioWorkflowGuide activeTab={activeTab} />
+
       <div className="mb-5 flex flex-wrap gap-2">
         {[
           ['builder', 'AI Lesson Builder', Wand2],
@@ -1497,6 +1533,46 @@ export default function ContentStudio({ user }) {
     </div>
   )
 }
+
+
+function StudioWorkflowGuide({ activeTab }) {
+  const activeLabels = {
+    builder: 'AI Lesson Builder',
+    templates: 'Smart Templates',
+    stem: 'STEM Tools',
+    rubric: 'Rubric Builder',
+    import: 'Import Teks/Video',
+    archive: 'Arsip Lokal',
+  }
+
+  return (
+    <SectionCard className="mb-5 bg-gradient-to-br from-white via-violet-50/70 to-cyan-50/80">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Alur Kerja Guru</p>
+          <h2 className="mt-1 text-2xl font-black text-slate-950">Buat konten sampai siap dipakai siswa.</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            Anda sedang berada di mode <b>{activeLabels[activeTab] || 'Studio Konten'}</b>. Ikuti alur sederhana ini agar konten tidak berhenti di draft saja.
+          </p>
+        </div>
+        <StatusBadge tone="green">Panduan Cepat</StatusBadge>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-5">
+        {contentStudioWorkflowSteps.map((step, index) => (
+          <div key={step.title} className="rounded-3xl bg-white p-4 ring-1 ring-purple-100">
+            <span className="grid h-9 w-9 place-items-center rounded-2xl bg-galaxy-action text-sm font-black text-white">
+              {index + 1}
+            </span>
+            <h3 className="mt-3 text-sm font-extrabold text-slate-950">{step.title}</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500">{step.text}</p>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  )
+}
+
 
 function BuilderPanel({ form, template, availableContentTypes, updateForm, generateDraft, saveContent }) {
   return (
@@ -1610,6 +1686,18 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus }) {
               </div>
             </div>
           )}
+
+          <div className="mt-4 rounded-3xl bg-white p-4 ring-1 ring-slate-100">
+            <p className="text-sm font-extrabold text-slate-950">Checklist sebelum publish</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {publishChecklistItems.map((item) => (
+                <div key={item} className="flex items-start gap-2 text-sm leading-6 text-slate-600">
+                  <CheckCircle2 className="mt-0.5 flex-shrink-0 text-emerald-500" size={16} />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {featureTargets.map((target) => {
@@ -2323,7 +2411,19 @@ function ImportPanel({ form, updateForm, createFromText, createVideoInteractive 
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_18rem]">
         <label className="grid gap-2 text-sm font-bold text-slate-700">
-          Tempel teks materi
+          <span className="flex flex-wrap items-center justify-between gap-2">
+            <span>Tempel teks materi</span>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault()
+                updateForm('sourceText', sampleImportText)
+              }}
+              className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-galaxy-purple ring-1 ring-purple-100 hover:bg-galaxy-lavender"
+            >
+              Isi contoh teks
+            </button>
+          </span>
           <textarea
             value={form.sourceText}
             onChange={(event) => updateForm('sourceText', event.target.value)}
