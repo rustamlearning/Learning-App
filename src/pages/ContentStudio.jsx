@@ -31,6 +31,7 @@ import {
 
 const CONTENT_KEY = 'sman6_studio_content_v1'
 const RUBRIC_KEY = 'sman6_studio_rubrics_v1'
+const FLASHCARD_KEY = 'sman6_studio_flashcards_v1'
 
 const subjectTemplates = {
   Matematika: {
@@ -145,6 +146,105 @@ function writeStorage(key, value) {
   localStorage.setItem(key, JSON.stringify(value))
 }
 
+function teacherStorageKey(kind, user, subject) {
+  const owner = user?.id || subject || 'demo'
+  const keys = {
+    materials: `sea-learning-teacher-materials-${owner}`,
+    questions: `sea-learning-teacher-questions-${owner}`,
+    quizzes: `sea-learning-teacher-quizzes-${owner}`,
+    assignments: `sea-learning-teacher-assignments-${owner}`,
+  }
+  return keys[kind]
+}
+
+function appendStorageRows(key, rows) {
+  const currentRows = readStorage(key, [])
+  const nextRows = [...rows, ...currentRows]
+  writeStorage(key, nextRows)
+  return nextRows
+}
+
+function previewToPlainText(preview) {
+  return (preview.sections || [])
+    .map((section) => `${section.title}\n${section.body}`)
+    .join('\n\n')
+}
+
+function makeGeneratedQuestions(preview, form, total = 5) {
+  const topic = preview.topic || form.topic || 'Topik pembelajaran'
+  const baseQuestions = [
+    {
+      questionText: `Apa konsep utama dari ${topic}?`,
+      options: ['Memahami inti materi', 'Menghafal tanpa contoh', 'Mengabaikan konteks', 'Menyalin jawaban teman'],
+      correctAnswer: 'Memahami inti materi',
+      explanation: `Konsep utama ${topic} perlu dipahami melalui penjelasan, contoh, dan latihan.`,
+    },
+    {
+      questionText: `Mengapa contoh kontekstual penting dalam mempelajari ${topic}?`,
+      options: ['Agar materi lebih dekat dengan kehidupan siswa', 'Agar materi lebih sulit', 'Agar siswa tidak berdiskusi', 'Agar tidak perlu latihan'],
+      correctAnswer: 'Agar materi lebih dekat dengan kehidupan siswa',
+      explanation: 'Contoh kontekstual membantu siswa menghubungkan materi dengan pengalaman nyata.',
+    },
+    {
+      questionText: `Aktivitas apa yang paling sesuai setelah mempelajari ${topic}?`,
+      options: ['Latihan dan refleksi', 'Menutup buku', 'Menghapus catatan', 'Tidak bertanya'],
+      correctAnswer: 'Latihan dan refleksi',
+      explanation: 'Latihan dan refleksi membantu guru melihat pemahaman siswa.',
+    },
+    {
+      questionText: `Apa fungsi remedial dalam pembelajaran ${topic}?`,
+      options: ['Membantu siswa yang belum tuntas', 'Menghukum siswa', 'Menghapus nilai', 'Mengganti semua materi'],
+      correctAnswer: 'Membantu siswa yang belum tuntas',
+      explanation: 'Remedial memberi kesempatan belajar ulang dengan langkah yang lebih mudah.',
+    },
+    {
+      questionText: `Apa fungsi pengayaan dalam pembelajaran ${topic}?`,
+      options: ['Memberi tantangan tambahan bagi siswa yang sudah paham', 'Mengulang soal yang sama', 'Mengurangi aktivitas', 'Menghapus tugas'],
+      correctAnswer: 'Memberi tantangan tambahan bagi siswa yang sudah paham',
+      explanation: 'Pengayaan memperluas pemahaman siswa melalui tantangan lebih tinggi.',
+    },
+  ]
+
+  return baseQuestions.slice(0, total).map((question, index) => ({
+    id: `studio-question-${Date.now()}-${index + 1}`,
+    ...question,
+    subject: form.subject,
+    className: `Kelas ${form.className}`,
+    topic,
+    difficulty: form.level === 'Menantang' ? 'Sulit' : form.level === 'Mudah' ? 'Mudah' : 'Sedang',
+    type: 'Pilihan ganda',
+    source: 'local',
+  }))
+}
+
+function makeFlashcards(preview, form) {
+  const topic = preview.topic || form.topic || 'Topik pembelajaran'
+  const cards = [
+    ['Konsep utama', `Ide pokok yang harus dipahami dalam ${topic}.`],
+    ['Contoh kontekstual', 'Contoh yang dekat dengan kehidupan siswa.'],
+    ['Latihan', 'Aktivitas untuk menguji pemahaman setelah belajar.'],
+    ['Remedial', 'Pembelajaran ulang untuk siswa yang belum tuntas.'],
+    ['Pengayaan', 'Tantangan tambahan untuk siswa yang sudah paham.'],
+  ]
+
+  return {
+    id: `studio-flashcard-${Date.now()}`,
+    title: `Flashcard ${topic}`,
+    subject: form.subject,
+    className: `Kelas ${form.className}`,
+    topic,
+    count: cards.length,
+    progress: 0,
+    cards: cards.map(([front, back], index) => ({
+      id: `studio-card-${Date.now()}-${index + 1}`,
+      front,
+      back,
+    })),
+    source: 'local',
+  }
+}
+
+
 function buildFallbackLesson(form) {
   const template = subjectTemplates[form.subject] || subjectTemplates.Umum
   const topic = form.topic?.trim() || template.sampleTopic
@@ -235,7 +335,7 @@ function buildRubric(form) {
   }
 }
 
-export default function ContentStudio() {
+export default function ContentStudio({ user }) {
   const [toast, setToast] = useState('')
   const [activeTab, setActiveTab] = useState('builder')
   const [form, setForm] = useState({
@@ -305,6 +405,103 @@ export default function ContentStudio() {
     setRubricRows(nextRows)
     writeStorage(RUBRIC_KEY, nextRows)
     setToast('Rubrik tersimpan di arsip lokal.')
+  }
+
+  function publishToFeature(target) {
+    const subject = form.subject || user?.subject || 'Bahasa Inggris'
+    const className = `Kelas ${form.className}`
+    const topic = preview.topic || form.topic || 'Topik pembelajaran'
+    const contentText = previewToPlainText(preview)
+
+    if (target === 'materi') {
+      appendStorageRows(teacherStorageKey('materials', user, subject), [{
+        id: `studio-material-${Date.now()}`,
+        title: preview.title || `Materi ${topic}`,
+        description: `Draft materi dari Studio Konten untuk topik ${topic}.`,
+        content: contentText,
+        subject,
+        className,
+        teacher: user?.name || 'Guru',
+        topic,
+        type: 'Teks',
+        status: 'Draft',
+        progress: 0,
+        source: 'local',
+      }])
+      setToast('Draft berhasil dikirim ke Materi Guru.')
+      return
+    }
+
+    if (target === 'tugas') {
+      appendStorageRows(teacherStorageKey('assignments', user, subject), [{
+        id: `studio-assignment-${Date.now()}`,
+        title: `Tugas ${topic}`,
+        description: contentText.slice(0, 600),
+        subject,
+        className,
+        teacher: user?.name || 'Guru',
+        deadline: '',
+        status: 'Draft',
+        source: 'local',
+      }])
+      setToast('Draft berhasil dikirim ke Tugas Guru.')
+      return
+    }
+
+    if (target === 'bank-soal') {
+      const generatedQuestions = makeGeneratedQuestions(preview, form, 5)
+      appendStorageRows(teacherStorageKey('questions', user, subject), generatedQuestions)
+      setToast('5 soal berhasil dikirim ke Bank Soal.')
+      return
+    }
+
+    if (target === 'kuis') {
+      const generatedQuestions = makeGeneratedQuestions(preview, form, 5)
+      appendStorageRows(teacherStorageKey('questions', user, subject), generatedQuestions)
+
+      appendStorageRows(teacherStorageKey('quizzes', user, subject), [{
+        id: `studio-quiz-${Date.now()}`,
+        title: `Kuis ${topic}`,
+        description: `Kuis otomatis dari Studio Konten untuk topik ${topic}.`,
+        subject,
+        className,
+        teacher: user?.name || 'Guru',
+        duration: 30,
+        status: 'Draft',
+        source: 'local',
+        questionIds: generatedQuestions.map((item) => item.id),
+        questionCount: generatedQuestions.length,
+      }])
+      setToast('Draft kuis berhasil dikirim ke Kuis Live dan Bank Soal.')
+      return
+    }
+
+    if (target === 'flashcard') {
+      const flashcard = makeFlashcards(preview, form)
+      appendStorageRows(FLASHCARD_KEY, [flashcard])
+      setToast('Flashcard berhasil disimpan ke arsip flashcard Studio Konten.')
+      return
+    }
+
+    if (target === 'rubrik') {
+      saveRubric()
+      return
+    }
+
+    if (target === 'remedial' || target === 'pengayaan') {
+      const item = {
+        ...preview,
+        id: `studio-${target}-${Date.now()}`,
+        title: `${target === 'remedial' ? 'Remedial' : 'Pengayaan'} ${topic}`,
+        outputType: target === 'remedial' ? 'Remedial' : 'Pengayaan',
+        savedAs: target === 'remedial' ? 'Remedial' : 'Pengayaan',
+        createdAt: new Date().toISOString(),
+      }
+      const nextRows = [item, ...contentRows]
+      setContentRows(nextRows)
+      writeStorage(CONTENT_KEY, nextRows)
+      setToast(`${item.outputType} tersimpan di arsip Studio Konten.`)
+    }
   }
 
   function createFromText() {
@@ -399,7 +596,7 @@ export default function ContentStudio() {
             generateDraft={generateDraft}
             saveContent={saveContent}
           />
-          <PreviewPanel preview={preview} />
+          <PreviewPanel preview={preview} publishToFeature={publishToFeature} />
         </div>
       )}
 
@@ -417,7 +614,7 @@ export default function ContentStudio() {
       {activeTab === 'import' && (
         <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
           <ImportPanel form={form} updateForm={updateForm} createFromText={createFromText} createVideoInteractive={createVideoInteractive} />
-          <PreviewPanel preview={preview} />
+          <PreviewPanel preview={preview} publishToFeature={publishToFeature} />
         </div>
       )}
 
@@ -472,7 +669,7 @@ function BuilderPanel({ form, template, availableContentTypes, updateForm, gener
   )
 }
 
-function PreviewPanel({ preview }) {
+function PreviewPanel({ preview, publishToFeature }) {
   return (
     <SectionCard>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -503,6 +700,35 @@ function PreviewPanel({ preview }) {
           <p className="text-sm font-extrabold text-cyan-800">Tools yang disarankan</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {preview.tools.map((tool) => <StatusBadge key={tool} tone="cyan">{tool}</StatusBadge>)}
+          </div>
+        </div>
+      )}
+
+      {publishToFeature && (
+        <div className="mt-5 rounded-3xl bg-gradient-to-r from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
+          <p className="text-sm font-extrabold text-slate-950">Kirim draft ke fitur aplikasi</p>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            Gunakan tombol ini agar hasil Studio Konten langsung masuk ke fitur guru yang sudah ada.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {[
+              ['materi', 'Materi'],
+              ['tugas', 'Tugas'],
+              ['bank-soal', 'Bank Soal'],
+              ['kuis', 'Kuis Live'],
+              ['flashcard', 'Flashcard'],
+              ['rubrik', 'Rubrik'],
+              ['remedial', 'Remedial'],
+              ['pengayaan', 'Pengayaan'],
+            ].map(([target, label]) => (
+              <button
+                key={target}
+                onClick={() => publishToFeature(target)}
+                className="rounded-2xl bg-white px-4 py-3 text-sm font-extrabold text-galaxy-purple ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:bg-galaxy-lavender"
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
       )}

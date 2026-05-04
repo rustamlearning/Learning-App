@@ -110,7 +110,7 @@ function renderGuru(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'bank-soal') return <BankSoal user={user} notify={notify} appContext={appContext} />
   if (page === 'tugas') return <GuruTugas user={user} notify={notify} appContext={appContext} />
   if (page === 'kuis-live') return <KuisLive user={user} notify={notify} appContext={appContext} />
-  if (page === 'studio-konten') return <ContentStudio />
+  if (page === 'studio-konten') return <ContentStudio user={user} notify={notify} />
   if (page === 'analisis-nilai') return <AnalisisNilai />
   if (page === 'remedial') return <RemedialPage notify={notify} />
   if (page === 'ai-generator') return <AIGeneratorPage />
