@@ -493,6 +493,111 @@ function CurriculumLinkText({ item }) {
   return <span className="text-xs font-bold text-emerald-600">{item.learningObjectiveCode || 'TP terhubung'}</span>
 }
 
+function normalizeLookupText(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+function extractGrade(value) {
+  const match = String(value || '').match(/\b(10|11|12|[7-9])\b/)
+  return match ? Number(match[1]) : null
+}
+
+function LearningObjectivePicker({ value, subjectId, classId, subjectName, className, subjectsList, classesList, onChange }) {
+  const { accessToken } = useAuth()
+  const [objectives, setObjectives] = useState([])
+  const [loading, setLoading] = useState(Boolean(accessToken))
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+
+    async function loadObjectives() {
+      if (!accessToken) {
+        setObjectives([])
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        const overview = await fetchCurriculumOverview({ accessToken })
+        if (active) {
+          setObjectives(overview.objectives || [])
+          setError('')
+        }
+      } catch (loadError) {
+        if (active) {
+          setObjectives([])
+          setError(loadError.message || 'TP belum bisa dimuat.')
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadObjectives()
+    return () => {
+      active = false
+    }
+  }, [accessToken])
+
+  const selectedSubject = subjectsList.find((item) => String(item.id || '') === String(subjectId || ''))
+  const selectedClass = classesList.find((item) => String(item.id || '') === String(classId || ''))
+  const selectedSubjectName = selectedSubject?.name || subjectName || ''
+  const selectedSubjectCode = selectedSubject?.code || ''
+  const selectedGrade = selectedClass?.grade || extractGrade(selectedClass?.name || className)
+  const normalizedSubject = normalizeLookupText(selectedSubjectName)
+  const normalizedCode = normalizeLookupText(selectedSubjectCode)
+
+  const subjectMatches = objectives.filter((objective) => {
+    if (!normalizedSubject && !normalizedCode) return true
+    const objectiveSubject = normalizeLookupText(objective.subjectName)
+    const objectiveCode = normalizeLookupText(objective.subjectCode)
+    return objectiveSubject === normalizedSubject
+      || objectiveCode === normalizedCode
+      || (normalizedSubject && objectiveSubject.includes(normalizedSubject))
+      || (objectiveSubject && normalizedSubject.includes(objectiveSubject))
+  })
+  const gradeMatches = selectedGrade
+    ? subjectMatches.filter((objective) => Number(objective.grade) === Number(selectedGrade))
+    : subjectMatches
+  const filteredObjectives = gradeMatches.length > 0 ? gradeMatches : subjectMatches
+  const selectedObjective = objectives.find((objective) => objective.id === value)
+  const pickerOptions = selectedObjective && !filteredObjectives.some((objective) => objective.id === selectedObjective.id)
+    ? [selectedObjective, ...filteredObjectives]
+    : filteredObjectives
+
+  function handleChange(objectiveId) {
+    const objective = objectives.find((item) => item.id === objectiveId)
+    onChange(objectiveId, objective)
+  }
+
+  return (
+    <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Tujuan Pembelajaran / TP
+      <select
+        value={value || ''}
+        onChange={(event) => handleChange(event.target.value)}
+        disabled={loading || pickerOptions.length === 0}
+        className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300 disabled:cursor-not-allowed disabled:opacity-70"
+      >
+        <option value="">{loading ? 'Memuat TP...' : 'Pilih TP/ATP untuk konten ini'}</option>
+        {pickerOptions.slice(0, 80).map((objective) => (
+          <option key={objective.id} value={objective.id}>
+            {objective.code} - Kelas {objective.grade} S{objective.semester} - {objective.objective}
+          </option>
+        ))}
+      </select>
+      <span className="text-xs font-semibold text-slate-500">
+        {error
+          ? `TP belum dimuat: ${error}`
+          : pickerOptions.length > 0
+            ? `${pickerOptions.length} TP cocok dengan mapel/kelas. Data masih template awal dan perlu verifikasi sekolah.`
+            : 'Pilih mapel dan kelas terlebih dahulu, atau login Supabase agar bank TP sekolah terbaca.'}
+      </span>
+    </label>
+  )
+}
+
 function MaterialCard({ item, onOpen, notify }) {
   const navigate = useNavigate()
   return (
@@ -1619,6 +1724,15 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
+  function updateLearningObjective(objectiveId, objective) {
+    setForm((current) => ({
+      ...current,
+      learningObjectiveId: objectiveId,
+      learningObjectiveCode: objective?.code || '',
+      learningObjectiveText: objective?.objective || '',
+    }))
+  }
+
   return (
     <SectionCard className="mb-5">
       <h2 className="text-xl font-extrabold text-gray-950">{form.id ? 'Edit materi' : 'Tambah materi'}</h2>
@@ -1649,6 +1763,16 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
             {['Draft', 'Publish'].map((status) => <option key={status}>{status}</option>)}
           </select>
         </label>
+        <LearningObjectivePicker
+          value={form.learningObjectiveId || ''}
+          subjectId={form.subjectId || ''}
+          classId={form.classId || ''}
+          subjectName={form.subject}
+          className={form.className}
+          subjectsList={subjectsList}
+          classesList={classesList}
+          onChange={updateLearningObjective}
+        />
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Deskripsi
           <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={3} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
         </label>
@@ -1678,6 +1802,7 @@ function emptyMaterial(lookups, teacherSubject) {
     topic: '',
     type: 'Teks',
     status: 'Draft',
+    learningObjectiveId: '',
   }
 }
 
@@ -1852,6 +1977,15 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
+  function updateLearningObjective(objectiveId, objective) {
+    setForm((current) => ({
+      ...current,
+      learningObjectiveId: objectiveId,
+      learningObjectiveCode: objective?.code || '',
+      learningObjectiveText: objective?.objective || '',
+    }))
+  }
+
   function submit() {
     onSave({
       ...form,
@@ -1892,6 +2026,16 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
         <label className="grid gap-1 text-sm font-bold text-gray-700">Jawaban benar
           <input value={form.correctAnswer} onChange={(event) => updateField('correctAnswer', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
         </label>
+        <LearningObjectivePicker
+          value={form.learningObjectiveId || ''}
+          subjectId={form.subjectId || ''}
+          classId={form.classId || ''}
+          subjectName={form.subject}
+          className={form.className}
+          subjectsList={subjectsList}
+          classesList={classesList}
+          onChange={updateLearningObjective}
+        />
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Pilihan jawaban, satu baris per opsi
           <textarea value={form.optionsText} onChange={(event) => updateField('optionsText', event.target.value)} rows={4} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
         </label>
@@ -1922,6 +2066,7 @@ function emptyQuestion(lookups, teacherSubject) {
     topic: '',
     difficulty: 'Mudah',
     type: 'Pilihan ganda',
+    learningObjectiveId: '',
   }
 }
 
@@ -2091,6 +2236,15 @@ function AssignmentForm({ assignment, lookups, onCancel, onSave }) {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
+  function updateLearningObjective(objectiveId, objective) {
+    setForm((current) => ({
+      ...current,
+      learningObjectiveId: objectiveId,
+      learningObjectiveCode: objective?.code || '',
+      learningObjectiveText: objective?.objective || '',
+    }))
+  }
+
   return (
     <SectionCard className="mb-5">
       <h2 className="text-xl font-extrabold text-gray-950">{form.id ? 'Edit tugas' : 'Buat tugas'}</h2>
@@ -2116,6 +2270,16 @@ function AssignmentForm({ assignment, lookups, onCancel, onSave }) {
             {['Draft', 'Aktif', 'Selesai'].map((status) => <option key={status}>{status}</option>)}
           </select>
         </label>
+        <LearningObjectivePicker
+          value={form.learningObjectiveId || ''}
+          subjectId={form.subjectId || ''}
+          classId={form.classId || ''}
+          subjectName={form.subject}
+          className={form.className}
+          subjectsList={subjectsList}
+          classesList={classesList}
+          onChange={updateLearningObjective}
+        />
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Deskripsi
           <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={4} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
         </label>
@@ -2140,6 +2304,7 @@ function emptyAssignment(lookups, teacherSubject) {
     className: classItem?.name || 'Kelas umum',
     deadline: '',
     status: 'Draft',
+    learningObjectiveId: '',
   }
 }
 
@@ -2325,6 +2490,15 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSa
     setForm((current) => ({ ...current, [field]: value }))
   }
 
+  function updateLearningObjective(objectiveId, objective) {
+    setForm((current) => ({
+      ...current,
+      learningObjectiveId: objectiveId,
+      learningObjectiveCode: objective?.code || '',
+      learningObjectiveText: objective?.objective || '',
+    }))
+  }
+
   function toggleQuestion(questionId) {
     setSelectedQuestionIds((current) => current.includes(questionId) ? current.filter((id) => id !== questionId) : [...current, questionId])
   }
@@ -2354,6 +2528,16 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSa
             {['Draft', 'Publish'].map((status) => <option key={status}>{status}</option>)}
           </select>
         </label>
+        <LearningObjectivePicker
+          value={form.learningObjectiveId || ''}
+          subjectId={form.subjectId || ''}
+          classId={form.classId || ''}
+          subjectName={form.subject}
+          className={form.className}
+          subjectsList={subjectsList}
+          classesList={classesList}
+          onChange={updateLearningObjective}
+        />
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Deskripsi
           <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={3} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
         </label>
@@ -2388,6 +2572,7 @@ function emptyQuiz(lookups, teacherSubject) {
     className: classItem?.name || 'Kelas umum',
     duration: 30,
     status: 'Draft',
+    learningObjectiveId: '',
   }
 }
 
