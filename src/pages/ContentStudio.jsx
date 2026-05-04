@@ -1058,7 +1058,19 @@ function buildFallbackLesson(form) {
       },
       {
         title: 'Contoh kontekstual',
-        body: `Gunakan contoh yang dekat dengan kehidupan siswa, misalnya lingkungan sekolah, kepulauan, aktivitas harian, atau fenomena sekitar Pangkep.`,
+        body: `Gunakan contoh yang dekat dengan kehidupan siswa, misalnya lingkungan sekolah, kepulauan, aktivitas harian, atau fenomena sekitar Pangkep agar belajar terasa bermakna dan menggembirakan.`,
+      },
+      {
+        title: 'Memahami',
+        body: `Siswa membaca konsep inti ${topic}, mengamati contoh, dan menandai istilah penting yang perlu dipahami.`,
+      },
+      {
+        title: 'Mengaplikasi',
+        body: `Siswa menggunakan konsep ${topic} untuk menyelesaikan latihan, studi kasus, percobaan, atau produk sederhana sesuai mata pelajaran.`,
+      },
+      {
+        title: 'Merefleksi',
+        body: `Siswa menulis apa yang dipahami, apa yang masih membingungkan, dan bagaimana konsep ${topic} dapat digunakan dalam kehidupan nyata.`,
       },
       {
         title: 'Aktivitas siswa',
@@ -1077,7 +1089,7 @@ function buildFallbackLesson(form) {
         body: `Tuliskan satu hal yang kamu pahami, satu hal yang masih membingungkan, dan satu contoh penggunaan ${topic}.`,
       },
     ],
-    tools: template.tools,
+    tools: Array.from(new Set([...(template.tools || []), 'Deep Learning', 'Assessment as/for/of learning'])),
   }
 }
 
@@ -1237,11 +1249,15 @@ function englishFallbackLesson(form) {
         body: `Answer the questions in English.\n1. Where did the writer go last Sunday?\n2. How did the writer go there?\n3. What did the writer do on the beach?\n4. Why was the trip memorable?\n\nPembahasan dapat dilakukan dalam Bahasa Indonesia agar siswa memahami alasan jawabannya.`,
       },
       {
+        title: 'Deep Learning Flow',
+        body: `Memahami: students identify main idea, details, and vocabulary. Mengaplikasi: students write or speak simple sentences about their own context. Merefleksi: students explain what they can describe better after the lesson. Use local context so the activity feels bermakna and menggembirakan.`,
+      },
+      {
         title: 'Exit Ticket',
         body: `Write two English sentences about your own experience.\n\nBantuan: siswa boleh menulis dulu ide dalam Bahasa Indonesia, lalu mengubahnya menjadi kalimat Bahasa Inggris sederhana.`,
       },
     ],
-    tools: ['Vocabulary builder', 'Reading questions', 'Guided practice', 'Exit ticket'],
+    tools: ['Vocabulary builder', 'Reading questions', 'Guided practice', 'Deep Learning', 'Exit ticket'],
     generatedQuestions: [
       {
         id: `english-question-${Date.now()}-1`,
@@ -2128,6 +2144,10 @@ export default function ContentStudio({ user: propUser }) {
         body: `Tambahkan cek pemahaman selama pembelajaran: 3 pertanyaan cepat, 1 latihan penerapan, dan 1 umpan balik guru untuk melihat apakah siswa sudah memahami ${topic}.`,
       },
       {
+        title: 'Alur Deep Learning',
+        body: `Memahami: siswa membaca konsep inti ${topic} dan contoh. Mengaplikasi: siswa menyelesaikan latihan atau studi kasus. Merefleksi: siswa menulis apa yang sudah dipahami, apa yang masih membingungkan, dan bagaimana konsep ini digunakan dalam kehidupan nyata.`,
+      },
+      {
         title: 'Refleksi dan Diferensiasi',
         body: `Refleksi: siswa menulis hal yang dipahami, hal yang membingungkan, dan contoh penerapan ${topic}. Diferensiasi: siapkan remedial dengan contoh lebih sederhana dan pengayaan berupa studi kasus atau proyek kecil.`,
       },
@@ -2143,7 +2163,7 @@ export default function ContentStudio({ user: propUser }) {
       learningObjectiveId: form.learningObjectiveId || preview.learningObjectiveId || '',
       sections: [...cleanedSections, ...qualitySections],
       generatedQuestions: existingQuestions.length > 0 ? existingQuestions : makeGeneratedQuestions(preview, form, 5),
-      tools: Array.from(new Set([...(preview.tools || []), 'Quality checklist', 'Asesmen formatif', 'Exit ticket', 'Diferensiasi'])),
+      tools: Array.from(new Set([...(preview.tools || []), 'Quality checklist', 'Asesmen formatif', 'Deep Learning', 'Exit ticket', 'Diferensiasi'])),
     })
     setDeliveryStatus(null)
     setActiveTab('builder')
@@ -2429,6 +2449,16 @@ function buildContentQualityReport(preview, form) {
       label: 'Ada diferensiasi/remedial/pengayaan',
       passed: lowerText.includes('remedial') || lowerText.includes('pengayaan') || lowerText.includes('diferensiasi'),
       suggestion: 'Tambahkan opsi remedial dan pengayaan untuk siswa yang kebutuhannya berbeda.',
+    },
+    {
+      label: 'Ada alur memahami, mengaplikasi, merefleksi',
+      passed: lowerText.includes('memahami') && lowerText.includes('mengaplikasi') && lowerText.includes('merefleksi'),
+      suggestion: 'Tambahkan bagian Memahami, Mengaplikasi, dan Merefleksi agar sesuai pendekatan Deep Learning.',
+    },
+    {
+      label: 'Ada konteks bermakna atau menggembirakan',
+      passed: lowerText.includes('bermakna') || lowerText.includes('menggembirakan') || lowerText.includes('kontekstual'),
+      suggestion: 'Tambahkan konteks dekat dengan siswa agar pembelajaran terasa bermakna dan menggembirakan.',
     },
     {
       label: 'Ada alat bantu atau strategi pembelajaran',

@@ -3979,6 +3979,11 @@ function CurriculumAdminPage() {
                 </div>
                 <p className="mt-3 text-sm font-extrabold text-slate-950">{objective.code}</p>
                 <p className="mt-1 text-sm leading-6 text-slate-600">{objective.objective}</p>
+                {objective.deep_learning_focus && (
+                  <p className="mt-2 rounded-2xl bg-cyan-50 px-3 py-2 text-xs font-bold leading-5 text-cyan-700 ring-1 ring-cyan-100">
+                    Fokus Deep Learning: {objective.deep_learning_focus}
+                  </p>
+                )}
                 <p className="mt-2 text-xs font-bold text-amber-600">{objective.verification_status}</p>
               </div>
             ))}
