@@ -318,6 +318,74 @@ function KelasSaya() {
   )
 }
 
+
+function readLocalRowsByPrefix(prefix) {
+  if (typeof localStorage === 'undefined') return []
+
+  return Object.keys(localStorage)
+    .filter((key) => key.startsWith(prefix))
+    .flatMap((key) => {
+      try {
+        const rows = JSON.parse(localStorage.getItem(key)) || []
+        return Array.isArray(rows) ? rows : []
+      } catch (error) {
+        return []
+      }
+    })
+}
+
+function getPublishedLocalTeacherMaterials() {
+  return readLocalRowsByPrefix('sea-learning-teacher-materials-')
+    .filter((item) => item && item.status === 'Publish')
+    .map((item) => ({
+      ...item,
+      source: item.source || 'local',
+      type: item.type || 'Teks',
+      progress: item.progress || 0,
+      description: item.description || `Materi ${item.topic || item.title} dari guru.`,
+      content: item.content || item.description || 'Konten materi belum tersedia.',
+      className: item.className || 'Kelas demo',
+      teacher: item.teacher || 'Guru',
+    }))
+}
+
+function getPublishedLocalTeacherQuizzes() {
+  return readLocalRowsByPrefix('sea-learning-teacher-quizzes-')
+    .filter((item) => item && item.status === 'Publish')
+    .map((item) => ({
+      ...item,
+      source: item.source || 'local',
+      duration: Number(item.duration || 30),
+      date: item.date || 'Aktif',
+      teacher: item.teacher || 'Guru',
+      className: item.className || 'Kelas demo',
+    }))
+}
+
+function getAllLocalTeacherQuestions() {
+  return readLocalRowsByPrefix('sea-learning-teacher-questions-')
+    .filter((item) => item && item.questionText)
+    .map((item) => ({
+      ...item,
+      source: item.source || 'local',
+      options: Array.isArray(item.options) ? item.options : ['Benar', 'Salah'],
+      correctAnswer: item.correctAnswer || (Array.isArray(item.options) ? item.options[0] : 'Benar'),
+      explanation: item.explanation || 'Pembahasan belum tersedia.',
+      difficulty: item.difficulty || 'Sedang',
+      type: item.type || 'Pilihan ganda',
+    }))
+}
+
+function uniqueRowsById(rows) {
+  const seen = new Set()
+  return rows.filter((item) => {
+    if (!item?.id || seen.has(item.id)) return false
+    seen.add(item.id)
+    return true
+  })
+}
+
+
 function MateriBelajar({ user, notify, appContext }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('Semua')
@@ -362,7 +430,8 @@ function MateriBelajar({ user, notify, appContext }) {
     }
   }, [appContext?.accessToken, user?.id])
 
-  const data = remoteMaterials.length > 0 ? remoteMaterials : materials
+  const localTeacherMaterials = getPublishedLocalTeacherMaterials()
+  const data = uniqueRowsById([...(remoteMaterials.length > 0 ? remoteMaterials : materials), ...localTeacherMaterials])
   const subjectsFilter = ['Semua', ...Array.from(new Set(data.map((item) => item.subject))), 'Selesai', 'Dipelajari', 'Belum Mulai']
   const enriched = data.map((item) => completedIds.includes(item.id) ? { ...item, status: 'Selesai', progress: 100 } : item)
   const filtered = enriched.filter((item) => (filter === 'Semua' || item.status === filter || item.subject === filter) && item.title.toLowerCase().includes(search.toLowerCase()))
@@ -654,9 +723,16 @@ function saveQuizResult(quizId, userId, result) {
 }
 
 function getQuizQuestionSet(quiz) {
-  const bySubject = questions.filter((item) => item.subject === quiz.subject)
+  const allQuestions = uniqueRowsById([...questions, ...getAllLocalTeacherQuestions()])
+
+  if (Array.isArray(quiz.questionIds) && quiz.questionIds.length > 0) {
+    const selectedQuestions = allQuestions.filter((item) => quiz.questionIds.includes(item.id))
+    if (selectedQuestions.length > 0) return selectedQuestions
+  }
+
+  const bySubject = allQuestions.filter((item) => item.subject === quiz.subject)
   if (bySubject.length > 0) return bySubject.slice(0, 8)
-  return questions.slice(0, 8)
+  return allQuestions.slice(0, 8)
 }
 
 function KuisPage({ user, notify, appContext }) {
@@ -673,7 +749,7 @@ function KuisPage({ user, notify, appContext }) {
 
     async function loadQuizzes() {
       if (!appContext?.accessToken) {
-        setQuizRows(quizzes)
+        setQuizRows(uniqueRowsById([...quizzes, ...getPublishedLocalTeacherQuizzes()]))
         setLoading(false)
         return
       }
@@ -682,12 +758,12 @@ function KuisPage({ user, notify, appContext }) {
         setLoading(true)
         const rows = await fetchQuizzes({ accessToken: appContext.accessToken, publishedOnly: true })
         if (active) {
-          setQuizRows(rows.length > 0 ? rows : quizzes)
+          setQuizRows(uniqueRowsById([...(rows.length > 0 ? rows : quizzes), ...getPublishedLocalTeacherQuizzes()]))
           setError('')
         }
       } catch (loadError) {
         if (active) {
-          setQuizRows(quizzes)
+          setQuizRows(uniqueRowsById([...quizzes, ...getPublishedLocalTeacherQuizzes()]))
           setError(loadError.message)
         }
       } finally {
