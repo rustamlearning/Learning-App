@@ -335,6 +335,126 @@ function buildRubric(form) {
   }
 }
 
+
+function cleanJsonText(text) {
+  return String(text || '')
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```$/i, '')
+    .trim()
+}
+
+function getAIResponseText(data) {
+  if (!data) return ''
+  if (typeof data === 'string') return data
+  return data.content || data.text || data.answer || data.message || data.result || data.output || ''
+}
+
+function buildStudioPrompt(form) {
+  return `
+Anda adalah asisten guru profesional untuk aplikasi SEA Learning SMAN 6 Pangkep.
+
+Buat draft konten pembelajaran yang siap diedit guru.
+
+Data:
+- Mata pelajaran: ${form.subject}
+- Kelas: ${form.className}
+- Topik: ${form.topic}
+- Jenis konten: ${form.contentType}
+- Output: ${form.outputType}
+- Level: ${form.level}
+- Durasi: ${form.duration}
+
+Balas HANYA JSON valid tanpa markdown.
+Format:
+{
+  "title": "judul konten",
+  "sections": [
+    {"title": "Tujuan pembelajaran", "body": "..."},
+    {"title": "Ringkasan materi", "body": "..."},
+    {"title": "Contoh kontekstual", "body": "..."},
+    {"title": "Aktivitas siswa", "body": "..."},
+    {"title": "Latihan", "body": "..."},
+    {"title": "Remedial dan pengayaan", "body": "..."},
+    {"title": "Exit ticket", "body": "..."}
+  ],
+  "tools": ["tool 1", "tool 2"]
+}
+
+Gunakan bahasa Indonesia yang jelas, ramah, dan sesuai konteks sekolah kepulauan.
+Untuk Matematika/Fisika/Kimia, sertakan tools seperti grafik, formula, simulasi, PhET, GeoGebra, Desmos, tabel periodik, atau unit converter jika relevan.
+Untuk Bahasa, sertakan reading, speaking, writing, rubrik, vocabulary, atau analisis teks jika relevan.
+`.trim()
+}
+
+function normalizeAILesson(aiText, form) {
+  const template = subjectTemplates[form.subject] || subjectTemplates.Umum
+  const topic = form.topic?.trim() || template.sampleTopic
+
+  try {
+    const parsed = JSON.parse(cleanJsonText(aiText))
+    return {
+      id: `studio-ai-content-${Date.now()}`,
+      title: parsed.title || `${form.outputType}: ${topic}`,
+      subject: form.subject,
+      className: form.className,
+      topic,
+      contentType: form.contentType,
+      outputType: form.outputType,
+      level: form.level,
+      duration: form.duration,
+      createdAt: new Date().toISOString(),
+      source: 'ai',
+      sections: Array.isArray(parsed.sections) && parsed.sections.length > 0
+        ? parsed.sections.map((section) => ({
+            title: section.title || 'Bagian materi',
+            body: section.body || '',
+          }))
+        : buildFallbackLesson(form).sections,
+      tools: Array.isArray(parsed.tools) && parsed.tools.length > 0 ? parsed.tools : template.tools,
+    }
+  } catch (error) {
+    const fallback = buildFallbackLesson(form)
+    return {
+      ...fallback,
+      id: `studio-ai-text-${Date.now()}`,
+      title: `${form.outputType}: ${topic}`,
+      source: 'ai-text',
+      sections: [
+        {
+          title: 'Draft AI',
+          body: String(aiText || '').trim() || 'AI belum mengembalikan konten yang dapat dibaca.',
+        },
+        ...fallback.sections.slice(1),
+      ],
+    }
+  }
+}
+
+async function requestStudioAIDraft(form) {
+  const response = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'askTutor',
+      prompt: buildStudioPrompt(form),
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`AI server merespons ${response.status}`)
+  }
+
+  const data = await response.json()
+  const text = getAIResponseText(data)
+
+  if (!text) {
+    throw new Error('AI tidak mengembalikan konten.')
+  }
+
+  return normalizeAILesson(text, form)
+}
+
 export default function ContentStudio({ user }) {
   const [toast, setToast] = useState('')
   const [activeTab, setActiveTab] = useState('builder')
@@ -385,10 +505,17 @@ export default function ContentStudio({ user }) {
     })
   }
 
-  function generateDraft() {
-    const draft = buildFallbackLesson(form)
-    setPreview(draft)
-    setToast('Draft konten berhasil dibuat dengan fallback lokal.')
+  async function generateDraft() {
+    try {
+      setToast('Membuat draft dengan AI server...')
+      const draft = await requestStudioAIDraft(form)
+      setPreview(draft)
+      setToast(draft.source === 'ai' ? 'Draft konten berhasil dibuat dengan AI server.' : 'Draft AI berhasil dibuat dan dirapikan.')
+    } catch (aiError) {
+      const draft = buildFallbackLesson(form)
+      setPreview(draft)
+      setToast('AI belum tersedia, draft lokal berhasil dibuat.')
+    }
   }
 
   function saveContent() {
