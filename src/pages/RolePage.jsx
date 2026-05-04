@@ -972,6 +972,160 @@ function KuisPage({ user, notify, appContext }) {
   )
 }
 
+
+function getStudioFlashcardDecks() {
+  return readLocalRowsByPrefix('sman6_studio_flashcards_v1')
+    .filter((item) => item && item.title)
+    .map((item) => {
+      const firstCard = item.cards?.[0]
+      return {
+        ...item,
+        source: 'studio',
+        count: item.count || item.cards?.length || 0,
+        progress: item.progress || 0,
+        front: item.front || firstCard?.front || 'Konsep utama',
+        back: item.back || firstCard?.back || 'Penjelasan konsep belum tersedia.',
+      }
+    })
+}
+
+function getStudioLearningPacks() {
+  return readLocalRowsByPrefix('sman6_studio_content_v1')
+    .filter((item) => item && ['Remedial', 'Pengayaan'].includes(item.outputType || item.savedAs))
+    .map((item) => ({
+      ...item,
+      source: 'studio',
+      outputType: item.outputType || item.savedAs,
+      subject: item.subject || 'Mata pelajaran',
+      className: item.className || 'Kelas demo',
+      topic: item.topic || item.title,
+      sections: Array.isArray(item.sections) ? item.sections : [],
+    }))
+}
+
+function FlashcardPage() {
+  const [selectedPack, setSelectedPack] = useState(null)
+  const studioDecks = getStudioFlashcardDecks()
+  const decks = uniqueRowsById([...flashcardDecks, ...studioDecks])
+  const learningPacks = getStudioLearningPacks()
+
+  if (selectedPack) {
+    return <LearningPackDetail pack={selectedPack} onBack={() => setSelectedPack(null)} />
+  }
+
+  return (
+    <div>
+      <PageHeader
+        eyebrow="Flashcard & Paket Belajar"
+        title="Review cepat, remedial, dan pengayaan."
+        description="Flashcard membantu mengingat konsep inti. Paket remedial dan pengayaan dari guru akan muncul di sini."
+      />
+
+      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+        <StatCard icon={Layers3} label="Deck flashcard" value={decks.length} caption={`${studioDecks.length} dari Studio Konten`} tone="purple" />
+        <StatCard icon={Brain} label="Remedial" value={learningPacks.filter((item) => item.outputType === 'Remedial').length} caption="Latihan perbaikan" tone="amber" />
+        <StatCard icon={Sparkles} label="Pengayaan" value={learningPacks.filter((item) => item.outputType === 'Pengayaan').length} caption="Tantangan lanjutan" tone="cyan" />
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        <DashboardCard title="Flashcard">
+          {decks.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {decks.map((deck) => (
+                <SectionCard key={deck.id}>
+                  <div className="mb-4 flex items-center justify-between gap-2">
+                    <StatusBadge tone={deck.source === 'studio' ? 'cyan' : 'purple'}>{deck.subject}</StatusBadge>
+                    <StatusBadge tone="green">{deck.count} kartu</StatusBadge>
+                  </div>
+                  <h2 className="text-lg font-extrabold text-slate-950">{deck.title}</h2>
+                  <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">{deck.topic || 'Review konsep'}</p>
+                  <div className="mt-4 rounded-3xl bg-galaxy-surface p-4 ring-1 ring-purple-100">
+                    <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Depan</p>
+                    <p className="mt-2 font-extrabold text-slate-950">{deck.front}</p>
+                    <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.14em] text-cyan-700">Belakang</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{deck.back}</p>
+                  </div>
+                  <div className="mt-4 h-2 rounded-full bg-galaxy-lavender">
+                    <div className="h-2 rounded-full bg-galaxy-action" style={{ width: `${deck.progress || 0}%` }} />
+                  </div>
+                </SectionCard>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="Belum ada flashcard." description="Flashcard dari guru akan muncul di sini." />
+          )}
+        </DashboardCard>
+
+        <DashboardCard title="Remedial & Pengayaan">
+          {learningPacks.length > 0 ? (
+            <div className="space-y-3">
+              {learningPacks.map((pack) => (
+                <div key={pack.id} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <StatusBadge tone={pack.outputType === 'Remedial' ? 'amber' : 'cyan'}>{pack.outputType}</StatusBadge>
+                    <StatusBadge tone="purple">{pack.subject}</StatusBadge>
+                  </div>
+                  <h3 className="mt-3 font-extrabold text-slate-950">{pack.title}</h3>
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500">
+                    {pack.sections?.[0]?.body || pack.description || 'Paket belajar dari guru.'}
+                  </p>
+                  <button onClick={() => setSelectedPack(pack)} className="mt-4 rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-extrabold text-white">
+                    Buka paket
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="Belum ada paket remedial/pengayaan." description="Guru dapat membuatnya dari Studio Konten." />
+          )}
+        </DashboardCard>
+      </div>
+    </div>
+  )
+}
+
+function LearningPackDetail({ pack, onBack }) {
+  return (
+    <div>
+      <PageHeader
+        eyebrow={pack.outputType}
+        title={pack.title}
+        description={`${pack.subject} · ${pack.className} · ${pack.topic}`}
+        action={<button onClick={onBack} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>}
+      />
+
+      <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
+        <SectionCard>
+          <StatusBadge tone={pack.outputType === 'Remedial' ? 'amber' : 'cyan'}>{pack.outputType}</StatusBadge>
+          <div className="mt-5 space-y-3">
+            {(pack.sections || []).length > 0 ? (
+              pack.sections.map((section) => (
+                <div key={section.title} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                  <h3 className="font-extrabold text-slate-950">{section.title}</h3>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">{section.body}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm leading-7 text-slate-600">{pack.description || 'Konten paket belajar belum tersedia.'}</p>
+            )}
+          </div>
+        </SectionCard>
+
+        <SectionCard>
+          <p className="text-sm font-extrabold text-slate-950">Info Paket</p>
+          <div className="mt-4 space-y-3 text-sm text-slate-600">
+            <p><b>Jenis:</b> {pack.outputType}</p>
+            <p><b>Mapel:</b> {pack.subject}</p>
+            <p><b>Kelas:</b> {pack.className}</p>
+            <p><b>Topik:</b> {pack.topic}</p>
+          </div>
+        </SectionCard>
+      </div>
+    </div>
+  )
+}
+
+
 function AIPage() {
   return <><PageHeader eyebrow="AI Tutor" title="AI Tutor siap membantu kamu memahami materi." description="Terhubung ke AI server saat tersedia, dengan mode fallback aman jika API belum dikonfigurasi." /><AIChatPanel /></>
 }
