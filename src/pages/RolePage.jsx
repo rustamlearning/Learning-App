@@ -704,11 +704,25 @@ function buildMaterialLearningSections(item) {
   ]
 }
 
+function isExternalMaterialType(type) {
+  return ['Link', 'Video', 'PDF'].includes(type)
+}
+
+function isValidMaterialUrl(value) {
+  try {
+    const url = new URL(value)
+    return ['http:', 'https:'].includes(url.protocol)
+  } catch (error) {
+    return false
+  }
+}
+
 function MaterialDetail({ item, onBack, onComplete, notify }) {
   const navigate = useNavigate()
   const sections = buildMaterialLearningSections(item)
   const progress = Number(item.progress || 0)
   const completed = item.status === 'Selesai' || progress >= 100
+  const externalMaterial = isExternalMaterialType(item.type) && isValidMaterialUrl(item.content)
 
   return (
     <div>
@@ -716,6 +730,17 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
       <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
         <SectionCard>
           <StatusBadge tone={item.status === 'Selesai' ? 'green' : 'cyan'}>{item.status}</StatusBadge>
+          {externalMaterial && (
+            <div className="mt-5 rounded-3xl bg-cyan-50 p-4 ring-1 ring-cyan-100">
+              <StatusBadge tone="cyan">{item.type}</StatusBadge>
+              <p className="mt-2 text-sm leading-6 text-cyan-800">
+                Materi ini memakai URL agar database tetap ringan. Buka link untuk melihat file atau video.
+              </p>
+              <a href={item.content} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-2xl bg-white px-4 py-3 text-sm font-extrabold text-cyan-700 ring-1 ring-cyan-100">
+                Buka materi
+              </a>
+            </div>
+          )}
           <div className="mt-5 grid gap-4">
             {sections.map((section) => (
               <div key={section.title} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
@@ -2034,6 +2059,8 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
   const [form, setForm] = useState(material)
   const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: material.subject || 'Bahasa Inggris' }]
   const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: material.className || 'Kelas umum' }]
+  const externalMaterial = isExternalMaterialType(form.type)
+  const validMaterial = form.title.trim() && (!externalMaterial || isValidMaterialUrl(form.content))
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -2091,13 +2118,18 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Deskripsi
           <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={3} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
         </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Konten materi
-          <textarea value={form.content} onChange={(event) => updateField('content', event.target.value)} rows={6} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">{externalMaterial ? `URL ${form.type}` : 'Konten materi'}
+          <textarea value={form.content} onChange={(event) => updateField('content', event.target.value)} rows={externalMaterial ? 2 : 6} placeholder={externalMaterial ? 'https://...' : 'Tulis isi materi ringan di sini.'} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
         </label>
+        {externalMaterial && !isValidMaterialUrl(form.content) && (
+          <div className="rounded-3xl bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100 md:col-span-2">
+            Untuk materi Link/Video/PDF, simpan URL http/https saja. File besar tidak disimpan langsung di database.
+          </div>
+        )}
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form)} disabled={!form.title.trim()} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan materi</button>
+        <button onClick={() => onSave(form)} disabled={!validMaterial} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan materi</button>
       </div>
     </SectionCard>
   )
