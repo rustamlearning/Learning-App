@@ -1010,6 +1010,7 @@ function makeRecommendedLearningPack(kind) {
 }
 
 function buildFallbackLesson(form) {
+  if (isEnglishSubject(form.subject)) return englishFallbackLesson(form)
   const template = subjectTemplates[form.subject] || subjectTemplates.Umum
   const topic = form.topic?.trim() || template.sampleTopic
   const level = form.level || 'Standar'
@@ -1134,41 +1135,124 @@ function getAIResponseText(data) {
   return data.content || data.text || data.answer || data.message || data.result || data.output || ''
 }
 
-function buildStudioPrompt(form) {
-  return `
-Anda adalah asisten guru profesional untuk aplikasi SEA Learning SMAN 6 Pangkep.
 
-WAJIB kembalikan JSON valid tanpa markdown. Gunakan struktur {\"title\":\"...\",\"sections\":[{\"title\":\"...\",\"body\":\"...\"}],\"tools\":[\"...\"],\"generatedQuestions\":[{\"questionText\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correctAnswer\":\"...\",\"explanation\":\"...\"}]}. Buat draft konten pembelajaran yang siap diedit guru.
-
-Data:
-- Mata pelajaran: ${form.subject}
-- Kelas: ${form.className}
-- Topik: ${form.topic}
-- Jenis konten: ${form.contentType}
-- Output: ${form.outputType}
-- Level: ${form.level}
-- Durasi: ${form.duration}
-
-Balas HANYA JSON valid tanpa markdown.
-Format:
-{
-  "title": "judul konten",
-  "sections": [
-    {"title": "Tujuan pembelajaran", "body": "..."},
-    {"title": "Ringkasan materi", "body": "..."},
-    {"title": "Contoh kontekstual", "body": "..."},
-    {"title": "Aktivitas siswa", "body": "..."},
-    {"title": "Latihan", "body": "..."},
-    {"title": "Remedial dan pengayaan", "body": "..."},
-    {"title": "Exit ticket", "body": "..."}
-  ],
-  "tools": ["tool 1", "tool 2"]
+function isEnglishSubject(subject) {
+  const value = String(subject || '').toLowerCase()
+  return value.includes('bahasa inggris') || value.includes('english')
 }
 
-Gunakan bahasa Indonesia yang jelas, ramah, dan sesuai konteks sekolah kepulauan.
-Untuk Matematika/Fisika/Kimia, sertakan tools seperti grafik, formula, simulasi, PhET, GeoGebra, Desmos, tabel periodik, atau unit converter jika relevan.
-Untuk Bahasa, sertakan reading, speaking, writing, rubrik, vocabulary, atau analisis teks jika relevan.
-`.trim()
+function studioLanguageInstruction(form) {
+  if (isEnglishSubject(form.subject)) {
+    return [
+      'LANGUAGE RULE:',
+      '- Subject is English.',
+      '- Student-facing content MUST be in English.',
+      '- Reading passages, dialogues, examples, questions, answer options, and activities MUST use English.',
+      '- Teacher guidance may include short Indonesian support, but the learning content must remain English.',
+      '- Do not generate Indonesian reading passages unless the task is translation.',
+    ].join('\n')
+  }
+
+  return [
+    'ATURAN BAHASA:',
+    '- Gunakan Bahasa Indonesia yang jelas, natural, dan sesuai konteks sekolah.',
+    '- Contoh, aktivitas, dan soal harus sesuai mata pelajaran yang dipilih.',
+  ].join('\n')
+}
+
+function englishFallbackLesson(form) {
+  const topic = form.topic || 'Learning Topic'
+  const subject = form.subject || 'English'
+  const className = form.className || 'X'
+  const contentType = form.contentType || 'Reading passage'
+
+  return {
+    id: `studio-preview-${Date.now()}`,
+    title: `${contentType}: ${topic}`,
+    subject,
+    className,
+    topic,
+    contentType,
+    outputType: form.outputType || 'Materi',
+    level: form.level || 'Standard',
+    duration: form.duration || '2 JP',
+    sections: [
+      {
+        title: 'Learning Objectives',
+        body: `By the end of the lesson, students are able to understand the main idea of ${topic}, identify key vocabulary, and use the language feature in a short spoken or written response.`,
+      },
+      {
+        title: 'Contextual Reading / Model Text',
+        body: `Read the following short model text about ${topic}. Pay attention to the structure, vocabulary, and expressions used in the text. Students should underline unfamiliar words, discuss their meaning, and explain the main message in their own words.`,
+      },
+      {
+        title: 'Language Focus',
+        body: `Key expressions and vocabulary related to ${topic}: describe, explain, sequence, character, setting, problem, solution, opinion, evidence, and conclusion. Students practise using these words in simple sentences.`,
+      },
+      {
+        title: 'Student Activity',
+        body: `In pairs, students discuss the text, answer comprehension questions, and create a short response. Each pair presents one idea to the class using simple and clear English.`,
+      },
+      {
+        title: 'Assessment / Exit Ticket',
+        body: `Before leaving the class, students write three things: one new word they learned, one sentence using the target language, and one question they still have about ${topic}.`,
+      },
+    ],
+    tools: ['Vocabulary builder', 'Speaking prompt', 'Reading questions', 'Exit ticket'],
+    generatedQuestions: [
+      {
+        id: `english-question-${Date.now()}-1`,
+        questionText: `What is the main idea of the text about ${topic}?`,
+        options: ['The main topic of the text', 'The writer’s address', 'The number of paragraphs', 'The title font'],
+        correctAnswer: 'The main topic of the text',
+        explanation: 'The main idea tells what the text is mostly about.',
+        difficulty: 'Easy',
+        type: 'Multiple choice',
+      },
+      {
+        id: `english-question-${Date.now()}-2`,
+        questionText: `Which activity helps students understand vocabulary?`,
+        options: ['Underline unfamiliar words', 'Close the book', 'Skip the text', 'Ignore the title'],
+        correctAnswer: 'Underline unfamiliar words',
+        explanation: 'Underlining unfamiliar words helps students notice and learn new vocabulary.',
+        difficulty: 'Easy',
+        type: 'Multiple choice',
+      },
+      {
+        id: `english-question-${Date.now()}-3`,
+        questionText: `What should students do in the exit ticket?`,
+        options: ['Write a new word and one sentence', 'Leave the class early', 'Delete their notes', 'Copy the teacher’s password'],
+        correctAnswer: 'Write a new word and one sentence',
+        explanation: 'The exit ticket checks what students learned before the lesson ends.',
+        difficulty: 'Medium',
+        type: 'Multiple choice',
+      },
+    ],
+    source: 'fallback',
+  }
+}
+
+
+function buildStudioPrompt(form) {
+  return [
+    'WAJIB kembalikan JSON valid tanpa markdown.',
+    'Gunakan struktur:',
+    '{"title":"...","sections":[{"title":"...","body":"..."}],"tools":["..."],"generatedQuestions":[{"questionText":"...","options":["A","B","C","D"],"correctAnswer":"...","explanation":"..."}]}',
+    '',
+    studioLanguageInstruction(form),
+    '',
+    `Mata pelajaran: ${form.subject}`,
+    `Kelas: ${form.className}`,
+    `Topik: ${form.topic}`,
+    `Jenis konten: ${form.contentType}`,
+    `Simpan sebagai: ${form.outputType}`,
+    `Level: ${form.level}`,
+    `Durasi: ${form.duration}`,
+    '',
+    'Buat draft pembelajaran yang siap dipakai guru.',
+    'Sertakan tujuan pembelajaran, ringkasan/model text, aktivitas siswa, latihan/pertanyaan, dan exit ticket.',
+    'Pastikan contoh dan soal sesuai mata pelajaran, bukan contoh generik.',
+  ].join('\n')
 }
 
 
@@ -1355,7 +1439,15 @@ async function requestStudioAIDraft(form) {
     throw new Error('AI tidak mengembalikan konten.')
   }
 
-  return normalizeAILesson(text, form)
+  const normalized = normalizeAILesson(text, form)
+  // AI language guard: English subject must not fall back to Indonesian examples.
+  if (isEnglishSubject(form.subject)) {
+    normalized.sections = (normalized.sections || []).map((section) => ({
+      ...section,
+      body: String(section.body || '').replace(/Bahasa Indonesia/g, 'English').replace(/teks bahasa indonesia/gi, 'English text'),
+    }))
+  }
+  return normalized
 }
 
 
