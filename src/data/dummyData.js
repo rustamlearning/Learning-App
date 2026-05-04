@@ -25,7 +25,7 @@ import {
 
 export const school = {
   name: 'SMA Negeri 6 Pangkajene dan Kepulauan',
-  shortName: 'SMAN 6 Pangkep',
+  shortName: 'SMA Negeri 6 Pangkajene dan Kepulauan',
   appName: 'SEA Learning',
   tagline: 'Dari Pesisir ke Masa Depan Digital',
 }
