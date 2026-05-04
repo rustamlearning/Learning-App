@@ -1253,6 +1253,9 @@ function buildStudioPrompt(form) {
     `Simpan sebagai: ${form.outputType}`,
     `Level: ${form.level}`,
     `Durasi: ${form.duration}`,
+    `Instruksi khusus guru: ${form.customInstruction || 'Tidak ada instruksi khusus. Buat versi terbaik yang praktis untuk kelas.'}`,
+    '',
+    'Ikuti instruksi khusus guru selama tidak bertentangan dengan tujuan pembelajaran.',
     '',
     'Buat draft pembelajaran yang siap dipakai guru.',
     'Untuk mapel Bahasa Inggris, pastikan model text, contoh kalimat, dialog, soal, opsi jawaban, dan correct answer berbahasa Inggris.',
@@ -1629,6 +1632,7 @@ export default function ContentStudio({ user: propUser }) {
     videoTitle: '',
     videoTimestamps: '00:30 | Apa konsep awal yang disampaikan?\n03:00 | Contoh apa yang muncul dalam video?\n05:00 | Apa kesimpulan penting dari video?',
     videoNote: '',
+    customInstruction: '',
   })
   const [preview, setPreview] = useState(() => buildFallbackLesson({
     subject: 'Bahasa Inggris',
@@ -2054,8 +2058,8 @@ function BuilderPanel({ form, template, availableContentTypes, updateForm, gener
           <Brain size={22} />
         </span>
         <div>
-          <h2 className="text-xl font-extrabold text-slate-950">Wizard pembuatan konten</h2>
-          <p className="text-sm text-slate-500">8 langkah cepat untuk membuat draft pembelajaran.</p>
+          <h2 className="text-xl font-extrabold text-slate-950">Buat konten pembelajaran</h2>
+          <p className="text-sm text-slate-500">Isi kebutuhan guru, beri instruksi khusus, lalu buat draft AI.</p>
         </div>
       </div>
 
@@ -2070,13 +2074,28 @@ function BuilderPanel({ form, template, availableContentTypes, updateForm, gener
       </div>
 
       <div className="mt-5 rounded-3xl bg-gradient-to-r from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
-        <p className="text-sm font-extrabold text-slate-950">8. Preview dan publish</p>
+        <p className="text-sm font-extrabold text-slate-950">8. Buat draft dan kirim</p>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          Buat draft, cek hasilnya, lalu simpan ke arsip lokal. Tahap berikutnya bisa dihubungkan ke Materi, Bank Soal, Kuis, Flashcard, dan LKPD.
+          Buat draft AI sesuai instruksi guru. Setelah cocok, kirim ke Materi, Bank Soal, Kuis, Flashcard, atau LKPD.
         </p>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
+
+      <label className="mt-5 grid gap-2 text-sm font-bold text-slate-700">
+        Instruksi khusus untuk AI
+        <textarea
+          value={form.customInstruction || ''}
+          onChange={(event) => updateForm('customInstruction', event.target.value)}
+          rows={5}
+          placeholder="Contoh: Buat narrative text tentang siswa kepulauan. Contoh teks, soal, pilihan jawaban, dan jawaban benar dalam English. Penjelasan dan pembahasan dalam Bahasa Indonesia. Buat 5 soal pilihan ganda dan 1 speaking activity."
+          className="w-full rounded-[1.5rem] border border-purple-100 bg-galaxy-surface px-4 py-3 text-sm leading-7 outline-none focus:border-purple-300"
+        />
+        <span className="text-xs font-semibold leading-5 text-slate-500">
+          Guru bebas mengatur gaya, jumlah soal, bahasa, konteks lokal, level kesulitan, bentuk aktivitas, dan format jawaban.
+        </span>
+      </label>
+
         <button onClick={generateDraft} className="inline-flex items-center gap-2 rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-extrabold text-white">
           <Sparkles size={16} />
           Generate draft
