@@ -84,6 +84,7 @@ export const navItems = {
     { label: 'Dashboard', path: '/siswa/dashboard', icon: Home },
     { label: 'Kelas Saya', path: '/siswa/kelas', icon: School },
     { label: 'Materi Belajar', path: '/siswa/materi', icon: BookOpen },
+    { label: 'Tugas', path: '/siswa/tugas', icon: NotebookTabs },
     { label: 'Latihan', path: '/siswa/latihan', icon: Brain },
     { label: 'Kuis / Ujian', path: '/siswa/kuis', icon: FileQuestion },
     { label: 'Flashcard', path: '/siswa/flashcard', icon: Layers3 },

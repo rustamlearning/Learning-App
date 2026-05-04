@@ -38,6 +38,27 @@ export async function removeAssignment({ accessToken, id }) {
   await deleteRow('assignments', id, accessToken)
 }
 
+export async function createAssignmentSubmission({ accessToken, assignmentId, studentId, answerText }) {
+  const rows = await createRow('submissions', {
+    assignment_id: assignmentId,
+    student_id: studentId || null,
+    answer_text: answerText,
+    submitted_at: new Date().toISOString(),
+  }, accessToken)
+
+  return rows[0]
+}
+
+export async function fetchAssignmentSubmissions({ accessToken, assignmentId } = {}) {
+  const filters = {}
+  if (assignmentId) filters.assignment_id = assignmentId
+  return listRows('submissions', {
+    select: '*',
+    filters,
+    accessToken,
+  })
+}
+
 function toAssignmentItem(row) {
   return {
     id: row.id,

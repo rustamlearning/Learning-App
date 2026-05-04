@@ -64,7 +64,7 @@ import { fetchQuestions, removeQuestion, saveQuestion } from '../services/questi
 import { fetchQuizAttempts, fetchQuizQuestions, fetchQuizzes, fetchStudentRecord, removeQuiz, saveQuiz, submitQuizAttempt } from '../services/quizService.js'
 import { fetchCurriculumContentAudit, fetchCurriculumOverview } from '../services/curriculumService.js'
 import { exportBackupData, fetchAdminStudents, fetchAdminTeachers, fetchClasses, fetchSubjects, removeAdminStudent, removeAdminTeacher, removeClass, removeSubject, saveAdminStudent, saveAdminTeacher, saveClass, saveSubject } from '../services/adminService.js'
-import { fetchAssignments, removeAssignment, saveAssignment } from '../services/assignmentService.js'
+import { createAssignmentSubmission, fetchAssignmentSubmissions, fetchAssignments, removeAssignment, saveAssignment } from '../services/assignmentService.js'
 
 const ContentStudio = lazy(() => import('./ContentStudio.jsx'))
 
@@ -94,6 +94,7 @@ function renderSiswa(page, user, notify, appContext) {
   if (page === 'dashboard') return <SiswaDashboard user={user} notify={notify} />
   if (page === 'kelas') return <KelasSaya />
   if (page === 'materi') return <MateriBelajar user={user} notify={notify} appContext={appContext} />
+  if (page === 'tugas') return <SiswaTugas user={user} notify={notify} appContext={appContext} />
   if (page === 'latihan') return <LatihanPage notify={notify} />
   if (page === 'kuis') return <KuisPage user={user} notify={notify} appContext={appContext} />
   if (page === 'flashcard') return <FlashcardPage />
@@ -368,6 +369,21 @@ function getPublishedLocalTeacherQuizzes() {
       date: item.date || 'Aktif',
       teacher: item.teacher || 'Guru',
       className: item.className || 'Kelas umum',
+    }))
+}
+
+function getPublishedLocalTeacherAssignments() {
+  return readLocalRowsByPrefix('sea-learning-teacher-assignments-')
+    .filter((item) => item && item.status === 'Aktif')
+    .map((item) => ({
+      ...item,
+      source: item.source || 'local',
+      subject: item.subject || 'Mata pelajaran',
+      className: item.className || 'Kelas umum',
+      teacher: item.teacher || 'Guru',
+      description: item.description || 'Instruksi tugas belum diisi lengkap.',
+      deadline: item.deadline || '',
+      submitted: getLocalAssignmentSubmissions(item.id).length,
     }))
 }
 
@@ -746,6 +762,198 @@ function getCompletedMaterials(userId) {
 
 function setCompletedMaterials(userId, ids) {
   localStorage.setItem(`sea-learning-material-progress-${userId || 'demo'}`, JSON.stringify(ids))
+}
+
+function assignmentSubmissionStorageKey(assignmentId) {
+  return `sea-learning-assignment-submissions-${assignmentId || 'unknown'}`
+}
+
+function getLocalAssignmentSubmissions(assignmentId) {
+  try {
+    return JSON.parse(localStorage.getItem(assignmentSubmissionStorageKey(assignmentId))) || []
+  } catch (error) {
+    return []
+  }
+}
+
+function getLocalAssignmentSubmission(assignmentId, userId) {
+  return getLocalAssignmentSubmissions(assignmentId).find((item) => item.userId === (userId || 'demo')) || null
+}
+
+function saveLocalAssignmentSubmission(assignmentId, submission) {
+  const rows = getLocalAssignmentSubmissions(assignmentId)
+  const nextRows = rows.some((item) => item.userId === submission.userId)
+    ? rows.map((item) => item.userId === submission.userId ? submission : item)
+    : [submission, ...rows]
+  localStorage.setItem(assignmentSubmissionStorageKey(assignmentId), JSON.stringify(nextRows))
+  return nextRows
+}
+
+function SiswaTugas({ user, notify, appContext }) {
+  const [rows, setRows] = useState([])
+  const [selected, setSelected] = useState(null)
+  const [answer, setAnswer] = useState('')
+  const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+
+    async function loadAssignments() {
+      if (!appContext?.accessToken) {
+        setRows(uniqueRowsById([...assignments.filter((item) => item.status === 'Aktif'), ...getPublishedLocalTeacherAssignments()]))
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        const remoteRows = await fetchAssignments({ accessToken: appContext.accessToken, publishedOnly: true })
+        if (active) {
+          setRows(uniqueRowsById([...(remoteRows.length > 0 ? remoteRows : assignments.filter((item) => item.status === 'Aktif')), ...getPublishedLocalTeacherAssignments()]))
+          setError('')
+        }
+      } catch (loadError) {
+        if (active) {
+          setRows(uniqueRowsById([...assignments.filter((item) => item.status === 'Aktif'), ...getPublishedLocalTeacherAssignments()]))
+          setError(loadError.message)
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadAssignments()
+    return () => {
+      active = false
+    }
+  }, [appContext?.accessToken])
+
+  function openAssignment(assignment) {
+    setSelected(assignment)
+    setAnswer(getLocalAssignmentSubmission(assignment.id, user?.id)?.answerText || '')
+  }
+
+  async function submitAssignment() {
+    if (!selected) return
+    if (!answer.trim()) {
+      notify('Isi jawaban tugas terlebih dahulu.')
+      return
+    }
+
+    const localSubmission = {
+      id: `local-submission-${Date.now()}`,
+      assignmentId: selected.id,
+      userId: user?.id || 'demo',
+      studentName: user?.name || 'Siswa',
+      answerText: answer.trim(),
+      submittedAt: new Date().toISOString(),
+      status: 'Terkirim',
+    }
+
+    if (appContext?.accessToken && selected.source === 'supabase' && isUuid(user?.id)) {
+      try {
+        const student = await fetchStudentRecord({ accessToken: appContext.accessToken, profileId: user.id })
+        await createAssignmentSubmission({ accessToken: appContext.accessToken, assignmentId: selected.id, studentId: student?.id, answerText: answer.trim() })
+        notify('Jawaban tugas dikirim ke Supabase.')
+      } catch (submitError) {
+        notify(`Supabase belum menerima submission, jawaban disimpan lokal: ${submitError.message}`)
+      }
+    } else {
+      notify('Jawaban tugas tersimpan lokal di perangkat.')
+    }
+
+    saveLocalAssignmentSubmission(selected.id, localSubmission)
+    setSelected((current) => current ? { ...current, submitted: getLocalAssignmentSubmissions(current.id).length } : current)
+  }
+
+  if (selected) {
+    const submission = getLocalAssignmentSubmission(selected.id, user?.id)
+    return (
+      <div>
+        <PageHeader
+          eyebrow={selected.subject}
+          title={selected.title}
+          description={`${selected.className} · Deadline ${selected.deadline || '-'} · ${selected.status}`}
+          action={<button onClick={() => setSelected(null)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>}
+        />
+
+        <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
+          <SectionCard>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone={submission ? 'green' : 'amber'}>{submission ? 'Sudah submit' : 'Belum submit'}</StatusBadge>
+              <CurriculumLinkBadge item={selected} />
+            </div>
+            <div className="mt-5 rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <p className="text-sm font-extrabold text-slate-950">Instruksi tugas</p>
+              <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-600">{selected.description}</p>
+            </div>
+            <label className="mt-5 grid gap-2 text-sm font-bold text-slate-700">
+              Jawaban teks
+              <textarea
+                value={answer}
+                onChange={(event) => setAnswer(event.target.value)}
+                rows={8}
+                className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300"
+                placeholder="Tulis jawaban tugas di sini. File upload belum diaktifkan agar storage tetap ringan."
+              />
+            </label>
+            <button onClick={submitAssignment} className="mt-5 rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white">
+              {submission ? 'Perbarui submission' : 'Submit tugas'}
+            </button>
+          </SectionCard>
+
+          <SectionCard>
+            <p className="text-sm font-extrabold text-gray-950">Status Submission</p>
+            <div className="mt-4 space-y-3 text-sm text-slate-600">
+              <p><b>Guru:</b> {selected.teacher || 'Guru'}</p>
+              <p><b>Deadline:</b> {selected.deadline || '-'}</p>
+              <p><b>TP/ATP:</b> <CurriculumLinkText item={selected} /></p>
+              <p><b>Terakhir submit:</b> {submission ? new Date(submission.submittedAt).toLocaleString('id-ID') : '-'}</p>
+            </div>
+            <div className="mt-5 rounded-3xl bg-cyan-50 p-4 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">
+              Untuk tahap ini, jawaban berupa teks. File besar nanti memakai link atau Supabase Storage agar database tetap ringan.
+            </div>
+            {selected.rubric && (
+              <div className="mt-4 rounded-3xl bg-purple-50 p-4 text-sm leading-6 text-purple-800 ring-1 ring-purple-100">
+                <b>Rubrik:</b> {selected.rubric}
+              </div>
+            )}
+          </SectionCard>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <PageHeader eyebrow="Tugas" title="Tugas aktif dari guru" description="Baca instruksi, tulis jawaban teks, dan simpan submission. Jika Supabase belum siap, jawaban tetap tersimpan lokal." />
+      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim tugas: {error}. Data lokal tetap ditampilkan.</div>}
+      {loading ? <LoadingState label="Memuat tugas siswa..." /> : rows.length > 0 ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {rows.map((assignment) => {
+            const submission = getLocalAssignmentSubmission(assignment.id, user?.id)
+            return (
+              <SectionCard key={assignment.id}>
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <StatusBadge tone={submission ? 'green' : statusTone(assignment.status)}>{submission ? 'Terkirim' : assignment.status}</StatusBadge>
+                  <CurriculumLinkBadge item={assignment} />
+                </div>
+                <h2 className="text-lg font-extrabold">{assignment.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-gray-500">{assignment.description}</p>
+                <p className="mt-3 text-xs font-bold text-slate-500">{assignment.subject} · Deadline {assignment.deadline || '-'}</p>
+                <button onClick={() => openAssignment(assignment)} className="mt-5 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">
+                  {submission ? 'Lihat / perbarui jawaban' : 'Kerjakan tugas'}
+                </button>
+              </SectionCard>
+            )
+          })}
+        </div>
+      ) : (
+        <EmptyState title="Belum ada tugas aktif." description="Tugas yang sudah dipublish guru akan muncul di sini." />
+      )}
+    </div>
+  )
 }
 
 function getPracticeResult(practiceId) {
@@ -2210,6 +2418,7 @@ function GuruTugas({ user, notify, appContext }) {
   const [lookups, setLookups] = useState({ subjects: [], classes: [] })
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)
+  const [viewingSubmissions, setViewingSubmissions] = useState(null)
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
 
@@ -2270,7 +2479,10 @@ function GuruTugas({ user, notify, appContext }) {
     }
 
     try {
-      const saved = await saveAssignment({ accessToken: appContext.accessToken, teacherId: user.id, assignment })
+      const assignmentPayload = assignment.rubric
+        ? { ...assignment, description: `${assignment.description || ''}\n\nRubrik sederhana:\n${assignment.rubric}`.trim() }
+        : assignment
+      const saved = await saveAssignment({ accessToken: appContext.accessToken, teacherId: user.id, assignment: assignmentPayload })
       setRows((current) => assignment.id ? current.map((item) => item.id === assignment.id ? saved : item) : [saved, ...current])
       setEditing(null)
       notify(assignment.id ? 'Tugas berhasil diperbarui di Supabase.' : 'Tugas berhasil dibuat di Supabase.')
@@ -2301,6 +2513,52 @@ function GuruTugas({ user, notify, appContext }) {
     }
   }
 
+  async function openSubmissions(row) {
+    const localRows = getLocalAssignmentSubmissions(row.id)
+    if (appContext?.accessToken && row.source === 'supabase') {
+      try {
+        const remoteRows = await fetchAssignmentSubmissions({ accessToken: appContext.accessToken, assignmentId: row.id })
+        setViewingSubmissions({ assignment: row, rows: remoteRows.length > 0 ? remoteRows : localRows, source: remoteRows.length > 0 ? 'supabase' : 'local' })
+        return
+      } catch (submissionError) {
+        notify(`Submission Supabase belum bisa dibaca guru, memakai data lokal: ${submissionError.message}`)
+      }
+    }
+    setViewingSubmissions({ assignment: row, rows: localRows, source: 'local' })
+  }
+
+  if (viewingSubmissions) {
+    return (
+      <div>
+        <PageHeader
+          eyebrow="Submission Tugas"
+          title={viewingSubmissions.assignment.title}
+          description={`${viewingSubmissions.rows.length} submission terbaca · sumber ${viewingSubmissions.source}`}
+          action={<button onClick={() => setViewingSubmissions(null)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>}
+        />
+        {viewingSubmissions.rows.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {viewingSubmissions.rows.map((submission, index) => (
+              <SectionCard key={submission.id || `${submission.student_id}-${index}`}>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <StatusBadge tone="green">Terkirim</StatusBadge>
+                  <StatusBadge tone="cyan">{submission.score ? `Skor ${submission.score}` : 'Belum dinilai'}</StatusBadge>
+                </div>
+                <p className="text-sm font-extrabold text-slate-950">{submission.studentName || submission.student_id || `Siswa ${index + 1}`}</p>
+                <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-600">{submission.answerText || submission.answer_text || 'Jawaban kosong.'}</p>
+                <p className="mt-3 text-xs font-bold text-slate-400">
+                  {submission.submittedAt || submission.submitted_at ? new Date(submission.submittedAt || submission.submitted_at).toLocaleString('id-ID') : 'Waktu belum tersedia'}
+                </p>
+              </SectionCard>
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="Belum ada submission." description="Submission siswa akan muncul setelah siswa mengirim jawaban teks dari halaman Tugas." />
+        )}
+      </div>
+    )
+  }
+
   return (
     <div>
       <PageHeader eyebrow="Tugas" title="Tugas kelas" description="Buat dan publish tugas untuk kelas yang Anda ajar." action={<QuickActionButton icon={Plus} label="Buat tugas" onClick={() => setEditing(emptyAssignment(lookups, teacherSubject))} />} />
@@ -2318,6 +2576,7 @@ function GuruTugas({ user, notify, appContext }) {
               <div className="mt-5 flex flex-wrap gap-2">
                 <button onClick={() => setEditing(row)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Edit</button>
                 <button onClick={() => handleSave({ ...row, status: row.status === 'Aktif' ? 'Draft' : 'Aktif' })} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{row.status === 'Aktif' ? 'Unpublish' : 'Publish'}</button>
+                <button onClick={() => openSubmissions(row)} className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">Submission ({getLocalAssignmentSubmissions(row.id).length})</button>
                 <button onClick={() => setDeleting(row)} className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">Hapus</button>
               </div>
             </SectionCard>
@@ -2387,6 +2646,9 @@ function AssignmentForm({ assignment, lookups, onCancel, onSave }) {
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Deskripsi
           <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={4} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
         </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Rubrik sederhana
+          <textarea value={form.rubric || ''} onChange={(event) => updateField('rubric', event.target.value)} rows={3} placeholder="Contoh: Isi 40%, ketepatan konsep 30%, kerapian 20%, refleksi 10%." className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+        </label>
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
@@ -2409,6 +2671,7 @@ function emptyAssignment(lookups, teacherSubject) {
     deadline: '',
     status: 'Draft',
     learningObjectiveId: '',
+    rubric: '',
   }
 }
 
