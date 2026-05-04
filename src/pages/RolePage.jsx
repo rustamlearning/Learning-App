@@ -481,11 +481,23 @@ function MateriBelajar({ user, notify, appContext }) {
   )
 }
 
+function CurriculumLinkBadge({ item }) {
+  const code = item?.learningObjectiveCode || item?.learningObjectiveId
+  if (!code) return <StatusBadge tone="amber">TP belum terhubung</StatusBadge>
+  return <StatusBadge tone="green">{item.learningObjectiveCode || 'TP terhubung'}</StatusBadge>
+}
+
+function CurriculumLinkText({ item }) {
+  const code = item?.learningObjectiveCode || item?.learningObjectiveId
+  if (!code) return <span className="text-xs font-bold text-amber-600">TP belum terhubung</span>
+  return <span className="text-xs font-bold text-emerald-600">{item.learningObjectiveCode || 'TP terhubung'}</span>
+}
+
 function MaterialCard({ item, onOpen, notify }) {
   const navigate = useNavigate()
   return (
     <SectionCard>
-      <div className="mb-4 flex items-center justify-between"><StatusBadge tone="cyan">{item.subject}</StatusBadge><StatusBadge tone="green">Ringan dibuka</StatusBadge></div>
+      <div className="mb-4 flex items-center justify-between gap-2"><StatusBadge tone="cyan">{item.subject}</StatusBadge><CurriculumLinkBadge item={item} /></div>
       <h2 className="text-xl font-extrabold text-gray-950">{item.title}</h2>
       <p className="mt-2 text-sm leading-6 text-gray-500">{item.description}</p>
       <div className="mt-4 h-2 rounded-full bg-galaxy-lavender"><div className="h-2 rounded-full bg-galaxy-action" style={{ width: `${item.progress}%` }} /></div>
@@ -520,6 +532,7 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
             <p><b>Kelas:</b> {item.className}</p>
             <p><b>Guru:</b> {item.teacher}</p>
             <p><b>Status:</b> {item.status}</p>
+            <p><b>TP/ATP:</b> <CurriculumLinkText item={item} /></p>
           </div>
         </SectionCard>
       </div>
@@ -1579,6 +1592,7 @@ function GuruMateri({ user, notify, appContext }) {
                 <h2 className="text-lg font-extrabold">{row.title}</h2>
                 <p className="mt-2 text-sm leading-6 text-gray-500">{row.description}</p>
                 <p className="mt-3 text-xs font-bold text-slate-500">{row.subject} · {row.className} · {row.topic}</p>
+                <div className="mt-3"><CurriculumLinkBadge item={row} /></div>
                 <div className="mt-5 flex flex-wrap gap-2">
                   <button onClick={() => setEditing(row)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Edit</button>
                   <button onClick={() => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{row.status === 'Publish' ? 'Unpublish' : 'Publish'}</button>
@@ -1813,6 +1827,7 @@ function BankSoal({ user, notify, appContext }) {
           { key: 'questionText', label: 'Soal' },
           { key: 'subject', label: 'Mapel' },
           { key: 'topic', label: 'Topik' },
+          { key: 'learningObjectiveCode', label: 'TP', render: (row) => <CurriculumLinkText item={row} /> },
           { key: 'difficulty', label: 'Level' },
           { key: 'type', label: 'Jenis' },
           { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
@@ -2050,6 +2065,7 @@ function GuruTugas({ user, notify, appContext }) {
               <h2 className="text-lg font-extrabold">{row.title}</h2>
               <p className="mt-2 text-sm leading-6 text-gray-500">{row.description}</p>
               <p className="mt-3 text-xs font-bold text-slate-500">{row.subject} · Deadline {row.deadline || '-'}</p>
+              <div className="mt-3"><CurriculumLinkBadge item={row} /></div>
               <div className="mt-5 flex flex-wrap gap-2">
                 <button onClick={() => setEditing(row)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Edit</button>
                 <button onClick={() => handleSave({ ...row, status: row.status === 'Aktif' ? 'Draft' : 'Aktif' })} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{row.status === 'Aktif' ? 'Unpublish' : 'Publish'}</button>
@@ -2283,6 +2299,7 @@ function KuisLive({ user, notify, appContext }) {
               <div className="flex items-center justify-between gap-2"><StatusBadge tone={statusTone(quiz.status)}>{quiz.status}</StatusBadge><StatusBadge tone="cyan">{quiz.duration} menit</StatusBadge></div>
               <h2 className="mt-4 text-lg font-extrabold">{quiz.title}</h2>
               <p className="mt-2 text-sm text-gray-500">{quiz.subject} · {quiz.className}</p>
+              <div className="mt-3"><CurriculumLinkBadge item={quiz} /></div>
               <p className="mt-3 text-sm font-bold text-galaxy-purple">{attempts.filter((attempt) => attempt.quiz_id === quiz.id).length} attempt masuk</p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <button onClick={() => setEditing(quiz)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Edit</button>

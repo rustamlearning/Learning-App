@@ -1558,7 +1558,7 @@ function resolveStudioClassId(lookups, className) {
 }
 
 function shortStudioToken() {
-  return new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)
+  return new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14)
 }
 
 function isDuplicateQuestionError(error) {

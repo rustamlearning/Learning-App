@@ -1,6 +1,6 @@
 import { createRow, deleteRow, deleteRows, listRows, updateRow } from './supabaseClient.js'
 
-const QUIZ_SELECT = '*,subjects(id,name,code),classes(id,name),users_profile(id,name)'
+const QUIZ_SELECT = '*,subjects(id,name,code),classes(id,name),users_profile(id,name),learning_objectives(id,code,objective,grade,semester)'
 const QUIZ_QUESTION_SELECT = '*,questions(*)'
 
 export async function fetchQuizzes({ accessToken, teacherId, publishedOnly = false } = {}) {
@@ -107,6 +107,8 @@ function toQuizItem(row) {
     classId: row.class_id,
     teacherId: row.teacher_id,
     learningObjectiveId: row.learning_objective_id || '',
+    learningObjectiveCode: row.learning_objectives?.code || '',
+    learningObjectiveText: row.learning_objectives?.objective || '',
     subject: row.subjects?.name || 'Mata pelajaran',
     className: row.classes?.name || 'Semua kelas',
     teacher: row.users_profile?.name || 'Guru',
