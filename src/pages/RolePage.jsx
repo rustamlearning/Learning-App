@@ -3050,11 +3050,13 @@ function LaporanSekolah({ notify }) {
 
 function CurriculumAuditPanel() {
   const { accessToken } = useAuth()
+  const navigate = useNavigate()
   const [audit, setAudit] = useState({
     totals: { total: 0, linked: 0, unlinked: 0, percentage: 0 },
     summary: [],
     unlinkedItems: [],
   })
+  const [activeFilter, setActiveFilter] = useState('all')
   const [loading, setLoading] = useState(Boolean(accessToken))
   const [error, setError] = useState('')
 
@@ -3087,6 +3089,27 @@ function CurriculumAuditPanel() {
     }
   }, [accessToken])
 
+  const auditActions = [
+    { id: 'materials', type: 'Materi', label: 'Materi', button: 'Buka Materi Guru', path: '/guru/materi', icon: BookOpen },
+    { id: 'assignments', type: 'Tugas', label: 'Tugas', button: 'Buka Tugas Guru', path: '/guru/tugas', icon: ClipboardList },
+    { id: 'questions', type: 'Soal', label: 'Bank Soal', button: 'Buka Bank Soal', path: '/guru/bank-soal', icon: FileQuestion },
+    { id: 'quizzes', type: 'Kuis', label: 'Kuis', button: 'Buka Kuis Live', path: '/guru/kuis-live', icon: PlayCircle },
+  ]
+
+  const filterOptions = [
+    { id: 'all', label: 'Semua', type: null },
+    ...auditActions.map((item) => ({ id: item.id, label: item.label, type: item.type })),
+  ]
+
+  const filteredItems = activeFilter === 'all'
+    ? audit.unlinkedItems
+    : audit.unlinkedItems.filter((item) => item.type === filterOptions.find((option) => option.id === activeFilter)?.type)
+
+  const selectedAction = auditActions.find((item) => item.id === activeFilter)
+  const selectedSummary = audit.summary.find((item) => item.id === activeFilter)
+  const topUnlinked = audit.summary.filter((item) => item.unlinked > 0).sort((a, b) => b.unlinked - a.unlinked)[0]
+  const priorityLabel = topUnlinked?.label || 'Konten'
+
   return (
     <SectionCard className="mb-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -3112,6 +3135,27 @@ function CurriculumAuditPanel() {
         <LoadingState label="Memuat audit keterhubungan kurikulum..." />
       ) : (
         <>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400">Total belum terhubung</p>
+              <p className="mt-2 text-3xl font-black text-slate-950">{audit.totals.unlinked}</p>
+              <p className="mt-1 text-xs font-bold text-slate-500">Dari {audit.totals.total} konten utama.</p>
+            </div>
+            <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400">Prioritas pertama</p>
+              <p className="mt-2 text-lg font-black text-slate-950">{audit.totals.unlinked ? priorityLabel : 'Tidak ada'}</p>
+              <p className="mt-1 text-xs font-bold text-slate-500">{topUnlinked ? `${topUnlinked.unlinked} item perlu dihubungkan ke TP/ATP.` : 'Semua konten utama sudah rapi.'}</p>
+            </div>
+            <div className="rounded-3xl bg-amber-50 p-4 ring-1 ring-amber-100">
+              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-amber-600">Rekomendasi tindakan</p>
+              <p className="mt-2 text-sm font-bold leading-6 text-amber-800">
+                {audit.totals.unlinked
+                  ? 'Buka halaman guru sesuai jenis konten untuk menemukan konten lama yang perlu diprioritaskan. Konten baru sebaiknya dibuat lewat Studio Konten agar TP/ATP langsung terhubung.'
+                  : 'Lanjutkan kebiasaan memilih TP/ATP saat membuat materi, tugas, soal, dan kuis baru.'}
+              </p>
+            </div>
+          </div>
+
           <div className="mt-5 grid gap-3 md:grid-cols-4">
             {audit.summary.map((item) => (
               <div key={item.id} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
@@ -3125,6 +3169,13 @@ function CurriculumAuditPanel() {
             ))}
           </div>
 
+          <div className="mt-5 flex flex-wrap gap-2">
+            {auditActions.map((item) => (
+              <QuickActionButton key={item.id} icon={item.icon} label={item.button} onClick={() => navigate(item.path)} />
+            ))}
+            <QuickActionButton icon={Sparkles} label="Buka Studio Konten" onClick={() => navigate('/guru/studio-konten')} />
+          </div>
+
           <div className="mt-5 rounded-3xl bg-white p-4 ring-1 ring-slate-100">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -3134,13 +3185,41 @@ function CurriculumAuditPanel() {
                 </p>
               </div>
               <StatusBadge tone={audit.totals.unlinked === 0 ? 'green' : 'amber'}>
-                {audit.totals.unlinked} belum terhubung
+                {activeFilter === 'all' ? audit.totals.unlinked : selectedSummary?.unlinked || 0} belum terhubung
               </StatusBadge>
             </div>
 
-            {audit.unlinkedItems.length > 0 ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {filterOptions.map((option) => {
+                const summary = audit.summary.find((item) => item.id === option.id)
+                const count = option.id === 'all' ? audit.totals.unlinked : summary?.unlinked || 0
+                const isActive = activeFilter === option.id
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setActiveFilter(option.id)}
+                    className={`rounded-2xl px-4 py-2.5 text-xs font-extrabold ring-1 transition ${
+                      isActive
+                        ? 'bg-galaxy-action text-white ring-galaxy-action'
+                        : 'bg-slate-50 text-slate-600 ring-slate-100 hover:bg-white'
+                    }`}
+                  >
+                    {option.label} ({count})
+                  </button>
+                )
+              })}
+            </div>
+
+            {selectedAction && (
+              <div className="mt-4 rounded-3xl bg-purple-50 p-4 text-sm font-bold leading-6 text-purple-800 ring-1 ring-purple-100">
+                Rekomendasi: buka halaman {selectedAction.label}, cek item lama yang belum punya badge TP, lalu jadikan daftar ini dasar kerja Patch 3 untuk edit manual TP.
+              </div>
+            )}
+
+            {filteredItems.length > 0 ? (
               <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                {audit.unlinkedItems.slice(0, 12).map((item) => (
+                {filteredItems.slice(0, 12).map((item) => (
                   <div key={`${item.type}-${item.id}`} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       <StatusBadge tone="amber">{item.type}</StatusBadge>
@@ -3154,7 +3233,9 @@ function CurriculumAuditPanel() {
               </div>
             ) : (
               <div className="mt-4 rounded-3xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700 ring-1 ring-emerald-100">
-                Semua konten utama sudah terhubung ke TP/ATP.
+                {activeFilter === 'all'
+                  ? 'Semua konten utama sudah terhubung ke TP/ATP.'
+                  : `${selectedAction?.label || 'Konten'} sudah terhubung ke TP/ATP.`}
               </div>
             )}
           </div>
