@@ -226,6 +226,157 @@ const featureTargets = [
   },
 ]
 
+
+const smartTemplates = [
+  {
+    id: 'math-graph-function',
+    subject: 'Matematika',
+    title: 'Grafik Fungsi Interaktif',
+    topic: 'Fungsi Kuadrat',
+    contentType: 'Grafik fungsi',
+    outputType: 'Materi',
+    level: 'Standar',
+    duration: '2 JP',
+    icon: Calculator,
+    tone: 'purple',
+    summary: 'Template untuk menjelaskan bentuk grafik, titik puncak, sumbu simetri, dan latihan membaca grafik.',
+    tools: ['Desmos', 'GeoGebra', 'Graphing Tool', 'Scientific Calculator'],
+    sections: [
+      ['Tujuan pembelajaran', 'Siswa mampu mengenali bentuk fungsi kuadrat, menentukan titik puncak, sumbu simetri, dan membaca grafik sederhana.'],
+      ['Rumus inti', 'Gunakan bentuk umum y = ax² + bx + c. Bahas pengaruh nilai a terhadap arah buka grafik dan perubahan nilai b serta c terhadap posisi grafik.'],
+      ['Aktivitas interaktif', 'Guru membuka Desmos atau GeoGebra, lalu siswa mengubah nilai a, b, dan c untuk mengamati perubahan grafik.'],
+      ['Latihan bertahap', 'Mulai dari menentukan nilai a, b, c, membaca titik potong, menentukan titik puncak, lalu menghubungkan grafik dengan masalah kontekstual.'],
+      ['Exit ticket', 'Siswa menulis satu pola yang mereka temukan saat nilai a, b, atau c berubah.'],
+    ],
+  },
+  {
+    id: 'physics-phet-lkpd',
+    subject: 'Fisika',
+    title: 'LKPD Simulasi PhET',
+    topic: 'Hukum Newton',
+    contentType: 'Simulasi gerak',
+    outputType: 'LKPD',
+    level: 'Standar',
+    duration: '2 JP',
+    icon: Atom,
+    tone: 'cyan',
+    summary: 'Template LKPD berbasis simulasi untuk mengamati hubungan gaya, massa, dan percepatan.',
+    tools: ['PhET Simulation', 'Formula Helper', 'Unit Converter'],
+    sections: [
+      ['Tujuan pembelajaran', 'Siswa mampu menjelaskan hubungan antara gaya, massa, dan percepatan melalui simulasi.'],
+      ['Instruksi simulasi', 'Buka simulasi PhET tentang gaya dan gerak. Ubah massa benda dan besar gaya, lalu amati perubahan percepatan.'],
+      ['Tabel observasi', 'Buat tabel berisi massa, gaya, percepatan, dan kesimpulan hubungan antarvariabel.'],
+      ['Pertanyaan analisis', 'Apa yang terjadi pada percepatan jika gaya diperbesar? Apa yang terjadi jika massa diperbesar?'],
+      ['Kesimpulan', 'Siswa menulis ulang Hukum II Newton dengan bahasa sendiri dan memberikan contoh di kehidupan sekitar.'],
+    ],
+  },
+  {
+    id: 'chem-reaction-stoichiometry',
+    subject: 'Kimia',
+    title: 'Persamaan Reaksi & Stoikiometri',
+    topic: 'Penyetaraan Reaksi',
+    contentType: 'Persamaan reaksi',
+    outputType: 'Materi',
+    level: 'Standar',
+    duration: '2 JP',
+    icon: Beaker,
+    tone: 'amber',
+    summary: 'Template untuk melatih siswa menyetarakan reaksi dan memahami koefisien reaksi.',
+    tools: ['Periodic Table', 'Equation Helper', 'PhET Chemistry'],
+    sections: [
+      ['Tujuan pembelajaran', 'Siswa mampu menyetarakan persamaan reaksi sederhana dan menjelaskan arti koefisien reaksi.'],
+      ['Konsep inti', 'Jumlah atom tiap unsur harus sama di ruas kiri dan kanan. Koefisien digunakan untuk menyeimbangkan jumlah partikel.'],
+      ['Contoh bertahap', 'Mulai dari reaksi sederhana seperti H₂ + O₂ → H₂O, lalu lanjut ke reaksi pembakaran sederhana.'],
+      ['Latihan', 'Sediakan 5 reaksi mudah, 3 reaksi sedang, dan 2 soal cerita terkait perbandingan mol.'],
+      ['Refleksi', 'Siswa menjelaskan mengapa indeks senyawa tidak boleh diubah saat menyetarakan reaksi.'],
+    ],
+  },
+  {
+    id: 'biology-diagram-labeling',
+    subject: 'Biologi',
+    title: 'Diagram Labeling Organ',
+    topic: 'Sistem Pernapasan',
+    contentType: 'Diagram organ',
+    outputType: 'LKPD',
+    level: 'Mudah',
+    duration: '2 JP',
+    icon: Microscope,
+    tone: 'green',
+    summary: 'Template LKPD untuk melabeli diagram, menjelaskan fungsi organ, dan membuat alur proses.',
+    tools: ['Diagram Labeling', 'Observation Sheet', 'Concept Map'],
+    sections: [
+      ['Tujuan pembelajaran', 'Siswa mampu mengidentifikasi organ pernapasan dan menjelaskan fungsi masing-masing organ.'],
+      ['Aktivitas labeling', 'Siswa melabeli hidung, trakea, bronkus, bronkiolus, paru-paru, alveolus, dan diafragma pada diagram.'],
+      ['Tabel fungsi organ', 'Siswa mengisi nama organ, fungsi, dan contoh gangguan yang mungkin terjadi.'],
+      ['Alur proses', 'Siswa membuat urutan perjalanan udara dari hidung sampai alveolus.'],
+      ['Exit ticket', 'Siswa menjelaskan satu cara menjaga kesehatan sistem pernapasan.'],
+    ],
+  },
+  {
+    id: 'english-speaking-writing',
+    subject: 'Bahasa Inggris',
+    title: 'Speaking & Writing Task',
+    topic: 'Descriptive Text',
+    contentType: 'Speaking prompt',
+    outputType: 'Tugas',
+    level: 'Standar',
+    duration: '2 JP',
+    icon: BookOpen,
+    tone: 'purple',
+    summary: 'Template tugas speaking dan writing lengkap dengan kosakata, prompt, dan rubrik sederhana.',
+    tools: ['Dialogue Builder', 'Speaking Prompt', 'Writing Rubric', 'Flashcard Maker'],
+    sections: [
+      ['Learning objective', 'Students are able to describe a place, person, or object using simple present tense and descriptive adjectives.'],
+      ['Vocabulary starter', 'beautiful, quiet, crowded, traditional, clean, friendly, famous, small, large, interesting.'],
+      ['Speaking prompt', 'Describe your school or your island in 5 sentences. Practice with a partner before presenting.'],
+      ['Writing task', 'Write one descriptive paragraph about a place in Pangkep. Include identification and description.'],
+      ['Simple rubric', 'Content, grammar, vocabulary, pronunciation, and confidence are assessed using score 1–4.'],
+    ],
+  },
+  {
+    id: 'indo-critical-reading',
+    subject: 'Bahasa Indonesia',
+    title: 'Analisis Teks & Rubrik',
+    topic: 'Teks Eksposisi',
+    contentType: 'Analisis teks',
+    outputType: 'Materi',
+    level: 'Standar',
+    duration: '2 JP',
+    icon: PenTool,
+    tone: 'cyan',
+    summary: 'Template membaca kritis untuk menemukan tesis, argumen, fakta, opini, dan simpulan.',
+    tools: ['Text Analyzer', 'Rubric Builder', 'Reflection Prompt'],
+    sections: [
+      ['Tujuan pembelajaran', 'Siswa mampu mengidentifikasi struktur teks eksposisi dan membedakan fakta serta opini.'],
+      ['Aktivitas membaca', 'Siswa membaca teks pendek, menandai tesis, argumen, dan penegasan ulang.'],
+      ['Tabel analisis', 'Siswa mengisi kutipan teks, jenis informasi, alasan, dan bukti pendukung.'],
+      ['Diskusi', 'Apakah argumen dalam teks sudah kuat? Bukti apa yang membuatnya meyakinkan?'],
+      ['Tugas lanjut', 'Siswa menulis satu paragraf eksposisi tentang isu di lingkungan sekolah.'],
+    ],
+  },
+  {
+    id: 'social-timeline-case',
+    subject: 'Sosial',
+    title: 'Timeline & Studi Kasus',
+    topic: 'Perubahan Sosial',
+    contentType: 'Timeline',
+    outputType: 'Materi',
+    level: 'Menantang',
+    duration: '2 JP',
+    icon: Layers3,
+    tone: 'amber',
+    summary: 'Template timeline, studi kasus, diskusi, dan refleksi untuk Sejarah, Ekonomi, Geografi, atau Sosiologi.',
+    tools: ['Timeline Builder', 'Case Study', 'Concept Map', 'Discussion Prompt'],
+    sections: [
+      ['Tujuan pembelajaran', 'Siswa mampu menjelaskan perubahan sosial melalui urutan peristiwa, sebab-akibat, dan dampaknya.'],
+      ['Timeline', 'Siswa menyusun 5–7 peristiwa penting berdasarkan urutan waktu dan menjelaskan hubungan antarperistiwa.'],
+      ['Studi kasus', 'Gunakan contoh perubahan ekonomi, teknologi, lingkungan, atau budaya di sekitar masyarakat pesisir.'],
+      ['Diskusi reflektif', 'Apa dampak positif dan negatif perubahan tersebut bagi masyarakat? Siapa yang paling terdampak?'],
+      ['Produk akhir', 'Siswa membuat peta konsep atau infografis sederhana dari hasil diskusi.'],
+    ],
+  },
+]
+
 function readStorage(key, fallback = []) {
   try {
     return JSON.parse(localStorage.getItem(key)) || fallback
@@ -386,6 +537,26 @@ function buildFallbackLesson(form) {
     tools: template.tools,
   }
 }
+
+
+function buildSmartTemplateDraft(template, form) {
+  return {
+    id: `studio-smart-template-${Date.now()}`,
+    title: template.title,
+    subject: template.subject,
+    className: form.className || 'X',
+    topic: template.topic,
+    contentType: template.contentType,
+    outputType: template.outputType,
+    level: template.level,
+    duration: template.duration,
+    createdAt: new Date().toISOString(),
+    source: 'smart-template',
+    sections: template.sections.map(([title, body]) => ({ title, body })),
+    tools: template.tools,
+  }
+}
+
 
 function buildRubric(form) {
   const topic = form.topic?.trim() || 'Tugas pembelajaran'
@@ -777,6 +948,23 @@ export default function ContentStudio({ user }) {
     setPreview(draft)
     setToast('Draft video interaktif dibuat.')
   }
+  function useSmartTemplate(template) {
+    const nextForm = {
+      ...form,
+      subject: template.subject,
+      topic: template.topic,
+      contentType: template.contentType,
+      outputType: template.outputType,
+      level: template.level,
+      duration: template.duration,
+    }
+
+    setForm(nextForm)
+    setPreview(buildSmartTemplateDraft(template, nextForm))
+    setDeliveryStatus(null)
+    setActiveTab('builder')
+    setToast(`Template ${template.title} siap diedit.`)
+  }
 
   return (
     <div>
@@ -796,7 +984,7 @@ export default function ContentStudio({ user }) {
       <div className="mb-5 flex flex-wrap gap-2">
         {[
           ['builder', 'AI Lesson Builder', Wand2],
-          ['templates', 'Template Mapel', Layers3],
+          ['templates', 'Smart Templates', Layers3],
           ['stem', 'STEM Tools', FlaskConical],
           ['rubric', 'Rubric Builder', ClipboardList],
           ['import', 'Import Teks/Video', LinkIcon],
@@ -831,7 +1019,7 @@ export default function ContentStudio({ user }) {
         </div>
       )}
 
-      {activeTab === 'templates' && <TemplatePanel onUseSubject={(subject) => { updateForm('subject', subject); setActiveTab('builder') }} />}
+      {activeTab === 'templates' && <TemplatePanel onUseSubject={(subject) => { updateForm('subject', subject); setActiveTab('builder') }} onUseSmartTemplate={useSmartTemplate} />}
 
       {activeTab === 'stem' && <StemToolsPanel />}
 
@@ -1000,33 +1188,88 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus }) {
   )
 }
 
-function TemplatePanel({ onUseSubject }) {
+function TemplatePanel({ onUseSubject, onUseSmartTemplate }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {Object.entries(subjectTemplates).map(([subject, template]) => {
-        const Icon = template.icon
-        return (
-          <SectionCard key={subject}>
-            <div className="mb-4 flex items-center justify-between">
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-galaxy-lavender text-galaxy-purple">
-                <Icon size={22} />
-              </span>
-              <StatusBadge tone={template.color}>{subject}</StatusBadge>
-            </div>
-            <h2 className="text-lg font-extrabold text-slate-950">{subject}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">Contoh topik: {template.sampleTopic}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {template.contentTypes.slice(0, 3).map((item) => <StatusBadge key={item}>{item}</StatusBadge>)}
-            </div>
-            <button onClick={() => onUseSubject(subject)} className="mt-5 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-extrabold text-white">
-              Gunakan template
-            </button>
-          </SectionCard>
-        )
-      })}
+    <div className="grid gap-5">
+      <SectionCard>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Smart Templates</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">Template siap pakai untuk semua rumpun mata pelajaran.</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+              Pilih template sesuai mapel. Draft akan langsung berisi aktivitas, tools, LKPD, latihan, dan arahan yang lebih spesifik.
+            </p>
+          </div>
+          <StatusBadge tone="green">Tahap 5</StatusBadge>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {smartTemplates.map((template) => {
+            const Icon = template.icon
+            return (
+              <button
+                key={template.id}
+                onClick={() => onUseSmartTemplate(template)}
+                className="group rounded-[1.75rem] bg-white p-4 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft hover:ring-purple-200"
+              >
+                <div className="flex gap-3">
+                  <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-galaxy-lavender text-galaxy-purple ring-1 ring-purple-100 group-hover:bg-galaxy-action group-hover:text-white">
+                    <Icon size={22} />
+                  </span>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-extrabold text-slate-950">{template.title}</h3>
+                      <StatusBadge tone={template.tone}>{template.subject}</StatusBadge>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-500">{template.summary}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {template.tools.slice(0, 3).map((tool) => <StatusBadge key={tool} tone="cyan">{tool}</StatusBadge>)}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </SectionCard>
+
+      <SectionCard>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Template dasar mapel</p>
+            <h2 className="mt-1 text-xl font-black text-slate-950">Mulai dari rumpun mata pelajaran.</h2>
+          </div>
+          <StatusBadge tone="cyan">Cepat</StatusBadge>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {Object.entries(subjectTemplates).map(([subject, template]) => {
+            const Icon = template.icon
+            return (
+              <SectionCard key={subject}>
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="grid h-12 w-12 place-items-center rounded-2xl bg-galaxy-lavender text-galaxy-purple">
+                    <Icon size={22} />
+                  </span>
+                  <StatusBadge tone={template.color}>{subject}</StatusBadge>
+                </div>
+                <h2 className="text-lg font-extrabold text-slate-950">{subject}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500">Contoh topik: {template.sampleTopic}</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {template.contentTypes.slice(0, 3).map((item) => <StatusBadge key={item}>{item}</StatusBadge>)}
+                </div>
+                <button onClick={() => onUseSubject(subject)} className="mt-5 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-extrabold text-white">
+                  Gunakan template
+                </button>
+              </SectionCard>
+            )
+          })}
+        </div>
+      </SectionCard>
     </div>
   )
 }
+
 
 function StemToolsPanel() {
   return (
