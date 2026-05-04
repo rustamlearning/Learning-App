@@ -1305,7 +1305,7 @@ function GuruDashboard({ notify }) {
     ['Buat Tugas', ClipboardList, '/guru/tugas'],
     ['Kuis Live', PlayCircle, '/guru/kuis-live'],
     ['Studio Konten', Sparkles, '/guru/studio-konten'],
-    ['AI Generator', Sparkles, '/guru/ai-generator'],
+    ['AI Cepat', Sparkles, '/guru/ai-generator'],
   ]
 
   return (
@@ -2380,7 +2380,56 @@ function RemedialPage({ notify }) {
 }
 
 function AIGeneratorPage() {
-  return <><PageHeader eyebrow="AI Generator" title="Buat soal, rangkuman, flashcard, dan rubrik." description="Bantu guru membuat draft soal, rangkuman, flashcard, dan rubrik melalui endpoint AI server." /><AIGeneratorPanel /></>
+  return (
+    <div>
+      <PageHeader
+        eyebrow="AI Cepat"
+        title="Generator cepat untuk draft sederhana."
+        description="Gunakan halaman ini untuk membuat draft cepat. Untuk membuat paket pembelajaran lengkap, gunakan Studio Konten."
+        action={
+          <a href="/guru/studio-konten" className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-extrabold text-white shadow-glow">
+            Buka Studio Konten
+          </a>
+        }
+      />
+
+      <SectionCard className="mb-5 bg-gradient-to-br from-violet-50 via-white to-cyan-50">
+        <div className="grid gap-5 lg:grid-cols-[1fr_18rem] lg:items-center">
+          <div>
+            <StatusBadge tone="cyan">Shortcut AI</StatusBadge>
+            <h2 className="mt-3 text-2xl font-black tracking-[-0.03em] text-slate-950">
+              AI Cepat cocok untuk kebutuhan singkat.
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              Pakai AI Cepat saat guru hanya butuh draft ringkas seperti soal, rangkuman,
+              flashcard, atau rubrik awal. Jika ingin membuat materi lengkap, LKPD, video
+              interaktif, STEM tools, remedial, pengayaan, dan mengirim hasil ke fitur siswa,
+              gunakan Studio Konten.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <StatusBadge tone="purple">Soal cepat</StatusBadge>
+              <StatusBadge tone="amber">Rangkuman</StatusBadge>
+              <StatusBadge tone="green">Rubrik awal</StatusBadge>
+              <StatusBadge tone="cyan">Flashcard draft</StatusBadge>
+            </div>
+          </div>
+
+          <div className="rounded-[1.75rem] bg-white p-4 shadow-soft ring-1 ring-purple-100">
+            <p className="text-sm font-extrabold text-slate-950">Butuh paket lengkap?</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Studio Konten adalah pusat utama untuk membuat dan mengirim konten ke Materi,
+              Bank Soal, Kuis Live, Flashcard, Remedial, dan Pengayaan.
+            </p>
+            <a href="/guru/studio-konten" className="mt-4 inline-flex w-full justify-center rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-extrabold text-white">
+              Masuk Studio Konten
+            </a>
+          </div>
+        </div>
+      </SectionCard>
+
+      <AIGeneratorPanel />
+    </div>
+  )
 }
 
 function LaporanGuru({ notify }) {

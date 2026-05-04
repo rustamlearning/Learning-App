@@ -103,7 +103,7 @@ export const navItems = {
     { label: 'Studio Konten', path: '/guru/studio-konten', icon: Sparkles },
     { label: 'Analisis Nilai', path: '/guru/analisis-nilai', icon: BarChart3 },
     { label: 'Remedial', path: '/guru/remedial', icon: Brain },
-    { label: 'AI Generator', path: '/guru/ai-generator', icon: Sparkles },
+    { label: 'AI Cepat', path: '/guru/ai-generator', icon: Sparkles },
     { label: 'Laporan', path: '/guru/laporan', icon: LineChart },
   ],
   admin: [
