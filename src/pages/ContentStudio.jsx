@@ -1138,7 +1138,7 @@ function buildStudioPrompt(form) {
   return `
 Anda adalah asisten guru profesional untuk aplikasi SEA Learning SMAN 6 Pangkep.
 
-Buat draft konten pembelajaran yang siap diedit guru.
+WAJIB kembalikan JSON valid tanpa markdown. Gunakan struktur {\"title\":\"...\",\"sections\":[{\"title\":\"...\",\"body\":\"...\"}],\"tools\":[\"...\"],\"generatedQuestions\":[{\"questionText\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correctAnswer\":\"...\",\"explanation\":\"...\"}]}. Buat draft konten pembelajaran yang siap diedit guru.
 
 Data:
 - Mata pelajaran: ${form.subject}
@@ -1171,49 +1171,168 @@ Untuk Bahasa, sertakan reading, speaking, writing, rubrik, vocabulary, atau anal
 `.trim()
 }
 
-function normalizeAILesson(aiText, form) {
-  const template = subjectTemplates[form.subject] || subjectTemplates.Umum
-  const topic = form.topic?.trim() || template.sampleTopic
+
+function cleanAIJsonText(text) {
+  return String(text || '')
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```$/i, '')
+    .trim()
+}
+
+function extractFirstJsonObject(text) {
+  const cleaned = cleanAIJsonText(text)
 
   try {
-    const parsed = JSON.parse(cleanJsonText(aiText))
-    return {
-      id: `studio-ai-content-${Date.now()}`,
-      title: parsed.title || `${form.outputType}: ${topic}`,
-      subject: form.subject,
-      className: form.className,
-      topic,
-      contentType: form.contentType,
-      outputType: form.outputType,
-      level: form.level,
-      duration: form.duration,
-      createdAt: new Date().toISOString(),
-      source: 'ai',
-      sections: Array.isArray(parsed.sections) && parsed.sections.length > 0
-        ? parsed.sections.map((section) => ({
-            title: section.title || 'Bagian materi',
-            body: section.body || '',
-          }))
-        : buildFallbackLesson(form).sections,
-      tools: Array.isArray(parsed.tools) && parsed.tools.length > 0 ? parsed.tools : template.tools,
-    }
+    return JSON.parse(cleaned)
   } catch (error) {
-    const fallback = buildFallbackLesson(form)
-    return {
-      ...fallback,
-      id: `studio-ai-text-${Date.now()}`,
-      title: `${form.outputType}: ${topic}`,
-      source: 'ai-text',
-      sections: [
-        {
-          title: 'Draft AI',
-          body: String(aiText || '').trim() || 'AI belum mengembalikan konten yang dapat dibaca.',
-        },
-        ...fallback.sections.slice(1),
-      ],
+    // lanjut ekstraksi manual
+  }
+
+  const firstBrace = cleaned.indexOf('{')
+  const lastBrace = cleaned.lastIndexOf('}')
+
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    const candidate = cleaned.slice(firstBrace, lastBrace + 1)
+    try {
+      return JSON.parse(candidate)
+    } catch (error) {
+      return null
     }
   }
+
+  return null
 }
+
+function normalizeAISection(section, index) {
+  if (typeof section === 'string') {
+    return {
+      title: `Bagian ${index + 1}`,
+      body: section,
+    }
+  }
+
+  if (!section || typeof section !== 'object') {
+    return {
+      title: `Bagian ${index + 1}`,
+      body: 'Konten bagian ini perlu dilengkapi.',
+    }
+  }
+
+  return {
+    title: section.title || section.heading || section.name || `Bagian ${index + 1}`,
+    body: Array.isArray(section.body)
+      ? section.body.join('\n')
+      : String(section.body || section.content || section.text || 'Konten bagian ini perlu dilengkapi.'),
+  }
+}
+
+function normalizeAIQuestions(value, form) {
+  const topic = form.topic || 'topik pembelajaran'
+  const items = Array.isArray(value) ? value : []
+
+  return items.slice(0, 8).map((item, index) => {
+    if (typeof item === 'string') {
+      return {
+        id: `ai-question-${Date.now()}-${index}`,
+        questionText: item,
+        options: ['Benar', 'Salah', 'Perlu diskusi', 'Belum cukup informasi'],
+        correctAnswer: 'Benar',
+        explanation: `Pembahasan terkait ${topic}.`,
+        difficulty: 'Sedang',
+        type: 'Pilihan ganda',
+      }
+    }
+
+    const options = Array.isArray(item?.options) && item.options.length > 0
+      ? item.options
+      : ['Benar', 'Salah', 'Perlu diskusi', 'Belum cukup informasi']
+
+    return {
+      id: `ai-question-${Date.now()}-${index}`,
+      questionText: item?.questionText || item?.question || item?.prompt || `Pertanyaan ${index + 1} tentang ${topic}`,
+      options,
+      correctAnswer: item?.correctAnswer || item?.answer || options[0],
+      explanation: item?.explanation || `Pembahasan terkait ${topic}.`,
+      difficulty: item?.difficulty || 'Sedang',
+      type: item?.type || 'Pilihan ganda',
+    }
+  })
+}
+
+function normalizeAILesson(aiText, form) {
+  const fallback = buildFallbackLesson(form)
+  const parsed = extractFirstJsonObject(aiText)
+
+  if (parsed && typeof parsed === 'object') {
+    const rawSections = Array.isArray(parsed.sections)
+      ? parsed.sections
+      : [
+          parsed.objectives && { title: 'Tujuan Pembelajaran', body: parsed.objectives },
+          parsed.summary && { title: 'Ringkasan Materi', body: parsed.summary },
+          parsed.activity && { title: 'Aktivitas Siswa', body: parsed.activity },
+          parsed.practice && { title: 'Latihan', body: parsed.practice },
+          parsed.assessment && { title: 'Asesmen', body: parsed.assessment },
+        ].filter(Boolean)
+
+    const sections = rawSections.length > 0
+      ? rawSections.map(normalizeAISection)
+      : fallback.sections
+
+    const generatedQuestions = normalizeAIQuestions(
+      parsed.generatedQuestions || parsed.questions || parsed.quiz || parsed.latihan,
+      form
+    )
+
+    return {
+      ...fallback,
+      title: parsed.title || fallback.title,
+      subject: parsed.subject || form.subject || fallback.subject,
+      className: parsed.className || form.className || fallback.className,
+      topic: parsed.topic || form.topic || fallback.topic,
+      contentType: parsed.contentType || form.contentType || fallback.contentType,
+      outputType: parsed.outputType || form.outputType || fallback.outputType,
+      level: parsed.level || form.level || fallback.level,
+      duration: parsed.duration || form.duration || fallback.duration,
+      sections,
+      tools: Array.isArray(parsed.tools) && parsed.tools.length > 0 ? parsed.tools : fallback.tools,
+      generatedQuestions: generatedQuestions.length > 0 ? generatedQuestions : fallback.generatedQuestions,
+      source: 'ai',
+    }
+  }
+
+  const cleaned = cleanAIJsonText(aiText)
+  const paragraphs = cleaned
+    .split(/\n{2,}/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+  if (paragraphs.length >= 2) {
+    return {
+      ...fallback,
+      title: fallback.title,
+      sections: paragraphs.slice(0, 6).map((body, index) => ({
+        title: index === 0 ? 'Draft AI' : `Bagian ${index + 1}`,
+        body,
+      })),
+      source: 'ai',
+    }
+  }
+
+  return {
+    ...fallback,
+    sections: [
+      {
+        title: 'Draft AI',
+        body: cleaned || 'AI belum mengembalikan konten yang dapat dibaca.',
+      },
+      ...fallback.sections.slice(1),
+    ],
+    source: 'ai',
+  }
+}
+
 
 async function requestStudioAIDraft(form) {
   const response = await fetch('/api/ai', {
