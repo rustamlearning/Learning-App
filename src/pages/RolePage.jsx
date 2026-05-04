@@ -460,7 +460,17 @@ function MateriBelajar({ user, notify, appContext }) {
   }
 
   if (selected) {
-    return <MaterialDetail item={selected} onBack={() => setSelected(null)} onComplete={() => markComplete(selected)} notify={notify} />
+    return (
+      <MaterialDetail
+        item={selected}
+        onBack={() => setSelected(null)}
+        onComplete={async () => {
+          await markComplete(selected)
+          setSelected((current) => current ? { ...current, status: 'Selesai', progress: 100 } : current)
+        }}
+        notify={notify}
+      />
+    )
   }
 
   return (
@@ -614,20 +624,92 @@ function MaterialCard({ item, onOpen, notify }) {
   )
 }
 
+function splitLearningParagraphs(content) {
+  return String(content || '')
+    .split(/\n{2,}|\r?\n/)
+    .map((item) => item.trim().replace(/^[-*#\d.\s]+/, '').trim())
+    .filter((item) => item.length > 0)
+}
+
+function findLearningText(paragraphs, keywords) {
+  return paragraphs.find((paragraph) => {
+    const value = paragraph.toLowerCase()
+    return keywords.some((keyword) => value.includes(keyword))
+  })
+}
+
+function buildMaterialLearningSections(item) {
+  const paragraphs = splitLearningParagraphs(item.content)
+  const mainText = paragraphs.length > 0 ? paragraphs.join('\n\n') : item.description || 'Materi ini belum memiliki isi lengkap.'
+  const objectiveText = item.learningObjectiveText || findLearningText(paragraphs, ['tujuan', 'mampu', 'learning objective'])
+  const exampleText = findLearningText(paragraphs, ['contoh', 'model text', 'example'])
+  const practiceText = findLearningText(paragraphs, ['latihan', 'pertanyaan', 'cek pemahaman', 'guided practice'])
+  const reflectionText = findLearningText(paragraphs, ['refleksi', 'exit ticket', 'kesimpulan'])
+
+  return [
+    {
+      title: 'Tujuan Pembelajaran',
+      body: objectiveText || 'Tujuan pembelajaran belum terhubung. Guru dapat menambahkan TP agar materi masuk laporan kurikulum.',
+      tone: item.learningObjectiveId ? 'green' : 'amber',
+    },
+    {
+      title: 'Pengantar',
+      body: item.description || `Mulai pelajari ${item.topic || item.title} secara bertahap. Baca bagian inti, cek contoh, lalu kerjakan latihan singkat.`,
+      tone: 'cyan',
+    },
+    {
+      title: 'Isi Utama',
+      body: mainText,
+      tone: 'purple',
+    },
+    {
+      title: 'Contoh',
+      body: exampleText || `Buat satu contoh yang dekat dengan kehidupan sehari-hari atau lingkungan sekolah tentang ${item.topic || item.title}.`,
+      tone: 'cyan',
+    },
+    {
+      title: 'Latihan Cepat',
+      body: practiceText || `Jawab singkat: 1. Apa ide utama materi ini? 2. Berikan satu contoh penerapan. 3. Bagian mana yang perlu ditanyakan ke guru?`,
+      tone: 'amber',
+    },
+    {
+      title: 'Refleksi',
+      body: reflectionText || `Tuliskan satu hal yang sudah dipahami, satu hal yang masih membingungkan, dan satu rencana belajar berikutnya.`,
+      tone: 'green',
+    },
+  ]
+}
+
 function MaterialDetail({ item, onBack, onComplete, notify }) {
   const navigate = useNavigate()
+  const sections = buildMaterialLearningSections(item)
+  const progress = Number(item.progress || 0)
+  const completed = item.status === 'Selesai' || progress >= 100
+
   return (
     <div>
       <PageHeader eyebrow={item.subject} title={item.title} description={`${item.className} · ${item.topic} · ${item.type || 'Teks'} · Ringan dibuka`} action={<button onClick={onBack} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>} />
       <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
         <SectionCard>
           <StatusBadge tone={item.status === 'Selesai' ? 'green' : 'cyan'}>{item.status}</StatusBadge>
-          <div className="prose prose-slate mt-5 max-w-none">
-            <p className="text-base leading-8 text-slate-700">{item.content}</p>
+          <div className="mt-5 grid gap-4">
+            {sections.map((section) => (
+              <div key={section.title} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <StatusBadge tone={section.tone}>{section.title}</StatusBadge>
+                </div>
+                <p className="whitespace-pre-line text-sm leading-7 text-slate-700">{section.body}</p>
+              </div>
+            ))}
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
-            <button onClick={onComplete} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white">Tandai selesai</button>
+            <button onClick={onComplete} disabled={completed} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">
+              {completed ? 'Materi selesai' : 'Tandai selesai'}
+            </button>
             <button onClick={() => navigate('/siswa/ai-tutor')} className="rounded-2xl bg-galaxy-surface px-5 py-3 text-sm font-bold text-galaxy-purple">Tanya AI Tutor</button>
+          </div>
+          <div className="mt-4 rounded-3xl bg-cyan-50 p-4 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">
+            Jika AI Tutor belum aktif, gunakan bagian Latihan Cepat dan Refleksi di atas sebagai panduan belajar mandiri.
           </div>
         </SectionCard>
         <SectionCard>
@@ -638,6 +720,15 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
             <p><b>Guru:</b> {item.teacher}</p>
             <p><b>Status:</b> {item.status}</p>
             <p><b>TP/ATP:</b> <CurriculumLinkText item={item} /></p>
+          </div>
+          <div className="mt-5">
+            <div className="mb-2 flex items-center justify-between text-xs font-bold text-slate-500">
+              <span>Progress</span>
+              <span>{completed ? 100 : progress}%</span>
+            </div>
+            <div className="h-3 rounded-full bg-galaxy-lavender">
+              <div className="h-3 rounded-full bg-galaxy-action" style={{ width: `${completed ? 100 : progress}%` }} />
+            </div>
           </div>
         </SectionCard>
       </div>
