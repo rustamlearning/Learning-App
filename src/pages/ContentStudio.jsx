@@ -478,85 +478,299 @@ function previewToPlainText(preview) {
     .join('\n\n')
 }
 
-function makeGeneratedQuestions(preview, form, total = 5) {
-  const topic = preview.topic || form.topic || 'Topik pembelajaran'
-  const baseQuestions = [
-    {
-      questionText: `Apa konsep utama dari ${topic}?`,
-      options: ['Memahami inti materi', 'Menghafal tanpa contoh', 'Mengabaikan konteks', 'Menyalin jawaban teman'],
-      correctAnswer: 'Memahami inti materi',
-      explanation: `Konsep utama ${topic} perlu dipahami melalui penjelasan, contoh, dan latihan.`,
-    },
-    {
-      questionText: `Mengapa contoh kontekstual penting dalam mempelajari ${topic}?`,
-      options: ['Agar materi lebih dekat dengan kehidupan siswa', 'Agar materi lebih sulit', 'Agar siswa tidak berdiskusi', 'Agar tidak perlu latihan'],
-      correctAnswer: 'Agar materi lebih dekat dengan kehidupan siswa',
-      explanation: 'Contoh kontekstual membantu siswa menghubungkan materi dengan pengalaman nyata.',
-    },
-    {
-      questionText: `Aktivitas apa yang paling sesuai setelah mempelajari ${topic}?`,
-      options: ['Latihan dan refleksi', 'Menutup buku', 'Menghapus catatan', 'Tidak bertanya'],
-      correctAnswer: 'Latihan dan refleksi',
-      explanation: 'Latihan dan refleksi membantu guru melihat pemahaman siswa.',
-    },
-    {
-      questionText: `Apa fungsi remedial dalam pembelajaran ${topic}?`,
-      options: ['Membantu siswa yang belum tuntas', 'Menghukum siswa', 'Menghapus nilai', 'Mengganti semua materi'],
-      correctAnswer: 'Membantu siswa yang belum tuntas',
-      explanation: 'Remedial memberi kesempatan belajar ulang dengan langkah yang lebih mudah.',
-    },
-    {
-      questionText: `Apa fungsi pengayaan dalam pembelajaran ${topic}?`,
-      options: ['Memberi tantangan tambahan bagi siswa yang sudah paham', 'Mengulang soal yang sama', 'Mengurangi aktivitas', 'Menghapus tugas'],
-      correctAnswer: 'Memberi tantangan tambahan bagi siswa yang sudah paham',
-      explanation: 'Pengayaan memperluas pemahaman siswa melalui tantangan lebih tinggi.',
-    },
-  ]
 
-  return baseQuestions.slice(0, total).map((question, index) => ({
-    id: `studio-question-${Date.now()}-${index + 1}`,
-    ...question,
-    subject: form.subject,
-    className: `Kelas ${form.className}`,
-    topic,
-    difficulty: form.level === 'Menantang' ? 'Sulit' : form.level === 'Mudah' ? 'Mudah' : 'Sedang',
-    type: 'Pilihan ganda',
-    learningObjectiveId: form.learningObjectiveId || '',
-    source: 'local',
-  }))
+function getStudioTopic(form = {}, preview = {}) {
+  return String(form.topic || preview.topic || 'Topik pembelajaran').trim() || 'Topik pembelajaran'
 }
 
-function normalizeStudioQuestionsForStorage(rawQuestions, preview, form, subject, className) {
-  const fallbackQuestions = makeGeneratedQuestions(preview, { ...form, subject, className: String(className || '').replace(/^Kelas\s*/i, '') }, 5)
-  const sourceQuestions = Array.isArray(rawQuestions) && rawQuestions.length > 0 ? rawQuestions : fallbackQuestions
-  const topic = preview.topic || form.topic || 'Topik pembelajaran'
+function getStudioSubject(form = {}, preview = {}) {
+  return String(form.subject || preview.subject || 'Mata pelajaran').trim() || 'Mata pelajaran'
+}
+
+function getStudioClassName(form = {}, preview = {}) {
+  const rawClass = String(form.className || preview.className || 'X').trim() || 'X'
+  return rawClass.startsWith('Kelas') ? rawClass : `Kelas ${rawClass}`
+}
+
+function getStudioContextSentence(subject, topic, className) {
+  if (/bahasa inggris/i.test(subject)) {
+    return `Gunakan contoh teks, kosakata, dan situasi komunikasi sederhana yang dekat dengan kehidupan siswa ${className}, termasuk lingkungan sekolah, keluarga, pulau, pelabuhan, pasar, dan aktivitas sehari-hari.`
+  }
+
+  if (/fisika|kimia|biologi|matematika|ipa/i.test(subject)) {
+    return `Gunakan contoh fenomena nyata yang dekat dengan siswa ${className}, seperti lingkungan sekolah, laut, perahu, cuaca, kebun, rumah, atau aktivitas masyarakat kepulauan.`
+  }
+
+  if (/sejarah|geografi|sosiologi|ekonomi|pkn|ppkn/i.test(subject)) {
+    return `Gunakan contoh sosial dan kehidupan masyarakat sekitar agar siswa ${className} dapat menghubungkan ${topic} dengan pengalaman nyata.`
+  }
+
+  return `Gunakan contoh yang dekat dengan kehidupan siswa ${className} agar materi ${topic} terasa relevan dan mudah dipahami.`
+}
+
+function buildStructuredMaterialSections(draft = {}, form = {}) {
+  const topic = getStudioTopic(form, draft)
+  const subject = getStudioSubject(form, draft)
+  const className = getStudioClassName(form, draft)
+  const contextSentence = getStudioContextSentence(subject, topic, className)
+  const sourceText = String(form.sourceText || '').trim()
+  const customInstruction = String(form.customInstruction || '').trim()
+
+  return [
+    {
+      title: 'Tujuan Pembelajaran',
+      body: `Setelah mempelajari ${topic}, siswa ${className} diharapkan mampu: (1) menjelaskan konsep utama ${topic} dengan bahasa sendiri, (2) mengidentifikasi ciri, struktur, atau langkah penting yang berkaitan dengan ${topic}, (3) menerapkan konsep tersebut dalam contoh kontekstual, dan (4) merefleksikan manfaatnya dalam kehidupan sehari-hari.`,
+    },
+    {
+      title: 'Apersepsi',
+      body: `Guru dapat memulai pembelajaran dengan pertanyaan pemantik: “Di mana kalian pernah menemukan contoh ${topic} dalam kehidupan sehari-hari?” ${contextSentence} Bagian ini membantu siswa menghubungkan pengetahuan awal dengan materi yang akan dipelajari.`,
+    },
+    {
+      title: 'Konsep Inti',
+      body: `${topic} adalah materi penting dalam ${subject} karena membantu siswa memahami pola, makna, proses, atau keterampilan yang dibutuhkan dalam pembelajaran. Pada tahap awal, siswa perlu memahami definisi, ciri utama, istilah penting, dan contoh sederhana. Guru sebaiknya menjelaskan konsep secara bertahap, mulai dari pengertian, contoh, latihan terbimbing, hingga penerapan mandiri.`,
+    },
+    {
+      title: 'Penjelasan Bertahap',
+      body: `Langkah 1: kenalkan pengertian ${topic} dengan contoh sederhana. Langkah 2: ajak siswa menandai unsur penting atau informasi kunci. Langkah 3: berikan contoh yang dekat dengan pengalaman siswa. Langkah 4: minta siswa mencoba menyelesaikan tugas kecil secara mandiri atau berpasangan. Langkah 5: bahas jawaban bersama agar miskonsepsi dapat diperbaiki.`,
+    },
+    {
+      title: 'Contoh Kontekstual',
+      body: `Contoh: guru menampilkan situasi nyata yang berkaitan dengan ${topic}, misalnya kegiatan di sekolah, perjalanan ke pulau, aktivitas keluarga, atau peristiwa di lingkungan sekitar. Siswa diminta mengamati, mencatat informasi penting, lalu menjelaskan hubungan contoh tersebut dengan konsep ${topic}. Dengan cara ini, siswa tidak hanya menghafal, tetapi juga memahami fungsi materi dalam kehidupan nyata.`,
+    },
+    {
+      title: 'Aktivitas Pembelajaran',
+      body: `Aktivitas individu: siswa menulis kembali pemahaman tentang ${topic} dalam 3–5 kalimat. Aktivitas berpasangan: siswa saling bertukar contoh dan memberi umpan balik. Aktivitas kelompok: siswa membuat mini poster, peta konsep, dialog, tabel, atau penyelesaian masalah sederhana sesuai karakter mata pelajaran. Guru berkeliling untuk memberi bantuan pada siswa yang masih kesulitan.`,
+    },
+    {
+      title: 'Cek Pemahaman',
+      body: `Gunakan pertanyaan cepat berikut: (1) Apa inti dari ${topic}? (2) Sebutkan satu ciri atau langkah penting dalam ${topic}. (3) Berikan satu contoh ${topic} yang dekat dengan kehidupanmu. (4) Bagian mana yang masih membingungkan? Jawaban siswa menjadi dasar guru untuk remedial atau pengayaan.`,
+    },
+    {
+      title: 'Rangkuman',
+      body: `Materi ${topic} menekankan pemahaman konsep, contoh, penerapan, dan refleksi. Siswa perlu mampu menjelaskan inti materi, mengenali unsur penting, menggunakan konsep dalam konteks sederhana, serta menyampaikan kembali pemahamannya dengan bahasa sendiri.`,
+    },
+    {
+      title: 'Refleksi',
+      body: `Siswa menulis refleksi singkat: “Hal yang sudah saya pahami adalah…”, “Hal yang masih membingungkan adalah…”, dan “Contoh penerapan ${topic} dalam kehidupan saya adalah…”. Refleksi ini membantu guru mengetahui kedalaman pemahaman siswa.`,
+    },
+    ...(sourceText ? [{
+      title: 'Catatan dari Referensi Guru',
+      body: `Materi ini juga memperhatikan referensi yang ditempel guru. Gunakan bagian referensi tersebut untuk menambah contoh, istilah penting, atau latihan tambahan agar pembelajaran lebih sesuai dengan kebutuhan kelas.`,
+    }] : []),
+    ...(customInstruction ? [{
+      title: 'Instruksi Khusus Guru',
+      body: customInstruction,
+    }] : []),
+  ]
+}
+
+function cleanStudioSections(sections = []) {
+  return (Array.isArray(sections) ? sections : [])
+    .map((section) => ({
+      title: String(section?.title || '').trim(),
+      body: String(section?.body || section?.content || '').trim(),
+    }))
+    .filter((section) => section.title && section.body)
+}
+
+function enhanceStudioMaterialDraft(draft = {}, form = {}) {
+  const structuredSections = buildStructuredMaterialSections(draft, form)
+  const existingSections = cleanStudioSections(draft.sections)
+  const usefulExistingSections = existingSections.filter((section) => section.body.length >= 140)
+
+  const titleSet = new Set()
+  const sections = [...usefulExistingSections, ...structuredSections].filter((section) => {
+    const key = section.title.toLowerCase()
+    if (titleSet.has(key)) return false
+    titleSet.add(key)
+    return true
+  })
+
+  return {
+    ...draft,
+    title: draft.title || `${getStudioTopic(form, draft)} - ${getStudioSubject(form, draft)}`,
+    subject: getStudioSubject(form, draft),
+    className: getStudioClassName(form, draft),
+    topic: getStudioTopic(form, draft),
+    sections,
+    hasGenerated: true,
+    qualityChecked: true,
+  }
+}
+
+function buildQuestionStemByType({ topic, subject, className, type, cognitiveLevel, difficulty, index }) {
+  const context = getStudioContextSentence(subject, topic, className)
+  const number = index + 1
+
+  if (type === 'Isian Singkat') {
+    return `Isilah jawaban singkat. Dalam pembelajaran ${subject}, jelaskan satu istilah atau konsep penting dari ${topic} yang paling perlu dipahami siswa ${className}.`
+  }
+
+  if (type === 'Essay/Uraian') {
+    return `Uraikan dengan runtut bagaimana konsep ${topic} dapat diterapkan dalam situasi nyata. Sertakan satu contoh yang dekat dengan kehidupan siswa ${className} dan jelaskan alasannya.`
+  }
+
+  if (type === 'Benar/Salah') {
+    return `Benar atau salah: pemahaman ${topic} cukup dilakukan dengan menghafal definisi tanpa melihat contoh dan penerapannya. Jelaskan alasan singkatmu.`
+  }
+
+  if (type === 'Menjodohkan') {
+    return `Jodohkan konsep, contoh, atau istilah yang berkaitan dengan ${topic} dengan penjelasan yang paling tepat.`
+  }
+
+  if (cognitiveLevel === 'C4' || cognitiveLevel === 'C5' || cognitiveLevel === 'C6' || difficulty === 'Sulit') {
+    return `Perhatikan konteks berikut: ${context} Jika siswa diminta menganalisis ${topic}, pertanyaan manakah yang paling tepat untuk mengukur pemahaman mendalam mereka?`
+  }
+
+  if (difficulty === 'Mudah' || cognitiveLevel === 'C1') {
+    return `Apa pemahaman paling tepat tentang ${topic} dalam pembelajaran ${subject}?`
+  }
+
+  return `Siswa ${className} mempelajari ${topic}. Pernyataan manakah yang paling tepat untuk menunjukkan bahwa siswa memahami materi tersebut, bukan hanya menghafalnya?`
+}
+
+function buildQuestionOptions({ topic, type, difficulty }) {
+  if (type === 'Benar/Salah') return ['Benar', 'Salah']
+
+  if (type === 'Isian Singkat') {
+    return [
+      `Menjelaskan inti ${topic} dengan bahasa sendiri`,
+      'Menyalin seluruh catatan tanpa memahami makna',
+      'Mengabaikan contoh karena tidak penting',
+      'Menjawab tanpa membaca instruksi',
+    ]
+  }
+
+  if (type === 'Essay/Uraian') {
+    return [
+      `Menjelaskan konsep, memberi contoh, dan menyimpulkan manfaat ${topic}`,
+      'Menulis satu kata tanpa penjelasan',
+      'Menyalin pertanyaan sebagai jawaban',
+      'Menjawab di luar topik',
+    ]
+  }
+
+  if (type === 'Menjodohkan') {
+    return [
+      `Pasangan konsep dan contoh ${topic} yang saling sesuai`,
+      'Pasangan istilah yang tidak berhubungan',
+      'Pasangan acak tanpa alasan',
+      'Pasangan yang hanya berdasarkan urutan tulisan',
+    ]
+  }
+
+  if (difficulty === 'Sulit') {
+    return [
+      `Menganalisis konsep ${topic}, memilih contoh yang tepat, dan menjelaskan alasannya`,
+      `Menghafal definisi ${topic} tanpa contoh`,
+      'Mengabaikan data atau konteks pada soal',
+      'Memilih jawaban karena terlihat paling panjang',
+    ]
+  }
+
+  return [
+    `Memahami pengertian, ciri, dan contoh ${topic}`,
+    `Menghafal kata tanpa memahami ${topic}`,
+    'Mengabaikan instruksi soal',
+    'Menjawab berdasarkan tebakan saja',
+  ]
+}
+
+function buildQuestionExplanation({ topic, type, cognitiveLevel, difficulty }) {
+  if (type === 'Essay/Uraian') {
+    return `Jawaban yang baik harus menjelaskan konsep ${topic}, memberi contoh yang relevan, dan menunjukkan hubungan antara konsep dengan konteks nyata. Level ${cognitiveLevel} menuntut siswa tidak hanya menyebutkan, tetapi juga menguraikan alasan.`
+  }
+
+  if (type === 'Isian Singkat') {
+    return `Jawaban singkat tetap harus menunjukkan inti konsep ${topic}. Guru dapat menerima variasi jawaban selama maknanya tepat dan tidak keluar dari materi.`
+  }
+
+  return `Pilihan benar menunjukkan pemahaman konsep ${topic} secara utuh: ada pengertian, ciri, contoh, dan penerapan. Pilihan lain kurang tepat karena hanya menekankan hafalan, tebakan, atau tidak sesuai instruksi.`
+}
+
+
+function makeGeneratedQuestions(preview, form, total = 5) {
+  const topic = getStudioTopic(form, preview)
+  const subject = getStudioSubject(form, preview)
+  const className = getStudioClassName(form, preview)
+  const cognitiveLevels = Array.isArray(form.cognitiveLevels) && form.cognitiveLevels.length > 0
+    ? form.cognitiveLevels
+    : ['C2', 'C3', 'C4']
   const now = Date.now()
 
-  return sourceQuestions.map((question, index) => {
-    const options = Array.isArray(question.options) && question.options.length >= 2
-      ? question.options.filter(Boolean)
-      : ['Benar', 'Salah']
-
-    const correctAnswer = options.includes(question.correctAnswer)
-      ? question.correctAnswer
-      : options[0]
+  return Array.from({ length: Math.max(1, total) }, (_, index) => {
+    const type = getStudioQuestionType(form, index)
+    const difficulty = getQuestionDifficultyByIndex(form, index, total)
+    const cognitiveLevel = cognitiveLevels[index % cognitiveLevels.length]
+    const options = buildQuestionOptions({ topic, type, difficulty })
+    const correctAnswer = options[0]
 
     return {
-      id: question.id || `studio-question-${now}-${index + 1}`,
-      questionText: question.questionText || question.question || `Pertanyaan ${index + 1} tentang ${topic}`,
+      id: `studio-question-${now}-${index + 1}`,
+      questionText: buildQuestionStemByType({ topic, subject, className, type, cognitiveLevel, difficulty, index }),
       options,
       correctAnswer,
-      explanation: question.explanation || 'Pembahasan belum tersedia.',
-      subject: question.subject || subject,
-      className: question.className || className,
-      topic: question.topic || topic,
-      difficulty: question.difficulty || (form.level === 'Menantang' ? 'Sulit' : form.level === 'Mudah' ? 'Mudah' : 'Sedang'),
-      type: question.type || 'Pilihan ganda',
-      learningObjectiveId: question.learningObjectiveId || form.learningObjectiveId || '',
-      source: question.source || 'local',
+      explanation: buildQuestionExplanation({ topic, type, cognitiveLevel, difficulty }),
+      indicator: `Siswa mampu ${cognitiveLevel === 'C1' ? 'mengingat' : cognitiveLevel === 'C2' ? 'memahami' : cognitiveLevel === 'C3' ? 'menerapkan' : cognitiveLevel === 'C4' ? 'menganalisis' : cognitiveLevel === 'C5' ? 'mengevaluasi' : 'mencipta'} konsep ${topic} dalam konteks pembelajaran ${subject}.`,
+      subject,
+      className,
+      topic,
+      difficulty,
+      cognitiveLevel,
+      type,
+      learningObjectiveId: form.learningObjectiveId || '',
+      source: 'quality-generator',
     }
   })
 }
+
+
+function normalizeStudioQuestionsForStorage(rawQuestions, preview, form, subject, className) {
+  const total = getConfiguredQuestionTotal(form)
+  const fallbackQuestions = makeGeneratedQuestions(preview, { ...form, subject, className: String(className || '').replace(/^Kelas\s*/i, '') }, total)
+  const sourceQuestions = Array.isArray(rawQuestions) && rawQuestions.length > 0 ? rawQuestions : fallbackQuestions
+  const topic = getStudioTopic(form, preview)
+  const now = Date.now()
+
+  return sourceQuestions.map((question, index) => {
+    const fallback = fallbackQuestions[index % fallbackQuestions.length]
+    const options = Array.isArray(question.options) && question.options.filter(Boolean).length >= 2
+      ? question.options.map((item) => String(item || '').trim()).filter(Boolean)
+      : fallback.options
+
+    const correctAnswer = options.includes(question.correctAnswer)
+      ? question.correctAnswer
+      : (options.includes(fallback.correctAnswer) ? fallback.correctAnswer : options[0])
+
+    const rawQuestionText = String(question.questionText || question.question || '').trim()
+    const questionText = rawQuestionText.length >= 35
+      ? rawQuestionText
+      : fallback.questionText
+
+    const rawExplanation = String(question.explanation || '').trim()
+    const explanation = rawExplanation.length >= 60
+      ? rawExplanation
+      : fallback.explanation
+
+    return {
+      id: question.id || `studio-question-${now}-${index + 1}`,
+      questionText,
+      options,
+      correctAnswer,
+      explanation,
+      indicator: question.indicator || fallback.indicator || `Mengukur pemahaman siswa tentang ${topic}.`,
+      subject: question.subject || subject,
+      className: question.className || className,
+      topic: question.topic || topic,
+      difficulty: question.difficulty || fallback.difficulty || getQuestionDifficultyByIndex(form, index, total),
+      cognitiveLevel: question.cognitiveLevel || fallback.cognitiveLevel || 'C2',
+      type: question.type || fallback.type || getStudioQuestionType(form, index),
+      learningObjectiveId: question.learningObjectiveId || form.learningObjectiveId || '',
+      source: question.source || 'quality-normalized',
+    }
+  })
+}
+
 
 
 
@@ -654,18 +868,20 @@ function getStudioPreviewQuestions(preview, form) {
 }
 
 function buildStudioConfiguredPreview(draft, form) {
+  const materialDraft = enhanceStudioMaterialDraft(draft, form)
   const generatedDraft = {
-    ...draft,
+    ...materialDraft,
+    outputType: form.outputType || draft.outputType || 'Soal',
     hasGenerated: true,
   }
   const questions = getStudioPreviewQuestions(generatedDraft, form)
 
   return {
     ...generatedDraft,
-    outputType: form.outputType || draft.outputType || 'Soal',
     generatedQuestions: questions,
   }
 }
+
 
 
 function makeFlashcards(preview, form) {
@@ -2718,7 +2934,7 @@ function StudioOutputWorkspace({
     <SectionCard className="bg-white">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Hasil Generasi di Bawah</p>
+          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Hasil Generasi</p>
           <h2 className="mt-1 text-xl font-black text-slate-950">{form.assessmentType || 'Sumatif Harian'}</h2>
           <p className="mt-1 text-sm font-semibold text-slate-500">
             {form.subject} · {String(form.className || '').startsWith('Kelas') ? form.className : `Kelas ${form.className}`} · {total} soal
@@ -3217,19 +3433,49 @@ function StudioAnalysisPanel({ questions, form }) {
 }
 
 function StudioMaterialDocument({ preview }) {
-  const sections = Array.isArray(preview.sections) ? preview.sections : []
+  const sections = cleanStudioSections(preview.sections)
+
+  if (!preview?.hasGenerated || sections.length === 0) {
+    return (
+      <div className="mt-4 rounded-2xl border border-dashed border-purple-200 bg-slate-50 p-5 text-center">
+        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Belum ada materi</p>
+        <h3 className="mt-2 text-2xl font-black text-slate-950">Materi akan muncul setelah generate.</h3>
+        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+          Isi identitas, topik, referensi, dan instruksi tambahan. Setelah itu klik <b>Buat Materi Otomatis</b>.
+        </p>
+      </div>
+    )
+  }
 
   return (
-    <div className="mt-5 grid gap-4">
-      {sections.map((section, index) => (
-        <div key={`${section.title}-${index}`} className="rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-100">
-          <StatusBadge tone="cyan">{section.title}</StatusBadge>
-          <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700">{section.body}</p>
-        </div>
-      ))}
+    <div className="mt-5">
+      <div className="mb-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+        <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Modul Ringkas</p>
+        <h3 className="mt-1 text-2xl font-black text-slate-950">{preview.title || preview.topic || 'Materi Pembelajaran'}</h3>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+          {preview.subject || 'Mata pelajaran'} · {preview.className || 'Kelas'} · {preview.topic || 'Topik'}
+        </p>
+      </div>
+
+      <div className="grid gap-4">
+        {sections.map((section, index) => (
+          <article key={`${section.title}-${index}`} className="rounded-2xl bg-white p-4 ring-1 ring-slate-100">
+            <div className="flex gap-3">
+              <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl bg-galaxy-lavender text-sm font-black text-galaxy-purple">
+                {index + 1}
+              </span>
+              <div className="min-w-0">
+                <h4 className="text-base font-black text-slate-950">{section.title}</h4>
+                <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-700">{section.body}</p>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
     </div>
   )
 }
+
 
 
 function BuilderPanel({ form, template, availableContentTypes, updateForm, generateDraft, saveContent }) {
