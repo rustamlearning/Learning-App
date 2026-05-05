@@ -526,6 +526,39 @@ function makeGeneratedQuestions(preview, form, total = 5) {
   }))
 }
 
+function normalizeStudioQuestionsForStorage(rawQuestions, preview, form, subject, className) {
+  const fallbackQuestions = makeGeneratedQuestions(preview, { ...form, subject, className: String(className || '').replace(/^Kelas\s*/i, '') }, 5)
+  const sourceQuestions = Array.isArray(rawQuestions) && rawQuestions.length > 0 ? rawQuestions : fallbackQuestions
+  const topic = preview.topic || form.topic || 'Topik pembelajaran'
+  const now = Date.now()
+
+  return sourceQuestions.map((question, index) => {
+    const options = Array.isArray(question.options) && question.options.length >= 2
+      ? question.options.filter(Boolean)
+      : ['Benar', 'Salah']
+
+    const correctAnswer = options.includes(question.correctAnswer)
+      ? question.correctAnswer
+      : options[0]
+
+    return {
+      id: question.id || `studio-question-${now}-${index + 1}`,
+      questionText: question.questionText || question.question || `Pertanyaan ${index + 1} tentang ${topic}`,
+      options,
+      correctAnswer,
+      explanation: question.explanation || 'Pembahasan belum tersedia.',
+      subject: question.subject || subject,
+      className: question.className || className,
+      topic: question.topic || topic,
+      difficulty: question.difficulty || (form.level === 'Menantang' ? 'Sulit' : form.level === 'Mudah' ? 'Mudah' : 'Sedang'),
+      type: question.type || 'Pilihan ganda',
+      learningObjectiveId: question.learningObjectiveId || form.learningObjectiveId || '',
+      source: question.source || 'local',
+    }
+  })
+}
+
+
 function makeFlashcards(preview, form) {
   const topic = preview.topic || form.topic || 'Topik pembelajaran'
   const cards = [
@@ -2066,10 +2099,7 @@ export default function ContentStudio({ user: propUser }) {
     }
 
     if (target === 'bank-soal') {
-      const generatedQuestions = (preview.generatedQuestions || makeGeneratedQuestions(preview, form, 5)).map((question) => ({
-        ...question,
-        learningObjectiveId: form.learningObjectiveId || '',
-      }))
+      const generatedQuestions = normalizeStudioQuestionsForStorage(preview.generatedQuestions, preview, form, subject, className)
       appendStorageRows(teacherStorageKey('questions', user, subject), generatedQuestions)
       setAnalyticsTick((current) => current + 1)
       showDeliverySuccess('bank-soal')
@@ -2077,10 +2107,7 @@ export default function ContentStudio({ user: propUser }) {
     }
 
     if (target === 'kuis') {
-      const generatedQuestions = (preview.generatedQuestions || makeGeneratedQuestions(preview, form, 5)).map((question) => ({
-        ...question,
-        learningObjectiveId: form.learningObjectiveId || '',
-      }))
+      const generatedQuestions = normalizeStudioQuestionsForStorage(preview.generatedQuestions, preview, form, subject, className)
       appendStorageRows(teacherStorageKey('questions', user, subject), generatedQuestions)
 
       appendStorageRows(teacherStorageKey('quizzes', user, subject), [{
@@ -2094,7 +2121,7 @@ export default function ContentStudio({ user: propUser }) {
         duration: 30,
         status: 'Draft',
         source: 'local',
-        questionIds: generatedQuestions.map((item) => item.id),
+        questionIds: generatedQuestions.map((item) => item.id).filter(Boolean),
         questionCount: generatedQuestions.length,
       }])
       setAnalyticsTick((current) => current + 1)
