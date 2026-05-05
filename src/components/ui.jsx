@@ -3,20 +3,20 @@ import { CheckCircle2, Loader2, Search, Sparkles, X } from 'lucide-react'
 
 export function PageHeader({ eyebrow, title, description, action }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div>
-        {eyebrow && <p className="mb-2 text-sm font-bold text-galaxy-purple">{eyebrow}</p>}
-        <h1 className="text-balance text-3xl font-extrabold tracking-[-0.02em] text-gray-950 sm:text-4xl">{title}</h1>
-        {description && <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-500 sm:text-base">{description}</p>}
+        {eyebrow && <p className="mb-1 text-xs font-extrabold uppercase tracking-[0.12em] text-galaxy-purple">{eyebrow}</p>}
+        <h1 className="text-balance text-2xl font-black tracking-[-0.025em] text-gray-950 sm:text-3xl">{title}</h1>
+        {description && <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">{description}</p>}
       </div>
-      {action}
+      {action && <div className="flex flex-wrap gap-2">{action}</div>}
     </div>
   )
 }
 
 export function SectionCard({ children, className = '', dark = false }) {
   return (
-    <section className={`${dark ? 'bg-galaxy-deep text-white' : 'glass-card'} rounded-3xl p-4 sm:p-6 ${className}`}>
+    <section className={`${dark ? 'bg-galaxy-deep text-white' : 'glass-card'} rounded-2xl p-4 ${className}`}>
       {children}
     </section>
   )
@@ -25,8 +25,8 @@ export function SectionCard({ children, className = '', dark = false }) {
 export function DashboardCard({ title, children, action, className = '' }) {
   return (
     <SectionCard className={className}>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-gray-950">{title}</h2>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-base font-black text-gray-950">{title}</h2>
         {action}
       </div>
       {children}
@@ -46,13 +46,13 @@ export function StatCard({ icon: Icon = Sparkles, label, value, caption, tone = 
     gold: 'bg-[linear-gradient(135deg,#FACC15,#F97316)]',
   }
   return (
-    <div className="flex min-h-[10.5rem] flex-col rounded-3xl bg-white/[0.92] p-4 shadow-[0_18px_45px_rgba(30,27,75,0.08)] ring-1 ring-purple-500/[0.08] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_55px_rgba(30,27,75,0.12)] sm:p-5">
-      <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-[0_12px_26px_rgba(124,58,237,0.16)] ${tones[tone]}`}>
-        <Icon size={20} />
+    <div className="flex min-h-[7.5rem] flex-col rounded-2xl bg-white/[0.94] p-4 shadow-[0_12px_30px_rgba(30,27,75,0.06)] ring-1 ring-purple-500/[0.08] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(30,27,75,0.10)]">
+      <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-[0_10px_22px_rgba(124,58,237,0.14)] ${tones[tone]}`}>
+        <Icon size={17} />
       </div>
-      <p className="font-mono text-3xl font-extrabold leading-none tracking-[-0.02em] text-gray-950">{value}</p>
-      <p className="mt-2 text-sm font-bold text-gray-800">{label}</p>
-      <p className="mt-1 min-h-5 text-xs leading-5 text-slate-500">{caption}</p>
+      <p className="font-mono text-2xl font-black leading-none tracking-[-0.02em] text-gray-950">{value}</p>
+      <p className="mt-1 text-sm font-bold text-gray-800">{label}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{caption}</p>
     </div>
   )
 }
@@ -69,7 +69,7 @@ export function StatusBadge({ children, tone = 'purple' }) {
     gold: 'bg-yellow-50 text-yellow-700 ring-yellow-100',
     gray: 'bg-gray-50 text-gray-600 ring-gray-100',
   }
-  return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ${tones[tone]}`}>{children}</span>
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1 ${tones[tone]}`}>{children}</span>
 }
 
 export function ProgressRing({ value = 72, label = 'Progress' }) {
@@ -99,7 +99,7 @@ export function ProgressRing({ value = 72, label = 'Progress' }) {
 
 export function QuickActionButton({ icon: Icon = Sparkles, label, onClick }) {
   return (
-    <button onClick={onClick} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#7C3AED,#22D3EE)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(124,58,237,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(124,58,237,0.22)] active:translate-y-0">
+    <button onClick={onClick} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[linear-gradient(135deg,#7C3AED,#22D3EE)] px-4 text-sm font-extrabold text-white shadow-[0_10px_24px_rgba(124,58,237,0.16)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(124,58,237,0.20)] active:translate-y-0">
       <Icon size={16} />
       {label}
     </button>
@@ -108,7 +108,7 @@ export function QuickActionButton({ icon: Icon = Sparkles, label, onClick }) {
 
 export function SearchFilterBar({ search, setSearch, filters = [], activeFilter, setActiveFilter }) {
   return (
-    <div className="mb-5 flex flex-col gap-3 rounded-3xl bg-white p-3 shadow-soft ring-1 ring-purple-100 lg:flex-row lg:items-center">
+    <div className="mb-4 flex flex-col gap-2 rounded-2xl bg-white p-2.5 shadow-soft ring-1 ring-purple-100 lg:flex-row lg:items-center">
       <label className="flex min-h-11 flex-1 items-center gap-2 rounded-2xl bg-galaxy-surface px-4 text-sm text-gray-500">
         <Search size={17} />
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari materi, kelas, atau topik" className="w-full bg-transparent text-gray-900 outline-none placeholder:text-gray-400" />
@@ -128,7 +128,7 @@ export function SearchFilterBar({ search, setSearch, filters = [], activeFilter,
 
 export function DataTable({ columns, rows }) {
   return (
-    <div className="overflow-x-auto rounded-3xl bg-white shadow-soft ring-1 ring-purple-100">
+    <div className="overflow-x-auto rounded-2xl bg-white shadow-soft ring-1 ring-purple-100">
       <table className="min-w-full text-left text-sm">
         <thead className="bg-galaxy-surface text-xs uppercase tracking-wide text-gray-500">
           <tr>{columns.map((column) => <th key={column.key} className="px-4 py-3 font-extrabold">{column.label}</th>)}</tr>
@@ -147,21 +147,21 @@ export function DataTable({ columns, rows }) {
 
 export function EmptyState({ title = 'Belum ada materi di pulau ini.', description = 'Guru akan segera menambahkan materi baru. Sambil menunggu, kamu bisa review materi sebelumnya.', action }) {
   return (
-    <div className="rounded-3xl border border-dashed border-purple-200 bg-galaxy-surface p-8 text-center">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-galaxy-purple shadow-soft">
-        <Sparkles size={24} />
+    <div className="rounded-2xl border border-dashed border-purple-200 bg-galaxy-surface p-5 text-center">
+      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-galaxy-purple shadow-soft">
+        <Sparkles size={20} />
       </div>
-      <h3 className="text-lg font-extrabold text-gray-950">{title}</h3>
+      <h3 className="text-base font-black text-gray-950">{title}</h3>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500">{description}</p>
-      {action && <div className="mt-5">{action}</div>}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   )
 }
 
 export function LoadingState({ label = 'Memuat learning galaxy...' }) {
   return (
-    <div className="flex min-h-[16rem] items-center justify-center">
-      <div className="rounded-3xl bg-white p-5 text-center shadow-soft ring-1 ring-purple-100">
+    <div className="flex min-h-[10rem] items-center justify-center">
+      <div className="rounded-2xl bg-white p-4 text-center shadow-soft ring-1 ring-purple-100">
         <Loader2 className="mx-auto h-8 w-8 animate-spin text-galaxy-purple" />
         <p className="mt-3 text-sm font-semibold text-gray-500">{label}</p>
       </div>
@@ -177,7 +177,7 @@ export function Toast({ message, onClose }) {
   }, [message, onClose])
   if (!message) return null
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex max-w-sm items-start gap-3 rounded-3xl bg-galaxy-deep p-4 text-white shadow-glow">
+    <div className="fixed bottom-5 right-5 z-50 flex max-w-sm items-start gap-3 rounded-2xl bg-galaxy-deep p-4 text-white shadow-glow">
       <CheckCircle2 className="mt-0.5 h-5 w-5 text-galaxy-cyan" />
       <p className="text-sm font-semibold">{message}</p>
       <button aria-label="Tutup toast" onClick={onClose} className="rounded-full p-1 text-white/70 hover:bg-white/10"><X size={14} /></button>
@@ -189,7 +189,7 @@ export function ConfirmDialog({ open, title, description, onCancel, onConfirm })
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-galaxy-navy/45 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-glow">
+      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-glow">
         <h3 className="text-xl font-extrabold text-gray-950">{title}</h3>
         <p className="mt-2 text-sm leading-6 text-gray-500">{description}</p>
         <div className="mt-6 flex justify-end gap-2">
