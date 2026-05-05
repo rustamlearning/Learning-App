@@ -2190,7 +2190,7 @@ function BankSoal({ user, notify, appContext }) {
           { key: 'learningObjectiveCode', label: 'TP', render: (row) => <CurriculumLinkText item={row} /> },
           { key: 'difficulty', label: 'Level' },
           { key: 'type', label: 'Jenis' },
-          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
+          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
         ]} rows={rows} />
       ) : (
         <EmptyState title={`Belum ada soal ${teacherSubject}.`} description="Soal mapel yang Anda ampu akan tampil di sini setelah dibuat." />
@@ -3137,7 +3137,7 @@ function AdminProfiles({ role, title, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Manajemen Data" title={title} description="Admin mengelola profile dan detail akademik. Akun login Auth tetap dibuat terpisah di Supabase Authentication." action={<QuickActionButton icon={Plus} label={`Tambah ${role === 'guru' ? 'guru' : 'siswa'}`} onClick={() => setEditing({ name: '', email: '', role, status: 'Aktif', detailStatus: 'Aktif' })} />} />
+      <PageHeader eyebrow="Data" title={title} description="Kelola profil dan detail akademik." action={<QuickActionButton icon={Plus} label={`Tambah ${role === 'guru' ? 'guru' : 'siswa'}`} onClick={() => setEditing({ name: '', email: '', role, status: 'Aktif', detailStatus: 'Aktif' })} />} />
       {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data: {error}. Data lokal ditampilkan.</div>}
       {editing && <ProfileForm title={title} role={role} profile={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label={`Memuat ${title.toLowerCase()} dari Supabase...`} /> : (
@@ -3148,7 +3148,7 @@ function AdminProfiles({ role, title, notify, appContext }) {
             ? [{ key: 'nip', label: 'NIP' }, { key: 'subject', label: 'Mapel' }]
             : [{ key: 'nis', label: 'NIS' }, { key: 'className', label: 'Kelas' }]),
           { key: 'status', label: 'Status' },
-          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
+          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
         ]} rows={rows} />
       )}
       <ConfirmDialog open={Boolean(deleting)} title="Hapus data?" description={`Data "${deleting?.name || ''}" akan dihapus setelah konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
@@ -3341,7 +3341,7 @@ function AdminKelas({ notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Data Kelas" title="Kelola rombel" action={<QuickActionButton icon={Plus} label="Tambah kelas" onClick={() => setEditing({ name: '', grade: 10, academicYear: '2026/2027' })} />} />
+      <PageHeader eyebrow="Kelas" title="Kelola rombel" action={<QuickActionButton icon={Plus} label="Tambah kelas" onClick={() => setEditing({ name: '', grade: 10, academicYear: '2026/2027' })} />} />
       {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kelas: {error}. Data lokal ditampilkan.</div>}
       {editing && <ClassForm classItem={editing} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat kelas dari Supabase..." /> : (
@@ -3349,7 +3349,7 @@ function AdminKelas({ notify, appContext }) {
           { key: 'name', label: 'Kelas' },
           { key: 'grade', label: 'Tingkat' },
           { key: 'academic_year', label: 'Tahun Ajaran', render: (row) => row.academic_year || row.academicYear || '2026/2027' },
-          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
+          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
         ]} rows={rows} />
       )}
       <ConfirmDialog open={Boolean(deleting)} title="Hapus kelas?" description={`Kelas "${deleting?.name || ''}" akan dihapus setelah konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
@@ -3466,7 +3466,7 @@ function AdminMapel({ notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Manajemen Data" title="Mata Pelajaran" action={<QuickActionButton icon={Plus} label="Tambah mapel" onClick={() => setEditing({ name: '', code: '' })} />} />
+      <PageHeader eyebrow="Mapel" title="Mata Pelajaran" action={<QuickActionButton icon={Plus} label="Tambah mapel" onClick={() => setEditing({ name: '', code: '' })} />} />
       {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data mapel: {error}. Data lokal ditampilkan.</div>}
       {editing && <SubjectForm subject={editing} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat mata pelajaran dari Supabase..." /> : (
@@ -3474,7 +3474,7 @@ function AdminMapel({ notify, appContext }) {
           { key: 'name', label: 'Nama Mapel' },
           { key: 'code', label: 'Kode' },
           { key: 'teacher', label: 'Guru Pengampu' },
-          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
+          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
         ]} rows={rows} />
       )}
       <ConfirmDialog open={Boolean(deleting)} title="Hapus mapel?" description={`Mapel "${deleting?.name || ''}" akan dihapus setelah konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
@@ -3582,7 +3582,7 @@ function CurriculumAuditPanel() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Audit Keterhubungan Konten</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-950">Cek konten yang sudah terhubung ke TP/ATP.</h2>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Cek konten yang sudah terhubung ke TP/ATP.</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
             Panel ini membantu admin melihat materi, tugas, bank soal, dan kuis yang sudah atau belum terhubung ke tujuan pembelajaran.
           </p>
@@ -3605,7 +3605,7 @@ function CurriculumAuditPanel() {
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
               <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400">Total belum terhubung</p>
-              <p className="mt-2 text-3xl font-black text-slate-950">{audit.totals.unlinked}</p>
+              <p className="mt-1 text-2xl font-black text-slate-950">{audit.totals.unlinked}</p>
               <p className="mt-1 text-xs font-bold text-slate-500">Dari {audit.totals.total} konten utama.</p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
@@ -3779,9 +3779,9 @@ function CurriculumAdminPage() {
           ['CP', data.outcomes.length, `${verifiedOutcomes.length} terverifikasi`],
           ['TP template', data.objectives.length, `${templateObjectives.length} template sekolah`],
         ].map(([label, value, caption]) => (
-          <div key={label} className="rounded-3xl bg-white p-5 shadow-soft ring-1 ring-purple-100">
+          <div key={label} className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-purple-100">
             <p className="text-sm font-bold text-slate-500">{label}</p>
-            <p className="mt-2 text-3xl font-black text-slate-950">{loading ? '...' : value}</p>
+            <p className="mt-1 text-2xl font-black text-slate-950">{loading ? '...' : value}</p>
             <p className="mt-1 text-xs leading-5 text-slate-500">{caption}</p>
           </div>
         ))}
@@ -3902,7 +3902,7 @@ function BackupPage({ notify, setConfirmOpen, appContext }) {
   }
 
   return (
-    <div><PageHeader eyebrow="Backup" title="Backup aman dan terkendali" /><SectionCard><StatusBadge tone="green">Backup JSON tersedia</StatusBadge><p className="mt-4 text-sm text-gray-500">Backup mengekspor data utama ke file JSON. Restore tetap dinonaktifkan karena berisiko menghapus atau menimpa data dan perlu konfirmasi berlapis.</p><div className="mt-4 flex flex-wrap gap-2"><QuickActionButton icon={Download} label={exporting ? 'Membuat backup...' : 'Backup sekarang'} onClick={handleBackup} /><button onClick={() => setConfirmOpen(true)} className="rounded-2xl bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700">Restore dikunci</button></div></SectionCard></div>
+    <div><PageHeader eyebrow="Backup" title="Backup aman dan terkendali" /><SectionCard><StatusBadge tone="green">Backup JSON tersedia</StatusBadge><p className="mt-4 text-sm text-gray-500">Backup mengekspor data utama ke file JSON. Restore tetap dinonaktifkan karena berisiko menghapus atau menimpa data dan perlu konfirmasi berlapis.</p><div className="mt-4 flex flex-wrap gap-2"><QuickActionButton icon={Download} label={exporting ? 'Membuat backup...' : 'Backup sekarang'} onClick={handleBackup} /><button onClick={() => setConfirmOpen(true)} className="rounded-xl bg-rose-50 px-4 py-2.5 text-xs font-extrabold text-rose-700">Restore dikunci</button></div></SectionCard></div>
   )
 }
 
@@ -3999,7 +3999,7 @@ function ManageList({ eyebrow, title, rows, button, notify, type, emptyTitle, em
 
 function AdminTable({ title, rows, columns, button, notify = () => {}, setConfirmOpen = () => {} }) {
   return (
-    <div><PageHeader eyebrow="Manajemen Data" title={title} action={<QuickActionButton icon={Plus} label={button} onClick={() => notify(`${button} masih dikunci untuk keamanan data.`)} />} /><DataTable columns={[...columns.map(([key, label]) => ({ key, label, render: key === 'classes' ? (row) => row.classes.join(', ') : undefined })), { key: 'action', label: 'Aksi', render: () => <button onClick={() => setConfirmOpen(true)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-bold text-galaxy-purple">Edit</button> }]} rows={rows} /></div>
+    <div><PageHeader eyebrow="Manajemen Data" title={title} action={<QuickActionButton icon={Plus} label={button} onClick={() => notify(`${button} masih dikunci untuk keamanan data.`)} />} /><DataTable columns={[...columns.map(([key, label]) => ({ key, label, render: key === 'classes' ? (row) => row.classes.join(', ') : undefined })), { key: 'action', label: 'Aksi', render: () => <button onClick={() => setConfirmOpen(true)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button> }]} rows={rows} /></div>
   )
 }
 
