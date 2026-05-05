@@ -247,7 +247,7 @@ function KelasSaya() {
         {subjects.slice(0, 5).map((subject, index) => (
           <SectionCard key={subject.id}>
             <StatusBadge>{subject.name}</StatusBadge>
-            <h2 className="mt-4 text-xl font-extrabold">{subject.name}</h2>
+            <h2 className="mt-3 text-lg font-black">{subject.name}</h2>
             <p className="mt-2 text-sm text-gray-500">Guru: {subject.teacher}</p>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs font-bold">
               <span className="rounded-2xl bg-galaxy-surface p-3">{6 + index} materi</span>
@@ -460,7 +460,7 @@ function MateriBelajar({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Materi Belajar" title="Jelajahi materi baru hari ini." description={remoteMaterials.length > 0 ? 'Materi sudah dibaca dari Supabase dan diberi label ringan dibuka.' : 'Materi awal ditampilkan sambil menunggu data sekolah tersinkron.'} />
+      <PageHeader eyebrow="Materi" title="Materi belajar" description={remoteMaterials.length > 0 ? 'Materi dari guru siap dibaca.' : 'Materi akan muncul setelah guru publish.'} />
       {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal tetap ditampilkan.</div>}
       <SearchFilterBar search={search} setSearch={setSearch} filters={subjectsFilter} activeFilter={filter} setActiveFilter={setFilter} />
       {loading ? <LoadingState label="Memuat materi dari Supabase..." /> : (
@@ -688,7 +688,7 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
   return (
     <div>
       <PageHeader eyebrow={item.subject} title={item.title} description={`${item.className} · ${item.topic} · ${item.type || 'Teks'} · Ringan dibuka`} action={<button onClick={onBack} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>} />
-      <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
         <SectionCard>
           <StatusBadge tone={item.status === 'Selesai' ? 'green' : 'cyan'}>{item.status}</StatusBadge>
           {externalMaterial && (
@@ -865,7 +865,7 @@ function SiswaTugas({ user, notify, appContext }) {
           action={<button onClick={() => setSelected(null)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>}
         />
 
-        <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
+        <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
           <SectionCard>
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge tone={submission ? 'green' : 'amber'}>{submission ? 'Sudah submit' : 'Belum submit'}</StatusBadge>
@@ -902,7 +902,7 @@ function SiswaTugas({ user, notify, appContext }) {
               Untuk tahap ini, jawaban berupa teks. File besar nanti memakai link atau Supabase Storage agar database tetap ringan.
             </div>
             {selected.rubric && (
-              <div className="mt-4 rounded-3xl bg-purple-50 p-4 text-sm leading-6 text-purple-800 ring-1 ring-purple-100">
+              <div className="mt-3 rounded-2xl bg-purple-50 p-3 text-sm leading-6 text-purple-800 ring-1 ring-purple-100">
                 <b>Rubrik:</b> {selected.rubric}
               </div>
             )}
@@ -914,7 +914,7 @@ function SiswaTugas({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Tugas" title="Tugas aktif dari guru" description="Baca instruksi, tulis jawaban teks, dan simpan submission. Jika Supabase belum siap, jawaban tetap tersimpan lokal." />
+      <PageHeader eyebrow="Tugas" title="Tugas siswa" description="Baca instruksi dan kirim jawaban." />
       {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim tugas: {error}. Data lokal tetap ditampilkan.</div>}
       {loading ? <LoadingState label="Memuat tugas siswa..." /> : rows.length > 0 ? (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -988,7 +988,7 @@ function LatihanPage({ notify }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Latihan" title="Kuasai satu topik lagi hari ini." description="Latihan pendek, feedback cepat, pembahasan jelas, dan skor tersimpan di perangkat." />
+      <PageHeader eyebrow="Latihan" title="Latihan soal" description="Kerjakan soal pendek dan lihat pembahasan." />
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {practices.map((item) => {
           const result = getPracticeResult(item.id)
@@ -1069,13 +1069,13 @@ function PracticeDetail({ practice, onBack, notify }) {
       />
 
       {submitted && (
-        <SectionCard className="mb-5 bg-gradient-to-r from-emerald-50 to-cyan-50">
+        <SectionCard className="mb-4 bg-gradient-to-r from-emerald-50 to-cyan-50">
           <StatusBadge tone={score >= 75 ? 'green' : 'amber'}>{score >= 75 ? 'Tuntas' : 'Perlu latihan lagi'}</StatusBadge>
-          <h2 className="mt-3 text-3xl font-black text-slate-950">Skor {score}</h2>
+          <h2 className="mt-2 text-2xl font-black text-slate-950">Skor {score}</h2>
           <p className="mt-2 text-sm font-bold text-slate-600">{correctCount} benar dari {items.length} soal.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button onClick={resetPractice} className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-galaxy-purple ring-1 ring-purple-100">Ulangi latihan</button>
-            <button onClick={onBack} className="rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">Kembali ke daftar</button>
+            <button onClick={onBack} className="rounded-xl bg-galaxy-action px-3 py-2.5 text-xs font-extrabold text-white">Kembali ke daftar</button>
           </div>
         </SectionCard>
       )}
@@ -1109,7 +1109,7 @@ function PracticeDetail({ practice, onBack, notify }) {
       </div>
 
       {!submitted && (
-        <div className="sticky bottom-4 mt-5 rounded-3xl bg-white/90 p-4 shadow-soft ring-1 ring-purple-100 backdrop-blur">
+        <div className="sticky bottom-4 mt-4 rounded-2xl bg-white/90 p-3 shadow-soft ring-1 ring-purple-100 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-bold text-slate-600">{answeredCount}/{items.length} soal terjawab</p>
             <button onClick={submitPractice} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white">Submit latihan</button>
@@ -1289,13 +1289,13 @@ function KuisPage({ user, notify, appContext }) {
         />
 
         {previousResult && (
-          <SectionCard className="mb-5 bg-gradient-to-r from-violet-50 to-cyan-50">
+          <SectionCard className="mb-4 bg-gradient-to-r from-violet-50 to-cyan-50">
             <StatusBadge tone={previousResult.score >= 75 ? 'green' : 'amber'}>{previousResult.score >= 75 ? 'Tuntas' : 'Remedial'}</StatusBadge>
-            <h2 className="mt-3 text-3xl font-black text-slate-950">Skor {previousResult.score}</h2>
+            <h2 className="mt-2 text-2xl font-black text-slate-950">Skor {previousResult.score}</h2>
             <p className="mt-2 text-sm font-bold text-slate-600">{previousResult.correct} benar dari {previousResult.total} soal.</p>
             <div className="mt-4 flex flex-wrap gap-2">
               <button onClick={resetQuiz} className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-galaxy-purple ring-1 ring-purple-100">Kerjakan ulang</button>
-              <button onClick={() => setSelected(null)} className="rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">Kembali ke daftar</button>
+              <button onClick={() => setSelected(null)} className="rounded-xl bg-galaxy-action px-3 py-2.5 text-xs font-extrabold text-white">Kembali ke daftar</button>
             </div>
           </SectionCard>
         )}
@@ -1333,7 +1333,7 @@ function KuisPage({ user, notify, appContext }) {
         </div>
 
         {!previousResult && (
-          <div className="sticky bottom-4 mt-5 rounded-3xl bg-white/90 p-4 shadow-soft ring-1 ring-purple-100 backdrop-blur">
+          <div className="sticky bottom-4 mt-4 rounded-2xl bg-white/90 p-3 shadow-soft ring-1 ring-purple-100 backdrop-blur">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm font-bold text-slate-600">{answeredCount}/{quizQuestions.length} soal terjawab</p>
               <button onClick={submitQuiz} disabled={quizQuestions.length === 0} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Submit jawaban</button>
@@ -1348,7 +1348,7 @@ function KuisPage({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Kuis / Ujian" title="Kuis aktif dan ujian resmi" description="Cek status, kerjakan soal, dan lihat hasil setelah submit." />
+      <PageHeader eyebrow="Kuis" title="Kuis aktif" description="Pilih kuis yang sudah dipublish guru." />
       {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Data lokal ditampilkan.</div>}
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -1427,16 +1427,16 @@ function FlashcardPage() {
         description="Flashcard membantu mengingat konsep inti. Paket remedial dan pengayaan dari guru akan muncul di sini."
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
         <StatCard icon={Layers3} label="Deck flashcard" value={decks.length} caption={`${studioDecks.length} dari Studio Konten`} tone="purple" />
         <StatCard icon={Brain} label="Remedial" value={learningPacks.filter((item) => item.outputType === 'Remedial').length} caption="Latihan perbaikan" tone="amber" />
         <StatCard icon={Sparkles} label="Pengayaan" value={learningPacks.filter((item) => item.outputType === 'Pengayaan').length} caption="Tantangan lanjutan" tone="cyan" />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <DashboardCard title="Flashcard">
           {decks.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               {decks.map((deck) => (
                 <SectionCard key={deck.id}>
                   <div className="mb-4 flex items-center justify-between gap-2">
@@ -1500,7 +1500,7 @@ function LearningPackDetail({ pack, onBack }) {
         action={<button onClick={onBack} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>}
       />
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
         <SectionCard>
           <StatusBadge tone={pack.outputType === 'Remedial' ? 'amber' : 'cyan'}>{pack.outputType}</StatusBadge>
           <div className="mt-5 space-y-3">
@@ -1601,7 +1601,7 @@ function ProgresPage({ user }) {
       </div>
 
       {!hasLearningData && (
-        <SectionCard className="mb-5 bg-gradient-to-r from-violet-50 to-cyan-50">
+        <SectionCard className="mb-4 bg-gradient-to-r from-violet-50 to-cyan-50">
           <StatusBadge tone="amber">Belum ada data nyata</StatusBadge>
           <h2 className="mt-3 text-xl font-extrabold text-slate-950">Mulai dari materi, latihan, atau kuis.</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -2463,7 +2463,7 @@ function GuruTugas({ user, notify, appContext }) {
           action={<button onClick={() => setViewingSubmissions(null)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>}
         />
         {viewingSubmissions.rows.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             {viewingSubmissions.rows.map((submission, index) => (
               <SectionCard key={submission.id || `${submission.student_id}-${index}`}>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -2878,7 +2878,7 @@ function AnalisisNilai() {
   return (
     <div>
       <PageHeader eyebrow="Analisis Nilai" title="Insight kelas untuk tindak lanjut." />
-      <div className="mb-5 grid gap-3 sm:grid-cols-4"><StatCard label="Rata-rata" value="84" icon={BarChart3} /><StatCard label="Tertinggi" value="96" tone="green" /><StatCard label="Terendah" value="62" tone="amber" /><StatCard label="Soal sulit" value="7" tone="purple" /></div>
+      <div className="mb-4 grid gap-3 sm:grid-cols-4"><StatCard label="Rata-rata" value="84" icon={BarChart3} /><StatCard label="Tertinggi" value="96" tone="green" /><StatCard label="Terendah" value="62" tone="amber" /><StatCard label="Soal sulit" value="7" tone="purple" /></div>
       <DashboardCard title="Sebaran nilai"><ResponsiveContainer width="100%" height={300}><BarChart data={scoreTrend}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="nilai" fill="#7C3AED" radius={[12, 12, 0, 0]} /></BarChart></ResponsiveContainer></DashboardCard>
     </div>
   )
@@ -3630,7 +3630,7 @@ function CurriculumAuditPanel() {
                   <p className="text-sm font-extrabold text-slate-950">{item.label}</p>
                   <StatusBadge tone={item.unlinked === 0 ? 'green' : 'amber'}>{item.percentage}%</StatusBadge>
                 </div>
-                <p className="mt-3 text-3xl font-black text-slate-950">{item.linked}/{item.total}</p>
+                <p className="mt-2 text-2xl font-black text-slate-950">{item.linked}/{item.total}</p>
                 <p className="mt-1 text-xs font-bold text-slate-500">{item.unlinked} belum terhubung TP</p>
               </div>
             ))}
@@ -3679,7 +3679,7 @@ function CurriculumAuditPanel() {
             </div>
 
             {selectedAction && (
-              <div className="mt-4 rounded-3xl bg-purple-50 p-4 text-sm font-bold leading-6 text-purple-800 ring-1 ring-purple-100">
+              <div className="mt-3 rounded-2xl bg-purple-50 p-3 text-sm font-bold leading-6 text-purple-800 ring-1 ring-purple-100">
                 Rekomendasi: buka halaman {selectedAction.label}, cek item lama yang belum punya badge TP, lalu jadikan daftar ini dasar kerja Patch 3 untuk edit manual TP.
               </div>
             )}
@@ -4004,7 +4004,7 @@ function AdminTable({ title, rows, columns, button, notify = () => {}, setConfir
 }
 
 function CardsPage({ eyebrow, title, items, action }) {
-  return <div><PageHeader eyebrow={eyebrow} title={title} action={action} /><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{items.map((item) => <SectionCard key={`${item.title}-${item.meta}`}><StatusBadge>{item.status}</StatusBadge><h2 className="mt-4 text-xl font-extrabold">{item.title}</h2><p className="mt-2 text-sm text-gray-500">{item.meta}</p><p className="mt-4 text-2xl font-extrabold text-galaxy-purple">{item.value}</p><button className="mt-5 w-full rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Detail</button></SectionCard>)}</div></div>
+  return <div><PageHeader eyebrow={eyebrow} title={title} action={action} /><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{items.map((item) => <SectionCard key={`${item.title}-${item.meta}`}><StatusBadge>{item.status}</StatusBadge><h2 className="mt-3 text-lg font-black">{item.title}</h2><p className="mt-2 text-sm text-gray-500">{item.meta}</p><p className="mt-3 text-xl font-black text-galaxy-purple">{item.value}</p><button className="mt-5 w-full rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Detail</button></SectionCard>)}</div></div>
 }
 
 
@@ -4082,7 +4082,7 @@ function ReportPage({ eyebrow, title, notify }) {
         }
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
         <StatCard label="Rata-rata akhir" value={reportRows.at(-1)?.nilai_rata_rata || '-'} tone="purple" />
         <StatCard label="Aktivitas akhir" value={reportRows.at(-1)?.aktivitas_belajar || '-'} tone="cyan" />
         <StatCard label="Periode data" value={reportRows.length} tone="green" />
