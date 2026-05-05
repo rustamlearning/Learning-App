@@ -3981,7 +3981,28 @@ function CurriculumAdminPage() {
                 <p className="mt-1 text-sm leading-6 text-slate-600">{objective.objective}</p>
                 {objective.deep_learning_focus && (
                   <p className="mt-2 rounded-2xl bg-cyan-50 px-3 py-2 text-xs font-bold leading-5 text-cyan-700 ring-1 ring-cyan-100">
-                    Fokus Deep Learning: {objective.deep_learning_focus}
+                    Fokus Deep Learning: {typeof objective.deep_learning_focus === 'string'
+                      ? objective.deep_learning_focus
+                      : Array.isArray(objective.deep_learning_focus)
+                        ? objective.deep_learning_focus.join(', ')
+                        : Object.entries(objective.deep_learning_focus || {})
+                            .map(([key, value]) => {
+                              const label = {
+                                holistic: 'Holistik',
+                                assessment: 'Asesmen',
+                                principles: 'Prinsip',
+                                experiences: 'Pengalaman belajar',
+                              }[key] || key
+
+                              const readableValue = Array.isArray(value)
+                                ? value.join(', ')
+                                : value && typeof value === 'object'
+                                  ? Object.values(value).join(', ')
+                                  : value
+
+                              return `${label}: ${readableValue}`
+                            })
+                            .join(' • ')}
                   </p>
                 )}
                 <p className="mt-2 text-xs font-bold text-amber-600">{objective.verification_status}</p>
