@@ -2034,8 +2034,9 @@ function GuruMateri({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Materi" title={`Kelola materi ${teacherSubject}`} description="Materi guru dibatasi berdasarkan akun guru yang login. Data Supabase tampil jika akun guru dan tabel sudah siap." action={<QuickActionButton icon={Plus} label="Tambah materi" onClick={() => setEditing(emptyMaterial(lookups, teacherSubject))} />} />
+      <PageHeader eyebrow="Materi" title={`Kelola materi ${teacherSubject}`} description="Draft hanya tersimpan untuk guru. Ubah status menjadi Publish agar materi tampil di halaman siswa." action={<QuickActionButton icon={Plus} label="Tambah materi" onClick={() => setEditing(emptyMaterial(lookups, teacherSubject))} />} />
       {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal mapel guru ditampilkan.</div>}
+      <div className="mb-4 rounded-3xl bg-cyan-50 p-4 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">Alur tampil ke siswa: <b>Draft</b> hanya terlihat guru, sedangkan <b>Publish</b> tampil di menu Siswa Materi. Konten dari Studio Konten selalu masuk sebagai Draft agar bisa dicek dulu.</div>
       {editing && <MaterialForm material={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat materi guru dari Supabase..." /> : (
         rows.length > 0 ? (
@@ -2052,7 +2053,7 @@ function GuruMateri({ user, notify, appContext }) {
                 <div className="mt-3"><CurriculumLinkBadge item={row} /></div>
                 <div className="mt-5 flex flex-wrap gap-2">
                   <button onClick={() => setEditing(row)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Edit</button>
-                  <button onClick={() => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{row.status === 'Publish' ? 'Unpublish' : 'Publish'}</button>
+                  <button onClick={() => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{row.status === 'Publish' ? 'Kembalikan ke Draft' : 'Publish ke siswa'}</button>
                   <button onClick={() => setDeleting(row)} className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">Hapus</button>
                 </div>
               </SectionCard>
@@ -2116,6 +2117,7 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
           <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
             {['Draft', 'Publish'].map((status) => <option key={status}>{status}</option>)}
           </select>
+          <span className="text-xs font-semibold text-slate-500">Draft belum tampil ke siswa. Publish membuat materi tampil di Siswa Materi.</span>
         </label>
         <LearningObjectivePicker
           value={form.learningObjectiveId || ''}
@@ -2602,8 +2604,9 @@ function GuruTugas({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Tugas" title="Tugas kelas" description="Buat dan publish tugas untuk kelas yang Anda ajar." action={<QuickActionButton icon={Plus} label="Buat tugas" onClick={() => setEditing(emptyAssignment(lookups, teacherSubject))} />} />
+      <PageHeader eyebrow="Tugas" title="Tugas kelas" description="Draft belum tampil ke siswa. Ubah status menjadi Aktif agar tugas muncul di halaman Siswa Tugas." action={<QuickActionButton icon={Plus} label="Buat tugas" onClick={() => setEditing(emptyAssignment(lookups, teacherSubject))} />} />
       {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data tugas: {error}. Data lokal ditampilkan.</div>}
+      <div className="mb-4 rounded-3xl bg-cyan-50 p-4 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">Alur tampil ke siswa: <b>Draft</b> belum tampil, <b>Aktif</b> tampil di Siswa Tugas, dan <b>Selesai</b> dipakai untuk menutup tugas. Draft dari Studio Konten perlu dicek sebelum diaktifkan.</div>
       {editing && <AssignmentForm assignment={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat tugas dari Supabase..." /> : rows.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -2616,7 +2619,7 @@ function GuruTugas({ user, notify, appContext }) {
               <div className="mt-3"><CurriculumLinkBadge item={row} /></div>
               <div className="mt-5 flex flex-wrap gap-2">
                 <button onClick={() => setEditing(row)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Edit</button>
-                <button onClick={() => handleSave({ ...row, status: row.status === 'Aktif' ? 'Draft' : 'Aktif' })} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{row.status === 'Aktif' ? 'Unpublish' : 'Publish'}</button>
+                <button onClick={() => handleSave({ ...row, status: row.status === 'Aktif' ? 'Draft' : 'Aktif' })} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{row.status === 'Aktif' ? 'Kembalikan ke Draft' : 'Aktifkan ke siswa'}</button>
                 <button onClick={() => openSubmissions(row)} className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">Submission ({getLocalAssignmentSubmissions(row.id).length})</button>
                 <button onClick={() => setDeleting(row)} className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">Hapus</button>
               </div>
@@ -2673,6 +2676,7 @@ function AssignmentForm({ assignment, lookups, onCancel, onSave }) {
           <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
             {['Draft', 'Aktif', 'Selesai'].map((status) => <option key={status}>{status}</option>)}
           </select>
+          <span className="text-xs font-semibold text-slate-500">Draft belum tampil. Aktif membuat tugas muncul di Siswa Tugas.</span>
         </label>
         <LearningObjectivePicker
           value={form.learningObjectiveId || ''}
@@ -2852,8 +2856,9 @@ function KuisLive({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Kuis Live" title="Kuis dan ujian dari bank soal" description="Buat kuis ringan, publish ke siswa, lalu pantau hasil submit." action={<QuickActionButton icon={FlaskConical} label="Buat Kuis" onClick={() => setEditing(emptyQuiz(lookups, teacherSubject))} />} />
+      <PageHeader eyebrow="Kuis Live" title="Kuis dan ujian dari bank soal" description="Draft belum bisa dikerjakan siswa. Pilih soal lalu Publish agar kuis tampil di halaman Siswa Kuis." action={<QuickActionButton icon={FlaskConical} label="Buat Kuis" onClick={() => setEditing(emptyQuiz(lookups, teacherSubject))} />} />
       {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Data lokal mapel guru ditampilkan.</div>}
+      <div className="mb-4 rounded-3xl bg-cyan-50 p-4 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">Alur tampil ke siswa: <b>Draft</b> belum bisa dikerjakan, sedangkan <b>Publish</b> tampil di Siswa Kuis. Pastikan minimal satu soal dipilih sebelum publish.</div>
       {editing && <QuizForm quiz={editing} lookups={lookups} questions={questionRows} onCancel={() => setEditing(null)} onSave={handleSave} />}
       <SectionCard dark><p className="text-sm text-white/60">Kode join kelas</p><p className="mt-3 text-6xl font-extrabold">482 913</p><p className="mt-3 text-white/70">{liveParticipants.length} peserta bergabung.</p></SectionCard>
       {loading ? <LoadingState label="Memuat kuis guru dari Supabase..." /> : (
@@ -2867,7 +2872,7 @@ function KuisLive({ user, notify, appContext }) {
               <p className="mt-3 text-sm font-bold text-galaxy-purple">{attempts.filter((attempt) => attempt.quiz_id === quiz.id).length} attempt masuk</p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <button onClick={() => setEditing(quiz)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Edit</button>
-                <button onClick={() => handleSave({ ...quiz, status: quiz.status === 'Publish' ? 'Draft' : 'Publish' }, quiz.questionIds || [])} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{quiz.status === 'Publish' ? 'Unpublish' : 'Publish'}</button>
+                <button onClick={() => handleSave({ ...quiz, status: quiz.status === 'Publish' ? 'Draft' : 'Publish' }, quiz.questionIds || [])} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{quiz.status === 'Publish' ? 'Kembalikan ke Draft' : 'Publish ke siswa'}</button>
                 <button onClick={() => setDeleting(quiz)} className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">Hapus</button>
               </div>
             </SectionCard>
@@ -2928,6 +2933,7 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSa
           <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
             {['Draft', 'Publish'].map((status) => <option key={status}>{status}</option>)}
           </select>
+          <span className="text-xs font-semibold text-slate-500">Draft belum tampil. Publish membuat kuis bisa dikerjakan siswa.</span>
         </label>
         <LearningObjectivePicker
           value={form.learningObjectiveId || ''}

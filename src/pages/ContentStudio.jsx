@@ -148,8 +148,8 @@ const featureTargets = [
     id: 'materi',
     label: 'Simpan sebagai Materi',
     shortLabel: 'Materi',
-    description: 'Kirim draft ke halaman Materi Guru. Setelah itu guru bisa edit dan Publish ke siswa.',
-    success: 'Draft berhasil dikirim ke Materi Guru.',
+    description: 'Kirim ke Materi Guru sebagai Draft. Guru perlu cek/edit lalu Publish agar tampil ke siswa.',
+    success: 'Draft materi tersimpan. Belum tampil ke siswa sampai guru klik Publish di Materi Guru.',
     nextStep: 'Buka halaman Materi, cek konten, lalu klik Publish agar muncul di siswa.',
     path: '/guru/materi',
     tone: 'cyan',
@@ -159,8 +159,8 @@ const featureTargets = [
     id: 'tugas',
     label: 'Buat Tugas',
     shortLabel: 'Tugas',
-    description: 'Ubah draft menjadi tugas kelas dengan instruksi awal yang siap diedit.',
-    success: 'Draft berhasil dikirim ke Tugas Guru.',
+    description: 'Kirim ke Tugas Guru sebagai Draft. Guru perlu cek deadline lalu aktifkan agar tampil ke siswa.',
+    success: 'Draft tugas tersimpan. Belum tampil ke siswa sampai guru mengubah status menjadi Aktif.',
     nextStep: 'Buka halaman Tugas, lengkapi deadline, lalu aktifkan tugas.',
     path: '/guru/tugas',
     tone: 'amber',
@@ -181,8 +181,8 @@ const featureTargets = [
     id: 'kuis',
     label: 'Buat Kuis Live',
     shortLabel: 'Kuis Live',
-    description: 'Buat kuis baru sekaligus soal-soalnya, lalu simpan ke Kuis Live.',
-    success: 'Draft kuis berhasil dikirim ke Kuis Live dan Bank Soal.',
+    description: 'Buat kuis dan soal sebagai Draft. Guru perlu cek soal lalu Publish agar bisa dikerjakan siswa.',
+    success: 'Draft kuis dan soal tersimpan. Belum bisa dikerjakan siswa sampai guru klik Publish di Kuis Live.',
     nextStep: 'Buka Kuis Live, cek soal, lalu klik Publish agar bisa dikerjakan siswa.',
     path: '/guru/kuis-live',
     tone: 'green',
@@ -2034,7 +2034,7 @@ export default function ContentStudio({ user: propUser }) {
       ...info,
       time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
     })
-    setToast(info.success)
+    setToast(`${info.success} Langkah berikutnya: ${info.nextStep}`)
   }
 
   async function publishToFeature(target) {
