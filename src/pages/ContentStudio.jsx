@@ -2427,10 +2427,10 @@ export default function ContentStudio({ user: propUser }) {
       <PageHeader
         eyebrow="Studio Konten Guru"
         title="Buat materi dan soal otomatis."
-        description="Isi identitas, pilih referensi, atur soal, lalu review hasil seperti dokumen siap pakai sebelum dikirim ke fitur guru."
+        description="Isi data, generate, lalu review hasil di bawah sebelum dikirim ke fitur guru."
       />
 
-      <div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
+      <div className="mx-auto grid max-w-5xl gap-4">
         <SimpleStudioBuilder
           form={form}
           template={template}
@@ -2546,7 +2546,7 @@ function SimpleStudioBuilder({ form, template, availableContentTypes, updateForm
         <div>
           <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Studio Konten</p>
           <h2 className="mt-1 text-xl font-black text-slate-950">Buat materi atau soal.</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-500">Isi data inti, atur jumlah, lalu generate.</p>
+          <p className="mt-1 text-sm leading-6 text-slate-500">Isi data inti, generate, lalu cek hasil di bawah.</p>
         </div>
         <StatusBadge tone="green">Kosong sampai generate</StatusBadge>
       </div>
@@ -2718,7 +2718,7 @@ function StudioOutputWorkspace({
     <SectionCard className="bg-white">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Hasil Generasi</p>
+          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Hasil Generasi di Bawah</p>
           <h2 className="mt-1 text-xl font-black text-slate-950">{form.assessmentType || 'Sumatif Harian'}</h2>
           <p className="mt-1 text-sm font-semibold text-slate-500">
             {form.subject} · {String(form.className || '').startsWith('Kelas') ? form.className : `Kelas ${form.className}`} · {total} soal
