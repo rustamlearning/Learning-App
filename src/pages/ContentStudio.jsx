@@ -559,6 +559,89 @@ function normalizeStudioQuestionsForStorage(rawQuestions, preview, form, subject
 }
 
 
+
+function toStudioNumber(value, fallback = 0) {
+  const number = Number(value)
+  return Number.isFinite(number) && number >= 0 ? number : fallback
+}
+
+function getConfiguredQuestionTotal(form) {
+  return Math.max(
+    1,
+    toStudioNumber(form.mcCount, 5)
+      + toStudioNumber(form.shortAnswerCount, 0)
+      + toStudioNumber(form.essayCount, 0)
+      + toStudioNumber(form.trueFalseCount, 0)
+      + toStudioNumber(form.matchingCount, 0)
+  )
+}
+
+function getQuestionDifficultyByIndex(form, index, total) {
+  const easyPct = Math.max(0, Math.min(100, toStudioNumber(form.easyPct, 30)))
+  const mediumPct = Math.max(0, Math.min(100, toStudioNumber(form.mediumPct, 50)))
+  const easyLimit = Math.round((easyPct / 100) * total)
+  const mediumLimit = easyLimit + Math.round((mediumPct / 100) * total)
+
+  if (index < easyLimit) return 'Mudah'
+  if (index < mediumLimit) return 'Sedang'
+  return 'Sulit'
+}
+
+function getStudioQuestionType(form, index) {
+  const counts = [
+    ['Pilihan Ganda', toStudioNumber(form.mcCount, 5)],
+    ['Isian Singkat', toStudioNumber(form.shortAnswerCount, 0)],
+    ['Essay/Uraian', toStudioNumber(form.essayCount, 0)],
+    ['Benar/Salah', toStudioNumber(form.trueFalseCount, 0)],
+    ['Menjodohkan', toStudioNumber(form.matchingCount, 0)],
+  ]
+
+  let cursor = 0
+  for (const [type, count] of counts) {
+    cursor += count
+    if (index < cursor) return type
+  }
+
+  return 'Pilihan Ganda'
+}
+
+function getStudioPreviewQuestions(preview, form) {
+  const total = getConfiguredQuestionTotal(form)
+  const subject = form.subject || preview.subject || 'Mata pelajaran'
+  const className = String(form.className || preview.className || 'X').startsWith('Kelas')
+    ? String(form.className || preview.className || 'X')
+    : `Kelas ${form.className || preview.className || 'X'}`
+
+  const normalized = normalizeStudioQuestionsForStorage(preview.generatedQuestions, preview, form, subject, className)
+  const fallback = makeGeneratedQuestions(preview, form, total)
+  const merged = [...normalized, ...fallback].filter((question, index, rows) => (
+    question?.questionText && rows.findIndex((item) => item.questionText === question.questionText) === index
+  ))
+
+  const cognitiveLevels = Array.isArray(form.cognitiveLevels) && form.cognitiveLevels.length > 0
+    ? form.cognitiveLevels
+    : ['C2', 'C3', 'C4']
+
+  return merged.slice(0, total).map((question, index) => ({
+    ...question,
+    id: question.id || `studio-preview-question-${Date.now()}-${index + 1}`,
+    type: getStudioQuestionType(form, index),
+    difficulty: question.difficulty || getQuestionDifficultyByIndex(form, index, total),
+    cognitiveLevel: question.cognitiveLevel || cognitiveLevels[index % cognitiveLevels.length],
+    indicator: question.indicator || `Mengukur pemahaman siswa tentang ${preview.topic || form.topic || 'topik pembelajaran'}.`,
+  }))
+}
+
+function buildStudioConfiguredPreview(draft, form) {
+  const questions = getStudioPreviewQuestions(draft, form)
+  return {
+    ...draft,
+    outputType: form.outputType || draft.outputType || 'Soal',
+    generatedQuestions: questions,
+  }
+}
+
+
 function makeFlashcards(preview, form) {
   const topic = preview.topic || form.topic || 'Topik pembelajaran'
   const cards = [
@@ -1830,6 +1913,7 @@ export default function ContentStudio({ user: propUser }) {
   const accessToken = authContext.accessToken
   const [toast, setToast] = useState('')
   const [activeTab, setActiveTab] = useState('builder')
+  const [resultTab, setResultTab] = useState('soal')
   const [form, setForm] = useState({
     subject: 'Bahasa Inggris',
     className: 'X',
@@ -1844,6 +1928,24 @@ export default function ContentStudio({ user: propUser }) {
     videoTimestamps: '00:30 | Apa konsep awal yang disampaikan?\n03:00 | Contoh apa yang muncul dalam video?\n05:00 | Apa kesimpulan penting dari video?',
     videoNote: '',
     customInstruction: '',
+    teacherName: user?.name || '',
+    schoolName: 'SMA Negeri 6 Pangkajene dan Kepulauan',
+    educationLevel: 'SMA/MA',
+    assessmentType: 'Sumatif Harian',
+    answerOptionCount: '4 Opsi (A-D)',
+    mcCount: 5,
+    shortAnswerCount: 0,
+    essayCount: 0,
+    trueFalseCount: 0,
+    matchingCount: 0,
+    easyPct: 30,
+    mediumPct: 50,
+    hardPct: 20,
+    cognitiveLevels: ['C2', 'C3', 'C4'],
+    illustrationCount: 0,
+    diagramCount: 0,
+    conceptMapCount: 0,
+    referenceMode: 'Tanpa Materi',
   })
   const [preview, setPreview] = useState(() => buildFallbackLesson({
     subject: 'Bahasa Inggris',
@@ -1965,13 +2067,16 @@ export default function ContentStudio({ user: propUser }) {
 
   async function generateDraft() {
     try {
-      setToast('Membuat draft dengan AI server...')
-      const draft = await requestStudioAIDraft(form)
+      setToast(form.outputType === 'Materi' ? 'Membuat materi otomatis...' : 'Membuat soal otomatis...')
+      const aiDraft = await requestStudioAIDraft(form)
+      const draft = buildStudioConfiguredPreview(aiDraft, form)
       setPreview(draft)
-      setToast(draft.source === 'ai' ? 'Draft konten berhasil dibuat dengan AI server.' : 'Draft AI berhasil dibuat dan dirapikan.')
+      setResultTab(form.outputType === 'Materi' ? 'materi' : 'soal')
+      setToast(draft.source === 'ai' ? 'Draft berhasil dibuat dengan AI server.' : 'Draft berhasil dibuat dan dirapikan.')
     } catch (aiError) {
-      const draft = buildFallbackLesson(form)
+      const draft = buildStudioConfiguredPreview(buildFallbackLesson(form), form)
       setPreview(draft)
+      setResultTab(form.outputType === 'Materi' ? 'materi' : 'soal')
       setToast('AI belum tersedia, draft lokal berhasil dibuat.')
     }
   }
@@ -2170,10 +2275,11 @@ export default function ContentStudio({ user: propUser }) {
       learningObjectiveId: template.learningObjectiveId || form.learningObjectiveId || '',
     }
 
-    const draft = buildSmartTemplateDraft(template, nextForm)
+    const draft = buildStudioConfiguredPreview(buildSmartTemplateDraft(template, nextForm), nextForm)
 
     setForm(nextForm)
     setPreview(draft)
+    setResultTab(nextForm.outputType === 'Materi' ? 'materi' : 'soal')
     setDeliveryStatus(null)
     setActiveTab('builder')
     setToast(`Template "${template.title}" siap digunakan. Cek preview lalu kirim ke fitur aplikasi.`)
@@ -2225,10 +2331,11 @@ export default function ContentStudio({ user: propUser }) {
       return
     }
 
-    const draft = buildImportTextDraft(form)
+    const draft = buildStudioConfiguredPreview(buildImportTextDraft(form), form)
     setPreview(draft)
+    setResultTab(form.outputType === 'Materi' ? 'materi' : 'soal')
     setDeliveryStatus(null)
-    setToast('Teks berhasil diubah menjadi materi, soal, flashcard, LKPD, dan exit ticket.')
+    setToast('Teks berhasil diubah menjadi materi dan soal siap review.')
   }
 
   function createVideoInteractive() {
@@ -2237,106 +2344,42 @@ export default function ContentStudio({ user: propUser }) {
       return
     }
 
-    const draft = buildVideoInteractiveDraft(form)
+    const draft = buildStudioConfiguredPreview(buildVideoInteractiveDraft(form), form)
     setPreview(draft)
+    setResultTab('soal')
     setDeliveryStatus(null)
-    setToast('Video interaktif berhasil dibuat dengan pertanyaan timestamp, soal, flashcard, dan exit ticket.')
+    setToast('Video interaktif berhasil dibuat dengan soal dan pertanyaan timestamp.')
   }
 
   return (
     <div>
       <PageHeader
-        eyebrow="Teacher Content Studio"
-        title="Studio Konten Guru"
-        description="Pusat pembuatan materi, kuis, LKPD, rubrik, flashcard, remedial, pengayaan, dan resource STEM untuk semua mata pelajaran."
+        eyebrow="Studio Konten Guru"
+        title="Buat materi dan soal otomatis."
+        description="Isi identitas, pilih referensi, atur soal, lalu review hasil seperti dokumen siap pakai sebelum dikirim ke fitur guru."
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={BookOpen} label="Konten tersimpan" value={stats.content} caption="Materi, kuis, LKPD, flashcard" tone="cyan" />
-        <StatCard icon={ClipboardList} label="Rubrik" value={stats.rubrics} caption="Penilaian proyek/tugas" tone="purple" />
-        <StatCard icon={FileQuestion} label="Kuis draft" value={stats.quizzes} caption="Siap dipakai ulang" tone="amber" />
-        <StatCard icon={Target} label="Remedial/Pengayaan" value={stats.remedials} caption="Diferensiasi belajar" tone="green" />
+      <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+        <SimpleStudioBuilder
+          form={form}
+          template={template}
+          availableContentTypes={availableContentTypes}
+          updateForm={updateForm}
+          generateDraft={generateDraft}
+          saveContent={saveContent}
+          createFromText={createFromText}
+        />
+
+        <StudioOutputWorkspace
+          preview={preview}
+          form={form}
+          resultTab={resultTab}
+          setResultTab={setResultTab}
+          publishToFeature={publishToFeature}
+          deliveryStatus={deliveryStatus}
+          savingTarget={savingTarget}
+        />
       </div>
-
-      <CurriculumPickerPanel
-        curriculumData={curriculumData}
-        curriculumError={curriculumError}
-        selectedLearningObjective={selectedLearningObjective}
-        selectedObjectiveId={form.learningObjectiveId}
-        onSelectObjective={selectLearningObjective}
-      />
-
-      <StudioWorkflowGuide activeTab={activeTab} />
-
-      <div className="mb-5 flex flex-wrap gap-2">
-        {[
-          ['builder', 'AI Lesson Builder', Wand2],
-          ['templates', 'Smart Templates', Layers3],
-          ['stem', 'STEM Tools', FlaskConical],
-          ['rubric', 'Rubric Builder', ClipboardList],
-          ['import', 'Import Teks/Video', LinkIcon],
-          ['quality', 'Quality Check', CheckCircle2],
-          ['analytics', 'Analitik Guru', Target],
-          ['archive', 'Arsip Lokal', Save],
-        ].map(([id, label, Icon]) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-extrabold transition ${
-              activeTab === id
-                ? 'bg-galaxy-action text-white shadow-glow'
-                : 'bg-white text-galaxy-purple ring-1 ring-purple-100 hover:bg-galaxy-lavender'
-            }`}
-          >
-            <Icon size={16} />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'builder' && (
-        <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-          <BuilderPanel
-            form={form}
-            template={template}
-            availableContentTypes={availableContentTypes}
-            updateForm={updateForm}
-            generateDraft={generateDraft}
-            saveContent={saveContent}
-          />
-          <PreviewPanel preview={preview} publishToFeature={publishToFeature} deliveryStatus={deliveryStatus} savingTarget={savingTarget} />
-        </div>
-      )}
-
-      {activeTab === 'templates' && <TemplatePanel onUseSubject={(subject) => { updateForm('subject', subject); setActiveTab('builder') }} onUseSmartTemplate={useSmartTemplate} />}
-
-      {activeTab === 'stem' && <StemToolsPanel />}
-
-      {activeTab === 'rubric' && (
-        <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-          <RubricPanel form={form} updateForm={updateForm} saveRubric={saveRubric} />
-          <RubricPreview rubric={buildRubric(form)} />
-        </div>
-      )}
-
-      {activeTab === 'import' && (
-        <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-          <ImportPanel form={form} updateForm={updateForm} createFromText={createFromText} createVideoInteractive={createVideoInteractive} />
-          <PreviewPanel preview={preview} publishToFeature={publishToFeature} deliveryStatus={deliveryStatus} savingTarget={savingTarget} />
-        </div>
-      )}
-
-      {activeTab === 'quality' && (
-        <QualityCheckPanel preview={preview} form={form} onApplySuggestion={applyQualitySuggestion} />
-      )}
-
-
-      {activeTab === 'analytics' && (
-        <AnalyticsPanel contentRows={contentRows} rubricRows={rubricRows} preview={preview} snapshot={analyticsSnapshot} />
-      )}
-
-
-      {activeTab === 'archive' && <ArchivePanel contentRows={contentRows} rubricRows={rubricRows} onClearArchive={clearArchive} />}
 
       <Toast message={toast} onClose={() => setToast('')} />
     </div>
@@ -2381,6 +2424,470 @@ function StudioWorkflowGuide({ activeTab }) {
         ))}
       </div>
     </SectionCard>
+  )
+}
+
+
+
+function StudioMiniNumberInput({ label, value, onChange, min = 0, suffix = '' }) {
+  return (
+    <label className="grid gap-1 text-sm font-bold text-slate-700">
+      {label}
+      <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 ring-1 ring-slate-100">
+        <input
+          type="number"
+          min={min}
+          value={value ?? 0}
+          onChange={(event) => onChange(event.target.value)}
+          className="w-full bg-transparent text-center text-lg font-black text-slate-950 outline-none"
+        />
+        {suffix && <span className="text-xs font-bold text-slate-400">{suffix}</span>}
+      </div>
+    </label>
+  )
+}
+
+function SimpleStudioBuilder({ form, template, availableContentTypes, updateForm, generateDraft, saveContent, createFromText }) {
+  const outputModes = [
+    ['Materi', 'Buat Materi', BookOpen],
+    ['Soal', 'Buat Soal', FileQuestion],
+    ['Kuis', 'Buat Kuis', PlayCircle],
+    ['Tugas', 'Buat Tugas', ClipboardList],
+  ]
+  const referenceModes = ['Tanpa Materi', 'Ketik Manual', 'Link Video', 'PDF/TXT segera']
+  const cognitiveLevels = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6']
+  const selectedLevels = Array.isArray(form.cognitiveLevels) ? form.cognitiveLevels : ['C2', 'C3', 'C4']
+  const isQuestionMode = form.outputType !== 'Materi'
+
+  function toggleLevel(level) {
+    const next = selectedLevels.includes(level)
+      ? selectedLevels.filter((item) => item !== level)
+      : [...selectedLevels, level]
+    updateForm('cognitiveLevels', next.length > 0 ? next : ['C2'])
+  }
+
+  return (
+    <div className="grid gap-4">
+      <SectionCard className="bg-gradient-to-br from-white via-violet-50/70 to-white">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Generator Cepat</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">Langsung buat konten inti.</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Pilih jenis output, isi topik, atur jumlah, lalu klik generate.
+            </p>
+          </div>
+          <StatusBadge tone="green">Sederhana</StatusBadge>
+        </div>
+
+        <div className="mt-5 grid gap-2 sm:grid-cols-4">
+          {outputModes.map(([id, label, Icon]) => (
+            <button
+              key={id}
+              onClick={() => updateForm('outputType', id)}
+              className={`rounded-3xl p-4 text-left ring-1 transition ${
+                form.outputType === id
+                  ? 'bg-galaxy-action text-white shadow-glow ring-galaxy-action'
+                  : 'bg-white text-slate-700 ring-purple-100 hover:bg-galaxy-lavender'
+              }`}
+            >
+              <Icon size={19} />
+              <span className="mt-2 block text-sm font-black">{label}</span>
+            </button>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard>
+        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Identitas Konten</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <TextField label="Nama Guru" value={form.teacherName || ''} onChange={(value) => updateForm('teacherName', value)} placeholder="Nama guru" />
+          <TextField label="Nama Sekolah" value={form.schoolName || ''} onChange={(value) => updateForm('schoolName', value)} placeholder="Nama sekolah" />
+          <SelectField label="Jenjang" value={form.educationLevel || 'SMA/MA'} onChange={(value) => updateForm('educationLevel', value)} options={['SMA/MA', 'SMK/MAK', 'SMP/MTs']} />
+          <SelectField label="Kelas" value={form.className} onChange={(value) => updateForm('className', value)} options={classOptions} />
+          <SelectField label="Mata Pelajaran" value={form.subject} onChange={(value) => updateForm('subject', value)} options={Object.keys(subjectTemplates)} />
+          <TextField label="Topik / Materi" value={form.topic} onChange={(value) => updateForm('topic', value)} placeholder={template.sampleTopic} />
+        </div>
+      </SectionCard>
+
+      <SectionCard>
+        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Materi Referensi</p>
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          Jika tidak diisi, sistem membuat konten berdasarkan topik. Untuk tahap ini PDF/TXT disiapkan sebagai tombol UI, belum upload file besar.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {referenceModes.map((mode) => (
+            <button
+              key={mode}
+              onClick={() => updateForm('referenceMode', mode)}
+              className={`rounded-2xl px-4 py-3 text-sm font-extrabold ${
+                form.referenceMode === mode
+                  ? 'bg-galaxy-action text-white shadow-glow'
+                  : 'bg-galaxy-surface text-galaxy-purple ring-1 ring-purple-100'
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+
+        {form.referenceMode === 'Ketik Manual' && (
+          <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
+            Ketik / tempel materi referensi
+            <textarea
+              value={form.sourceText || ''}
+              onChange={(event) => updateForm('sourceText', event.target.value)}
+              rows={6}
+              className="rounded-[1.5rem] border border-purple-100 bg-galaxy-surface px-4 py-3 text-sm leading-7 outline-none focus:border-purple-300"
+              placeholder="Tempel materi, ringkasan buku, modul, atau catatan guru di sini."
+            />
+            <button onClick={createFromText} className="w-fit rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-extrabold text-cyan-700 ring-1 ring-cyan-100">
+              Ubah teks menjadi draft
+            </button>
+          </label>
+        )}
+
+        {form.referenceMode === 'Link Video' && (
+          <TextField label="Link video / artikel" value={form.videoUrl || ''} onChange={(value) => updateForm('videoUrl', value)} placeholder="https://..." />
+        )}
+      </SectionCard>
+
+      <SectionCard>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Konfigurasi {isQuestionMode ? 'Soal' : 'Materi'}</p>
+            <h2 className="mt-1 text-xl font-black text-slate-950">{isQuestionMode ? 'Atur jumlah dan kualitas soal.' : 'Atur bentuk materi.'}</h2>
+          </div>
+          <StatusBadge tone="purple">{form.assessmentType || form.outputType}</StatusBadge>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <SelectField label="Jenis Asesmen" value={form.assessmentType || 'Sumatif Harian'} onChange={(value) => updateForm('assessmentType', value)} options={['Sumatif Harian', 'Formatif', 'Diagnostik', 'Latihan Harian', 'Remedial']} />
+          <SelectField label="Opsi Jawaban PG" value={form.answerOptionCount || '4 Opsi (A-D)'} onChange={(value) => updateForm('answerOptionCount', value)} options={['4 Opsi (A-D)', '5 Opsi (A-E)', 'Benar/Salah']} />
+          <SelectField label="Jenis Konten" value={form.contentType} onChange={(value) => updateForm('contentType', value)} options={availableContentTypes} />
+          <TextField label="Durasi / Alokasi" value={form.duration} onChange={(value) => updateForm('duration', value)} placeholder="2 JP" />
+        </div>
+
+        {isQuestionMode && (
+          <>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <StudioMiniNumberInput label="Pilihan Ganda" value={form.mcCount} onChange={(value) => updateForm('mcCount', value)} />
+              <StudioMiniNumberInput label="Isian Singkat" value={form.shortAnswerCount} onChange={(value) => updateForm('shortAnswerCount', value)} />
+              <StudioMiniNumberInput label="Essay" value={form.essayCount} onChange={(value) => updateForm('essayCount', value)} />
+              <StudioMiniNumberInput label="Benar/Salah" value={form.trueFalseCount} onChange={(value) => updateForm('trueFalseCount', value)} />
+              <StudioMiniNumberInput label="Menjodohkan" value={form.matchingCount} onChange={(value) => updateForm('matchingCount', value)} />
+            </div>
+
+            <div className="mt-5 rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <p className="text-sm font-extrabold text-slate-950">Proporsi Tingkat Kesulitan (%)</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <StudioMiniNumberInput label="Mudah" value={form.easyPct} onChange={(value) => updateForm('easyPct', value)} suffix="%" />
+                <StudioMiniNumberInput label="Sedang" value={form.mediumPct} onChange={(value) => updateForm('mediumPct', value)} suffix="%" />
+                <StudioMiniNumberInput label="Sulit" value={form.hardPct} onChange={(value) => updateForm('hardPct', value)} suffix="%" />
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <p className="text-sm font-extrabold text-slate-950">Level Kognitif (C1–C6)</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {cognitiveLevels.map((level) => (
+                  <button
+                    key={level}
+                    onClick={() => toggleLevel(level)}
+                    className={`grid h-12 w-12 place-items-center rounded-full text-sm font-black ring-1 ${
+                      selectedLevels.includes(level)
+                        ? 'bg-galaxy-action text-white ring-galaxy-action'
+                        : 'bg-white text-slate-500 ring-slate-200'
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-3xl bg-gradient-to-r from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
+              <p className="text-sm font-extrabold text-slate-950">Visual & Multimedia</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <StudioMiniNumberInput label="Ilustrasi AI" value={form.illustrationCount} onChange={(value) => updateForm('illustrationCount', value)} />
+                <StudioMiniNumberInput label="Diagram/Grafik" value={form.diagramCount} onChange={(value) => updateForm('diagramCount', value)} />
+                <StudioMiniNumberInput label="Peta Konsep" value={form.conceptMapCount} onChange={(value) => updateForm('conceptMapCount', value)} />
+              </div>
+            </div>
+          </>
+        )}
+
+        <label className="mt-5 grid gap-2 text-sm font-bold text-slate-700">
+          Instruksi tambahan
+          <textarea
+            value={form.customInstruction || ''}
+            onChange={(event) => updateForm('customInstruction', event.target.value)}
+            rows={4}
+            placeholder="Contoh: buat soal kontekstual, dekat dengan kehidupan siswa kepulauan, sertakan pembahasan singkat."
+            className="rounded-[1.5rem] border border-purple-100 bg-galaxy-surface px-4 py-3 text-sm leading-7 outline-none focus:border-purple-300"
+          />
+        </label>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          <button onClick={generateDraft} className="inline-flex items-center gap-2 rounded-2xl bg-galaxy-action px-6 py-4 text-sm font-black text-white shadow-glow">
+            <Sparkles size={18} />
+            {isQuestionMode ? 'Buat Soal Otomatis' : 'Buat Materi Otomatis'}
+          </button>
+          <button onClick={saveContent} className="inline-flex items-center gap-2 rounded-2xl bg-galaxy-surface px-5 py-4 text-sm font-extrabold text-galaxy-purple ring-1 ring-purple-100">
+            <Save size={17} />
+            Simpan Draft
+          </button>
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
+function StudioOutputWorkspace({ preview, form, resultTab, setResultTab, publishToFeature, deliveryStatus, savingTarget }) {
+  const questions = getStudioPreviewQuestions(preview, form)
+  const total = questions.length
+  const tabs = [
+    ['soal', 'Soal'],
+    ['kunci', 'Kunci'],
+    ['kisi', 'Kisi-Kisi'],
+    ['kuis', 'Kuis'],
+    ['analisis', 'Analisis'],
+  ]
+
+  return (
+    <SectionCard className="relative overflow-hidden bg-white">
+      <div className="absolute right-4 top-4 hidden gap-2 lg:grid">
+        {['JSON', 'Word', 'PDF', 'Print', 'Kartu', 'Gambar'].map((item) => (
+          <span key={item} className="rounded-2xl bg-galaxy-surface px-3 py-2 text-center text-xs font-black text-galaxy-purple ring-1 ring-purple-100">
+            {item}
+          </span>
+        ))}
+      </div>
+
+      <div className="pr-0 lg:pr-24">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Hasil Generasi</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">{form.assessmentType || 'Sumatif Harian'}</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              {form.subject} - {String(form.className || '').startsWith('Kelas') ? form.className : `Kelas ${form.className}`} · Topik: {form.topic || preview.topic} · Total: {total} soal
+            </p>
+          </div>
+          <StatusBadge tone="purple">Kurikulum Merdeka</StatusBadge>
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-2 border-b border-purple-100 pb-3">
+          {tabs.map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setResultTab(id)}
+              className={`rounded-2xl px-4 py-3 text-sm font-black ${
+                resultTab === id
+                  ? 'bg-galaxy-action text-white shadow-glow'
+                  : 'bg-slate-50 text-slate-600 ring-1 ring-slate-100'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {deliveryStatus && (
+          <div className="mt-4 rounded-3xl bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-800 ring-1 ring-emerald-100">
+            <b>{deliveryStatus.success}</b> {deliveryStatus.nextStep}
+          </div>
+        )}
+
+        {resultTab === 'soal' && <StudioQuestionDocument questions={questions} form={form} preview={preview} />}
+        {resultTab === 'kunci' && <StudioAnswerKey questions={questions} />}
+        {resultTab === 'kisi' && <StudioBlueprint questions={questions} form={form} />}
+        {resultTab === 'kuis' && <StudioPublishPanel publishToFeature={publishToFeature} savingTarget={savingTarget} />}
+        {resultTab === 'analisis' && <StudioAnalysisPanel questions={questions} form={form} />}
+        {resultTab === 'materi' && <StudioMaterialDocument preview={preview} />}
+      </div>
+    </SectionCard>
+  )
+}
+
+function StudioQuestionDocument({ questions, form, preview }) {
+  const illustrationCount = toStudioNumber(form.illustrationCount, 0)
+  const diagramCount = toStudioNumber(form.diagramCount, 0)
+
+  return (
+    <div className="mt-5">
+      <div className="mb-4 flex items-center gap-2">
+        <CheckCircle2 className="text-galaxy-purple" size={20} />
+        <h3 className="text-xl font-black text-galaxy-purple">Bagian 1. Pilihan Ganda</h3>
+        <span className="text-sm font-bold text-slate-400">({questions.length} soal)</span>
+      </div>
+
+      <div className="grid gap-4">
+        {questions.map((question, index) => (
+          <div key={question.id || index} className="rounded-[1.75rem] border-l-4 border-galaxy-action bg-white p-5 shadow-sm ring-1 ring-slate-100">
+            <div className="flex gap-4">
+              <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-2xl bg-galaxy-lavender text-sm font-black text-galaxy-purple">
+                {index + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="whitespace-pre-line text-base font-semibold leading-8 text-slate-800">{question.questionText}</p>
+
+                {index < illustrationCount && (
+                  <div className="mt-4 rounded-3xl bg-violet-50 p-4 ring-1 ring-violet-100">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-black text-violet-700">Ilustrasi:</p>
+                      <StatusBadge tone="green">Selesai</StatusBadge>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-violet-700">
+                      Ilustrasi kontekstual tentang {preview.topic || form.topic}, dibuat sebagai panduan visual untuk soal ini.
+                    </p>
+                    <div className="mt-3 grid h-40 place-items-center rounded-3xl bg-gradient-to-br from-cyan-100 via-white to-amber-100 text-center text-sm font-black text-slate-500 ring-1 ring-white">
+                      Preview Ilustrasi / Gambar
+                    </div>
+                  </div>
+                )}
+
+                {index < diagramCount && (
+                  <div className="mt-4 rounded-3xl bg-emerald-50 p-4 ring-1 ring-emerald-100">
+                    <p className="text-sm font-black text-emerald-700">Diagram/Grafik:</p>
+                    <div className="mt-3 flex h-32 items-end gap-3 rounded-3xl bg-white p-4 ring-1 ring-emerald-100">
+                      {[35, 68, 44, 80, 55].map((height, barIndex) => (
+                        <span key={barIndex} className="w-full rounded-t-2xl bg-emerald-200" style={{ height: `${height}%` }} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-4 grid gap-2">
+                  {(question.options || []).slice(0, 5).map((option, optionIndex) => (
+                    <p key={`${question.id}-${optionIndex}`} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-100">
+                      {String.fromCharCode(65 + optionIndex)}. {option}
+                    </p>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <StatusBadge>{question.type || 'Pilihan Ganda'}</StatusBadge>
+                  <StatusBadge tone="purple">{question.cognitiveLevel || 'C2'}</StatusBadge>
+                  <StatusBadge tone={question.difficulty === 'Sulit' ? 'red' : question.difficulty === 'Sedang' ? 'amber' : 'green'}>{question.difficulty || 'Mudah'}</StatusBadge>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function StudioAnswerKey({ questions }) {
+  return (
+    <div className="mt-5 grid gap-3">
+      {questions.map((question, index) => (
+        <div key={question.id || index} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-black text-slate-950">Nomor {index + 1}</p>
+            <StatusBadge tone="green">{question.correctAnswer || '-'}</StatusBadge>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{question.explanation || 'Pembahasan belum tersedia.'}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function StudioBlueprint({ questions, form }) {
+  return (
+    <div className="mt-5 grid gap-3">
+      {questions.map((question, index) => (
+        <div key={question.id || index} className="rounded-3xl bg-white p-4 ring-1 ring-slate-100">
+          <div className="mb-2 flex flex-wrap gap-2">
+            <StatusBadge tone="cyan">Soal {index + 1}</StatusBadge>
+            <StatusBadge>{question.type}</StatusBadge>
+            <StatusBadge tone="purple">{question.cognitiveLevel}</StatusBadge>
+            <StatusBadge tone="amber">{question.difficulty}</StatusBadge>
+          </div>
+          <p className="text-sm font-bold leading-6 text-slate-700">
+            Indikator: {question.indicator || `Siswa mampu menjawab soal tentang ${form.topic}.`}
+          </p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function StudioPublishPanel({ publishToFeature, savingTarget }) {
+  const actions = [
+    ['bank-soal', 'Kirim ke Bank Soal', FileQuestion, 'Simpan semua soal agar bisa diedit guru.'],
+    ['kuis', 'Buat Kuis Live', PlayCircle, 'Buat draft kuis dari soal yang sudah dihasilkan.'],
+    ['materi', 'Kirim ke Materi', BookOpen, 'Simpan sebagai draft materi guru.'],
+    ['tugas', 'Kirim ke Tugas', ClipboardList, 'Simpan sebagai draft tugas.'],
+  ]
+
+  return (
+    <div className="mt-5 grid gap-3 md:grid-cols-2">
+      {actions.map(([id, label, Icon, description]) => (
+        <button
+          key={id}
+          onClick={() => publishToFeature(id)}
+          disabled={savingTarget === id}
+          className="rounded-3xl bg-gradient-to-br from-white to-violet-50 p-5 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft disabled:cursor-wait disabled:opacity-70"
+        >
+          <Icon size={22} className="text-galaxy-purple" />
+          <p className="mt-3 text-lg font-black text-slate-950">{savingTarget === id ? 'Menyimpan...' : label}</p>
+          <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function StudioAnalysisPanel({ questions, form }) {
+  const difficultyCounts = questions.reduce((acc, question) => {
+    const key = question.difficulty || 'Sedang'
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
+
+  const cognitiveCounts = questions.reduce((acc, question) => {
+    const key = question.cognitiveLevel || 'C2'
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
+
+  return (
+    <div className="mt-5 grid gap-5">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard label="Mudah" value={difficultyCounts.Mudah || 0} caption={`${form.easyPct || 0}% target`} tone="green" />
+        <StatCard label="Sedang" value={difficultyCounts.Sedang || 0} caption={`${form.mediumPct || 0}% target`} tone="amber" />
+        <StatCard label="Sulit" value={difficultyCounts.Sulit || 0} caption={`${form.hardPct || 0}% target`} tone="red" />
+      </div>
+
+      <SectionCard>
+        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Level Kognitif</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {['C1', 'C2', 'C3', 'C4', 'C5', 'C6'].map((level) => (
+            <StatusBadge key={level} tone={(cognitiveCounts[level] || 0) > 0 ? 'purple' : 'gray'}>
+              {level}: {cognitiveCounts[level] || 0}
+            </StatusBadge>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
+function StudioMaterialDocument({ preview }) {
+  const sections = Array.isArray(preview.sections) ? preview.sections : []
+
+  return (
+    <div className="mt-5 grid gap-4">
+      {sections.map((section, index) => (
+        <div key={`${section.title}-${index}`} className="rounded-3xl bg-slate-50 p-5 ring-1 ring-slate-100">
+          <StatusBadge tone="cyan">{section.title}</StatusBadge>
+          <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700">{section.body}</p>
+        </div>
+      ))}
+    </div>
   )
 }
 
