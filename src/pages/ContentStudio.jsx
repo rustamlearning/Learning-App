@@ -1940,6 +1940,7 @@ export default function ContentStudio({ user: propUser }) {
   const [toast, setToast] = useState('')
   const [activeTab, setActiveTab] = useState('builder')
   const [resultTab, setResultTab] = useState('soal')
+  const [editingQuestionIndex, setEditingQuestionIndex] = useState(null)
   const [form, setForm] = useState({
     subject: 'Bahasa Inggris',
     className: 'X',
@@ -2387,6 +2388,40 @@ export default function ContentStudio({ user: propUser }) {
     setToast('Video interaktif berhasil dibuat dengan soal dan pertanyaan timestamp.')
   }
 
+  function updatePreviewQuestion(index, nextQuestion) {
+    const questions = Array.isArray(preview.generatedQuestions) ? preview.generatedQuestions : []
+    if (!questions[index]) {
+      setToast('Soal tidak ditemukan.')
+      return
+    }
+
+    const cleanedOptions = Array.isArray(nextQuestion.options)
+      ? nextQuestion.options.map((item) => String(item || '').trim()).filter(Boolean)
+      : questions[index].options || []
+
+    const updatedQuestion = {
+      ...questions[index],
+      ...nextQuestion,
+      options: cleanedOptions.length >= 2 ? cleanedOptions : questions[index].options,
+      correctAnswer: cleanedOptions.includes(nextQuestion.correctAnswer)
+        ? nextQuestion.correctAnswer
+        : (questions[index].correctAnswer || cleanedOptions[0] || ''),
+    }
+
+    const nextQuestions = questions.map((item, questionIndex) => (
+      questionIndex === index ? updatedQuestion : item
+    ))
+
+    setPreview({
+      ...preview,
+      hasGenerated: true,
+      generatedQuestions: nextQuestions,
+    })
+    setDeliveryStatus(null)
+    setEditingQuestionIndex(null)
+    setToast('Soal berhasil diperbarui.')
+  }
+
   return (
     <div>
       <PageHeader
@@ -2414,6 +2449,9 @@ export default function ContentStudio({ user: propUser }) {
           publishToFeature={publishToFeature}
           deliveryStatus={deliveryStatus}
           savingTarget={savingTarget}
+          editingQuestionIndex={editingQuestionIndex}
+          setEditingQuestionIndex={setEditingQuestionIndex}
+          updatePreviewQuestion={updatePreviewQuestion}
         />
       </div>
 
@@ -2652,7 +2690,18 @@ function SimpleStudioBuilder({ form, template, availableContentTypes, updateForm
 }
 
 
-function StudioOutputWorkspace({ preview, form, resultTab, setResultTab, publishToFeature, deliveryStatus, savingTarget }) {
+function StudioOutputWorkspace({
+  preview,
+  form,
+  resultTab,
+  setResultTab,
+  publishToFeature,
+  deliveryStatus,
+  savingTarget,
+  editingQuestionIndex,
+  setEditingQuestionIndex,
+  updatePreviewQuestion,
+}) {
   const questions = getStudioPreviewQuestions(preview, form)
   const total = questions.length
   const tabs = [
@@ -2662,6 +2711,7 @@ function StudioOutputWorkspace({ preview, form, resultTab, setResultTab, publish
     ['kuis', 'Kuis'],
     ['analisis', 'Analisis'],
   ]
+  const editingQuestion = editingQuestionIndex !== null ? questions[editingQuestionIndex] : null
 
   return (
     <SectionCard className="bg-white">
@@ -2700,7 +2750,14 @@ function StudioOutputWorkspace({ preview, form, resultTab, setResultTab, publish
         </div>
       )}
 
-      {resultTab === 'soal' && <StudioQuestionDocument questions={questions} form={form} preview={preview} />}
+      {resultTab === 'soal' && (
+        <StudioQuestionDocument
+          questions={questions}
+          form={form}
+          preview={preview}
+          onEditQuestion={setEditingQuestionIndex}
+        />
+      )}
       {resultTab === 'kunci' && <StudioAnswerKey questions={questions} />}
       {resultTab === 'kisi' && <StudioBlueprint questions={questions} form={form} />}
       {resultTab === 'kuis' && <StudioPublishPanel publishToFeature={publishToFeature} savingTarget={savingTarget} />}
@@ -2714,12 +2771,22 @@ function StudioOutputWorkspace({ preview, form, resultTab, setResultTab, publish
           </span>
         ))}
       </div>
+
+      {editingQuestion && (
+        <StudioQuestionEditorModal
+          question={editingQuestion}
+          questionNumber={editingQuestionIndex + 1}
+          onClose={() => setEditingQuestionIndex(null)}
+          onSave={(nextQuestion) => updatePreviewQuestion(editingQuestionIndex, nextQuestion)}
+        />
+      )}
     </SectionCard>
   )
 }
 
 
-function StudioQuestionDocument({ questions, form, preview }) {
+
+function StudioQuestionDocument({ questions, form, preview, onEditQuestion }) {
   const illustrationCount = toStudioNumber(form.illustrationCount, 0)
   const diagramCount = toStudioNumber(form.diagramCount, 0)
 
@@ -2739,7 +2806,7 @@ function StudioQuestionDocument({ questions, form, preview }) {
     <div className="mt-5">
       <div className="mb-4 flex items-center gap-2">
         <CheckCircle2 className="text-galaxy-purple" size={20} />
-        <h3 className="text-xl font-black text-galaxy-purple">Bagian 1. Pilihan Ganda</h3>
+        <h3 className="text-xl font-black text-galaxy-purple">Daftar Soal</h3>
         <span className="text-sm font-bold text-slate-400">({questions.length} soal)</span>
       </div>
 
@@ -2751,7 +2818,16 @@ function StudioQuestionDocument({ questions, form, preview }) {
                 {index + 1}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="whitespace-pre-line text-base font-semibold leading-8 text-slate-800">{question.questionText}</p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <p className="whitespace-pre-line text-base font-semibold leading-8 text-slate-800">{question.questionText}</p>
+                  <button
+                    onClick={() => onEditQuestion(index)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-xs font-black text-violet-700 ring-1 ring-violet-100"
+                  >
+                    <PenTool size={13} />
+                    Edit
+                  </button>
+                </div>
 
                 {index < illustrationCount && (
                   <div className="mt-4 rounded-3xl bg-violet-50 p-4 ring-1 ring-violet-100">
@@ -2800,6 +2876,184 @@ function StudioQuestionDocument({ questions, form, preview }) {
     </div>
   )
 }
+
+function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }) {
+  const initialOptions = Array.isArray(question.options) && question.options.length > 0
+    ? [...question.options]
+    : ['Benar', 'Salah', '', '']
+
+  while (initialOptions.length < 4) initialOptions.push('')
+
+  const [draft, setDraft] = useState({
+    questionText: question.questionText || question.question || '',
+    options: initialOptions.slice(0, 5),
+    correctAnswer: question.correctAnswer || initialOptions.find(Boolean) || '',
+    difficulty: question.difficulty || 'Sedang',
+    cognitiveLevel: question.cognitiveLevel || 'C2',
+    type: question.type || 'Pilihan Ganda',
+    indicator: question.indicator || '',
+    explanation: question.explanation || '',
+  })
+
+  useEffect(() => {
+    const nextOptions = Array.isArray(question.options) && question.options.length > 0
+      ? [...question.options]
+      : ['Benar', 'Salah', '', '']
+    while (nextOptions.length < 4) nextOptions.push('')
+
+    setDraft({
+      questionText: question.questionText || question.question || '',
+      options: nextOptions.slice(0, 5),
+      correctAnswer: question.correctAnswer || nextOptions.find(Boolean) || '',
+      difficulty: question.difficulty || 'Sedang',
+      cognitiveLevel: question.cognitiveLevel || 'C2',
+      type: question.type || 'Pilihan Ganda',
+      indicator: question.indicator || '',
+      explanation: question.explanation || '',
+    })
+  }, [question])
+
+  function updateField(field, value) {
+    setDraft((current) => ({ ...current, [field]: value }))
+  }
+
+  function updateOption(index, value) {
+    setDraft((current) => ({
+      ...current,
+      options: current.options.map((option, optionIndex) => optionIndex === index ? value : option),
+    }))
+  }
+
+  function handleSave() {
+    const cleanedOptions = draft.options.map((item) => String(item || '').trim()).filter(Boolean)
+
+    if (!draft.questionText.trim()) return
+    if (cleanedOptions.length < 2) return
+
+    onSave({
+      ...draft,
+      questionText: draft.questionText.trim(),
+      options: cleanedOptions,
+      correctAnswer: cleanedOptions.includes(draft.correctAnswer) ? draft.correctAnswer : cleanedOptions[0],
+      indicator: draft.indicator.trim(),
+      explanation: draft.explanation.trim(),
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-glow ring-1 ring-purple-100">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Edit Soal</p>
+            <h2 className="mt-1 text-xl font-black text-slate-950">Soal nomor {questionNumber}</h2>
+          </div>
+          <button onClick={onClose} className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-black text-slate-600 ring-1 ring-slate-100">
+            Tutup
+          </button>
+        </div>
+
+        <label className="grid gap-2 text-sm font-bold text-slate-700">
+          Pertanyaan
+          <textarea
+            value={draft.questionText}
+            onChange={(event) => updateField('questionText', event.target.value)}
+            rows={4}
+            className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm leading-7 outline-none focus:border-purple-300"
+          />
+        </label>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {draft.options.map((option, index) => (
+            <label key={index} className="grid gap-2 text-sm font-bold text-slate-700">
+              Opsi {String.fromCharCode(65 + index)}
+              <input
+                value={option}
+                onChange={(event) => updateOption(index, event.target.value)}
+                className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-purple-300"
+              />
+            </label>
+          ))}
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            Kunci Jawaban
+            <select
+              value={draft.correctAnswer}
+              onChange={(event) => updateField('correctAnswer', event.target.value)}
+              className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-purple-300"
+            >
+              {draft.options.filter(Boolean).map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </label>
+
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            Tipe Soal
+            <select
+              value={draft.type}
+              onChange={(event) => updateField('type', event.target.value)}
+              className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-purple-300"
+            >
+              {['Pilihan Ganda', 'Isian Singkat', 'Essay/Uraian', 'Benar/Salah', 'Menjodohkan'].map((item) => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            Level Kognitif
+            <select
+              value={draft.cognitiveLevel}
+              onChange={(event) => updateField('cognitiveLevel', event.target.value)}
+              className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-purple-300"
+            >
+              {['C1', 'C2', 'C3', 'C4', 'C5', 'C6'].map((item) => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            Tingkat Kesulitan
+            <select
+              value={draft.difficulty}
+              onChange={(event) => updateField('difficulty', event.target.value)}
+              className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-purple-300"
+            >
+              {['Mudah', 'Sedang', 'Sulit'].map((item) => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
+          Indikator
+          <input
+            value={draft.indicator}
+            onChange={(event) => updateField('indicator', event.target.value)}
+            className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-purple-300"
+          />
+        </label>
+
+        <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
+          Pembahasan
+          <textarea
+            value={draft.explanation}
+            onChange={(event) => updateField('explanation', event.target.value)}
+            rows={3}
+            className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm leading-7 outline-none focus:border-purple-300"
+          />
+        </label>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-600 ring-1 ring-slate-100">
+            Batal
+          </button>
+          <button onClick={handleSave} className="rounded-xl bg-galaxy-action px-4 py-3 text-sm font-black text-white shadow-glow">
+            Simpan Perubahan
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 
 function StudioAnswerKey({ questions }) {
   if (!questions.length) {
