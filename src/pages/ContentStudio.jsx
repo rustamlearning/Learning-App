@@ -2704,27 +2704,28 @@ function StudioOutputWorkspace({
 }) {
   const questions = getStudioPreviewQuestions(preview, form)
   const total = questions.length
+  const hasGenerated = Boolean(preview?.hasGenerated)
   const tabs = [
     ['soal', 'Soal'],
     ['kunci', 'Kunci'],
     ['kisi', 'Kisi-Kisi'],
-    ['kuis', 'Kuis'],
     ['analisis', 'Analisis'],
   ]
+  const safeResultTab = resultTab === 'kuis' ? 'soal' : resultTab
   const editingQuestion = editingQuestionIndex !== null ? questions[editingQuestionIndex] : null
 
   return (
     <SectionCard className="bg-white">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Hasil</p>
+          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Hasil Generasi</p>
           <h2 className="mt-1 text-xl font-black text-slate-950">{form.assessmentType || 'Sumatif Harian'}</h2>
           <p className="mt-1 text-sm font-semibold text-slate-500">
             {form.subject} · {String(form.className || '').startsWith('Kelas') ? form.className : `Kelas ${form.className}`} · {total} soal
           </p>
         </div>
-        <StatusBadge tone={preview?.hasGenerated ? 'green' : 'amber'}>
-          {preview?.hasGenerated ? 'Sudah generate' : 'Kosong'}
+        <StatusBadge tone={hasGenerated ? 'green' : 'amber'}>
+          {hasGenerated ? 'Siap dikirim' : 'Kosong'}
         </StatusBadge>
       </div>
 
@@ -2734,7 +2735,7 @@ function StudioOutputWorkspace({
             key={id}
             onClick={() => setResultTab(id)}
             className={`rounded-xl px-3 py-2 text-xs font-black ${
-              resultTab === id
+              safeResultTab === id
                 ? 'bg-galaxy-action text-white shadow-glow'
                 : 'bg-slate-50 text-slate-600 ring-1 ring-slate-100'
             }`}
@@ -2750,7 +2751,7 @@ function StudioOutputWorkspace({
         </div>
       )}
 
-      {resultTab === 'soal' && (
+      {safeResultTab === 'soal' && (
         <StudioQuestionDocument
           questions={questions}
           form={form}
@@ -2758,18 +2759,35 @@ function StudioOutputWorkspace({
           onEditQuestion={setEditingQuestionIndex}
         />
       )}
-      {resultTab === 'kunci' && <StudioAnswerKey questions={questions} />}
-      {resultTab === 'kisi' && <StudioBlueprint questions={questions} form={form} />}
-      {resultTab === 'kuis' && <StudioPublishPanel publishToFeature={publishToFeature} savingTarget={savingTarget} />}
-      {resultTab === 'analisis' && <StudioAnalysisPanel questions={questions} form={form} />}
-      {resultTab === 'materi' && <StudioMaterialDocument preview={preview} />}
+      {safeResultTab === 'kunci' && <StudioAnswerKey questions={questions} />}
+      {safeResultTab === 'kisi' && <StudioBlueprint questions={questions} form={form} />}
+      {safeResultTab === 'analisis' && <StudioAnalysisPanel questions={questions} form={form} />}
+      {safeResultTab === 'materi' && <StudioMaterialDocument preview={preview} />}
 
-      <div className="mt-4 flex flex-wrap gap-2 border-t border-purple-100 pt-3">
-        {['Copy', 'Print', 'Word', 'PDF'].map((item) => (
-          <span key={item} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-black text-galaxy-purple ring-1 ring-purple-100">
-            {item}
-          </span>
-        ))}
+      <div className="mt-4 border-t border-purple-100 pt-4">
+        <StudioPublishPanel
+          publishToFeature={publishToFeature}
+          savingTarget={savingTarget}
+          disabled={!hasGenerated}
+        />
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {['Copy', 'Print', 'Word', 'PDF'].map((item) => (
+            <button
+              key={item}
+              disabled={!hasGenerated}
+              className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-black text-galaxy-purple ring-1 ring-purple-100 disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+
+        {!hasGenerated && (
+          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 ring-1 ring-amber-100">
+            Generate konten terlebih dahulu agar tombol pengiriman aktif.
+          </p>
+        )}
       </div>
 
       {editingQuestion && (
@@ -2783,6 +2801,7 @@ function StudioOutputWorkspace({
     </SectionCard>
   )
 }
+
 
 
 
@@ -3107,31 +3126,52 @@ function StudioBlueprint({ questions, form }) {
   )
 }
 
-function StudioPublishPanel({ publishToFeature, savingTarget }) {
+function StudioPublishPanel({ publishToFeature, savingTarget, disabled = false }) {
   const actions = [
-    ['bank-soal', 'Kirim ke Bank Soal', FileQuestion, 'Simpan semua soal agar bisa diedit guru.'],
-    ['kuis', 'Buat Kuis Live', PlayCircle, 'Buat draft kuis dari soal yang sudah dihasilkan.'],
-    ['materi', 'Kirim ke Materi', BookOpen, 'Simpan sebagai draft materi guru.'],
-    ['tugas', 'Kirim ke Tugas', ClipboardList, 'Simpan sebagai draft tugas.'],
+    ['questions', 'Kirim ke Bank Soal', FileQuestion, 'Simpan soal agar bisa diedit dan dipakai ulang.'],
+    ['quiz', 'Buat Kuis Live', PlayCircle, 'Buat draft kuis dari soal yang sudah dihasilkan.'],
+    ['material', 'Kirim ke Materi', BookOpen, 'Simpan sebagai draft materi guru.'],
+    ['assignment', 'Kirim ke Tugas', ClipboardList, 'Simpan sebagai draft tugas siswa.'],
   ]
 
   return (
-    <div className="mt-5 grid gap-3 md:grid-cols-2">
-      {actions.map(([id, label, Icon, description]) => (
-        <button
-          key={id}
-          onClick={() => publishToFeature(id)}
-          disabled={savingTarget === id}
-          className="rounded-2xl bg-gradient-to-br from-white to-violet-50 p-5 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft disabled:cursor-wait disabled:opacity-70"
-        >
-          <Icon size={22} className="text-galaxy-purple" />
-          <p className="mt-3 text-lg font-black text-slate-950">{savingTarget === id ? 'Menyimpan...' : label}</p>
-          <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
-        </button>
-      ))}
+    <div>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-black text-slate-950">Aksi Pengiriman</p>
+        <StatusBadge tone={disabled ? 'amber' : 'green'}>{disabled ? 'Belum aktif' : 'Siap kirim'}</StatusBadge>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {actions.map(([target, label, Icon, description]) => {
+          const active = savingTarget === target
+          return (
+            <button
+              key={target}
+              onClick={() => publishToFeature(target)}
+              disabled={disabled || Boolean(savingTarget)}
+              className={`rounded-2xl p-3 text-left ring-1 transition ${
+                disabled
+                  ? 'cursor-not-allowed bg-slate-50 text-slate-400 ring-slate-100'
+                  : active
+                    ? 'bg-galaxy-action text-white ring-galaxy-action'
+                    : 'bg-white text-slate-700 ring-purple-100 hover:-translate-y-0.5 hover:shadow-soft'
+              }`}
+            >
+              <Icon size={17} />
+              <span className="mt-2 block text-sm font-black">
+                {active ? 'Mengirim...' : label}
+              </span>
+              <span className="mt-1 block text-xs font-semibold leading-5 opacity-75">
+                {description}
+              </span>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
+
 
 function StudioAnalysisPanel({ questions, form }) {
   if (!questions.length) {
