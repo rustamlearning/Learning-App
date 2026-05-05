@@ -560,6 +560,25 @@ function normalizeStudioQuestionsForStorage(rawQuestions, preview, form, subject
 
 
 
+function buildEmptyStudioPreview(form = {}) {
+  return {
+    id: `studio-empty-${Date.now()}`,
+    title: 'Belum ada hasil generasi',
+    subject: form.subject || '',
+    className: form.className || '',
+    topic: form.topic || '',
+    contentType: form.contentType || '',
+    outputType: form.outputType || 'Soal',
+    level: form.level || '',
+    duration: form.duration || '',
+    sections: [],
+    generatedQuestions: [],
+    tools: [],
+    source: 'empty',
+    hasGenerated: false,
+  }
+}
+
 function toStudioNumber(value, fallback = 0) {
   const number = Number(value)
   return Number.isFinite(number) && number >= 0 ? number : fallback
@@ -606,6 +625,8 @@ function getStudioQuestionType(form, index) {
 }
 
 function getStudioPreviewQuestions(preview, form) {
+  if (!preview?.hasGenerated) return []
+
   const total = getConfiguredQuestionTotal(form)
   const subject = form.subject || preview.subject || 'Mata pelajaran'
   const className = String(form.className || preview.className || 'X').startsWith('Kelas')
@@ -633,9 +654,14 @@ function getStudioPreviewQuestions(preview, form) {
 }
 
 function buildStudioConfiguredPreview(draft, form) {
-  const questions = getStudioPreviewQuestions(draft, form)
-  return {
+  const generatedDraft = {
     ...draft,
+    hasGenerated: true,
+  }
+  const questions = getStudioPreviewQuestions(generatedDraft, form)
+
+  return {
+    ...generatedDraft,
     outputType: form.outputType || draft.outputType || 'Soal',
     generatedQuestions: questions,
   }
@@ -1947,7 +1973,7 @@ export default function ContentStudio({ user: propUser }) {
     conceptMapCount: 0,
     referenceMode: 'Tanpa Materi',
   })
-  const [preview, setPreview] = useState(() => buildFallbackLesson({
+  const [preview, setPreview] = useState(() => buildEmptyStudioPreview({
     subject: 'Bahasa Inggris',
     className: 'X',
     topic: 'Descriptive Text',
@@ -2204,6 +2230,11 @@ export default function ContentStudio({ user: propUser }) {
     }
 
     if (target === 'bank-soal') {
+      if (!preview.hasGenerated || !Array.isArray(preview.generatedQuestions) || preview.generatedQuestions.length === 0) {
+        setToast('Belum ada soal. Isi identitas/topik lalu klik Buat Soal Otomatis terlebih dahulu.')
+        return
+      }
+
       const generatedQuestions = normalizeStudioQuestionsForStorage(preview.generatedQuestions, preview, form, subject, className)
       appendStorageRows(teacherStorageKey('questions', user, subject), generatedQuestions)
       setAnalyticsTick((current) => current + 1)
@@ -2212,6 +2243,11 @@ export default function ContentStudio({ user: propUser }) {
     }
 
     if (target === 'kuis') {
+      if (!preview.hasGenerated || !Array.isArray(preview.generatedQuestions) || preview.generatedQuestions.length === 0) {
+        setToast('Belum ada soal. Isi identitas/topik lalu klik Buat Soal Otomatis terlebih dahulu.')
+        return
+      }
+
       const generatedQuestions = normalizeStudioQuestionsForStorage(preview.generatedQuestions, preview, form, subject, className)
       appendStorageRows(teacherStorageKey('questions', user, subject), generatedQuestions)
 
@@ -2713,6 +2749,18 @@ function StudioQuestionDocument({ questions, form, preview }) {
   const illustrationCount = toStudioNumber(form.illustrationCount, 0)
   const diagramCount = toStudioNumber(form.diagramCount, 0)
 
+  if (!questions.length) {
+    return (
+      <div className="mt-5 rounded-[1.75rem] border border-dashed border-purple-200 bg-slate-50 p-8 text-center">
+        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Belum ada soal</p>
+        <h3 className="mt-2 text-2xl font-black text-slate-950">Hasil generasi masih kosong.</h3>
+        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+          Isi identitas konten, pilih mata pelajaran, kelas, topik, dan konfigurasi soal. Setelah itu klik <b>Buat Soal Otomatis</b>.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="mt-5">
       <div className="mb-4 flex items-center gap-2">
@@ -2780,6 +2828,14 @@ function StudioQuestionDocument({ questions, form, preview }) {
 }
 
 function StudioAnswerKey({ questions }) {
+  if (!questions.length) {
+    return (
+      <div className="mt-5 rounded-3xl bg-slate-50 p-6 text-center text-sm font-semibold leading-6 text-slate-500 ring-1 ring-slate-100">
+        Kunci jawaban akan muncul setelah guru membuat soal.
+      </div>
+    )
+  }
+
   return (
     <div className="mt-5 grid gap-3">
       {questions.map((question, index) => (
@@ -2796,6 +2852,14 @@ function StudioAnswerKey({ questions }) {
 }
 
 function StudioBlueprint({ questions, form }) {
+  if (!questions.length) {
+    return (
+      <div className="mt-5 rounded-3xl bg-slate-50 p-6 text-center text-sm font-semibold leading-6 text-slate-500 ring-1 ring-slate-100">
+        Kisi-kisi akan muncul setelah soal dibuat.
+      </div>
+    )
+  }
+
   return (
     <div className="mt-5 grid gap-3">
       {questions.map((question, index) => (
@@ -2842,6 +2906,14 @@ function StudioPublishPanel({ publishToFeature, savingTarget }) {
 }
 
 function StudioAnalysisPanel({ questions, form }) {
+  if (!questions.length) {
+    return (
+      <div className="mt-5 rounded-3xl bg-slate-50 p-6 text-center text-sm font-semibold leading-6 text-slate-500 ring-1 ring-slate-100">
+        Analisis tingkat kesulitan dan level kognitif akan muncul setelah soal dibuat.
+      </div>
+    )
+  }
+
   const difficultyCounts = questions.reduce((acc, question) => {
     const key = question.difficulty || 'Sedang'
     acc[key] = (acc[key] || 0) + 1
