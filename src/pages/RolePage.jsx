@@ -115,7 +115,7 @@ function renderGuru(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'kuis-live') return <KuisLive user={user} notify={notify} appContext={appContext} />
   if (page === 'studio-konten') {
     return (
-      <Suspense fallback={<div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm font-bold text-slate-500 shadow-soft">Memuat Studio Konten...</div>}>
+      <Suspense fallback={<div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-500 shadow-soft">Memuat Studio Konten...</div>}>
         <ContentStudio user={user} notify={notify} />
       </Suspense>
     )
@@ -1610,7 +1610,7 @@ function ProgresPage({ user }) {
         </SectionCard>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_0.8fr]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
         <DashboardCard title="Perkembangan nilai">
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={trendData}>
@@ -1690,8 +1690,8 @@ function ProfilPage({ user }) {
     <div>
       <PageHeader eyebrow="Profil" title="Profil belajar" description="Identitas, badge, dan statistik belajar." />
       <SectionCard className="max-w-3xl">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-          <div className="grid h-24 w-24 place-items-center rounded-[2rem] bg-galaxy-action text-3xl font-extrabold text-white shadow-glow">{user.avatar}</div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="grid h-24 w-24 place-items-center rounded-2xl bg-galaxy-action text-3xl font-extrabold text-white shadow-glow">{user.avatar}</div>
           <div>
             <h2 className="text-3xl font-extrabold">{user.name}</h2>
             <p className="mt-1 text-gray-500">NIS {user.nis} · Kelas {user.className} · {user.email}</p>
@@ -2903,7 +2903,7 @@ function AIGeneratorPage() {
       />
 
       <SectionCard className="mb-5 bg-gradient-to-br from-violet-50 via-white to-cyan-50">
-        <div className="grid gap-5 lg:grid-cols-[1fr_18rem] lg:items-center">
+        <div className="grid gap-4 lg:grid-cols-[1fr_18rem] lg:items-center">
           <div>
             <StatusBadge tone="cyan">Shortcut AI</StatusBadge>
             <h2 className="mt-3 text-2xl font-black tracking-[-0.03em] text-slate-950">
@@ -2923,7 +2923,7 @@ function AIGeneratorPage() {
             </div>
           </div>
 
-          <div className="rounded-[1.75rem] bg-white p-4 shadow-soft ring-1 ring-purple-100">
+          <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-purple-100">
             <p className="text-sm font-extrabold text-slate-950">Butuh paket lengkap?</p>
             <p className="mt-2 text-sm leading-6 text-slate-500">
               Studio Konten adalah pusat utama untuk membuat dan mengirim konten ke Materi,
@@ -3699,7 +3699,7 @@ function CurriculumAuditPanel() {
                 ))}
               </div>
             ) : (
-              <div className="mt-4 rounded-3xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700 ring-1 ring-emerald-100">
+              <div className="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700 ring-1 ring-emerald-100">
                 {activeFilter === 'all'
                   ? 'Semua konten utama sudah terhubung ke TP/ATP.'
                   : `${selectedAction?.label || 'Konten'} sudah terhubung ke TP/ATP.`}
@@ -3787,7 +3787,7 @@ function CurriculumAdminPage() {
         ))}
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
+      <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
         <SectionCard>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>

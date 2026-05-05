@@ -96,7 +96,7 @@ export default function Landing() {
         <div className="absolute -left-24 top-20 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
         <div className="absolute -right-24 bottom-10 h-80 w-80 rounded-full bg-violet-400/20 blur-3xl" />
 
-        <div className="relative mx-auto grid min-h-[70dvh] max-w-7xl items-center gap-7 px-5 py-8 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
+        <div className="relative mx-auto grid min-h-[70dvh] max-w-7xl items-center gap-4 px-5 py-8 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -107,7 +107,7 @@ export default function Landing() {
               Digital Learning Platform
             </p>
 
-            <h1 className="max-w-4xl text-balance text-4xl font-black leading-tight tracking-[-0.045em] sm:text-5xl lg:text-6xl">
+            <h1 className="max-w-4xl text-balance text-2xl font-black leading-tight tracking-[-0.045em] sm:text-4xl lg:text-4xl">
               {school.appName}
             </h1>
 
@@ -143,7 +143,7 @@ export default function Landing() {
                 ['6+', 'Fitur utama'],
                 ['24/7', 'Akses belajar'],
               ].map(([value, label]) => (
-                <div key={label} className="rounded-3xl bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur-md">
+                <div key={label} className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur-md">
                   <p className="text-2xl font-black text-white">{value}</p>
                   <p className="mt-1 text-xs font-bold text-cyan-100">{label}</p>
                 </div>
@@ -160,7 +160,7 @@ export default function Landing() {
             {heroCards.map(([title, description], index) => (
               <div
                 key={title}
-                className={`rounded-3xl p-5 ring-1 ${
+                className={`rounded-2xl p-5 ring-1 ${
                   index === 0
                     ? 'bg-white text-slate-950 shadow-[0_24px_80px_rgba(34,211,238,0.18)] ring-white sm:col-span-2'
                     : 'bg-white/10 text-white ring-white/15 backdrop-blur-md'
@@ -177,11 +177,11 @@ export default function Landing() {
         </div>
       </section>
 
-      <section id="fitur" className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
+      <section id="fitur" className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
             <p className="text-sm font-extrabold text-violet-700">Fitur utama</p>
-            <h2 className="mt-2 text-3xl font-black tracking-[-0.035em]">
+            <h2 className="mt-2 text-2xl font-black tracking-[-0.035em]">
               Satu platform belajar untuk seluruh sekolah.
             </h2>
           </div>
@@ -234,13 +234,13 @@ export default function Landing() {
       </section>
 
       <section className="mx-auto max-w-7xl px-5 pb-10 lg:px-8">
-        <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-50 via-white to-violet-50 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.08)] ring-1 ring-cyan-100 md:p-8">
-          <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+        <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-50 via-white to-violet-50 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.08)] ring-1 ring-cyan-100 md:p-5">
+          <div className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
             <div>
               <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-xs font-extrabold text-teal-700 ring-1 ring-cyan-100">
                 <Waves size={15} /> SEAClub English Corner
               </div>
-              <h2 className="text-balance text-3xl font-black tracking-[-0.035em] text-slate-950">
+              <h2 className="text-balance text-2xl font-black tracking-[-0.035em] text-slate-950">
                 English practice yang dekat dengan kehidupan siswa.
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-7 text-slate-600">
@@ -256,7 +256,7 @@ export default function Landing() {
                 ['Writing Prompt', 'Write a short paragraph about your school.'],
                 ['AI English Feedback', 'Feedback grammar dan vocabulary untuk latihan siswa.'],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-3xl bg-white/90 p-5 shadow-[0_14px_35px_rgba(15,23,42,0.06)] ring-1 ring-white/80">
+                <div key={label} className="rounded-2xl bg-white/90 p-5 shadow-[0_14px_35px_rgba(15,23,42,0.06)] ring-1 ring-white/80">
                   <p className="text-xs font-extrabold uppercase tracking-wide text-teal-700">{label}</p>
                   <p className="mt-2 text-sm font-bold leading-6 text-slate-800">{value}</p>
                 </div>
@@ -275,13 +275,13 @@ export default function Landing() {
 
           <div className="grid gap-3 sm:grid-cols-4">
             {['Siswa', 'Guru', 'Admin', 'Pimpinan'].map((role) => (
-              <div key={role} className="rounded-3xl bg-slate-50 p-4 text-center text-sm font-extrabold text-slate-800 ring-1 ring-slate-100">
+              <div key={role} className="rounded-2xl bg-slate-50 p-4 text-center text-sm font-extrabold text-slate-800 ring-1 ring-slate-100">
                 {role}
               </div>
             ))}
           </div>
 
-          <div className="mt-6 flex flex-col gap-3 rounded-3xl bg-slate-950 p-5 text-white md:flex-row md:items-center md:justify-between">
+          <div className="mt-6 flex flex-col gap-3 rounded-2xl bg-slate-950 p-5 text-white md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-lg font-black tracking-[-0.02em]">Siap mulai belajar?</p>
               <p className="mt-1 text-sm text-slate-300">

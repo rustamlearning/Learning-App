@@ -2430,7 +2430,7 @@ export default function ContentStudio({ user: propUser }) {
         description="Isi identitas, pilih referensi, atur soal, lalu review hasil seperti dokumen siap pakai sebelum dikirim ke fitur guru."
       />
 
-      <div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+      <div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
         <SimpleStudioBuilder
           form={form}
           template={template}
@@ -2488,7 +2488,7 @@ function StudioWorkflowGuide({ activeTab }) {
 
       <div className="mt-5 grid gap-3 md:grid-cols-5">
         {contentStudioWorkflowSteps.map((step, index) => (
-          <div key={step.title} className="rounded-3xl bg-white p-4 ring-1 ring-purple-100">
+          <div key={step.title} className="rounded-2xl bg-white p-4 ring-1 ring-purple-100">
             <span className="grid h-9 w-9 place-items-center rounded-2xl bg-galaxy-action text-sm font-black text-white">
               {index + 1}
             </span>
@@ -2830,7 +2830,7 @@ function StudioQuestionDocument({ questions, form, preview, onEditQuestion }) {
                 </div>
 
                 {index < illustrationCount && (
-                  <div className="mt-4 rounded-3xl bg-violet-50 p-4 ring-1 ring-violet-100">
+                  <div className="mt-4 rounded-2xl bg-violet-50 p-4 ring-1 ring-violet-100">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-black text-violet-700">Ilustrasi:</p>
                       <StatusBadge tone="green">Selesai</StatusBadge>
@@ -2838,16 +2838,16 @@ function StudioQuestionDocument({ questions, form, preview, onEditQuestion }) {
                     <p className="mt-2 text-sm leading-6 text-violet-700">
                       Ilustrasi kontekstual tentang {preview.topic || form.topic}, dibuat sebagai panduan visual untuk soal ini.
                     </p>
-                    <div className="mt-3 grid h-40 place-items-center rounded-3xl bg-gradient-to-br from-cyan-100 via-white to-amber-100 text-center text-sm font-black text-slate-500 ring-1 ring-white">
+                    <div className="mt-3 grid h-40 place-items-center rounded-2xl bg-gradient-to-br from-cyan-100 via-white to-amber-100 text-center text-sm font-black text-slate-500 ring-1 ring-white">
                       Preview Ilustrasi / Gambar
                     </div>
                   </div>
                 )}
 
                 {index < diagramCount && (
-                  <div className="mt-4 rounded-3xl bg-emerald-50 p-4 ring-1 ring-emerald-100">
+                  <div className="mt-4 rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-100">
                     <p className="text-sm font-black text-emerald-700">Diagram/Grafik:</p>
-                    <div className="mt-3 flex h-32 items-end gap-3 rounded-3xl bg-white p-4 ring-1 ring-emerald-100">
+                    <div className="mt-3 flex h-32 items-end gap-3 rounded-2xl bg-white p-4 ring-1 ring-emerald-100">
                       {[35, 68, 44, 80, 55].map((height, barIndex) => (
                         <span key={barIndex} className="w-full rounded-t-2xl bg-emerald-200" style={{ height: `${height}%` }} />
                       ))}
@@ -3058,7 +3058,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
 function StudioAnswerKey({ questions }) {
   if (!questions.length) {
     return (
-      <div className="mt-5 rounded-3xl bg-slate-50 p-6 text-center text-sm font-semibold leading-6 text-slate-500 ring-1 ring-slate-100">
+      <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-center text-sm font-semibold leading-6 text-slate-500 ring-1 ring-slate-100">
         Kunci jawaban akan muncul setelah guru membuat soal.
       </div>
     )
@@ -3067,7 +3067,7 @@ function StudioAnswerKey({ questions }) {
   return (
     <div className="mt-5 grid gap-3">
       {questions.map((question, index) => (
-        <div key={question.id || index} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+        <div key={question.id || index} className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="font-black text-slate-950">Nomor {index + 1}</p>
             <StatusBadge tone="green">{question.correctAnswer || '-'}</StatusBadge>
@@ -3082,7 +3082,7 @@ function StudioAnswerKey({ questions }) {
 function StudioBlueprint({ questions, form }) {
   if (!questions.length) {
     return (
-      <div className="mt-5 rounded-3xl bg-slate-50 p-6 text-center text-sm font-semibold leading-6 text-slate-500 ring-1 ring-slate-100">
+      <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-center text-sm font-semibold leading-6 text-slate-500 ring-1 ring-slate-100">
         Kisi-kisi akan muncul setelah soal dibuat.
       </div>
     )
@@ -3091,7 +3091,7 @@ function StudioBlueprint({ questions, form }) {
   return (
     <div className="mt-5 grid gap-3">
       {questions.map((question, index) => (
-        <div key={question.id || index} className="rounded-3xl bg-white p-4 ring-1 ring-slate-100">
+        <div key={question.id || index} className="rounded-2xl bg-white p-4 ring-1 ring-slate-100">
           <div className="mb-2 flex flex-wrap gap-2">
             <StatusBadge tone="cyan">Soal {index + 1}</StatusBadge>
             <StatusBadge>{question.type}</StatusBadge>
@@ -3122,7 +3122,7 @@ function StudioPublishPanel({ publishToFeature, savingTarget }) {
           key={id}
           onClick={() => publishToFeature(id)}
           disabled={savingTarget === id}
-          className="rounded-3xl bg-gradient-to-br from-white to-violet-50 p-5 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft disabled:cursor-wait disabled:opacity-70"
+          className="rounded-2xl bg-gradient-to-br from-white to-violet-50 p-5 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft disabled:cursor-wait disabled:opacity-70"
         >
           <Icon size={22} className="text-galaxy-purple" />
           <p className="mt-3 text-lg font-black text-slate-950">{savingTarget === id ? 'Menyimpan...' : label}</p>
@@ -3136,7 +3136,7 @@ function StudioPublishPanel({ publishToFeature, savingTarget }) {
 function StudioAnalysisPanel({ questions, form }) {
   if (!questions.length) {
     return (
-      <div className="mt-5 rounded-3xl bg-slate-50 p-6 text-center text-sm font-semibold leading-6 text-slate-500 ring-1 ring-slate-100">
+      <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-center text-sm font-semibold leading-6 text-slate-500 ring-1 ring-slate-100">
         Analisis tingkat kesulitan dan level kognitif akan muncul setelah soal dibuat.
       </div>
     )
@@ -3155,7 +3155,7 @@ function StudioAnalysisPanel({ questions, form }) {
   }, {})
 
   return (
-    <div className="mt-5 grid gap-5">
+    <div className="mt-5 grid gap-4">
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard label="Mudah" value={difficultyCounts.Mudah || 0} caption={`${form.easyPct || 0}% target`} tone="green" />
         <StatCard label="Sedang" value={difficultyCounts.Sedang || 0} caption={`${form.mediumPct || 0}% target`} tone="amber" />
@@ -3182,7 +3182,7 @@ function StudioMaterialDocument({ preview }) {
   return (
     <div className="mt-5 grid gap-4">
       {sections.map((section, index) => (
-        <div key={`${section.title}-${index}`} className="rounded-3xl bg-slate-50 p-5 ring-1 ring-slate-100">
+        <div key={`${section.title}-${index}`} className="rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-100">
           <StatusBadge tone="cyan">{section.title}</StatusBadge>
           <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700">{section.body}</p>
         </div>
@@ -3215,7 +3215,7 @@ function BuilderPanel({ form, template, availableContentTypes, updateForm, gener
         <SelectField label="7. Simpan sebagai" value={form.outputType} onChange={(value) => updateForm('outputType', value)} options={outputOptions} />
       </div>
 
-      <div className="mt-5 rounded-3xl bg-gradient-to-r from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
+      <div className="mt-5 rounded-2xl bg-gradient-to-r from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
         <p className="text-sm font-extrabold text-slate-950">8. Buat draft dan kirim</p>
         <p className="mt-1 text-sm leading-6 text-slate-600">
           Buat draft AI sesuai instruksi guru. Setelah cocok, kirim ke Materi, Bank Soal, Kuis, Flashcard, atau LKPD.
@@ -3342,7 +3342,7 @@ function QualityCheckPanel({ preview, form, onApplySuggestion }) {
   const report = buildContentQualityReport(preview, form)
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
+    <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
       <SectionCard>
         <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Quality Check</p>
         <h2 className="mt-1 text-2xl font-black text-slate-950">Cek kelayakan draft sebelum publish.</h2>
@@ -3350,11 +3350,11 @@ function QualityCheckPanel({ preview, form, onApplySuggestion }) {
           Panel ini membantu guru melihat apakah konten sudah punya struktur, aktivitas, pertanyaan, dan alat bantu yang cukup.
         </p>
 
-        <div className="mt-5 rounded-[1.75rem] bg-galaxy-surface p-5 ring-1 ring-purple-100">
+        <div className="mt-5 rounded-2xl bg-galaxy-surface p-5 ring-1 ring-purple-100">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-slate-500">Skor kualitas</p>
-              <p className="mt-1 text-5xl font-black text-slate-950">{report.score}%</p>
+              <p className="mt-1 text-2xl font-black text-slate-950">{report.score}%</p>
             </div>
             <StatusBadge tone={report.tone}>{report.label}</StatusBadge>
           </div>
@@ -3386,7 +3386,7 @@ function QualityCheckPanel({ preview, form, onApplySuggestion }) {
 
         <div className="grid gap-3">
           {report.checks.map((check) => (
-            <div key={check.label} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+            <div key={check.label} className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
               <div className="flex items-start gap-3">
                 <span className={`grid h-9 w-9 flex-shrink-0 place-items-center rounded-2xl ${
                   check.passed ? 'bg-emerald-50 text-emerald-600 ring-emerald-100' : 'bg-amber-50 text-amber-600 ring-amber-100'
@@ -3413,7 +3413,7 @@ function AnalyticsPanel({ preview, snapshot }) {
   const previewReport = buildContentQualityReport(preview, { topic: preview.topic, learningObjectiveId: preview.learningObjectiveId })
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total item lokal" value={analytics.totals.all} tone="cyan" />
         <StatCard label="Bank soal" value={analytics.totals.questions} tone="purple" />
@@ -3421,7 +3421,7 @@ function AnalyticsPanel({ preview, snapshot }) {
         <StatCard label="Coverage TP" value={`${analytics.totals.objectiveCoverage}%`} tone="green" />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <SectionCard>
           <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Distribusi Konten</p>
           <h2 className="mt-1 text-xl font-black text-slate-950">Jenis konten yang dibuat</h2>
@@ -3449,7 +3449,7 @@ function AnalyticsPanel({ preview, snapshot }) {
         </SectionCard>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <SectionCard>
           <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Rekomendasi Guru</p>
           <h2 className="mt-1 text-xl font-black text-slate-950">Tindakan berikutnya</h2>
@@ -3459,7 +3459,7 @@ function AnalyticsPanel({ preview, snapshot }) {
               description: 'Lanjutkan membuat konten baru dengan memilih TP/ATP dan cek Quality Check sebelum publish.',
               tone: 'green',
             }]).slice(0, 6).map((item) => (
-              <div key={item.title} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <div key={item.title} className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
                 <StatusBadge tone={item.tone}>{item.title}</StatusBadge>
                 <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
               </div>
@@ -3480,7 +3480,7 @@ function AnalyticsPanel({ preview, snapshot }) {
                 <StatusBadge tone={item.learningObjectiveId ? 'green' : 'amber'}>{item.outputType || 'Draft'}</StatusBadge>
               </div>
             )) : (
-              <p className="rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-500 ring-1 ring-slate-100">
+              <p className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-500 ring-1 ring-slate-100">
                 Belum ada aktivitas lokal. Buat draft dari Smart Templates, Import Teks/Video, atau simpan rubrik terlebih dahulu.
               </p>
             )}
@@ -3548,7 +3548,7 @@ function CurriculumPickerPanel({ curriculumData, curriculumError, selectedLearni
           </select>
         </label>
 
-        <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+        <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
           {selectedLearningObjective ? (
             <>
               <div className="flex flex-wrap gap-2">
@@ -3597,7 +3597,7 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus, savingTarget 
 
       <div className="space-y-3">
         {(preview.sections || []).map((section) => (
-          <div key={section.title} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+          <div key={section.title} className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
             <h3 className="font-extrabold text-slate-950">{cleanAIPreviewTitle(section.title)}</h3>
             <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-600">{cleanAIPreviewText(section.body)}</p>
           </div>
@@ -3605,7 +3605,7 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus, savingTarget 
       </div>
 
       {preview.tools?.length > 0 && (
-        <div className="mt-4 rounded-3xl bg-cyan-50 p-4 ring-1 ring-cyan-100">
+        <div className="mt-4 rounded-2xl bg-cyan-50 p-4 ring-1 ring-cyan-100">
           <p className="text-sm font-extrabold text-cyan-800">Tools yang disarankan</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {preview.tools.map((tool) => <StatusBadge key={tool} tone="cyan">{tool}</StatusBadge>)}
@@ -3614,7 +3614,7 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus, savingTarget 
       )}
 
       {publishToFeature && (
-        <div className="mt-5 rounded-[1.75rem] bg-gradient-to-br from-violet-50 via-white to-cyan-50 p-4 ring-1 ring-violet-100">
+        <div className="mt-5 rounded-2xl bg-gradient-to-br from-violet-50 via-white to-cyan-50 p-4 ring-1 ring-violet-100">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Kirim ke Fitur Aplikasi</p>
@@ -3627,7 +3627,7 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus, savingTarget 
           </div>
 
           {deliveryStatus && (
-            <div className="mt-4 rounded-3xl bg-white p-4 shadow-soft ring-1 ring-emerald-100">
+            <div className="mt-4 rounded-2xl bg-white p-4 shadow-soft ring-1 ring-emerald-100">
               <div className="flex gap-3">
                 <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
                   <CheckCircle2 size={19} />
@@ -3647,7 +3647,7 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus, savingTarget 
             </div>
           )}
 
-          <div className="mt-4 rounded-3xl bg-white p-4 ring-1 ring-slate-100">
+          <div className="mt-4 rounded-2xl bg-white p-4 ring-1 ring-slate-100">
             <p className="text-sm font-extrabold text-slate-950">Checklist sebelum publish</p>
             <div className="mt-3 grid gap-2 md:grid-cols-2">
               {publishChecklistItems.map((item) => (
@@ -3667,7 +3667,7 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus, savingTarget 
                   key={target.id}
                   onClick={() => publishToFeature(target.id)}
                   disabled={savingTarget === target.id}
-                  className="group rounded-3xl bg-white p-4 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft hover:ring-purple-200 disabled:cursor-wait disabled:opacity-70"
+                  className="group rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft hover:ring-purple-200 disabled:cursor-wait disabled:opacity-70"
                 >
                   <div className="flex items-start gap-3">
                     <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-2xl bg-galaxy-lavender text-galaxy-purple ring-1 ring-purple-100 group-hover:bg-galaxy-action group-hover:text-white">
@@ -3693,7 +3693,7 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus, savingTarget 
 
 function TemplatePanel({ onUseSubject, onUseSmartTemplate }) {
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-4">
       <SectionCard>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -3713,7 +3713,7 @@ function TemplatePanel({ onUseSubject, onUseSmartTemplate }) {
               <button
                 key={template.id}
                 onClick={() => onUseSmartTemplate(template)}
-                className="group rounded-[1.75rem] bg-white p-4 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft hover:ring-purple-200"
+                className="group rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft hover:ring-purple-200"
               >
                 <div className="flex gap-3">
                   <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-galaxy-lavender text-galaxy-purple ring-1 ring-purple-100 group-hover:bg-galaxy-action group-hover:text-white">
@@ -3788,7 +3788,7 @@ function StemToolsPanel() {
   ]
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-4">
       <SectionCard>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -3889,7 +3889,7 @@ function GraphingTool() {
   const vertexY = vertexX !== null ? A * vertexX * vertexX + B * vertexX + C : null
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+    <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
       <SectionCard>
         <h2 className="text-xl font-extrabold text-slate-950">Graphing Tool</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
@@ -3919,7 +3919,7 @@ function GraphingTool() {
           )}
         </div>
 
-        <div className="mt-5 rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+        <div className="mt-5 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
           <p className="text-sm font-extrabold text-slate-950">Persamaan</p>
           <p className="mt-2 text-2xl font-black text-galaxy-purple">{equation}</p>
           {mode === 'quadratic' && vertexX !== null && (
@@ -3936,7 +3936,7 @@ function GraphingTool() {
           <StatusBadge tone="purple">{mode === 'quadratic' ? 'Kuadrat' : 'Linear'}</StatusBadge>
         </div>
 
-        <div className="mt-5 overflow-hidden rounded-3xl bg-white p-4 ring-1 ring-slate-100">
+        <div className="mt-5 overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-slate-100">
           <svg viewBox="0 0 360 240" className="h-72 w-full">
             <rect x="0" y="0" width="360" height="240" rx="18" fill="#F8FAFC" />
             <line x1="180" y1="10" x2="180" y2="230" stroke="#CBD5E1" strokeWidth="1.5" />
@@ -3993,7 +3993,7 @@ function UnitConverterTool() {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+    <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
       <SectionCard>
         <h2 className="text-xl font-extrabold text-slate-950">Unit Converter</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">Konversi satuan dasar untuk Matematika, Fisika, dan Kimia.</p>
@@ -4027,11 +4027,11 @@ function UnitConverterTool() {
 
       <SectionCard className="bg-gradient-to-br from-violet-50 to-cyan-50">
         <StatusBadge tone="cyan">Hasil konversi</StatusBadge>
-        <p className="mt-5 text-4xl font-black text-slate-950">{formatNumber(result)} {toUnit}</p>
+        <p className="mt-5 text-2xl font-black text-slate-950">{formatNumber(result)} {toUnit}</p>
         <p className="mt-3 text-sm leading-6 text-slate-600">
           {value || 0} {fromUnit} = {formatNumber(result)} {toUnit}
         </p>
-        <div className="mt-5 rounded-3xl bg-white p-4 ring-1 ring-cyan-100">
+        <div className="mt-5 rounded-2xl bg-white p-4 ring-1 ring-cyan-100">
           <p className="text-sm font-extrabold text-slate-950">Ide aktivitas</p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             Minta siswa membuat 5 contoh konversi satuan dari kehidupan sehari-hari, misalnya jarak rumah ke sekolah, massa benda, atau durasi kegiatan.
@@ -4104,7 +4104,7 @@ function PhysicsFormulaHelper() {
   const result = current.calculate(Number(x) || 0, Number(y) || 0)
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+    <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
       <SectionCard>
         <h2 className="text-xl font-extrabold text-slate-950">Physics Formula Helper</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">Pilih rumus, masukkan nilai, lalu gunakan hasilnya sebagai contoh pembelajaran.</p>
@@ -4125,10 +4125,10 @@ function PhysicsFormulaHelper() {
 
       <SectionCard className="bg-gradient-to-br from-cyan-50 to-violet-50">
         <StatusBadge tone="cyan">{current.label}</StatusBadge>
-        <p className="mt-4 text-3xl font-black text-galaxy-purple">{current.equation}</p>
-        <p className="mt-5 text-4xl font-black text-slate-950">{formatNumber(result)} {current.unit}</p>
+        <p className="mt-4 text-2xl font-black text-galaxy-purple">{current.equation}</p>
+        <p className="mt-5 text-2xl font-black text-slate-950">{formatNumber(result)} {current.unit}</p>
         <p className="mt-2 text-sm font-bold text-slate-600">{current.resultLabel}</p>
-        <div className="mt-5 rounded-3xl bg-white p-4 ring-1 ring-cyan-100">
+        <div className="mt-5 rounded-2xl bg-white p-4 ring-1 ring-cyan-100">
           <p className="text-sm font-extrabold text-slate-950">Pembahasan singkat</p>
           <p className="mt-2 text-sm leading-6 text-slate-600">{current.explanation}</p>
         </div>
@@ -4150,7 +4150,7 @@ function ChemistryHelper() {
   ]
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+    <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
       <SectionCard>
         <h2 className="text-xl font-extrabold text-slate-950">Chemistry Helper</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">Bantu guru menjelaskan mol, Mr, dan persamaan reaksi sederhana.</p>
@@ -4166,7 +4166,7 @@ function ChemistryHelper() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-3xl bg-amber-50 p-4 ring-1 ring-amber-100">
+        <div className="mt-5 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-100">
           <p className="text-sm font-extrabold text-amber-800">Catatan penyetaraan</p>
           <p className="mt-2 text-sm leading-6 text-amber-800">
             Saat menyetarakan reaksi, ubah koefisien di depan zat, bukan indeks dalam rumus kimia.
@@ -4177,12 +4177,12 @@ function ChemistryHelper() {
       <SectionCard>
         <StatusBadge tone="amber">Stoikiometri dasar</StatusBadge>
         <p className="mt-4 text-2xl font-black text-slate-950">{equation}</p>
-        <p className="mt-5 text-4xl font-black text-galaxy-purple">{formatNumber(mol)} mol</p>
+        <p className="mt-5 text-2xl font-black text-galaxy-purple">{formatNumber(mol)} mol</p>
         <p className="mt-2 text-sm leading-6 text-slate-600">n = massa ÷ Mr = {mass || 0} ÷ {mr || 1}</p>
 
         <div className="mt-5 grid gap-3">
           {examples.map(([title, eq, note]) => (
-            <button key={title} onClick={() => setEquation(eq)} className="rounded-3xl bg-slate-50 p-4 text-left ring-1 ring-slate-100 transition hover:bg-galaxy-lavender">
+            <button key={title} onClick={() => setEquation(eq)} className="rounded-2xl bg-slate-50 p-4 text-left ring-1 ring-slate-100 transition hover:bg-galaxy-lavender">
               <p className="font-extrabold text-slate-950">{title}</p>
               <p className="mt-1 text-sm font-bold text-galaxy-purple">{eq}</p>
               <p className="mt-1 text-sm leading-6 text-slate-500">{note}</p>
@@ -4218,7 +4218,7 @@ function PeriodicTableMini() {
   const [symbol, name, atomicNumber, mass, group] = selected
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[1fr_0.8fr]">
+    <div className="grid gap-4 xl:grid-cols-[1fr_0.8fr]">
       <SectionCard>
         <h2 className="text-xl font-extrabold text-slate-950">Periodic Table Mini</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">Data unsur populer untuk contoh cepat di kelas kimia.</p>
@@ -4243,7 +4243,7 @@ function PeriodicTableMini() {
 
       <SectionCard className="bg-gradient-to-br from-amber-50 to-cyan-50">
         <StatusBadge tone="amber">Unsur terpilih</StatusBadge>
-        <p className="mt-5 text-6xl font-black text-slate-950">{symbol}</p>
+        <p className="mt-5 text-2xl font-black text-slate-950">{symbol}</p>
         <h3 className="mt-2 text-2xl font-black text-slate-950">{name}</h3>
         <div className="mt-5 grid gap-3 text-sm text-slate-700">
           <p className="rounded-2xl bg-white p-3 ring-1 ring-amber-100"><b>Nomor atom:</b> {atomicNumber}</p>
@@ -4259,7 +4259,7 @@ function StemResourceCard({ resource }) {
   const Icon = resource.icon
 
   return (
-    <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+    <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
       <div className="flex gap-3">
         <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-galaxy-purple ring-1 ring-purple-100">
           <Icon size={20} />
@@ -4332,7 +4332,7 @@ function RubricPreview({ rubric }) {
       </div>
       <div className="space-y-3">
         {(Array.isArray(rubric.criteria) ? rubric.criteria : []).map((criterion, index) => (
-          <div key={`${criterion.aspect || 'kriteria'}-${index}`} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+          <div key={`${criterion.aspect || 'kriteria'}-${index}`} className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
             <h3 className="font-extrabold text-slate-950">{criterion.aspect}</h3>
             <div className="mt-3 grid gap-2">
               {Object.entries(criterion.levels || {}).reverse().map(([score, text]) => (
@@ -4372,7 +4372,7 @@ function ImportPanel({ form, updateForm, createFromText, createVideoInteractive 
         <TextField label="Topik" value={form.topic} onChange={(value) => updateForm('topic', value)} placeholder="Masukkan topik" />
       </div>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_18rem]">
+      <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_18rem]">
         <label className="grid gap-2 text-sm font-bold text-slate-700">
           <span className="flex flex-wrap items-center justify-between gap-2">
             <span>Tempel teks materi</span>
@@ -4397,7 +4397,7 @@ function ImportPanel({ form, updateForm, createFromText, createVideoInteractive 
         </label>
 
         <div className="space-y-3">
-          <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+          <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
             <p className="text-sm font-extrabold text-slate-950">Analisis teks</p>
             <div className="mt-3 space-y-2 text-sm text-slate-600">
               <p><b>Karakter:</b> {textLength}</p>
@@ -4411,7 +4411,7 @@ function ImportPanel({ form, updateForm, createFromText, createVideoInteractive 
             </div>
           </div>
 
-          <div className="rounded-3xl bg-gradient-to-br from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
+          <div className="rounded-2xl bg-gradient-to-br from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
             <p className="text-sm font-extrabold text-slate-950">Output yang dibuat</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {['Ringkasan', 'Poin penting', 'Glosarium', '5 Soal PG', 'Refleksi', 'LKPD', 'Exit ticket'].map((item) => (
@@ -4471,7 +4471,7 @@ function ImportPanel({ form, updateForm, createFromText, createVideoInteractive 
 
 function ArchivePanel({ contentRows, rubricRows, onClearArchive }) {
   return (
-    <div className="grid gap-5 xl:grid-cols-2">
+    <div className="grid gap-4 xl:grid-cols-2">
       <DashboardCard title="Arsip konten lokal">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <StatusBadge tone="cyan">{contentRows.length} item</StatusBadge>
@@ -4490,7 +4490,7 @@ function ArchivePanel({ contentRows, rubricRows, onClearArchive }) {
         ) : (
           <div className="space-y-3">
             {contentRows.map((item) => (
-              <div key={item.id} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <div key={item.id} className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-extrabold text-slate-950">{item.title}</h3>
                   <StatusBadge tone="cyan">{item.savedAs || item.outputType}</StatusBadge>
@@ -4520,7 +4520,7 @@ function ArchivePanel({ contentRows, rubricRows, onClearArchive }) {
         ) : (
           <div className="space-y-3">
             {rubricRows.map((item) => (
-              <div key={item.id} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <div key={item.id} className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-extrabold text-slate-950">{item.title}</h3>
                   <StatusBadge tone="purple">{item.subject}</StatusBadge>

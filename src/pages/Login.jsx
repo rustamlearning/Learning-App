@@ -46,7 +46,7 @@ export default function Login() {
 
   return (
     <main className="grid min-h-dvh overflow-hidden bg-slate-50 lg:grid-cols-[1.02fr_0.98fr]">
-      <section className="relative flex min-h-[44dvh] items-center overflow-hidden bg-slate-950 px-6 py-12 text-white lg:min-h-dvh lg:px-14">
+      <section className="relative flex min-h-[44dvh] items-center overflow-hidden bg-slate-950 px-6 py-8 text-white lg:min-h-dvh lg:px-14">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(34,211,238,0.22),transparent_28%),radial-gradient(circle_at_82%_72%,rgba(139,92,246,0.34),transparent_32%),linear-gradient(135deg,#0F172A_0%,#1E1B4B_48%,#4C1D95_100%)]" />
         <div className="absolute -left-24 top-20 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
         <div className="absolute -right-24 bottom-10 h-80 w-80 rounded-full bg-violet-400/20 blur-3xl" />
@@ -61,7 +61,7 @@ export default function Login() {
             Digital Learning Platform
           </div>
 
-          <h1 className="mt-5 text-balance text-4xl font-black leading-tight tracking-[-0.045em] sm:text-5xl">
+          <h1 className="mt-5 text-balance text-2xl font-black leading-tight tracking-[-0.045em] sm:text-4xl">
             SEA Learning
           </h1>
 
@@ -88,7 +88,7 @@ export default function Login() {
 
       <section className="flex min-h-[48dvh] items-center justify-center px-5 py-6 lg:min-h-dvh lg:px-8">
         <div className="w-full max-w-md">
-          <div className="rounded-2xl bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.10)] ring-1 ring-slate-200 sm:p-6">
+          <div className="rounded-2xl bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.10)] ring-1 ring-slate-200 sm:p-4">
             <header className="mb-5">
               <p className="text-sm font-extrabold text-violet-700">Masuk ke aplikasi</p>
               <h2 className="mt-1 text-2xl font-black tracking-[-0.035em] text-slate-950">
