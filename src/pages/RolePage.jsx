@@ -243,7 +243,7 @@ function KelasSaya() {
   return (
     <div>
       <PageHeader eyebrow="Kelas Saya" title="Pilih orbit kelasmu" description="Masuk ke kelas, lanjutkan materi, dan pantau progres tiap mata pelajaran." />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {subjects.slice(0, 5).map((subject, index) => (
           <SectionCard key={subject.id}>
             <StatusBadge>{subject.name}</StatusBadge>
@@ -461,11 +461,11 @@ function MateriBelajar({ user, notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Materi Belajar" title="Jelajahi materi baru hari ini." description={remoteMaterials.length > 0 ? 'Materi sudah dibaca dari Supabase dan diberi label ringan dibuka.' : 'Materi awal ditampilkan sambil menunggu data sekolah tersinkron.'} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal tetap ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal tetap ditampilkan.</div>}
       <SearchFilterBar search={search} setSearch={setSearch} filters={subjectsFilter} activeFilter={filter} setActiveFilter={setFilter} />
       {loading ? <LoadingState label="Memuat materi dari Supabase..." /> : (
         filtered.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {filtered.map((item) => <MaterialCard key={item.id} item={item} onOpen={() => setSelected(item)} notify={notify} />)}
           </div>
         ) : (
@@ -573,7 +573,7 @@ function LearningObjectivePicker({ value, subjectId, classId, subjectName, class
         value={value || ''}
         onChange={(event) => handleChange(event.target.value)}
         disabled={loading || pickerOptions.length === 0}
-        className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300 disabled:cursor-not-allowed disabled:opacity-70"
+        className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300 disabled:cursor-not-allowed disabled:opacity-70"
       >
         <option value="">{loading ? 'Memuat TP...' : 'Pilih TP/ATP untuk konten ini'}</option>
         {pickerOptions.slice(0, 80).map((objective) => (
@@ -598,12 +598,12 @@ function MaterialCard({ item, onOpen, notify }) {
   return (
     <SectionCard>
       <div className="mb-4 flex items-center justify-between gap-2"><StatusBadge tone="cyan">{item.subject}</StatusBadge><CurriculumLinkBadge item={item} /></div>
-      <h2 className="text-xl font-extrabold text-gray-950">{item.title}</h2>
+      <h2 className="text-lg font-black text-gray-950">{item.title}</h2>
       <p className="mt-2 text-sm leading-6 text-gray-500">{item.description}</p>
       <div className="mt-4 h-2 rounded-full bg-galaxy-lavender"><div className="h-2 rounded-full bg-galaxy-action" style={{ width: `${item.progress}%` }} /></div>
       <div className="mt-5 grid grid-cols-2 gap-2">
         <button onClick={onOpen} className="rounded-2xl bg-galaxy-deep px-4 py-3 text-sm font-bold text-white">Lanjutkan</button>
-        <button onClick={() => navigate('/siswa/ai-tutor')} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Tanya AI</button>
+        <button onClick={() => navigate('/siswa/ai-tutor')} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Tanya AI</button>
       </div>
     </SectionCard>
   )
@@ -687,12 +687,12 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
 
   return (
     <div>
-      <PageHeader eyebrow={item.subject} title={item.title} description={`${item.className} · ${item.topic} · ${item.type || 'Teks'} · Ringan dibuka`} action={<button onClick={onBack} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>} />
+      <PageHeader eyebrow={item.subject} title={item.title} description={`${item.className} · ${item.topic} · ${item.type || 'Teks'} · Ringan dibuka`} action={<button onClick={onBack} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>} />
       <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
         <SectionCard>
           <StatusBadge tone={item.status === 'Selesai' ? 'green' : 'cyan'}>{item.status}</StatusBadge>
           {externalMaterial && (
-            <div className="mt-5 rounded-3xl bg-cyan-50 p-4 ring-1 ring-cyan-100">
+            <div className="mt-5 rounded-2xl bg-cyan-50 p-3 ring-1 ring-cyan-100">
               <StatusBadge tone="cyan">{item.type}</StatusBadge>
               <p className="mt-2 text-sm leading-6 text-cyan-800">
                 Materi ini memakai URL agar database tetap ringan. Buka link untuk melihat file atau video.
@@ -713,12 +713,12 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
             ))}
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
-            <button onClick={onComplete} disabled={completed} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">
+            <button onClick={onComplete} disabled={completed} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60">
               {completed ? 'Materi selesai' : 'Tandai selesai'}
             </button>
             <button onClick={() => navigate('/siswa/ai-tutor')} className="rounded-2xl bg-galaxy-surface px-5 py-3 text-sm font-bold text-galaxy-purple">Tanya AI Tutor</button>
           </div>
-          <div className="mt-4 rounded-3xl bg-cyan-50 p-4 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">
+          <div className="mt-4 rounded-2xl bg-cyan-50 p-3 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">
             Jika AI Tutor belum aktif, gunakan bagian Latihan Cepat dan Refleksi di atas sebagai panduan belajar mandiri.
           </div>
         </SectionCard>
@@ -862,7 +862,7 @@ function SiswaTugas({ user, notify, appContext }) {
           eyebrow={selected.subject}
           title={selected.title}
           description={`${selected.className} · Deadline ${selected.deadline || '-'} · ${selected.status}`}
-          action={<button onClick={() => setSelected(null)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>}
+          action={<button onClick={() => setSelected(null)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>}
         />
 
         <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
@@ -881,11 +881,11 @@ function SiswaTugas({ user, notify, appContext }) {
                 value={answer}
                 onChange={(event) => setAnswer(event.target.value)}
                 rows={8}
-                className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300"
+                className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300"
                 placeholder="Tulis jawaban tugas di sini. File upload belum diaktifkan agar storage tetap ringan."
               />
             </label>
-            <button onClick={submitAssignment} className="mt-5 rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white">
+            <button onClick={submitAssignment} className="mt-5 rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white">
               {submission ? 'Perbarui submission' : 'Submit tugas'}
             </button>
           </SectionCard>
@@ -898,7 +898,7 @@ function SiswaTugas({ user, notify, appContext }) {
               <p><b>TP/ATP:</b> <CurriculumLinkText item={selected} /></p>
               <p><b>Terakhir submit:</b> {submission ? new Date(submission.submittedAt).toLocaleString('id-ID') : '-'}</p>
             </div>
-            <div className="mt-5 rounded-3xl bg-cyan-50 p-4 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">
+            <div className="mt-5 rounded-2xl bg-cyan-50 p-3 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">
               Untuk tahap ini, jawaban berupa teks. File besar nanti memakai link atau Supabase Storage agar database tetap ringan.
             </div>
             {selected.rubric && (
@@ -915,9 +915,9 @@ function SiswaTugas({ user, notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Tugas" title="Tugas aktif dari guru" description="Baca instruksi, tulis jawaban teks, dan simpan submission. Jika Supabase belum siap, jawaban tetap tersimpan lokal." />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim tugas: {error}. Data lokal tetap ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim tugas: {error}. Data lokal tetap ditampilkan.</div>}
       {loading ? <LoadingState label="Memuat tugas siswa..." /> : rows.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {rows.map((assignment) => {
             const submission = getLocalAssignmentSubmission(assignment.id, user?.id)
             return (
@@ -989,7 +989,7 @@ function LatihanPage({ notify }) {
   return (
     <div>
       <PageHeader eyebrow="Latihan" title="Kuasai satu topik lagi hari ini." description="Latihan pendek, feedback cepat, pembahasan jelas, dan skor tersimpan di perangkat." />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {practices.map((item) => {
           const result = getPracticeResult(item.id)
           return (
@@ -1065,7 +1065,7 @@ function PracticeDetail({ practice, onBack, notify }) {
         eyebrow={practice.subject}
         title={practice.topic}
         description={`${items.length} soal · ${practice.waktu} menit · jawab semua soal lalu lihat skor akhir.`}
-        action={<button onClick={onBack} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>}
+        action={<button onClick={onBack} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>}
       />
 
       {submitted && (
@@ -1112,7 +1112,7 @@ function PracticeDetail({ practice, onBack, notify }) {
         <div className="sticky bottom-4 mt-5 rounded-3xl bg-white/90 p-4 shadow-soft ring-1 ring-purple-100 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-bold text-slate-600">{answeredCount}/{items.length} soal terjawab</p>
-            <button onClick={submitPractice} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white">Submit latihan</button>
+            <button onClick={submitPractice} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white">Submit latihan</button>
           </div>
         </div>
       )}
@@ -1285,7 +1285,7 @@ function KuisPage({ user, notify, appContext }) {
           eyebrow={selected.subject}
           title={selected.title}
           description={`${selected.duration} menit · ${selected.teacher} · ${quizQuestions.length} soal`}
-          action={<button onClick={() => setSelected(null)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>}
+          action={<button onClick={() => setSelected(null)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>}
         />
 
         {previousResult && (
@@ -1336,7 +1336,7 @@ function KuisPage({ user, notify, appContext }) {
           <div className="sticky bottom-4 mt-5 rounded-3xl bg-white/90 p-4 shadow-soft ring-1 ring-purple-100 backdrop-blur">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm font-bold text-slate-600">{answeredCount}/{quizQuestions.length} soal terjawab</p>
-              <button onClick={submitQuiz} disabled={quizQuestions.length === 0} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Submit jawaban</button>
+              <button onClick={submitQuiz} disabled={quizQuestions.length === 0} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Submit jawaban</button>
             </div>
           </div>
         )}
@@ -1349,9 +1349,9 @@ function KuisPage({ user, notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Kuis / Ujian" title="Kuis aktif dan ujian resmi" description="Cek status, kerjakan soal, dan lihat hasil setelah submit." />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Data lokal ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Data lokal ditampilkan.</div>}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {quizRows.map((quiz) => {
           const savedResult = getQuizResult(quiz.id, user?.id)
           const locked = quiz.status === 'Dikunci'
@@ -1445,7 +1445,7 @@ function FlashcardPage() {
                   </div>
                   <h2 className="text-lg font-extrabold text-slate-950">{deck.title}</h2>
                   <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">{deck.topic || 'Review konsep'}</p>
-                  <div className="mt-4 rounded-3xl bg-galaxy-surface p-4 ring-1 ring-purple-100">
+                  <div className="mt-4 rounded-2xl bg-galaxy-surface p-3 ring-1 ring-purple-100">
                     <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Depan</p>
                     <p className="mt-2 font-extrabold text-slate-950">{deck.front}</p>
                     <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.14em] text-cyan-700">Belakang</p>
@@ -1497,7 +1497,7 @@ function LearningPackDetail({ pack, onBack }) {
         eyebrow={pack.outputType}
         title={pack.title}
         description={`${pack.subject} · ${pack.className} · ${pack.topic}`}
-        action={<button onClick={onBack} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>}
+        action={<button onClick={onBack} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>}
       />
 
       <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
@@ -1698,7 +1698,7 @@ function ProfilPage({ user }) {
             <div className="mt-3 flex flex-wrap gap-2">{badges.slice(0, 3).map((badge) => <StatusBadge key={badge.id}>{badge.name}</StatusBadge>)}</div>
           </div>
         </div>
-        <div className="mt-6 rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple ring-1 ring-purple-100">Profil aktif dan tersimpan di perangkat.</div>
+        <div className="mt-6 rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple ring-1 ring-purple-100">Profil aktif dan tersimpan di perangkat.</div>
       </SectionCard>
     </div>
   )
@@ -1917,13 +1917,13 @@ function GuruMateri({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Materi" title={`Kelola materi ${teacherSubject}`} description="Draft hanya tersimpan untuk guru. Ubah status menjadi Publish agar materi tampil di halaman siswa." action={<QuickActionButton icon={Plus} label="Tambah materi" onClick={() => setEditing(emptyMaterial(lookups, teacherSubject))} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal mapel guru ditampilkan.</div>}
-      <div className="mb-4 rounded-3xl bg-cyan-50 p-4 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">Alur tampil ke siswa: <b>Draft</b> hanya terlihat guru, sedangkan <b>Publish</b> tampil di menu Siswa Materi. Konten dari Studio Konten selalu masuk sebagai Draft agar bisa dicek dulu.</div>
+      <PageHeader eyebrow="Materi" title={`Materi ${teacherSubject}`} description="Kelola draft dan materi yang tampil ke siswa." action={<QuickActionButton icon={Plus} label="Tambah materi" onClick={() => setEditing(emptyMaterial(lookups, teacherSubject))} />} />
+      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal mapel guru ditampilkan.</div>}
+      
       {editing && <MaterialForm material={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat materi guru dari Supabase..." /> : (
         rows.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {rows.map((row) => (
               <SectionCard key={row.id}>
                 <div className="mb-4 flex items-center justify-between gap-2">
@@ -1934,10 +1934,10 @@ function GuruMateri({ user, notify, appContext }) {
                 <p className="mt-2 text-sm leading-6 text-gray-500">{row.description}</p>
                 <p className="mt-3 text-xs font-bold text-slate-500">{row.subject} · {row.className} · {row.topic}</p>
                 <div className="mt-3"><CurriculumLinkBadge item={row} /></div>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <button onClick={() => setEditing(row)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Edit</button>
-                  <button onClick={() => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{row.status === 'Publish' ? 'Kembalikan ke Draft' : 'Publish ke siswa'}</button>
-                  <button onClick={() => setDeleting(row)} className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">Hapus</button>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button>
+                  <button onClick={() => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })} className="rounded-xl bg-cyan-50 px-3 py-2 text-xs font-extrabold text-cyan-700">{row.status === 'Publish' ? 'Kembalikan ke Draft' : 'Publish ke siswa'}</button>
+                  <button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700">Hapus</button>
                 </div>
               </SectionCard>
             ))}
@@ -1972,32 +1972,32 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
   }
 
   return (
-    <SectionCard className="mb-5">
-      <h2 className="text-xl font-extrabold text-gray-950">{form.id ? 'Edit materi' : 'Tambah materi'}</h2>
+    <SectionCard className="mb-4">
+      <h2 className="text-lg font-black text-gray-950">{form.id ? 'Edit materi' : 'Tambah materi'}</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="grid gap-1 text-sm font-bold text-gray-700">Judul
-          <input value={form.title} onChange={(event) => updateField('title', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input value={form.title} onChange={(event) => updateField('title', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Topik
-          <input value={form.topic} onChange={(event) => updateField('topic', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input value={form.topic} onChange={(event) => updateField('topic', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
-          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id}>{subject.name}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Kelas
-          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id}>{classItem.name}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Jenis
-          <select value={form.type} onChange={(event) => updateField('type', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.type} onChange={(event) => updateField('type', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {['Teks', 'PDF', 'Video', 'Link'].map((type) => <option key={type}>{type}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Status
-          <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {['Draft', 'Publish'].map((status) => <option key={status}>{status}</option>)}
           </select>
           <span className="text-xs font-semibold text-slate-500">Draft belum tampil ke siswa. Publish membuat materi tampil di Siswa Materi.</span>
@@ -2013,20 +2013,20 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
           onChange={updateLearningObjective}
         />
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Deskripsi
-          <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={3} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={3} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">{externalMaterial ? `URL ${form.type}` : 'Konten materi'}
-          <textarea value={form.content} onChange={(event) => updateField('content', event.target.value)} rows={externalMaterial ? 2 : 6} placeholder={externalMaterial ? 'https://...' : 'Tulis isi materi ringan di sini.'} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <textarea value={form.content} onChange={(event) => updateField('content', event.target.value)} rows={externalMaterial ? 2 : 6} placeholder={externalMaterial ? 'https://...' : 'Tulis isi materi ringan di sini.'} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         {externalMaterial && !isValidMaterialUrl(form.content) && (
-          <div className="rounded-3xl bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100 md:col-span-2">
+          <div className="rounded-2xl bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100 md:col-span-2">
             Untuk materi Link/Video/PDF, simpan URL http/https saja. File besar tidak disimpan langsung di database.
           </div>
         )}
       </div>
-      <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form)} disabled={!validMaterial} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan materi</button>
+      <div className="mt-4 flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
+        <button onClick={() => onSave(form)} disabled={!validMaterial} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan materi</button>
       </div>
     </SectionCard>
   )
@@ -2179,8 +2179,8 @@ function BankSoal({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Bank Soal" title={`Bank soal ${teacherSubject}`} description="Soal dibatasi berdasarkan akun guru yang login dan siap dipakai untuk kuis berikutnya." action={<QuickActionButton icon={Plus} label="Tambah soal" onClick={() => setEditing(emptyQuestion(lookups, teacherSubject))} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data soal: {error}. Data lokal mapel guru ditampilkan.</div>}
+      <PageHeader eyebrow="Bank Soal" title={`Bank soal ${teacherSubject}`} description="Kelola soal yang siap dipakai untuk kuis." action={<QuickActionButton icon={Plus} label="Tambah soal" onClick={() => setEditing(emptyQuestion(lookups, teacherSubject))} />} />
+      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data soal: {error}. Data lokal mapel guru ditampilkan.</div>}
       {editing && <QuestionForm question={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat bank soal dari Supabase..." /> : rows.length > 0 ? (
         <DataTable columns={[
@@ -2236,37 +2236,37 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
   }
 
   return (
-    <SectionCard className="mb-5">
-      <h2 className="text-xl font-extrabold text-gray-950">{form.id ? 'Edit soal' : 'Tambah soal'}</h2>
+    <SectionCard className="mb-4">
+      <h2 className="text-lg font-black text-gray-950">{form.id ? 'Edit soal' : 'Tambah soal'}</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Pertanyaan
-          <textarea value={form.questionText} onChange={(event) => updateField('questionText', event.target.value)} rows={3} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <textarea value={form.questionText} onChange={(event) => updateField('questionText', event.target.value)} rows={3} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
-          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id}>{subject.name}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Kelas
-          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id}>{classItem.name}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Topik
-          <input value={form.topic} onChange={(event) => updateField('topic', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input value={form.topic} onChange={(event) => updateField('topic', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Level
-          <select value={form.difficulty} onChange={(event) => updateField('difficulty', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.difficulty} onChange={(event) => updateField('difficulty', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {['Mudah', 'Sedang', 'Sulit'].map((level) => <option key={level}>{level}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Jenis soal
-          <select value={form.type} onChange={(event) => updateField('type', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.type} onChange={(event) => updateField('type', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {['Pilihan ganda', 'Benar/salah', 'Isian', 'Essay'].map((type) => <option key={type}>{type}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Jawaban benar
-          <input value={form.correctAnswer} onChange={(event) => updateField('correctAnswer', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input value={form.correctAnswer} onChange={(event) => updateField('correctAnswer', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <LearningObjectivePicker
           value={form.learningObjectiveId || ''}
@@ -2279,20 +2279,20 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
           onChange={updateLearningObjective}
         />
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Pilihan jawaban, satu baris per opsi
-          <textarea value={form.optionsText} onChange={(event) => updateField('optionsText', event.target.value)} rows={4} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <textarea value={form.optionsText} onChange={(event) => updateField('optionsText', event.target.value)} rows={4} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         {!validQuestion && (
-          <div className="rounded-3xl bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100 md:col-span-2">
+          <div className="rounded-2xl bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100 md:col-span-2">
             Pertanyaan dan jawaban benar wajib diisi. Untuk pilihan ganda, minimal 2 opsi dan jawaban benar harus sama persis dengan salah satu opsi.
           </div>
         )}
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Pembahasan
-          <textarea value={form.explanation} onChange={(event) => updateField('explanation', event.target.value)} rows={3} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <textarea value={form.explanation} onChange={(event) => updateField('explanation', event.target.value)} rows={3} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
       </div>
-      <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={submit} disabled={!validQuestion} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan soal</button>
+      <div className="mt-4 flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
+        <button onClick={submit} disabled={!validQuestion} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan soal</button>
       </div>
     </SectionCard>
   )
@@ -2460,7 +2460,7 @@ function GuruTugas({ user, notify, appContext }) {
           eyebrow="Submission Tugas"
           title={viewingSubmissions.assignment.title}
           description={`${viewingSubmissions.rows.length} submission terbaca · sumber ${viewingSubmissions.source}`}
-          action={<button onClick={() => setViewingSubmissions(null)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Kembali</button>}
+          action={<button onClick={() => setViewingSubmissions(null)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>}
         />
         {viewingSubmissions.rows.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2">
@@ -2487,12 +2487,12 @@ function GuruTugas({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Tugas" title="Tugas kelas" description="Draft belum tampil ke siswa. Ubah status menjadi Aktif agar tugas muncul di halaman Siswa Tugas." action={<QuickActionButton icon={Plus} label="Buat tugas" onClick={() => setEditing(emptyAssignment(lookups, teacherSubject))} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data tugas: {error}. Data lokal ditampilkan.</div>}
-      <div className="mb-4 rounded-3xl bg-cyan-50 p-4 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">Alur tampil ke siswa: <b>Draft</b> belum tampil, <b>Aktif</b> tampil di Siswa Tugas, dan <b>Selesai</b> dipakai untuk menutup tugas. Draft dari Studio Konten perlu dicek sebelum diaktifkan.</div>
+      <PageHeader eyebrow="Tugas" title="Tugas kelas" description="Kelola draft, tugas aktif, dan submission siswa." action={<QuickActionButton icon={Plus} label="Buat tugas" onClick={() => setEditing(emptyAssignment(lookups, teacherSubject))} />} />
+      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data tugas: {error}. Data lokal ditampilkan.</div>}
+      
       {editing && <AssignmentForm assignment={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat tugas dari Supabase..." /> : rows.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {rows.map((row) => (
             <SectionCard key={row.id}>
               <div className="mb-4 flex items-center justify-between gap-2"><StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge><StatusBadge tone="cyan">{row.className}</StatusBadge></div>
@@ -2500,11 +2500,11 @@ function GuruTugas({ user, notify, appContext }) {
               <p className="mt-2 text-sm leading-6 text-gray-500">{row.description}</p>
               <p className="mt-3 text-xs font-bold text-slate-500">{row.subject} · Deadline {row.deadline || '-'}</p>
               <div className="mt-3"><CurriculumLinkBadge item={row} /></div>
-              <div className="mt-5 flex flex-wrap gap-2">
-                <button onClick={() => setEditing(row)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Edit</button>
-                <button onClick={() => handleSave({ ...row, status: row.status === 'Aktif' ? 'Draft' : 'Aktif' })} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{row.status === 'Aktif' ? 'Kembalikan ke Draft' : 'Aktifkan ke siswa'}</button>
-                <button onClick={() => openSubmissions(row)} className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">Submission ({getLocalAssignmentSubmissions(row.id).length})</button>
-                <button onClick={() => setDeleting(row)} className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">Hapus</button>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button>
+                <button onClick={() => handleSave({ ...row, status: row.status === 'Aktif' ? 'Draft' : 'Aktif' })} className="rounded-xl bg-cyan-50 px-3 py-2 text-xs font-extrabold text-cyan-700">{row.status === 'Aktif' ? 'Kembalikan ke Draft' : 'Aktifkan ke siswa'}</button>
+                <button onClick={() => openSubmissions(row)} className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-extrabold text-emerald-700">Submission ({getLocalAssignmentSubmissions(row.id).length})</button>
+                <button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700">Hapus</button>
               </div>
             </SectionCard>
           ))}
@@ -2536,27 +2536,27 @@ function AssignmentForm({ assignment, lookups, onCancel, onSave }) {
   }
 
   return (
-    <SectionCard className="mb-5">
-      <h2 className="text-xl font-extrabold text-gray-950">{form.id ? 'Edit tugas' : 'Buat tugas'}</h2>
+    <SectionCard className="mb-4">
+      <h2 className="text-lg font-black text-gray-950">{form.id ? 'Edit tugas' : 'Buat tugas'}</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="grid gap-1 text-sm font-bold text-gray-700">Judul
-          <input value={form.title} onChange={(event) => updateField('title', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input value={form.title} onChange={(event) => updateField('title', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Deadline
-          <input type="date" value={form.deadline || ''} onChange={(event) => updateField('deadline', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input type="date" value={form.deadline || ''} onChange={(event) => updateField('deadline', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
-          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id}>{subject.name}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Kelas
-          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id}>{classItem.name}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Status
-          <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {['Draft', 'Aktif', 'Selesai'].map((status) => <option key={status}>{status}</option>)}
           </select>
           <span className="text-xs font-semibold text-slate-500">Draft belum tampil. Aktif membuat tugas muncul di Siswa Tugas.</span>
@@ -2572,15 +2572,15 @@ function AssignmentForm({ assignment, lookups, onCancel, onSave }) {
           onChange={updateLearningObjective}
         />
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Deskripsi
-          <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={4} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={4} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Rubrik sederhana
-          <textarea value={form.rubric || ''} onChange={(event) => updateField('rubric', event.target.value)} rows={3} placeholder="Contoh: Isi 40%, ketepatan konsep 30%, kerapian 20%, refleksi 10%." className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <textarea value={form.rubric || ''} onChange={(event) => updateField('rubric', event.target.value)} rows={3} placeholder="Contoh: Isi 40%, ketepatan konsep 30%, kerapian 20%, refleksi 10%." className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
       </div>
-      <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form)} disabled={!form.title.trim()} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan tugas</button>
+      <div className="mt-4 flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
+        <button onClick={() => onSave(form)} disabled={!form.title.trim()} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan tugas</button>
       </div>
     </SectionCard>
   )
@@ -2739,13 +2739,13 @@ function KuisLive({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Kuis Live" title="Kuis dan ujian dari bank soal" description="Draft belum bisa dikerjakan siswa. Pilih soal lalu Publish agar kuis tampil di halaman Siswa Kuis." action={<QuickActionButton icon={FlaskConical} label="Buat Kuis" onClick={() => setEditing(emptyQuiz(lookups, teacherSubject))} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Data lokal mapel guru ditampilkan.</div>}
-      <div className="mb-4 rounded-3xl bg-cyan-50 p-4 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">Alur tampil ke siswa: <b>Draft</b> belum bisa dikerjakan, sedangkan <b>Publish</b> tampil di Siswa Kuis. Pastikan minimal satu soal dipilih sebelum publish.</div>
+      <PageHeader eyebrow="Kuis Live" title="Kuis dan ujian" description="Kelola draft kuis dan publish ke siswa." action={<QuickActionButton icon={FlaskConical} label="Buat Kuis" onClick={() => setEditing(emptyQuiz(lookups, teacherSubject))} />} />
+      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Data lokal mapel guru ditampilkan.</div>}
+      
       {editing && <QuizForm quiz={editing} lookups={lookups} questions={questionRows} onCancel={() => setEditing(null)} onSave={handleSave} />}
-      <SectionCard dark><p className="text-sm text-white/60">Kode join kelas</p><p className="mt-3 text-4xl font-black">482 913</p><p className="mt-3 text-white/70">{liveParticipants.length} peserta bergabung.</p></SectionCard>
+      
       {loading ? <LoadingState label="Memuat kuis guru dari Supabase..." /> : (
-        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {quizRows.map((quiz) => (
             <SectionCard key={quiz.id}>
               <div className="flex items-center justify-between gap-2"><StatusBadge tone={statusTone(quiz.status)}>{quiz.status}</StatusBadge><StatusBadge tone="cyan">{quiz.duration} menit</StatusBadge></div>
@@ -2753,10 +2753,10 @@ function KuisLive({ user, notify, appContext }) {
               <p className="mt-2 text-sm text-gray-500">{quiz.subject} · {quiz.className}</p>
               <div className="mt-3"><CurriculumLinkBadge item={quiz} /></div>
               <p className="mt-3 text-sm font-bold text-galaxy-purple">{attempts.filter((attempt) => attempt.quiz_id === quiz.id).length} attempt masuk</p>
-              <div className="mt-5 flex flex-wrap gap-2">
-                <button onClick={() => setEditing(quiz)} className="rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Edit</button>
-                <button onClick={() => handleSave({ ...quiz, status: quiz.status === 'Publish' ? 'Draft' : 'Publish' }, quiz.questionIds || [])} className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{quiz.status === 'Publish' ? 'Kembalikan ke Draft' : 'Publish ke siswa'}</button>
-                <button onClick={() => setDeleting(quiz)} className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">Hapus</button>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button onClick={() => setEditing(quiz)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button>
+                <button onClick={() => handleSave({ ...quiz, status: quiz.status === 'Publish' ? 'Draft' : 'Publish' }, quiz.questionIds || [])} className="rounded-xl bg-cyan-50 px-3 py-2 text-xs font-extrabold text-cyan-700">{quiz.status === 'Publish' ? 'Kembalikan ke Draft' : 'Publish ke siswa'}</button>
+                <button onClick={() => setDeleting(quiz)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700">Hapus</button>
               </div>
             </SectionCard>
           ))}
@@ -2793,27 +2793,27 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSa
   }
 
   return (
-    <SectionCard className="mb-5">
-      <h2 className="text-xl font-extrabold text-gray-950">{form.id ? 'Edit kuis' : 'Buat kuis'}</h2>
+    <SectionCard className="mb-4">
+      <h2 className="text-lg font-black text-gray-950">{form.id ? 'Edit kuis' : 'Buat kuis'}</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="grid gap-1 text-sm font-bold text-gray-700">Judul
-          <input value={form.title} onChange={(event) => updateField('title', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input value={form.title} onChange={(event) => updateField('title', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Durasi menit
-          <input type="number" value={form.duration} onChange={(event) => updateField('duration', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input type="number" value={form.duration} onChange={(event) => updateField('duration', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
-          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id}>{subject.name}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Kelas
-          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id}>{classItem.name}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Status
-          <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {['Draft', 'Publish'].map((status) => <option key={status}>{status}</option>)}
           </select>
           <span className="text-xs font-semibold text-slate-500">Draft belum tampil. Publish membuat kuis bisa dikerjakan siswa.</span>
@@ -2829,7 +2829,7 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSa
           onChange={updateLearningObjective}
         />
         <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Deskripsi
-          <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={3} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={3} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
       </div>
       <div className="mt-5">
@@ -2844,15 +2844,15 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSa
               <span className="mt-2 block text-xs opacity-75">{question.topic || 'Topik umum'} · {question.difficulty || 'Mudah'}</span>
             </button>
           )) : (
-            <div className="rounded-3xl bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100 md:col-span-2">
+            <div className="rounded-2xl bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100 md:col-span-2">
               Bank soal belum tersedia. Buat soal terlebih dahulu di menu Bank Soal, lalu kembali membuat kuis.
             </div>
           )}
         </div>
       </div>
-      <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form, selectedQuestionIds)} disabled={!validQuiz} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan kuis</button>
+      <div className="mt-4 flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
+        <button onClick={() => onSave(form, selectedQuestionIds)} disabled={!validQuiz} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan kuis</button>
       </div>
     </SectionCard>
   )
@@ -3138,7 +3138,7 @@ function AdminProfiles({ role, title, notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Manajemen Data" title={title} description="Admin mengelola profile dan detail akademik. Akun login Auth tetap dibuat terpisah di Supabase Authentication." action={<QuickActionButton icon={Plus} label={`Tambah ${role === 'guru' ? 'guru' : 'siswa'}`} onClick={() => setEditing({ name: '', email: '', role, status: 'Aktif', detailStatus: 'Aktif' })} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data: {error}. Data lokal ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data: {error}. Data lokal ditampilkan.</div>}
       {editing && <ProfileForm title={title} role={role} profile={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label={`Memuat ${title.toLowerCase()} dari Supabase...`} /> : (
         <DataTable columns={[
@@ -3176,36 +3176,36 @@ function ProfileForm({ title, role, profile, lookups, onCancel, onSave }) {
   }
 
   return (
-    <SectionCard className="mb-5">
-      <h2 className="text-xl font-extrabold text-gray-950">{profile.id ? `Edit ${title}` : `Tambah ${title}`}</h2>
+    <SectionCard className="mb-4">
+      <h2 className="text-lg font-black text-gray-950">{profile.id ? `Edit ${title}` : `Tambah ${title}`}</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="grid gap-1 text-sm font-bold text-gray-700">Nama
-          <input value={form.name} onChange={(event) => updateField('name', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input value={form.name} onChange={(event) => updateField('name', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Email
-          <input value={form.email} onChange={(event) => updateField('email', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input value={form.email} onChange={(event) => updateField('email', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Status
-          <select value={form.status || 'Aktif'} onChange={(event) => updateField('status', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+          <select value={form.status || 'Aktif'} onChange={(event) => updateField('status', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
             {['Aktif', 'Nonaktif', 'Perlu perhatian'].map((status) => <option key={status}>{status}</option>)}
           </select>
         </label>
         {role === 'siswa' && (
           <>
             <label className="grid gap-1 text-sm font-bold text-gray-700">NIS
-              <input value={form.nis || ''} onChange={(event) => updateField('nis', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+              <input value={form.nis || ''} onChange={(event) => updateField('nis', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
             </label>
             <label className="grid gap-1 text-sm font-bold text-gray-700">NISN
-              <input value={form.nisn || ''} onChange={(event) => updateField('nisn', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+              <input value={form.nisn || ''} onChange={(event) => updateField('nisn', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
             </label>
             <label className="grid gap-1 text-sm font-bold text-gray-700">Kelas
-              <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+              <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
                 <option value="">Pilih kelas</option>
                 {lookups.classes.map((classItem) => <option key={classItem.id} value={classItem.id}>{classItem.name}</option>)}
               </select>
             </label>
             <label className="grid gap-1 text-sm font-bold text-gray-700">Gender
-              <select value={form.gender || ''} onChange={(event) => updateField('gender', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+              <select value={form.gender || ''} onChange={(event) => updateField('gender', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
                 <option value="">Pilih gender</option>
                 <option value="L">Laki-laki</option>
                 <option value="P">Perempuan</option>
@@ -3216,10 +3216,10 @@ function ProfileForm({ title, role, profile, lookups, onCancel, onSave }) {
         {role === 'guru' && (
           <>
             <label className="grid gap-1 text-sm font-bold text-gray-700">NIP
-              <input value={form.nip || ''} onChange={(event) => updateField('nip', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+              <input value={form.nip || ''} onChange={(event) => updateField('nip', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
             </label>
             <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
-              <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300">
+              <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
                 <option value="">Pilih mapel</option>
                 {lookups.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
               </select>
@@ -3227,9 +3227,9 @@ function ProfileForm({ title, role, profile, lookups, onCancel, onSave }) {
           </>
         )}
       </div>
-      <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form)} disabled={!form.name.trim() || !form.email.trim()} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
+      <div className="mt-4 flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
+        <button onClick={() => onSave(form)} disabled={!form.name.trim() || !form.email.trim()} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
       </div>
     </SectionCard>
   )
@@ -3342,7 +3342,7 @@ function AdminKelas({ notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Data Kelas" title="Kelola rombel" action={<QuickActionButton icon={Plus} label="Tambah kelas" onClick={() => setEditing({ name: '', grade: 10, academicYear: '2026/2027' })} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kelas: {error}. Data lokal ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kelas: {error}. Data lokal ditampilkan.</div>}
       {editing && <ClassForm classItem={editing} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat kelas dari Supabase..." /> : (
         <DataTable columns={[
@@ -3360,22 +3360,22 @@ function AdminKelas({ notify, appContext }) {
 function ClassForm({ classItem, onCancel, onSave }) {
   const [form, setForm] = useState({ ...classItem, academicYear: classItem.academicYear || classItem.academic_year || '2026/2027' })
   return (
-    <SectionCard className="mb-5">
-      <h2 className="text-xl font-extrabold text-gray-950">{form.id ? 'Edit kelas' : 'Tambah kelas'}</h2>
+    <SectionCard className="mb-4">
+      <h2 className="text-lg font-black text-gray-950">{form.id ? 'Edit kelas' : 'Tambah kelas'}</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <label className="grid gap-1 text-sm font-bold text-gray-700">Nama kelas
-          <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Tingkat
-          <input type="number" value={form.grade} onChange={(event) => setForm((current) => ({ ...current, grade: event.target.value }))} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input type="number" value={form.grade} onChange={(event) => setForm((current) => ({ ...current, grade: event.target.value }))} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Tahun ajaran
-          <input value={form.academicYear} onChange={(event) => setForm((current) => ({ ...current, academicYear: event.target.value }))} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input value={form.academicYear} onChange={(event) => setForm((current) => ({ ...current, academicYear: event.target.value }))} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
       </div>
-      <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form)} disabled={!form.name.trim()} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
+      <div className="mt-4 flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
+        <button onClick={() => onSave(form)} disabled={!form.name.trim()} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
       </div>
     </SectionCard>
   )
@@ -3467,7 +3467,7 @@ function AdminMapel({ notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Manajemen Data" title="Mata Pelajaran" action={<QuickActionButton icon={Plus} label="Tambah mapel" onClick={() => setEditing({ name: '', code: '' })} />} />
-      {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data mapel: {error}. Data lokal ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data mapel: {error}. Data lokal ditampilkan.</div>}
       {editing && <SubjectForm subject={editing} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat mata pelajaran dari Supabase..." /> : (
         <DataTable columns={[
@@ -3485,19 +3485,19 @@ function AdminMapel({ notify, appContext }) {
 function SubjectForm({ subject, onCancel, onSave }) {
   const [form, setForm] = useState(subject)
   return (
-    <SectionCard className="mb-5">
-      <h2 className="text-xl font-extrabold text-gray-950">{form.id ? 'Edit mapel' : 'Tambah mapel'}</h2>
+    <SectionCard className="mb-4">
+      <h2 className="text-lg font-black text-gray-950">{form.id ? 'Edit mapel' : 'Tambah mapel'}</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="grid gap-1 text-sm font-bold text-gray-700">Nama mapel
-          <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Kode
-          <input value={form.code} onChange={(event) => setForm((current) => ({ ...current, code: event.target.value.toUpperCase() }))} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300" />
+          <input value={form.code} onChange={(event) => setForm((current) => ({ ...current, code: event.target.value.toUpperCase() }))} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
       </div>
-      <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form)} disabled={!form.name.trim() || !form.code.trim()} className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
+      <div className="mt-4 flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
+        <button onClick={() => onSave(form)} disabled={!form.name.trim() || !form.code.trim()} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
       </div>
     </SectionCard>
   )
@@ -3505,7 +3505,7 @@ function SubjectForm({ subject, onCancel, onSave }) {
 
 function Pengaturan({ notify }) {
   return (
-    <div><PageHeader eyebrow="Pengaturan" title="Pengaturan aplikasi" description="Identitas sekolah, semester, KKM, tema, AI, dan maintenance mode." /><SectionCard><div className="grid gap-3 md:grid-cols-2">{['Nama sekolah', 'Logo sekolah', 'Tahun ajaran', 'Semester', 'KKM', 'Tema warna', 'Pengaturan ujian', 'Pengaturan AI'].map((item) => <label key={item} className="grid gap-1 text-sm font-bold text-gray-700">{item}<input defaultValue={item === 'Nama sekolah' ? 'SMA Negeri 6 Pangkajene dan Kepulauan' : ''} className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none" /></label>)}</div><button onClick={() => notify('Pengaturan tersimpan lokal di perangkat.')} className="mt-5 rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-bold text-white">Simpan pengaturan</button></SectionCard></div>
+    <div><PageHeader eyebrow="Pengaturan" title="Pengaturan aplikasi" description="Identitas sekolah, semester, KKM, tema, AI, dan maintenance mode." /><SectionCard><div className="grid gap-3 md:grid-cols-2">{['Nama sekolah', 'Logo sekolah', 'Tahun ajaran', 'Semester', 'KKM', 'Tema warna', 'Pengaturan ujian', 'Pengaturan AI'].map((item) => <label key={item} className="grid gap-1 text-sm font-bold text-gray-700">{item}<input defaultValue={item === 'Nama sekolah' ? 'SMA Negeri 6 Pangkajene dan Kepulauan' : ''} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none" /></label>)}</div><button onClick={() => notify('Pengaturan tersimpan lokal di perangkat.')} className="mt-5 rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white">Simpan pengaturan</button></SectionCard></div>
   )
 }
 
@@ -3578,7 +3578,7 @@ function CurriculumAuditPanel() {
   const priorityLabel = topUnlinked?.label || 'Konten'
 
   return (
-    <SectionCard className="mb-5">
+    <SectionCard className="mb-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Audit Keterhubungan Konten</p>
@@ -3593,7 +3593,7 @@ function CurriculumAuditPanel() {
       </div>
 
       {error && (
-        <div className="mt-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
+        <div className="mt-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
           Audit belum bisa dimuat: {error}
         </div>
       )}
@@ -3613,7 +3613,7 @@ function CurriculumAuditPanel() {
               <p className="mt-2 text-lg font-black text-slate-950">{audit.totals.unlinked ? priorityLabel : 'Tidak ada'}</p>
               <p className="mt-1 text-xs font-bold text-slate-500">{topUnlinked ? `${topUnlinked.unlinked} item perlu dihubungkan ke TP/ATP.` : 'Semua konten utama sudah rapi.'}</p>
             </div>
-            <div className="rounded-3xl bg-amber-50 p-4 ring-1 ring-amber-100">
+            <div className="rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-100">
               <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-amber-600">Rekomendasi tindakan</p>
               <p className="mt-2 text-sm font-bold leading-6 text-amber-800">
                 {audit.totals.unlinked
@@ -3636,14 +3636,14 @@ function CurriculumAuditPanel() {
             ))}
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2">
             {auditActions.map((item) => (
               <QuickActionButton key={item.id} icon={item.icon} label={item.button} onClick={() => navigate(item.path)} />
             ))}
             <QuickActionButton icon={Sparkles} label="Buka Studio Konten" onClick={() => navigate('/guru/studio-konten')} />
           </div>
 
-          <div className="mt-5 rounded-3xl bg-white p-4 ring-1 ring-slate-100">
+          <div className="mt-5 rounded-2xl bg-white p-3 ring-1 ring-slate-100">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-extrabold text-slate-950">Daftar prioritas perbaikan</p>
@@ -3767,7 +3767,7 @@ function CurriculumAdminPage() {
       <CurriculumAuditPanel />
 
       {error && (
-        <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
+        <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
           {error}. Jalankan migration dan seed kurikulum di Supabase SQL Editor.
         </div>
       )}
@@ -3902,7 +3902,7 @@ function BackupPage({ notify, setConfirmOpen, appContext }) {
   }
 
   return (
-    <div><PageHeader eyebrow="Backup" title="Backup aman dan terkendali" /><SectionCard><StatusBadge tone="green">Backup JSON tersedia</StatusBadge><p className="mt-4 text-sm text-gray-500">Backup mengekspor data utama ke file JSON. Restore tetap dinonaktifkan karena berisiko menghapus atau menimpa data dan perlu konfirmasi berlapis.</p><div className="mt-5 flex flex-wrap gap-2"><QuickActionButton icon={Download} label={exporting ? 'Membuat backup...' : 'Backup sekarang'} onClick={handleBackup} /><button onClick={() => setConfirmOpen(true)} className="rounded-2xl bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700">Restore dikunci</button></div></SectionCard></div>
+    <div><PageHeader eyebrow="Backup" title="Backup aman dan terkendali" /><SectionCard><StatusBadge tone="green">Backup JSON tersedia</StatusBadge><p className="mt-4 text-sm text-gray-500">Backup mengekspor data utama ke file JSON. Restore tetap dinonaktifkan karena berisiko menghapus atau menimpa data dan perlu konfirmasi berlapis.</p><div className="mt-4 flex flex-wrap gap-2"><QuickActionButton icon={Download} label={exporting ? 'Membuat backup...' : 'Backup sekarang'} onClick={handleBackup} /><button onClick={() => setConfirmOpen(true)} className="rounded-2xl bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700">Restore dikunci</button></div></SectionCard></div>
   )
 }
 
@@ -3989,7 +3989,7 @@ function ManageList({ eyebrow, title, rows, button, notify, type, emptyTitle, em
     <div>
       <PageHeader eyebrow={eyebrow} title={title} action={<QuickActionButton icon={Plus} label={button} onClick={() => notify(`${button} dibuka.`)} />} />
       {rows.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{rows.map((row) => <SectionCard key={row.id}><StatusBadge tone={statusTone(row.status)}>{row.status || row.subject}</StatusBadge><h2 className="mt-4 text-lg font-extrabold">{row.title || row.student}</h2><p className="mt-2 text-sm leading-6 text-gray-500">{row.description || row.subject || row.topic} {row.deadline ? `· Deadline ${row.deadline}` : ''}</p><button onClick={() => notify(`Membuka detail ${type}.`)} className="mt-5 rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Detail</button></SectionCard>)}</div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{rows.map((row) => <SectionCard key={row.id}><StatusBadge tone={statusTone(row.status)}>{row.status || row.subject}</StatusBadge><h2 className="mt-4 text-lg font-extrabold">{row.title || row.student}</h2><p className="mt-2 text-sm leading-6 text-gray-500">{row.description || row.subject || row.topic} {row.deadline ? `· Deadline ${row.deadline}` : ''}</p><button onClick={() => notify(`Membuka detail ${type}.`)} className="mt-5 rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Detail</button></SectionCard>)}</div>
       ) : (
         <EmptyState title={emptyTitle} description={emptyDescription} />
       )}
@@ -4004,7 +4004,7 @@ function AdminTable({ title, rows, columns, button, notify = () => {}, setConfir
 }
 
 function CardsPage({ eyebrow, title, items, action }) {
-  return <div><PageHeader eyebrow={eyebrow} title={title} action={action} /><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{items.map((item) => <SectionCard key={`${item.title}-${item.meta}`}><StatusBadge>{item.status}</StatusBadge><h2 className="mt-4 text-xl font-extrabold">{item.title}</h2><p className="mt-2 text-sm text-gray-500">{item.meta}</p><p className="mt-4 text-2xl font-extrabold text-galaxy-purple">{item.value}</p><button className="mt-5 w-full rounded-2xl bg-galaxy-surface px-4 py-3 text-sm font-bold text-galaxy-purple">Detail</button></SectionCard>)}</div></div>
+  return <div><PageHeader eyebrow={eyebrow} title={title} action={action} /><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{items.map((item) => <SectionCard key={`${item.title}-${item.meta}`}><StatusBadge>{item.status}</StatusBadge><h2 className="mt-4 text-xl font-extrabold">{item.title}</h2><p className="mt-2 text-sm text-gray-500">{item.meta}</p><p className="mt-4 text-2xl font-extrabold text-galaxy-purple">{item.value}</p><button className="mt-5 w-full rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Detail</button></SectionCard>)}</div></div>
 }
 
 
