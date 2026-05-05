@@ -421,15 +421,37 @@ const publishChecklistItems = [
 const sampleImportText = `Sistem pernapasan manusia adalah sistem organ yang berfungsi untuk mengambil oksigen dari udara dan mengeluarkan karbon dioksida dari tubuh. Udara masuk melalui hidung, kemudian melewati faring, laring, trakea, bronkus, dan bronkiolus sebelum sampai ke alveolus. Di alveolus terjadi pertukaran gas antara oksigen dan karbon dioksida. Oksigen kemudian dibawa oleh darah ke seluruh tubuh, sedangkan karbon dioksida dikeluarkan saat kita menghembuskan napas. Menjaga kesehatan sistem pernapasan dapat dilakukan dengan menghindari asap rokok, berolahraga secara teratur, menjaga kebersihan lingkungan, dan menggunakan masker saat udara berdebu.`
 
 function readStorage(key, fallback = []) {
+  if (typeof localStorage === 'undefined') return fallback
+
   try {
-    return JSON.parse(localStorage.getItem(key)) || fallback
+    const raw = localStorage.getItem(key)
+    if (!raw) return fallback
+
+    const parsed = JSON.parse(raw)
+
+    if (Array.isArray(fallback)) {
+      return Array.isArray(parsed) ? parsed : fallback
+    }
+
+    if (fallback && typeof fallback === 'object') {
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback
+    }
+
+    return parsed ?? fallback
   } catch (error) {
     return fallback
   }
 }
 
 function writeStorage(key, value) {
-  localStorage.setItem(key, JSON.stringify(value))
+  if (typeof localStorage === 'undefined') return false
+
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+    return true
+  } catch (error) {
+    return false
+  }
 }
 
 function teacherStorageKey(kind, user, subject) {
@@ -844,16 +866,16 @@ function buildVideoInteractiveDraft(form) {
 function readRowsByPrefix(prefix) {
   if (typeof localStorage === 'undefined') return []
 
-  return Object.keys(localStorage)
-    .filter((key) => key.startsWith(prefix))
-    .flatMap((key) => {
-      try {
-        const rows = JSON.parse(localStorage.getItem(key)) || []
+  try {
+    return Object.keys(localStorage)
+      .filter((key) => key.startsWith(prefix))
+      .flatMap((key) => {
+        const rows = readStorage(key, [])
         return Array.isArray(rows) ? rows : []
-      } catch (error) {
-        return []
-      }
-    })
+      })
+  } catch (error) {
+    return []
+  }
 }
 
 function countByField(rows, field) {
@@ -865,7 +887,7 @@ function countByField(rows, field) {
 }
 
 function topEntries(counter, limit = 6) {
-  return Object.entries(counter)
+  return Object.entries(counter || {})
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([name, value]) => ({ name, value }))
@@ -1942,9 +1964,9 @@ export default function ContentStudio({ user: propUser }) {
       level: form.level,
       duration: form.duration,
       learningObjectiveId: form.learningObjectiveId || '',
-      sections: rubric.criteria.map((criterion) => ({
+      sections: (Array.isArray(rubric.criteria) ? rubric.criteria : []).map((criterion) => ({
         title: criterion.aspect,
-        body: Object.entries(criterion.levels).reverse().map(([score, text]) => `Skor ${score}: ${text}`).join('\n'),
+        body: Object.entries(criterion.levels || {}).reverse().map(([score, text]) => `Skor ${score}: ${text}`).join('\n'),
       })),
       tools: ['Rubric Builder', 'Assessment of learning', 'Feedback guru'],
     })
@@ -3475,11 +3497,11 @@ function RubricPreview({ rubric }) {
         <StatusBadge tone="purple">{rubric.subject}</StatusBadge>
       </div>
       <div className="space-y-3">
-        {rubric.criteria.map((criterion) => (
-          <div key={criterion.aspect} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+        {(Array.isArray(rubric.criteria) ? rubric.criteria : []).map((criterion, index) => (
+          <div key={`${criterion.aspect || 'kriteria'}-${index}`} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
             <h3 className="font-extrabold text-slate-950">{criterion.aspect}</h3>
             <div className="mt-3 grid gap-2">
-              {Object.entries(criterion.levels).reverse().map(([score, text]) => (
+              {Object.entries(criterion.levels || {}).reverse().map(([score, text]) => (
                 <p key={score} className="rounded-2xl bg-white p-3 text-sm leading-6 text-slate-600 ring-1 ring-slate-100">
                   <b>Skor {score}:</b> {text}
                 </p>

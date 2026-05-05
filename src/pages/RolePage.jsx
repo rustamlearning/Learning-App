@@ -340,17 +340,52 @@ function KelasSaya() {
 function readLocalRowsByPrefix(prefix) {
   if (typeof localStorage === 'undefined') return []
 
-  return Object.keys(localStorage)
-    .filter((key) => key.startsWith(prefix))
-    .flatMap((key) => {
-      try {
-        const rows = JSON.parse(localStorage.getItem(key)) || []
+  try {
+    return Object.keys(localStorage)
+      .filter((key) => key.startsWith(prefix))
+      .flatMap((key) => {
+        const rows = safeReadLocalJson(key, [])
         return Array.isArray(rows) ? rows : []
-      } catch (error) {
-        return []
-      }
-    })
+      })
+  } catch (error) {
+    return []
+  }
 }
+
+function safeReadLocalJson(key, fallback = null) {
+  if (typeof localStorage === 'undefined') return fallback
+
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return fallback
+
+    const parsed = JSON.parse(raw)
+
+    if (Array.isArray(fallback)) {
+      return Array.isArray(parsed) ? parsed : fallback
+    }
+
+    if (fallback && typeof fallback === 'object') {
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback
+    }
+
+    return parsed ?? fallback
+  } catch (error) {
+    return fallback
+  }
+}
+
+function safeWriteLocalJson(key, value) {
+  if (typeof localStorage === 'undefined') return false
+
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+    return true
+  } catch (error) {
+    return false
+  }
+}
+
 
 function getPublishedLocalTeacherMaterials() {
   return readLocalRowsByPrefix('sea-learning-teacher-materials-')
@@ -786,15 +821,11 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
 }
 
 function getCompletedMaterials(userId) {
-  try {
-    return JSON.parse(localStorage.getItem(`sea-learning-material-progress-${userId || 'demo'}`)) || []
-  } catch (error) {
-    return []
-  }
+  return safeReadLocalJson(`sea-learning-material-progress-${userId || 'demo'}`, [])
 }
 
 function setCompletedMaterials(userId, ids) {
-  localStorage.setItem(`sea-learning-material-progress-${userId || 'demo'}`, JSON.stringify(ids))
+  safeWriteLocalJson(`sea-learning-material-progress-${userId || 'demo'}`, Array.isArray(ids) ? ids : [])
 }
 
 function assignmentSubmissionStorageKey(assignmentId) {
@@ -802,11 +833,7 @@ function assignmentSubmissionStorageKey(assignmentId) {
 }
 
 function getLocalAssignmentSubmissions(assignmentId) {
-  try {
-    return JSON.parse(localStorage.getItem(assignmentSubmissionStorageKey(assignmentId))) || []
-  } catch (error) {
-    return []
-  }
+  return safeReadLocalJson(assignmentSubmissionStorageKey(assignmentId), [])
 }
 
 function getLocalAssignmentSubmission(assignmentId, userId) {
@@ -818,7 +845,8 @@ function saveLocalAssignmentSubmission(assignmentId, submission) {
   const nextRows = rows.some((item) => item.userId === submission.userId)
     ? rows.map((item) => item.userId === submission.userId ? submission : item)
     : [submission, ...rows]
-  localStorage.setItem(assignmentSubmissionStorageKey(assignmentId), JSON.stringify(nextRows))
+
+  safeWriteLocalJson(assignmentSubmissionStorageKey(assignmentId), nextRows)
   return nextRows
 }
 
@@ -990,15 +1018,11 @@ function SiswaTugas({ user, notify, appContext }) {
 }
 
 function getPracticeResult(practiceId) {
-  try {
-    return JSON.parse(localStorage.getItem(`sea-learning-practice-result-${practiceId}`))
-  } catch (error) {
-    return null
-  }
+  return safeReadLocalJson(`sea-learning-practice-result-${practiceId}`, null)
 }
 
 function savePracticeResult(practiceId, result) {
-  localStorage.setItem(`sea-learning-practice-result-${practiceId}`, JSON.stringify(result))
+  safeWriteLocalJson(`sea-learning-practice-result-${practiceId}`, result || {})
 }
 
 function LatihanPage({ notify }) {
@@ -1171,15 +1195,11 @@ function PracticeDetail({ practice, onBack, notify }) {
 }
 
 function getQuizResult(quizId, userId) {
-  try {
-    return JSON.parse(localStorage.getItem(`sea-learning-quiz-result-${userId || 'demo'}-${quizId}`))
-  } catch (error) {
-    return null
-  }
+  return safeReadLocalJson(`sea-learning-quiz-result-${userId || 'demo'}-${quizId}`, null)
 }
 
 function saveQuizResult(quizId, userId, result) {
-  localStorage.setItem(`sea-learning-quiz-result-${userId || 'demo'}-${quizId}`, JSON.stringify(result))
+  safeWriteLocalJson(`sea-learning-quiz-result-${userId || 'demo'}-${quizId}`, result || {})
 }
 
 function getQuizQuestionSet(quiz) {
@@ -1593,16 +1613,17 @@ function AIPage() {
 function getStoredResultsByPrefix(prefix) {
   if (typeof localStorage === 'undefined') return []
 
-  return Object.keys(localStorage)
-    .filter((key) => key.startsWith(prefix))
-    .map((key) => {
-      try {
-        return JSON.parse(localStorage.getItem(key))
-      } catch (error) {
-        return null
-      }
-    })
-    .filter((item) => item && typeof item.score === 'number')
+  try {
+    return Object.keys(localStorage)
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => {
+        const item = safeReadLocalJson(key, null)
+        return item && typeof item === 'object' ? item : null
+      })
+      .filter((item) => item && typeof item.score === 'number')
+  } catch (error) {
+    return []
+  }
 }
 
 function averageScore(rows) {
@@ -1891,29 +1912,20 @@ function teacherMaterialStorageKey(user, teacherSubject) {
 }
 
 function getLocalTeacherMaterials(user, teacherSubject) {
-  if (typeof localStorage === 'undefined') {
-    return materials.filter((item) => item.subject === teacherSubject)
-  }
-
+  const fallbackRows = materials.filter((item) => item.subject === teacherSubject)
   const key = teacherMaterialStorageKey(user, teacherSubject)
-  const stored = localStorage.getItem(key)
+  const storedRows = safeReadLocalJson(key, null)
 
-  if (stored) {
-    try {
-      return JSON.parse(stored)
-    } catch (error) {
-      return materials.filter((item) => item.subject === teacherSubject)
-    }
+  if (Array.isArray(storedRows)) {
+    return storedRows
   }
 
-  const seedRows = materials.filter((item) => item.subject === teacherSubject)
-  localStorage.setItem(key, JSON.stringify(seedRows))
-  return seedRows
+  safeWriteLocalJson(key, fallbackRows)
+  return fallbackRows
 }
 
 function setLocalTeacherMaterials(user, teacherSubject, rows) {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(teacherMaterialStorageKey(user, teacherSubject), JSON.stringify(rows))
+  safeWriteLocalJson(teacherMaterialStorageKey(user, teacherSubject), Array.isArray(rows) ? rows : [])
 }
 
 function GuruMateri({ user, notify, appContext }) {
@@ -2162,29 +2174,20 @@ function teacherQuestionStorageKey(user, teacherSubject) {
 }
 
 function getLocalTeacherQuestions(user, teacherSubject) {
-  if (typeof localStorage === 'undefined') {
-    return questions.filter((item) => item.subject === teacherSubject)
-  }
-
+  const fallbackRows = questions.filter((item) => item.subject === teacherSubject)
   const key = teacherQuestionStorageKey(user, teacherSubject)
-  const stored = localStorage.getItem(key)
+  const storedRows = safeReadLocalJson(key, null)
 
-  if (stored) {
-    try {
-      return JSON.parse(stored)
-    } catch (error) {
-      return questions.filter((item) => item.subject === teacherSubject)
-    }
+  if (Array.isArray(storedRows)) {
+    return storedRows
   }
 
-  const seedRows = questions.filter((item) => item.subject === teacherSubject)
-  localStorage.setItem(key, JSON.stringify(seedRows))
-  return seedRows
+  safeWriteLocalJson(key, fallbackRows)
+  return fallbackRows
 }
 
 function setLocalTeacherQuestions(user, teacherSubject, rows) {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(teacherQuestionStorageKey(user, teacherSubject), JSON.stringify(rows))
+  safeWriteLocalJson(teacherQuestionStorageKey(user, teacherSubject), Array.isArray(rows) ? rows : [])
 }
 
 function BankSoal({ user, notify, appContext }) {
@@ -2434,29 +2437,20 @@ function teacherAssignmentStorageKey(user, teacherSubject) {
 }
 
 function getLocalTeacherAssignments(user, teacherSubject) {
-  if (typeof localStorage === 'undefined') {
-    return assignments.filter((item) => item.subject === teacherSubject)
-  }
-
+  const fallbackRows = assignments.filter((item) => item.subject === teacherSubject)
   const key = teacherAssignmentStorageKey(user, teacherSubject)
-  const stored = localStorage.getItem(key)
+  const storedRows = safeReadLocalJson(key, null)
 
-  if (stored) {
-    try {
-      return JSON.parse(stored)
-    } catch (error) {
-      return assignments.filter((item) => item.subject === teacherSubject)
-    }
+  if (Array.isArray(storedRows)) {
+    return storedRows
   }
 
-  const seedRows = assignments.filter((item) => item.subject === teacherSubject)
-  localStorage.setItem(key, JSON.stringify(seedRows))
-  return seedRows
+  safeWriteLocalJson(key, fallbackRows)
+  return fallbackRows
 }
 
 function setLocalTeacherAssignments(user, teacherSubject, rows) {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(teacherAssignmentStorageKey(user, teacherSubject), JSON.stringify(rows))
+  safeWriteLocalJson(teacherAssignmentStorageKey(user, teacherSubject), Array.isArray(rows) ? rows : [])
 }
 
 function GuruTugas({ user, notify, appContext }) {
@@ -2727,29 +2721,20 @@ function teacherQuizStorageKey(user, teacherSubject) {
 }
 
 function getLocalTeacherQuizzes(user, teacherSubject) {
-  if (typeof localStorage === 'undefined') {
-    return quizzes.filter((item) => item.subject === teacherSubject)
-  }
-
+  const fallbackRows = quizzes.filter((item) => item.subject === teacherSubject)
   const key = teacherQuizStorageKey(user, teacherSubject)
-  const stored = localStorage.getItem(key)
+  const storedRows = safeReadLocalJson(key, null)
 
-  if (stored) {
-    try {
-      return JSON.parse(stored)
-    } catch (error) {
-      return quizzes.filter((item) => item.subject === teacherSubject)
-    }
+  if (Array.isArray(storedRows)) {
+    return storedRows
   }
 
-  const seedRows = quizzes.filter((item) => item.subject === teacherSubject)
-  localStorage.setItem(key, JSON.stringify(seedRows))
-  return seedRows
+  safeWriteLocalJson(key, fallbackRows)
+  return fallbackRows
 }
 
 function setLocalTeacherQuizzes(user, teacherSubject, rows) {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(teacherQuizStorageKey(user, teacherSubject), JSON.stringify(rows))
+  safeWriteLocalJson(teacherQuizStorageKey(user, teacherSubject), Array.isArray(rows) ? rows : [])
 }
 
 function KuisLive({ user, notify, appContext }) {
@@ -3147,26 +3132,20 @@ function adminProfileStorageKey(role) {
 }
 
 function getLocalAdminProfiles(role, fallbackRows) {
-  if (typeof localStorage === 'undefined') return fallbackRows
-
+  const safeFallbackRows = Array.isArray(fallbackRows) ? fallbackRows : []
   const key = adminProfileStorageKey(role)
-  const stored = localStorage.getItem(key)
+  const storedRows = safeReadLocalJson(key, null)
 
-  if (stored) {
-    try {
-      return JSON.parse(stored)
-    } catch (error) {
-      return fallbackRows
-    }
+  if (Array.isArray(storedRows)) {
+    return storedRows
   }
 
-  localStorage.setItem(key, JSON.stringify(fallbackRows))
-  return fallbackRows
+  safeWriteLocalJson(key, safeFallbackRows)
+  return safeFallbackRows
 }
 
 function setLocalAdminProfiles(role, rows) {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(adminProfileStorageKey(role), JSON.stringify(rows))
+  safeWriteLocalJson(adminProfileStorageKey(role), Array.isArray(rows) ? rows : [])
 }
 
 function AdminProfiles({ role, title, notify, appContext }) {
@@ -3384,26 +3363,20 @@ function adminCollectionStorageKey(collection) {
 }
 
 function getLocalAdminCollection(collection, fallbackRows) {
-  if (typeof localStorage === 'undefined') return fallbackRows
-
+  const safeFallbackRows = Array.isArray(fallbackRows) ? fallbackRows : []
   const key = adminCollectionStorageKey(collection)
-  const stored = localStorage.getItem(key)
+  const storedRows = safeReadLocalJson(key, null)
 
-  if (stored) {
-    try {
-      return JSON.parse(stored)
-    } catch (error) {
-      return fallbackRows
-    }
+  if (Array.isArray(storedRows)) {
+    return storedRows
   }
 
-  localStorage.setItem(key, JSON.stringify(fallbackRows))
-  return fallbackRows
+  safeWriteLocalJson(key, safeFallbackRows)
+  return safeFallbackRows
 }
 
 function setLocalAdminCollection(collection, rows) {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(adminCollectionStorageKey(collection), JSON.stringify(rows))
+  safeWriteLocalJson(adminCollectionStorageKey(collection), Array.isArray(rows) ? rows : [])
 }
 
 function AdminKelas({ notify, appContext }) {
