@@ -96,7 +96,7 @@ export default function Landing() {
         <div className="absolute -left-24 top-20 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
         <div className="absolute -right-24 bottom-10 h-80 w-80 rounded-full bg-violet-400/20 blur-3xl" />
 
-        <div className="relative mx-auto grid min-h-[88dvh] max-w-7xl items-center gap-10 px-5 py-12 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
+        <div className="relative mx-auto grid min-h-[70dvh] max-w-7xl items-center gap-7 px-5 py-8 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -107,21 +107,21 @@ export default function Landing() {
               Digital Learning Platform
             </p>
 
-            <h1 className="max-w-4xl text-balance text-5xl font-black leading-[0.95] tracking-[-0.055em] sm:text-7xl">
+            <h1 className="max-w-4xl text-balance text-4xl font-black leading-tight tracking-[-0.045em] sm:text-5xl lg:text-6xl">
               {school.appName}
             </h1>
 
-            <p className="mt-5 max-w-xl text-xl font-extrabold text-cyan-200 sm:text-2xl">
+            <p className="mt-3 max-w-xl text-lg font-extrabold text-cyan-200 sm:text-xl">
               Dari Pesisir ke Masa Depan Digital.
             </p>
 
-            <p className="mt-5 max-w-2xl text-base leading-8 text-slate-200/85 sm:text-lg">
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-200/85">
               Platform pembelajaran digital modern untuk sekolah kepulauan:
               ringan, rapi, role-based, dan siap dikembangkan untuk siswa,
               guru, admin, dan pimpinan sekolah.
             </p>
 
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-5 flex flex-wrap gap-3">
               <Link
                 to="/login"
                 className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 via-violet-500 to-cyan-400 px-5 text-sm font-extrabold text-white shadow-lg transition hover:scale-[1.02] hover:shadow-xl"
@@ -177,11 +177,11 @@ export default function Landing() {
         </div>
       </section>
 
-      <section id="fitur" className="mx-auto max-w-7xl px-5 py-16 lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <section id="fitur" className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
             <p className="text-sm font-extrabold text-violet-700">Fitur utama</p>
-            <h2 className="mt-2 text-4xl font-black tracking-[-0.04em]">
+            <h2 className="mt-2 text-3xl font-black tracking-[-0.035em]">
               Satu platform belajar untuk seluruh sekolah.
             </h2>
           </div>
@@ -194,9 +194,9 @@ export default function Landing() {
           {features.map(({ title, icon: Icon, color, description }) => (
             <div
               key={title}
-              className="group flex min-h-52 flex-col rounded-3xl bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.06)] ring-1 ring-slate-200 transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(15,23,42,0.10)]"
+              className="group flex min-h-40 flex-col rounded-2xl bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)] ring-1 ring-slate-200 transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(15,23,42,0.10)]"
             >
-              <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-2xl ring-1 ${color}`}>
+              <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ring-1 ${color}`}>
                 <Icon size={22} />
               </div>
               <h3 className="text-lg font-black">{title}</h3>
@@ -209,19 +209,19 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-5 pb-16 lg:grid-cols-3 lg:px-8">
+      <section className="mx-auto grid max-w-7xl gap-4 px-5 pb-10 lg:grid-cols-3 lg:px-8">
         {audienceSections.map((section) => {
           const Icon = section.icon
 
           return (
-            <article key={section.label} className="rounded-[2rem] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] ring-1 ring-slate-200">
-              <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${section.accent} text-white shadow-lg`}>
+            <article key={section.label} className="rounded-2xl bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)] ring-1 ring-slate-200">
+              <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${section.accent} text-white shadow-lg`}>
                 <Icon size={22} />
               </div>
               <p className="text-sm font-extrabold text-violet-700">{section.label}</p>
-              <h2 className="mt-2 text-2xl font-black tracking-[-0.03em]">{section.title}</h2>
+              <h2 className="mt-1 text-xl font-black tracking-[-0.025em]">{section.title}</h2>
 
-              <div className="mt-5 grid gap-2">
+              <div className="mt-3 grid gap-2">
                 {section.points.map((point) => (
                   <div key={point} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 ring-1 ring-slate-100">
                     {point}
@@ -233,14 +233,14 @@ export default function Landing() {
         })}
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 pb-16 lg:px-8">
-        <div className="overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-cyan-50 via-white to-violet-50 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] ring-1 ring-cyan-100 md:p-8">
-          <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+      <section className="mx-auto max-w-7xl px-5 pb-10 lg:px-8">
+        <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-50 via-white to-violet-50 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.08)] ring-1 ring-cyan-100 md:p-8">
+          <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
             <div>
               <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-xs font-extrabold text-teal-700 ring-1 ring-cyan-100">
                 <Waves size={15} /> SEAClub English Corner
               </div>
-              <h2 className="text-balance text-4xl font-black tracking-[-0.04em] text-slate-950">
+              <h2 className="text-balance text-3xl font-black tracking-[-0.035em] text-slate-950">
                 English practice yang dekat dengan kehidupan siswa.
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-7 text-slate-600">
@@ -266,8 +266,8 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 pb-16 lg:px-8">
-        <div className="rounded-[2rem] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] ring-1 ring-slate-200">
+      <section className="mx-auto max-w-7xl px-5 pb-10 lg:px-8">
+        <div className="rounded-2xl bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)] ring-1 ring-slate-200">
           <div className="mb-5 flex items-center gap-3">
             <UsersRound className="text-violet-700" />
             <h2 className="text-2xl font-black">Role pengguna</h2>

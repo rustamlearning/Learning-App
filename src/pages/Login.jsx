@@ -52,7 +52,7 @@ export default function Login() {
         <div className="absolute -right-24 bottom-10 h-80 w-80 rounded-full bg-violet-400/20 blur-3xl" />
 
         <div className="relative mx-auto w-full max-w-2xl">
-          <div className="mb-9">
+          <div className="mb-5">
             <SandeqLogo />
           </div>
 
@@ -61,7 +61,7 @@ export default function Login() {
             Digital Learning Platform
           </div>
 
-          <h1 className="mt-7 text-balance text-5xl font-black leading-[0.96] tracking-[-0.055em] sm:text-6xl lg:text-7xl">
+          <h1 className="mt-5 text-balance text-4xl font-black leading-tight tracking-[-0.045em] sm:text-5xl">
             SEA Learning
           </h1>
 
@@ -69,16 +69,16 @@ export default function Login() {
             {officialSchoolName}
           </p>
 
-          <p className="mt-7 max-w-xl text-balance text-3xl font-black leading-tight tracking-[-0.04em] text-white sm:text-4xl">
+          <p className="mt-5 max-w-xl text-balance text-2xl font-black leading-tight tracking-[-0.035em] text-white sm:text-3xl">
             Dari Pesisir ke Masa Depan Digital.
           </p>
 
-          <p className="mt-5 max-w-xl text-base leading-8 text-slate-200/85">
+          <p className="mt-3 max-w-xl text-sm leading-7 text-slate-200/85">
             Platform pembelajaran digital modern yang cepat, stabil, dan terintegrasi
             untuk siswa, guru, admin, dan pimpinan sekolah.
           </p>
 
-          <div className="mt-9 grid max-w-xl gap-3 sm:grid-cols-3">
+          <div className="mt-5 grid max-w-xl gap-2 sm:grid-cols-3">
             <MiniInfo icon={Waves} title="Cepat" text="Akses stabil di semua jaringan" />
             <MiniInfo icon={UserRound} title="Multi User" text="Guru & siswa terintegrasi" />
             <MiniInfo icon={ShieldCheck} title="Aman" text="Data terlindungi & terpercaya" />
@@ -86,12 +86,12 @@ export default function Login() {
         </div>
       </section>
 
-      <section className="flex min-h-[56dvh] items-center justify-center px-5 py-10 lg:min-h-dvh lg:px-10">
+      <section className="flex min-h-[48dvh] items-center justify-center px-5 py-6 lg:min-h-dvh lg:px-8">
         <div className="w-full max-w-md">
-          <div className="rounded-[2rem] bg-white p-6 shadow-[0_24px_90px_rgba(15,23,42,0.11)] ring-1 ring-slate-200 sm:p-8">
-            <header className="mb-7">
+          <div className="rounded-2xl bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.10)] ring-1 ring-slate-200 sm:p-6">
+            <header className="mb-5">
               <p className="text-sm font-extrabold text-violet-700">Masuk ke aplikasi</p>
-              <h2 className="mt-2 text-3xl font-black tracking-[-0.04em] text-slate-950">
+              <h2 className="mt-1 text-2xl font-black tracking-[-0.035em] text-slate-950">
                 Selamat datang di SEA Learning.
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
@@ -187,7 +187,7 @@ export default function Login() {
 
 function MiniInfo({ icon: Icon, title, text }) {
   return (
-    <div className="rounded-3xl bg-white/10 p-4 shadow-lg ring-1 ring-white/15 backdrop-blur-md transition hover:scale-105 hover:bg-white/15">
+    <div className="rounded-2xl bg-white/10 p-3 shadow-lg ring-1 ring-white/15 backdrop-blur-md transition hover:scale-105 hover:bg-white/15">
       <Icon className="text-cyan-200" size={22} />
       <p className="mt-3 text-sm font-extrabold text-white">{title}</p>
       <p className="mt-1 text-xs leading-5 text-slate-300">{text}</p>
@@ -197,10 +197,10 @@ function MiniInfo({ icon: Icon, title, text }) {
 
 function SandeqLogo() {
   return (
-    <div className="inline-flex h-24 w-24 items-center justify-center rounded-[2rem] bg-gradient-to-br from-cyan-400/20 to-violet-500/25 shadow-xl ring-1 ring-white/20 backdrop-blur-md">
+    <div className="inline-flex h-18 w-18 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400/20 to-violet-500/25 shadow-xl ring-1 ring-white/20 backdrop-blur-md">
       <svg
         viewBox="0 0 128 128"
-        className="h-16 w-16 text-white"
+        className="h-12 w-12 text-white"
         fill="none"
         role="img"
         aria-label="Logo SEA Learning"

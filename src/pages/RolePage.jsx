@@ -176,16 +176,16 @@ function SiswaDashboard({ user, notify }) {
         }
       />
 
-      <section className="dashboard-aurora-card island-wave mb-5 overflow-hidden rounded-[2rem] p-5 text-white shadow-glow sm:p-6">
+      <section className="dashboard-aurora-card island-wave mb-4 overflow-hidden rounded-2xl p-4 text-white shadow-glow">
         <div className="absolute right-10 top-8 h-28 w-28 rounded-full bg-cyan-300/15 blur-3xl" />
         <div className="absolute bottom-3 left-12 h-24 w-44 rounded-full bg-purple-300/12 blur-3xl" />
 
-        <div className="relative z-10 grid gap-5 rounded-3xl bg-white/5 p-5 ring-1 ring-white/10 lg:grid-cols-[1fr_17rem] lg:items-center">
+        <div className="relative z-10 grid gap-4 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 lg:grid-cols-[1fr_17rem] lg:items-center">
           <div>
             <p className="text-sm font-extrabold uppercase tracking-[0.16em] text-cyan-100">
               SEA Learning Mission
             </p>
-            <h2 className="mt-2 text-balance text-3xl font-black tracking-[-0.04em] sm:text-4xl">
+            <h2 className="mt-2 text-balance text-2xl font-black tracking-[-0.035em] sm:text-3xl">
               Misi hari ini: {missionDone} dari 3 selesai.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-purple-100/85">
@@ -200,20 +200,20 @@ function SiswaDashboard({ user, notify }) {
             </p>
           </div>
 
-          <div className="rounded-3xl bg-white p-4 text-gray-950 shadow-soft">
+          <div className="rounded-2xl bg-white p-3 text-gray-950 shadow-soft">
             <ProgressRing value={learningProgress} label="Progress belajar" />
           </div>
         </div>
       </section>
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={LineChartIcon} label="Progress Belajar" value={`${learningProgress}%`} caption={`${completedMaterials.length} materi selesai`} tone="purple" />
         <StatCard icon={ClipboardCheck} label="Tugas Terkirim" value={assignmentSubmissions.length} caption="submission lokal" tone="cyan" />
         <StatCard icon={CalendarClock} label="Aktivitas" value={practiceResults.length + quizResults.length} caption="latihan/kuis tersimpan" tone="amber" />
         <StatCard icon={Award} label="Nilai Rata-rata" value={average || '-'} caption={average ? 'berdasarkan latihan & kuis' : 'belum ada skor'} tone="green" />
       </div>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid items-start gap-4 lg:grid-cols-[0.9fr_1.1fr]">
         <DailyMissionCard />
         <DashboardCard title="Learning Path" className="pt-7">
           <div className="mt-2">
@@ -226,7 +226,7 @@ function SiswaDashboard({ user, notify }) {
               ['Latihan Fokus', 'Simple Past Tense', '10 menit', FileQuestion, 'amber'],
               ['Target Minggu Ini', 'Mastery Badge', '+50 XP lagi', Trophy, 'purple'],
             ].map(([label, title, detail, Icon, tone]) => (
-              <div key={label} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <div key={label} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-violet-700 shadow-[0_10px_24px_rgba(15,23,42,0.06)] ring-1 ring-slate-200">
                     <Icon size={18} />
@@ -239,7 +239,7 @@ function SiswaDashboard({ user, notify }) {
             ))}
           </div>
 
-          <div className="mt-4 rounded-3xl bg-gradient-to-r from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
+          <div className="mt-4 rounded-2xl bg-gradient-to-r from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
             <p className="text-sm font-bold leading-6 text-slate-700">
               Saran hari ini: selesaikan materi Descriptive Text, lanjutkan 5 soal latihan, lalu cek kesiapan kuis.
             </p>
@@ -247,7 +247,7 @@ function SiswaDashboard({ user, notify }) {
         </DashboardCard>
       </div>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_0.9fr_0.85fr]">
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_0.9fr_0.85fr]">
         <DashboardCard title="Rekomendasi Pintar">
           <p className="text-sm leading-7 text-gray-600">
             Kamu masih perlu latihan di <b>Simple Past Tense</b>. Coba 10 menit hari ini agar grammar naik sebelum kuis berikutnya.
@@ -279,7 +279,7 @@ function SiswaDashboard({ user, notify }) {
         </DashboardCard>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
         <DashboardCard title="Badge terbaru">
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
             {badges.filter((badge) => ['Island Starter', 'Vocabulary Voyager', 'SEAClub Speaker'].includes(badge.name)).map((badge) => (
@@ -778,7 +778,7 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
           )}
           <div className="mt-5 grid gap-4">
             {sections.map((section) => (
-              <div key={section.title} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <div key={section.title} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <StatusBadge tone={section.tone}>{section.title}</StatusBadge>
                 </div>
@@ -945,7 +945,7 @@ function SiswaTugas({ user, notify, appContext }) {
               <StatusBadge tone={submission ? 'green' : 'amber'}>{submission ? 'Sudah submit' : 'Belum submit'}</StatusBadge>
               <CurriculumLinkBadge item={selected} />
             </div>
-            <div className="mt-5 rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+            <div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
               <p className="text-sm font-extrabold text-slate-950">Instruksi tugas</p>
               <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-600">{selected.description}</p>
             </div>
@@ -1174,7 +1174,7 @@ function PracticeDetail({ practice, onBack, notify }) {
               ))}
             </div>
             {submitted && (
-              <div className="mt-4 rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-700 ring-1 ring-slate-100">
+              <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm leading-6 text-slate-700 ring-1 ring-slate-100">
                 <b>Pembahasan:</b> {question.explanation}
               </div>
             )}
@@ -1398,7 +1398,7 @@ function KuisPage({ user, notify, appContext }) {
               </div>
 
               {previousResult && (
-                <div className="mt-4 rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-700 ring-1 ring-slate-100">
+                <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm leading-6 text-slate-700 ring-1 ring-slate-100">
                   <b>Pembahasan:</b> {question.explanation || 'Pembahasan belum tersedia.'}
                 </div>
               )}
@@ -1540,7 +1540,7 @@ function FlashcardPage() {
           {learningPacks.length > 0 ? (
             <div className="space-y-3">
               {learningPacks.map((pack) => (
-                <div key={pack.id} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                <div key={pack.id} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <StatusBadge tone={pack.outputType === 'Remedial' ? 'amber' : 'cyan'}>{pack.outputType}</StatusBadge>
                     <StatusBadge tone="purple">{pack.subject}</StatusBadge>
@@ -1580,7 +1580,7 @@ function LearningPackDetail({ pack, onBack }) {
           <div className="mt-5 space-y-3">
             {(pack.sections || []).length > 0 ? (
               pack.sections.map((section) => (
-                <div key={section.title} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                <div key={section.title} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
                   <h3 className="font-extrabold text-slate-950">{section.title}</h3>
                   <p className="mt-2 text-sm leading-7 text-slate-600">{section.body}</p>
                 </div>
@@ -1667,7 +1667,7 @@ function ProgresPage({ user }) {
         description="Ringkasan ini membaca progres materi, skor latihan, dan hasil kuis yang sudah kamu kerjakan."
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={BookOpen} label="Materi selesai" value={completedMaterials.length} caption={`${materialProgress}% estimasi progres`} tone="cyan" />
         <StatCard icon={FileQuestion} label="Rata-rata latihan" value={practiceAverage || '-'} caption={`${practiceResults.length} latihan tersimpan`} tone="amber" />
         <StatCard icon={ClipboardCheck} label="Rata-rata kuis" value={quizAverage || '-'} caption={`${quizResults.length} kuis tersimpan`} tone="purple" />
@@ -1741,7 +1741,7 @@ function LeaderboardPage() {
   return (
     <div>
       <PageHeader eyebrow="Leaderboard" title="Ranking sehat, bukan mempermalukan." description="Top 10, posisi kamu, dan kategori challenge." />
-      <div className="space-y-3">{leaderboard.map((student, index) => <div key={student.id} className="flex items-center gap-3 rounded-3xl bg-white p-4 shadow-soft ring-1 ring-purple-100"><span className="grid h-10 w-10 place-items-center rounded-2xl bg-galaxy-lavender font-extrabold text-galaxy-purple">#{index + 1}</span><div className="flex-1"><p className="font-extrabold">{student.name}</p><p className="text-sm text-gray-500">{student.className} · {student.streak} hari streak</p></div><StatusBadge tone="cyan">{student.xp} XP</StatusBadge></div>)}</div>
+      <div className="space-y-3">{leaderboard.map((student, index) => <div key={student.id} className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-soft ring-1 ring-purple-100"><span className="grid h-10 w-10 place-items-center rounded-2xl bg-galaxy-lavender font-extrabold text-galaxy-purple">#{index + 1}</span><div className="flex-1"><p className="font-extrabold">{student.name}</p><p className="text-sm text-gray-500">{student.className} · {student.streak} hari streak</p></div><StatusBadge tone="cyan">{student.xp} XP</StatusBadge></div>)}</div>
     </div>
   )
 }
@@ -1751,7 +1751,7 @@ function SEAClubPage() {
     <div>
       <PageHeader eyebrow="SEAClub Corner" title="English practice for island learners." description="Word, phrase, speaking challenge, writing prompt, dan AI feedback untuk latihan siswa." />
       <SEAClubCorner />
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <DashboardCard title="Mini Dialogue">{seaclub.dialogue.map(([speaker, text]) => <p key={text} className="mb-2 rounded-2xl bg-galaxy-surface p-3 text-sm"><b>{speaker}:</b> {text}</p>)}</DashboardCard>
         <DashboardCard title="SEAClub Leaderboard">{leaderboard.slice(0, 5).map((item, index) => <p key={item.id} className="flex justify-between border-b border-purple-50 py-2 text-sm"><span>{index + 1}. {item.name}</span><b>{item.xp} XP</b></p>)}</DashboardCard>
       </div>
@@ -1804,7 +1804,7 @@ function GuruDashboard({ notify }) {
         description="Pantau kelas, buat konten, dan lihat sinyal belajar siswa dengan cepat."
       />
 
-      <section className="command-banner mb-5 rounded-[1.75rem] p-5 sm:p-6">
+      <section className="command-banner mb-4 rounded-2xl p-4">
         <div className="grid gap-5 lg:grid-cols-[1fr_0.9fr] lg:items-end">
           <div>
             <p className="text-sm font-extrabold text-galaxy-purple">Fokus Mengajar Hari Ini</p>
@@ -1837,7 +1837,7 @@ function GuruDashboard({ notify }) {
         </div>
       </section>
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard icon={School} label="Kelas" value="4" caption="aktif diajar" tone="purple" />
         <StatCard icon={BookOpen} label="Materi" value={teacherMaterials.length} caption="lokal/studio" tone="cyan" />
         <StatCard icon={ClipboardCheck} label="Tugas aktif" value={activeAssignments.length} caption="perlu pantauan" tone="amber" />
@@ -1845,7 +1845,7 @@ function GuruDashboard({ notify }) {
         <StatCard icon={Target} label="Belum TP" value={unlinkedContent} caption="prioritas kurikulum" tone={unlinkedContent > 0 ? 'amber' : 'green'} />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <DashboardCard title="Kelas Perlu Perhatian">
           {[
             ['X.1', '8 siswa belum remedial'],
@@ -2860,7 +2860,7 @@ function KuisLive({ user, notify, appContext }) {
       {error && <div className="mb-4 rounded-3xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Data lokal mapel guru ditampilkan.</div>}
       <div className="mb-4 rounded-3xl bg-cyan-50 p-4 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">Alur tampil ke siswa: <b>Draft</b> belum bisa dikerjakan, sedangkan <b>Publish</b> tampil di Siswa Kuis. Pastikan minimal satu soal dipilih sebelum publish.</div>
       {editing && <QuizForm quiz={editing} lookups={lookups} questions={questionRows} onCancel={() => setEditing(null)} onSave={handleSave} />}
-      <SectionCard dark><p className="text-sm text-white/60">Kode join kelas</p><p className="mt-3 text-6xl font-extrabold">482 913</p><p className="mt-3 text-white/70">{liveParticipants.length} peserta bergabung.</p></SectionCard>
+      <SectionCard dark><p className="text-sm text-white/60">Kode join kelas</p><p className="mt-3 text-4xl font-black">482 913</p><p className="mt-3 text-white/70">{liveParticipants.length} peserta bergabung.</p></SectionCard>
       {loading ? <LoadingState label="Memuat kuis guru dari Supabase..." /> : (
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {quizRows.map((quiz) => (
@@ -3079,7 +3079,7 @@ function AdminDashboard() {
         description="Kelola guru, siswa, kelas, mata pelajaran, laporan, dan backup data dari satu dashboard."
       />
 
-      <section className="command-banner mb-5 rounded-[1.75rem] p-5 sm:p-6">
+      <section className="command-banner mb-4 rounded-2xl p-4">
         <div className="grid gap-5 lg:grid-cols-[1fr_18rem] lg:items-center">
           <div>
             <p className="text-sm font-extrabold text-galaxy-purple">Status Sistem</p>
@@ -3096,21 +3096,21 @@ function AdminDashboard() {
             </div>
           </div>
 
-          <div className="rounded-3xl bg-white p-4 shadow-soft ring-1 ring-purple-100">
+          <div className="rounded-2xl bg-white p-3 shadow-soft ring-1 ring-purple-100">
             <p className="text-sm font-extrabold text-gray-950">Ringkasan Data</p>
             <p className="mt-2 text-sm leading-6 text-slate-500">Guru, siswa, kelas, dan mapel terpusat untuk kebutuhan aplikasi.</p>
           </div>
         </div>
       </section>
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={UsersRound} label="Guru" value={teachers.length} caption="terdaftar" tone="purple" />
         <StatCard icon={School} label="Siswa" value={students.length} caption="terdata" tone="cyan" />
         <StatCard icon={BookOpen} label="Kelas" value={classes.length} caption="aktif" tone="amber" />
         <StatCard icon={ClipboardCheck} label="Coverage TP lokal" value={`${localCoverage}%`} caption={`${localContent.length - linkedContent} belum TP`} tone={localCoverage >= 80 ? 'green' : 'amber'} />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <DashboardCard title="Prioritas Admin">
           {[
             'Periksa data siswa baru sebelum publikasi akun.',
@@ -3732,12 +3732,12 @@ function CurriculumAuditPanel() {
       ) : (
         <>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+            <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
               <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400">Total belum terhubung</p>
               <p className="mt-2 text-3xl font-black text-slate-950">{audit.totals.unlinked}</p>
               <p className="mt-1 text-xs font-bold text-slate-500">Dari {audit.totals.total} konten utama.</p>
             </div>
-            <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+            <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
               <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400">Prioritas pertama</p>
               <p className="mt-2 text-lg font-black text-slate-950">{audit.totals.unlinked ? priorityLabel : 'Tidak ada'}</p>
               <p className="mt-1 text-xs font-bold text-slate-500">{topUnlinked ? `${topUnlinked.unlinked} item perlu dihubungkan ke TP/ATP.` : 'Semua konten utama sudah rapi.'}</p>
@@ -3754,7 +3754,7 @@ function CurriculumAuditPanel() {
 
           <div className="mt-5 grid gap-3 md:grid-cols-4">
             {audit.summary.map((item) => (
-              <div key={item.id} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <div key={item.id} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-extrabold text-slate-950">{item.label}</p>
                   <StatusBadge tone={item.unlinked === 0 ? 'green' : 'amber'}>{item.percentage}%</StatusBadge>
@@ -3816,7 +3816,7 @@ function CurriculumAuditPanel() {
             {filteredItems.length > 0 ? (
               <div className="mt-4 grid gap-3 lg:grid-cols-2">
                 {filteredItems.slice(0, 12).map((item) => (
-                  <div key={`${item.type}-${item.id}`} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                  <div key={`${item.type}-${item.id}`} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       <StatusBadge tone="amber">{item.type}</StatusBadge>
                       <StatusBadge>{item.status}</StatusBadge>
@@ -3950,7 +3950,7 @@ function CurriculumAdminPage() {
 
           <div className="grid gap-3">
             {data.objectives.slice(0, 12).map((objective) => (
-              <div key={objective.id} className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
+              <div key={objective.id} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge tone="purple">{objective.subjectCode}</StatusBadge>
                   <StatusBadge tone="cyan">{objective.phaseName}</StatusBadge>
@@ -4059,11 +4059,11 @@ function PimpinanDashboard() {
         description="Pantau performa kelas, aktivitas guru, progres siswa, dan laporan akademik dari satu halaman."
       />
 
-      <section className="dashboard-aurora-card island-wave mb-5 overflow-hidden rounded-[2rem] p-5 text-white shadow-glow sm:p-6">
-        <div className="relative z-10 grid gap-5 rounded-3xl bg-white/5 p-5 ring-1 ring-white/10 lg:grid-cols-[1fr_18rem] lg:items-center">
+      <section className="dashboard-aurora-card island-wave mb-4 overflow-hidden rounded-2xl p-4 text-white shadow-glow">
+        <div className="relative z-10 grid gap-4 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 lg:grid-cols-[1fr_18rem] lg:items-center">
           <div>
             <p className="text-sm font-extrabold uppercase tracking-[0.16em] text-cyan-100">School Performance</p>
-            <h2 className="mt-2 text-balance text-3xl font-black tracking-[-0.04em] sm:text-4xl">
+            <h2 className="mt-2 text-balance text-2xl font-black tracking-[-0.035em] sm:text-3xl">
               Rata-rata akademik sekolah: {localAverage || 'data belum tersedia'}.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-purple-100/85">
@@ -4071,20 +4071,20 @@ function PimpinanDashboard() {
             </p>
           </div>
 
-          <div className="rounded-3xl bg-white p-4 text-gray-950 shadow-soft">
+          <div className="rounded-2xl bg-white p-3 text-gray-950 shadow-soft">
             <ProgressRing value={localAverage || 0} label="Indeks akademik" />
           </div>
         </div>
       </section>
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={School} label="Kelas aktif" value={classes.length} caption="terpantau" tone="purple" />
         <StatCard icon={UsersRound} label="Siswa" value={students.length} caption="dalam sistem" tone="cyan" />
         <StatCard icon={Trophy} label="Rata-rata" value={localAverage || '-'} caption="latihan/kuis lokal" tone="green" />
         <StatCard icon={Target} label="Submission" value={assignmentSubmissions.length} caption="tugas terkirim" tone="amber" />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <DashboardCard title="Trend Nilai Sekolah">
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={scoreTrend}>
@@ -4239,7 +4239,7 @@ function ReportPage({ eyebrow, title, notify }) {
         <StatCard label="Periode data" value={reportRows.length} tone="green" />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <DashboardCard title="Trend nilai">
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={scoreTrend}>
