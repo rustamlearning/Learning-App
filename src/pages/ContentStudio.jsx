@@ -242,7 +242,7 @@ const smartTemplates = [
     title: 'Grafik Fungsi Interaktif',
     topic: 'Fungsi Kuadrat',
     contentType: 'Grafik fungsi',
-    outputType: 'Materi',
+    outputType: 'Soal',
     level: 'Standar',
     duration: '2 JP',
     learningObjectiveId: '',
@@ -285,7 +285,7 @@ const smartTemplates = [
     title: 'Persamaan Reaksi & Stoikiometri',
     topic: 'Penyetaraan Reaksi',
     contentType: 'Persamaan reaksi',
-    outputType: 'Materi',
+    outputType: 'Soal',
     level: 'Standar',
     duration: '2 JP',
     icon: Beaker,
@@ -2485,12 +2485,12 @@ function StudioMiniNumberInput({ label, value, onChange, min = 0, suffix = '' })
 
 function SimpleStudioBuilder({ form, template, availableContentTypes, updateForm, generateDraft, saveContent, createFromText }) {
   const outputModes = [
-    ['Materi', 'Buat Materi', BookOpen],
-    ['Soal', 'Buat Soal', FileQuestion],
-    ['Kuis', 'Buat Kuis', PlayCircle],
-    ['Tugas', 'Buat Tugas', ClipboardList],
+    ['Soal', 'Soal', FileQuestion],
+    ['Kuis', 'Kuis', PlayCircle],
+    ['Materi', 'Materi', BookOpen],
+    ['Tugas', 'Tugas', ClipboardList],
   ]
-  const referenceModes = ['Tanpa Materi', 'Ketik Manual', 'Link Video', 'PDF/TXT segera']
+  const referenceModes = ['Tanpa Materi', 'Ketik Manual', 'Link Video']
   const cognitiveLevels = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6']
   const selectedLevels = Array.isArray(form.cognitiveLevels) ? form.cognitiveLevels : ['C2', 'C3', 'C4']
   const isQuestionMode = form.outputType !== 'Materi'
@@ -2503,181 +2503,154 @@ function SimpleStudioBuilder({ form, template, availableContentTypes, updateForm
   }
 
   return (
-    <div className="grid gap-4">
-      <SectionCard className="bg-gradient-to-br from-white via-violet-50/70 to-white">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Generator Cepat</p>
-            <h2 className="mt-1 text-2xl font-black text-slate-950">Langsung buat konten inti.</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Pilih jenis output, isi topik, atur jumlah, lalu klik generate.
-            </p>
-          </div>
-          <StatusBadge tone="green">Sederhana</StatusBadge>
+    <SectionCard>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Studio Konten</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Buat materi atau soal.</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-500">Isi data inti, atur jumlah, lalu generate.</p>
         </div>
+        <StatusBadge tone="green">Kosong sampai generate</StatusBadge>
+      </div>
 
-        <div className="mt-5 grid gap-2 sm:grid-cols-4">
-          {outputModes.map(([id, label, Icon]) => (
-            <button
-              key={id}
-              onClick={() => updateForm('outputType', id)}
-              className={`rounded-3xl p-4 text-left ring-1 transition ${
-                form.outputType === id
-                  ? 'bg-galaxy-action text-white shadow-glow ring-galaxy-action'
-                  : 'bg-white text-slate-700 ring-purple-100 hover:bg-galaxy-lavender'
-              }`}
-            >
-              <Icon size={19} />
-              <span className="mt-2 block text-sm font-black">{label}</span>
-            </button>
-          ))}
-        </div>
-      </SectionCard>
+      <div className="mb-4 grid gap-2 sm:grid-cols-4">
+        {outputModes.map(([id, label, Icon]) => (
+          <button
+            key={id}
+            onClick={() => updateForm('outputType', id)}
+            className={`rounded-2xl px-3 py-3 text-left ring-1 transition ${
+              form.outputType === id
+                ? 'bg-galaxy-action text-white shadow-glow ring-galaxy-action'
+                : 'bg-white text-slate-700 ring-purple-100 hover:bg-galaxy-lavender'
+            }`}
+          >
+            <Icon size={17} />
+            <span className="mt-1 block text-sm font-black">{label}</span>
+          </button>
+        ))}
+      </div>
 
-      <SectionCard>
-        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Identitas Konten</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <TextField label="Nama Guru" value={form.teacherName || ''} onChange={(value) => updateForm('teacherName', value)} placeholder="Nama guru" />
-          <TextField label="Nama Sekolah" value={form.schoolName || ''} onChange={(value) => updateForm('schoolName', value)} placeholder="Nama sekolah" />
+      <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
+        <p className="mb-3 text-sm font-black text-slate-950">Identitas</p>
+        <div className="grid gap-3 md:grid-cols-2">
           <SelectField label="Jenjang" value={form.educationLevel || 'SMA/MA'} onChange={(value) => updateForm('educationLevel', value)} options={['SMA/MA', 'SMK/MAK', 'SMP/MTs']} />
           <SelectField label="Kelas" value={form.className} onChange={(value) => updateForm('className', value)} options={classOptions} />
-          <SelectField label="Mata Pelajaran" value={form.subject} onChange={(value) => updateForm('subject', value)} options={Object.keys(subjectTemplates)} />
+          <SelectField label="Mapel" value={form.subject} onChange={(value) => updateForm('subject', value)} options={Object.keys(subjectTemplates)} />
           <TextField label="Topik / Materi" value={form.topic} onChange={(value) => updateForm('topic', value)} placeholder={template.sampleTopic} />
         </div>
-      </SectionCard>
+      </div>
 
-      <SectionCard>
-        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Materi Referensi</p>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
-          Jika tidak diisi, sistem membuat konten berdasarkan topik. Untuk tahap ini PDF/TXT disiapkan sebagai tombol UI, belum upload file besar.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {referenceModes.map((mode) => (
-            <button
-              key={mode}
-              onClick={() => updateForm('referenceMode', mode)}
-              className={`rounded-2xl px-4 py-3 text-sm font-extrabold ${
-                form.referenceMode === mode
-                  ? 'bg-galaxy-action text-white shadow-glow'
-                  : 'bg-galaxy-surface text-galaxy-purple ring-1 ring-purple-100'
-              }`}
-            >
-              {mode}
-            </button>
-          ))}
+      <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-black text-slate-950">Referensi</p>
+          <div className="flex flex-wrap gap-2">
+            {referenceModes.map((mode) => (
+              <button
+                key={mode}
+                onClick={() => updateForm('referenceMode', mode)}
+                className={`rounded-xl px-3 py-2 text-xs font-extrabold ${
+                  form.referenceMode === mode
+                    ? 'bg-galaxy-action text-white'
+                    : 'bg-white text-galaxy-purple ring-1 ring-purple-100'
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
         </div>
 
         {form.referenceMode === 'Ketik Manual' && (
-          <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
-            Ketik / tempel materi referensi
+          <label className="mt-3 grid gap-2 text-sm font-bold text-slate-700">
+            Teks referensi
             <textarea
               value={form.sourceText || ''}
               onChange={(event) => updateForm('sourceText', event.target.value)}
-              rows={6}
-              className="rounded-[1.5rem] border border-purple-100 bg-galaxy-surface px-4 py-3 text-sm leading-7 outline-none focus:border-purple-300"
-              placeholder="Tempel materi, ringkasan buku, modul, atau catatan guru di sini."
+              rows={4}
+              className="rounded-2xl border border-purple-100 bg-white px-4 py-3 text-sm leading-7 outline-none focus:border-purple-300"
+              placeholder="Tempel materi, ringkasan buku, modul, atau catatan guru."
             />
-            <button onClick={createFromText} className="w-fit rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-extrabold text-cyan-700 ring-1 ring-cyan-100">
-              Ubah teks menjadi draft
+            <button onClick={createFromText} className="w-fit rounded-xl bg-cyan-50 px-3 py-2 text-xs font-extrabold text-cyan-700 ring-1 ring-cyan-100">
+              Jadikan draft
             </button>
           </label>
         )}
 
         {form.referenceMode === 'Link Video' && (
-          <TextField label="Link video / artikel" value={form.videoUrl || ''} onChange={(value) => updateForm('videoUrl', value)} placeholder="https://..." />
-        )}
-      </SectionCard>
-
-      <SectionCard>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Konfigurasi {isQuestionMode ? 'Soal' : 'Materi'}</p>
-            <h2 className="mt-1 text-xl font-black text-slate-950">{isQuestionMode ? 'Atur jumlah dan kualitas soal.' : 'Atur bentuk materi.'}</h2>
+          <div className="mt-3">
+            <TextField label="Link video / artikel" value={form.videoUrl || ''} onChange={(value) => updateForm('videoUrl', value)} placeholder="https://..." />
           </div>
-          <StatusBadge tone="purple">{form.assessmentType || form.outputType}</StatusBadge>
-        </div>
+        )}
+      </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <SelectField label="Jenis Asesmen" value={form.assessmentType || 'Sumatif Harian'} onChange={(value) => updateForm('assessmentType', value)} options={['Sumatif Harian', 'Formatif', 'Diagnostik', 'Latihan Harian', 'Remedial']} />
-          <SelectField label="Opsi Jawaban PG" value={form.answerOptionCount || '4 Opsi (A-D)'} onChange={(value) => updateForm('answerOptionCount', value)} options={['4 Opsi (A-D)', '5 Opsi (A-E)', 'Benar/Salah']} />
-          <SelectField label="Jenis Konten" value={form.contentType} onChange={(value) => updateForm('contentType', value)} options={availableContentTypes} />
-          <TextField label="Durasi / Alokasi" value={form.duration} onChange={(value) => updateForm('duration', value)} placeholder="2 JP" />
+      <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
+        <p className="text-sm font-black text-slate-950">{isQuestionMode ? 'Konfigurasi Soal' : 'Konfigurasi Materi'}</p>
+
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <SelectField label="Jenis" value={form.assessmentType || 'Sumatif Harian'} onChange={(value) => updateForm('assessmentType', value)} options={['Sumatif Harian', 'Formatif', 'Diagnostik', 'Latihan Harian', 'Remedial']} />
+          <SelectField label="Opsi PG" value={form.answerOptionCount || '4 Opsi (A-D)'} onChange={(value) => updateForm('answerOptionCount', value)} options={['4 Opsi (A-D)', '5 Opsi (A-E)', 'Benar/Salah']} />
         </div>
 
         {isQuestionMode && (
           <>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <StudioMiniNumberInput label="Pilihan Ganda" value={form.mcCount} onChange={(value) => updateForm('mcCount', value)} />
-              <StudioMiniNumberInput label="Isian Singkat" value={form.shortAnswerCount} onChange={(value) => updateForm('shortAnswerCount', value)} />
+            <div className="mt-3 grid gap-2 sm:grid-cols-5">
+              <StudioMiniNumberInput label="PG" value={form.mcCount} onChange={(value) => updateForm('mcCount', value)} />
+              <StudioMiniNumberInput label="Isian" value={form.shortAnswerCount} onChange={(value) => updateForm('shortAnswerCount', value)} />
               <StudioMiniNumberInput label="Essay" value={form.essayCount} onChange={(value) => updateForm('essayCount', value)} />
-              <StudioMiniNumberInput label="Benar/Salah" value={form.trueFalseCount} onChange={(value) => updateForm('trueFalseCount', value)} />
-              <StudioMiniNumberInput label="Menjodohkan" value={form.matchingCount} onChange={(value) => updateForm('matchingCount', value)} />
+              <StudioMiniNumberInput label="B/S" value={form.trueFalseCount} onChange={(value) => updateForm('trueFalseCount', value)} />
+              <StudioMiniNumberInput label="Match" value={form.matchingCount} onChange={(value) => updateForm('matchingCount', value)} />
             </div>
 
-            <div className="mt-5 rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-100">
-              <p className="text-sm font-extrabold text-slate-950">Proporsi Tingkat Kesulitan (%)</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <StudioMiniNumberInput label="Mudah" value={form.easyPct} onChange={(value) => updateForm('easyPct', value)} suffix="%" />
-                <StudioMiniNumberInput label="Sedang" value={form.mediumPct} onChange={(value) => updateForm('mediumPct', value)} suffix="%" />
-                <StudioMiniNumberInput label="Sulit" value={form.hardPct} onChange={(value) => updateForm('hardPct', value)} suffix="%" />
-              </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <StudioMiniNumberInput label="Mudah" value={form.easyPct} onChange={(value) => updateForm('easyPct', value)} suffix="%" />
+              <StudioMiniNumberInput label="Sedang" value={form.mediumPct} onChange={(value) => updateForm('mediumPct', value)} suffix="%" />
+              <StudioMiniNumberInput label="Sulit" value={form.hardPct} onChange={(value) => updateForm('hardPct', value)} suffix="%" />
             </div>
 
-            <div className="mt-5">
-              <p className="text-sm font-extrabold text-slate-950">Level Kognitif (C1–C6)</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {cognitiveLevels.map((level) => (
-                  <button
-                    key={level}
-                    onClick={() => toggleLevel(level)}
-                    className={`grid h-12 w-12 place-items-center rounded-full text-sm font-black ring-1 ${
-                      selectedLevels.includes(level)
-                        ? 'bg-galaxy-action text-white ring-galaxy-action'
-                        : 'bg-white text-slate-500 ring-slate-200'
-                    }`}
-                  >
-                    {level}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-5 rounded-3xl bg-gradient-to-r from-violet-50 to-cyan-50 p-4 ring-1 ring-violet-100">
-              <p className="text-sm font-extrabold text-slate-950">Visual & Multimedia</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <StudioMiniNumberInput label="Ilustrasi AI" value={form.illustrationCount} onChange={(value) => updateForm('illustrationCount', value)} />
-                <StudioMiniNumberInput label="Diagram/Grafik" value={form.diagramCount} onChange={(value) => updateForm('diagramCount', value)} />
-                <StudioMiniNumberInput label="Peta Konsep" value={form.conceptMapCount} onChange={(value) => updateForm('conceptMapCount', value)} />
-              </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {cognitiveLevels.map((level) => (
+                <button
+                  key={level}
+                  onClick={() => toggleLevel(level)}
+                  className={`grid h-9 w-9 place-items-center rounded-full text-xs font-black ring-1 ${
+                    selectedLevels.includes(level)
+                      ? 'bg-galaxy-action text-white ring-galaxy-action'
+                      : 'bg-white text-slate-500 ring-slate-200'
+                  }`}
+                >
+                  {level}
+                </button>
+              ))}
             </div>
           </>
         )}
+      </div>
 
-        <label className="mt-5 grid gap-2 text-sm font-bold text-slate-700">
-          Instruksi tambahan
-          <textarea
-            value={form.customInstruction || ''}
-            onChange={(event) => updateForm('customInstruction', event.target.value)}
-            rows={4}
-            placeholder="Contoh: buat soal kontekstual, dekat dengan kehidupan siswa kepulauan, sertakan pembahasan singkat."
-            className="rounded-[1.5rem] border border-purple-100 bg-galaxy-surface px-4 py-3 text-sm leading-7 outline-none focus:border-purple-300"
-          />
-        </label>
+      <label className="mt-3 grid gap-2 text-sm font-bold text-slate-700">
+        Instruksi tambahan
+        <textarea
+          value={form.customInstruction || ''}
+          onChange={(event) => updateForm('customInstruction', event.target.value)}
+          rows={3}
+          placeholder="Contoh: buat soal kontekstual, dekat dengan kehidupan siswa kepulauan, sertakan pembahasan singkat."
+          className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 text-sm leading-7 outline-none focus:border-purple-300"
+        />
+      </label>
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          <button onClick={generateDraft} className="inline-flex items-center gap-2 rounded-2xl bg-galaxy-action px-6 py-4 text-sm font-black text-white shadow-glow">
-            <Sparkles size={18} />
-            {isQuestionMode ? 'Buat Soal Otomatis' : 'Buat Materi Otomatis'}
-          </button>
-          <button onClick={saveContent} className="inline-flex items-center gap-2 rounded-2xl bg-galaxy-surface px-5 py-4 text-sm font-extrabold text-galaxy-purple ring-1 ring-purple-100">
-            <Save size={17} />
-            Simpan Draft
-          </button>
-        </div>
-      </SectionCard>
-    </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button onClick={generateDraft} className="inline-flex items-center gap-2 rounded-xl bg-galaxy-action px-5 py-3 text-sm font-black text-white shadow-glow">
+          <Sparkles size={17} />
+          {isQuestionMode ? 'Buat Soal Otomatis' : 'Buat Materi Otomatis'}
+        </button>
+        <button onClick={saveContent} className="inline-flex items-center gap-2 rounded-xl bg-galaxy-surface px-4 py-3 text-sm font-extrabold text-galaxy-purple ring-1 ring-purple-100">
+          <Save size={16} />
+          Simpan Draft
+        </button>
+      </div>
+    </SectionCard>
   )
 }
+
 
 function StudioOutputWorkspace({ preview, form, resultTab, setResultTab, publishToFeature, deliveryStatus, savingTarget }) {
   const questions = getStudioPreviewQuestions(preview, form)
@@ -2691,59 +2664,60 @@ function StudioOutputWorkspace({ preview, form, resultTab, setResultTab, publish
   ]
 
   return (
-    <SectionCard className="relative overflow-hidden bg-white">
-      <div className="absolute right-4 top-4 hidden gap-2 lg:grid">
-        {['JSON', 'Word', 'PDF', 'Print', 'Kartu', 'Gambar'].map((item) => (
-          <span key={item} className="rounded-2xl bg-galaxy-surface px-3 py-2 text-center text-xs font-black text-galaxy-purple ring-1 ring-purple-100">
+    <SectionCard className="bg-white">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Hasil</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">{form.assessmentType || 'Sumatif Harian'}</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            {form.subject} · {String(form.className || '').startsWith('Kelas') ? form.className : `Kelas ${form.className}`} · {total} soal
+          </p>
+        </div>
+        <StatusBadge tone={preview?.hasGenerated ? 'green' : 'amber'}>
+          {preview?.hasGenerated ? 'Sudah generate' : 'Kosong'}
+        </StatusBadge>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2 border-b border-purple-100 pb-3">
+        {tabs.map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setResultTab(id)}
+            className={`rounded-xl px-3 py-2 text-xs font-black ${
+              resultTab === id
+                ? 'bg-galaxy-action text-white shadow-glow'
+                : 'bg-slate-50 text-slate-600 ring-1 ring-slate-100'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {deliveryStatus && (
+        <div className="mt-4 rounded-2xl bg-emerald-50 p-3 text-sm font-semibold leading-6 text-emerald-800 ring-1 ring-emerald-100">
+          <b>{deliveryStatus.success}</b> {deliveryStatus.nextStep}
+        </div>
+      )}
+
+      {resultTab === 'soal' && <StudioQuestionDocument questions={questions} form={form} preview={preview} />}
+      {resultTab === 'kunci' && <StudioAnswerKey questions={questions} />}
+      {resultTab === 'kisi' && <StudioBlueprint questions={questions} form={form} />}
+      {resultTab === 'kuis' && <StudioPublishPanel publishToFeature={publishToFeature} savingTarget={savingTarget} />}
+      {resultTab === 'analisis' && <StudioAnalysisPanel questions={questions} form={form} />}
+      {resultTab === 'materi' && <StudioMaterialDocument preview={preview} />}
+
+      <div className="mt-4 flex flex-wrap gap-2 border-t border-purple-100 pt-3">
+        {['Copy', 'Print', 'Word', 'PDF'].map((item) => (
+          <span key={item} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-black text-galaxy-purple ring-1 ring-purple-100">
             {item}
           </span>
         ))}
       </div>
-
-      <div className="pr-0 lg:pr-24">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Hasil Generasi</p>
-            <h2 className="mt-1 text-2xl font-black text-slate-950">{form.assessmentType || 'Sumatif Harian'}</h2>
-            <p className="mt-1 text-sm font-semibold text-slate-500">
-              {form.subject} - {String(form.className || '').startsWith('Kelas') ? form.className : `Kelas ${form.className}`} · Topik: {form.topic || preview.topic} · Total: {total} soal
-            </p>
-          </div>
-          <StatusBadge tone="purple">Kurikulum Merdeka</StatusBadge>
-        </div>
-
-        <div className="mt-5 flex flex-wrap gap-2 border-b border-purple-100 pb-3">
-          {tabs.map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setResultTab(id)}
-              className={`rounded-2xl px-4 py-3 text-sm font-black ${
-                resultTab === id
-                  ? 'bg-galaxy-action text-white shadow-glow'
-                  : 'bg-slate-50 text-slate-600 ring-1 ring-slate-100'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {deliveryStatus && (
-          <div className="mt-4 rounded-3xl bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-800 ring-1 ring-emerald-100">
-            <b>{deliveryStatus.success}</b> {deliveryStatus.nextStep}
-          </div>
-        )}
-
-        {resultTab === 'soal' && <StudioQuestionDocument questions={questions} form={form} preview={preview} />}
-        {resultTab === 'kunci' && <StudioAnswerKey questions={questions} />}
-        {resultTab === 'kisi' && <StudioBlueprint questions={questions} form={form} />}
-        {resultTab === 'kuis' && <StudioPublishPanel publishToFeature={publishToFeature} savingTarget={savingTarget} />}
-        {resultTab === 'analisis' && <StudioAnalysisPanel questions={questions} form={form} />}
-        {resultTab === 'materi' && <StudioMaterialDocument preview={preview} />}
-      </div>
     </SectionCard>
   )
 }
+
 
 function StudioQuestionDocument({ questions, form, preview }) {
   const illustrationCount = toStudioNumber(form.illustrationCount, 0)
@@ -2751,7 +2725,7 @@ function StudioQuestionDocument({ questions, form, preview }) {
 
   if (!questions.length) {
     return (
-      <div className="mt-5 rounded-[1.75rem] border border-dashed border-purple-200 bg-slate-50 p-8 text-center">
+      <div className="mt-4 rounded-2xl border border-dashed border-purple-200 bg-slate-50 p-5 text-center">
         <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Belum ada soal</p>
         <h3 className="mt-2 text-2xl font-black text-slate-950">Hasil generasi masih kosong.</h3>
         <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
@@ -2771,7 +2745,7 @@ function StudioQuestionDocument({ questions, form, preview }) {
 
       <div className="grid gap-4">
         {questions.map((question, index) => (
-          <div key={question.id || index} className="rounded-[1.75rem] border-l-4 border-galaxy-action bg-white p-5 shadow-sm ring-1 ring-slate-100">
+          <div key={question.id || index} className="rounded-2xl border-l-4 border-galaxy-action bg-white p-4 shadow-sm ring-1 ring-slate-100">
             <div className="flex gap-4">
               <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-2xl bg-galaxy-lavender text-sm font-black text-galaxy-purple">
                 {index + 1}
