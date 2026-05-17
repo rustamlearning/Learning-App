@@ -12,9 +12,9 @@ import { useAuth } from './context/AuthContext.jsx'
 import { EmptyState } from './components/ui.jsx'
 
 const rolePages = {
-  siswa: ['dashboard', 'kelas', 'materi', 'tugas', 'latihan', 'kuis', 'flashcard', 'ai-tutor', 'progres', 'leaderboard', 'profil', 'seaclub'],
+  siswa: ['dashboard', 'kelas', 'materi', 'tugas', 'latihan', 'kuis', 'flashcard', 'ai-tutor', 'progres', 'leaderboard', 'profil', 'isleclub'],
   guru: ['dashboard', 'kelas', 'materi', 'bank-soal', 'tugas', 'kuis-live', 'studio-konten', 'analisis-nilai', 'remedial', 'ai-generator', 'laporan'],
-  admin: ['dashboard', 'guru', 'siswa', 'kelas', 'mapel', 'kurikulum', 'pengaturan', 'laporan', 'backup'],
+  admin: ['dashboard', 'guru', 'siswa', 'kelas', 'mapel', 'pengaturan', 'laporan', 'backup'],
   pimpinan: ['dashboard', 'monitoring-kelas', 'monitoring-guru', 'monitoring-siswa', 'laporan-akademik', 'laporan-aktivitas'],
 }
 

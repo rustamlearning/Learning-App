@@ -1,6 +1,6 @@
-# SEA Learning App
+# IsleLearn App
 
-SEA Learning App adalah aplikasi pembelajaran digital untuk SMA Negeri 6 Pangkajene dan Kepulauan. Aplikasi ini dirancang ringan, modern, role-based, dan cocok digunakan untuk lingkungan sekolah kepulauan dengan kondisi jaringan yang beragam.
+IsleLearn App adalah aplikasi pembelajaran digital untuk SMA Negeri 6 Pangkajene dan Kepulauan. Aplikasi ini dirancang ringan, modern, role-based, dan cocok digunakan untuk lingkungan sekolah kepulauan dengan kondisi jaringan yang beragam.
 
 ## Fitur Utama
 
@@ -143,6 +143,6 @@ supabase/
 
 ## Status Project
 
-SEA Learning App saat ini sudah memiliki UI utama, routing role-based, demo login, optimasi bundle production, struktur Supabase, dan endpoint AI server-side.
+IsleLearn App saat ini sudah memiliki UI utama, routing role-based, demo login, optimasi bundle production, struktur Supabase, dan endpoint AI server-side.
 
 Project masih dapat dikembangkan lebih lanjut untuk fitur real production seperti upload file, manajemen akun lengkap, absensi, notifikasi real-time, dan laporan PDF.

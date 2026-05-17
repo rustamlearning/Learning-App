@@ -1,4 +1,3 @@
-import { fetchCurriculumOverview } from '../services/curriculumService.js'
 import { useEffect, useMemo, useState } from 'react'
 import {
   Atom,
@@ -7,9 +6,12 @@ import {
   Brain,
   Calculator,
   CheckCircle2,
+  Clock3,
   ClipboardList,
+  Compass,
   FileQuestion,
   FlaskConical,
+  GraduationCap,
   Layers3,
   Link as LinkIcon,
   Microscope,
@@ -20,6 +22,7 @@ import {
   Sparkles,
   Target,
   Trash2,
+  Users,
   Wand2,
 } from 'lucide-react'
 import {
@@ -41,10 +44,36 @@ const CONTENT_KEY = 'sman6_studio_content_v1'
 const RUBRIC_KEY = 'sman6_studio_rubrics_v1'
 const FLASHCARD_KEY = 'sman6_studio_flashcards_v1'
 
+const educationLevelOptions = ['SMA/MA']
+const classOptions = ['X', 'XI', 'XII']
+const smaSubjectOptions = [
+  'Pendidikan Agama Islam dan Budi Pekerti',
+  'Pendidikan Pancasila',
+  'Bahasa Indonesia',
+  'Matematika',
+  'Bahasa Inggris',
+  'PJOK',
+  'Sejarah',
+  'Seni Budaya',
+  'Informatika',
+  'Fisika',
+  'Kimia',
+  'Biologi',
+  'Ekonomi',
+  'Geografi',
+  'Sosiologi',
+  'Antropologi',
+  'Matematika Tingkat Lanjut',
+  'Bahasa Indonesia Tingkat Lanjut',
+  'Bahasa Inggris Tingkat Lanjut',
+  'Prakarya dan Kewirausahaan',
+  'Muatan Lokal',
+]
+
 const subjectTemplates = {
   Matematika: {
     icon: Calculator,
-    color: 'purple',
+    color: 'teal',
     contentTypes: ['Rumus interaktif', 'Grafik fungsi', 'Geometri', 'Latihan bertahap', 'Pembahasan langkah demi langkah'],
     tools: ['GeoGebra', 'Desmos', 'Scientific Calculator', 'Graphing Tool'],
     sampleTopic: 'Fungsi Kuadrat',
@@ -72,10 +101,10 @@ const subjectTemplates = {
   },
   'Bahasa Inggris': {
     icon: BookOpen,
-    color: 'purple',
+    color: 'teal',
     contentTypes: ['Reading passage', 'Grammar drill', 'Speaking prompt', 'Writing rubric', 'Vocabulary flashcard'],
     tools: ['Dialogue Builder', 'Flashcard Maker', 'Rubric Builder', 'Speaking Prompt'],
-    sampleTopic: 'Descriptive Text',
+    sampleTopic: 'Topik pilihan',
   },
   'Bahasa Indonesia': {
     icon: PenTool,
@@ -100,9 +129,67 @@ const subjectTemplates = {
   },
 }
 
-const classOptions = ['X', 'XI', 'XII']
+const subjectTemplateAliases = {
+  Ekonomi: 'Sosial',
+  Geografi: 'Sosial',
+  Sosiologi: 'Sosial',
+  Antropologi: 'Sosial',
+  Sejarah: 'Sosial',
+  'Pendidikan Pancasila': 'Sosial',
+  'Pendidikan Pancasila dan Kewarganegaraan': 'Sosial',
+  Informatika: 'Matematika',
+  'Matematika Tingkat Lanjut': 'Matematika',
+  'Bahasa Indonesia Tingkat Lanjut': 'Bahasa Indonesia',
+  'Bahasa Inggris Tingkat Lanjut': 'Bahasa Inggris',
+}
+
+function getSubjectTemplate(subject) {
+  const exact = subjectTemplates[subject]
+  if (exact) return exact
+  const alias = subjectTemplateAliases[subject]
+  return subjectTemplates[alias] || subjectTemplates.Umum
+}
+
+function uniqueTextOptions(items = []) {
+  return Array.from(new Set(items.map((item) => String(item || '').trim()).filter(Boolean)))
+}
+
+function buildStudioSubjectOptions(lookupSubjects = [], userSubject = '') {
+  const lookupNames = lookupSubjects.map((subject) => subject.name)
+  return uniqueTextOptions([userSubject, ...lookupNames, ...smaSubjectOptions])
+}
+
 const levelOptions = ['Mudah', 'Standar', 'Menantang']
-const outputOptions = ['Materi', 'Tugas', 'Kuis', 'Flashcard', 'LKPD', 'Rubrik', 'Remedial', 'Pengayaan']
+const outputOptions = ['Materi', 'Tugas', 'Kuis', 'Soal', 'Flashcard', 'LKPD', 'Rubrik', 'Remedial', 'Pengayaan']
+const lessonPurposeOptions = ['Pertemuan baru', 'Penguatan konsep', 'Latihan terbimbing', 'Remedial', 'Pengayaan']
+const teachingApproachOptions = ['Diskusi kelas', 'Kolaborasi kelompok', 'Praktik/LKPD', 'Literasi mandiri', 'Proyek singkat']
+const readinessOptions = ['Belum dipetakan', 'Campuran', 'Perlu penguatan dasar', 'Siap tantangan']
+
+function isMaterialOutput(outputType) {
+  return outputType === 'Materi'
+}
+
+function isQuestionOutput(outputType) {
+  return ['Soal', 'Kuis'].includes(outputType)
+}
+
+function getOutputLabel(form) {
+  if (isMaterialOutput(form.outputType)) return 'Materi pembelajaran'
+  if (form.outputType === 'Tugas') return 'Draft tugas'
+  if (form.outputType === 'Kuis') return `Kuis ${String(form.assessmentType || 'formatif').toLowerCase()}`
+  if (form.outputType === 'Soal') return `Soal ${String(form.assessmentType || 'formatif').toLowerCase()}`
+  return form.outputType || 'Draft konten'
+}
+
+function getOutputMeta(form, total = 0) {
+  const classLabel = String(form.className || '').startsWith('Kelas') ? form.className : `Kelas ${form.className || '-'}`
+  const base = [form.subject || 'Mata pelajaran', classLabel].filter(Boolean).join(' · ')
+
+  if (isMaterialOutput(form.outputType)) return `${base} · bahan belajar siswa`
+  if (isQuestionOutput(form.outputType)) return `${base} · ${total} soal`
+  if (form.outputType === 'Tugas') return `${base} · instruksi tugas`
+  return `${base} · draft konten`
+}
 
 const stemResources = [
   {
@@ -174,7 +261,7 @@ const featureTargets = [
     success: '5 soal berhasil dikirim ke Bank Soal.',
     nextStep: 'Buka Bank Soal untuk mengecek, mengedit, atau memakai soal di kuis.',
     path: '/guru/bank-soal',
-    tone: 'purple',
+    tone: 'teal',
     icon: FileQuestion,
   },
   {
@@ -193,7 +280,7 @@ const featureTargets = [
     label: 'Buat Flashcard',
     shortLabel: 'Flashcard',
     description: 'Ubah topik menjadi kartu konsep singkat untuk review cepat siswa.',
-    success: 'Flashcard berhasil disimpan ke arsip flashcard Studio Konten.',
+    success: 'Flashcard berhasil disimpan ke arsip Siapkan Pembelajaran.',
     nextStep: 'Buka halaman siswa Flashcard untuk melihat deck yang tersimpan.',
     path: '/siswa/flashcard',
     tone: 'cyan',
@@ -207,7 +294,7 @@ const featureTargets = [
     success: 'Rubrik tersimpan di arsip lokal.',
     nextStep: 'Buka tab Arsip Lokal untuk melihat rubrik yang sudah dibuat.',
     path: '/guru/studio-konten',
-    tone: 'purple',
+    tone: 'teal',
     icon: ClipboardList,
   },
   {
@@ -215,7 +302,7 @@ const featureTargets = [
     label: 'Buat Remedial',
     shortLabel: 'Remedial',
     description: 'Buat paket belajar ulang untuk siswa yang belum tuntas.',
-    success: 'Remedial tersimpan di arsip Studio Konten.',
+    success: 'Remedial tersimpan di arsip Siapkan Pembelajaran.',
     nextStep: 'Buka halaman siswa Flashcard untuk melihat paket remedial.',
     path: '/siswa/flashcard',
     tone: 'amber',
@@ -226,7 +313,7 @@ const featureTargets = [
     label: 'Buat Pengayaan',
     shortLabel: 'Pengayaan',
     description: 'Buat tantangan lanjutan untuk siswa yang sudah memahami materi.',
-    success: 'Pengayaan tersimpan di arsip Studio Konten.',
+    success: 'Pengayaan tersimpan di arsip Siapkan Pembelajaran.',
     nextStep: 'Buka halaman siswa Flashcard untuk melihat paket pengayaan.',
     path: '/siswa/flashcard',
     tone: 'green',
@@ -245,9 +332,8 @@ const smartTemplates = [
     outputType: 'Soal',
     level: 'Standar',
     duration: '2 JP',
-    learningObjectiveId: '',
     icon: Calculator,
-    tone: 'purple',
+    tone: 'teal',
     summary: 'Template untuk menjelaskan bentuk grafik, titik puncak, sumbu simetri, dan latihan membaca grafik.',
     tools: ['Desmos', 'GeoGebra', 'Graphing Tool', 'Scientific Calculator'],
     sections: [
@@ -325,13 +411,13 @@ const smartTemplates = [
     id: 'english-speaking-writing',
     subject: 'Bahasa Inggris',
     title: 'Speaking & Writing Task',
-    topic: 'Descriptive Text',
+    topic: 'Topik pilihan',
     contentType: 'Speaking prompt',
     outputType: 'Tugas',
     level: 'Standar',
     duration: '2 JP',
     icon: BookOpen,
-    tone: 'purple',
+    tone: 'teal',
     summary: 'Template tugas speaking dan writing lengkap dengan kosakata, prompt, dan rubrik sederhana.',
     tools: ['Dialogue Builder', 'Speaking Prompt', 'Writing Rubric', 'Flashcard Maker'],
     sections: [
@@ -457,10 +543,10 @@ function writeStorage(key, value) {
 function teacherStorageKey(kind, user, subject) {
   const owner = user?.id || subject || 'demo'
   const keys = {
-    materials: `sea-learning-teacher-materials-${owner}`,
-    questions: `sea-learning-teacher-questions-${owner}`,
-    quizzes: `sea-learning-teacher-quizzes-${owner}`,
-    assignments: `sea-learning-teacher-assignments-${owner}`,
+    materials: `islelearn-teacher-materials-${owner}`,
+    questions: `islelearn-teacher-questions-${owner}`,
+    quizzes: `islelearn-teacher-quizzes-${owner}`,
+    assignments: `islelearn-teacher-assignments-${owner}`,
   }
   return keys[kind]
 }
@@ -514,17 +600,34 @@ function buildStructuredMaterialSections(draft = {}, form = {}) {
   const className = getStudioClassName(form, draft)
   const contextSentence = getStudioContextSentence(subject, topic, className)
   const sourceText = String(form.sourceText || '').trim()
+  const learningObjective = String(form.learningObjective || '').trim()
+  const lessonPurpose = String(form.lessonPurpose || 'Pertemuan baru').trim()
+  const studentReadiness = String(form.studentReadiness || '').trim()
+  const studentNeed = String(form.studentNeed || '').trim()
+  const teachingApproach = String(form.teachingApproach || 'Diskusi kelas').trim()
+  const successCriteria = String(form.successCriteria || '').trim()
   const customInstruction = String(form.customInstruction || '').trim()
+  const objectiveBody = learningObjective
+    ? `Target guru pada pertemuan ini: ${learningObjective}`
+    : `Setelah mempelajari ${topic}, siswa ${className} diharapkan mampu: (1) menjelaskan konsep utama ${topic} dengan bahasa sendiri, (2) mengidentifikasi ciri, struktur, atau langkah penting yang berkaitan dengan ${topic}, (3) menerapkan konsep tersebut dalam contoh kontekstual, dan (4) merefleksikan manfaatnya dalam kehidupan sehari-hari.`
 
   return [
     {
       title: 'Tujuan Pembelajaran',
-      body: `Setelah mempelajari ${topic}, siswa ${className} diharapkan mampu: (1) menjelaskan konsep utama ${topic} dengan bahasa sendiri, (2) mengidentifikasi ciri, struktur, atau langkah penting yang berkaitan dengan ${topic}, (3) menerapkan konsep tersebut dalam contoh kontekstual, dan (4) merefleksikan manfaatnya dalam kehidupan sehari-hari.`,
+      body: objectiveBody,
     },
     {
       title: 'Apersepsi',
-      body: `Guru dapat memulai pembelajaran dengan pertanyaan pemantik: “Di mana kalian pernah menemukan contoh ${topic} dalam kehidupan sehari-hari?” ${contextSentence} Bagian ini membantu siswa menghubungkan pengetahuan awal dengan materi yang akan dipelajari.`,
+      body: `Fokus pertemuan: ${lessonPurpose}. Guru dapat memulai pembelajaran dengan pertanyaan pemantik: “Di mana kalian pernah menemukan contoh ${topic} dalam kehidupan sehari-hari?” ${contextSentence} Bagian ini membantu siswa menghubungkan pengetahuan awal dengan materi yang akan dipelajari.`,
     },
+    ...((studentNeed || (studentReadiness && studentReadiness !== 'Belum dipetakan')) ? [{
+      title: 'Kondisi Siswa',
+      body: [
+        studentReadiness && studentReadiness !== 'Belum dipetakan' ? `Kesiapan kelas: ${studentReadiness}.` : '',
+        studentNeed ? `Catatan kebutuhan siswa: ${studentNeed}` : '',
+        'Gunakan catatan ini untuk menentukan contoh, tempo penjelasan, jumlah latihan, dan tindak lanjut agar pembelajaran tidak terasa generik.',
+      ].filter(Boolean).join('\n'),
+    }] : []),
     {
       title: 'Konsep Inti',
       body: `${topic} adalah materi penting dalam ${subject} karena membantu siswa memahami pola, makna, proses, atau keterampilan yang dibutuhkan dalam pembelajaran. Pada tahap awal, siswa perlu memahami definisi, ciri utama, istilah penting, dan contoh sederhana. Guru sebaiknya menjelaskan konsep secara bertahap, mulai dari pengertian, contoh, latihan terbimbing, hingga penerapan mandiri.`,
@@ -539,12 +642,16 @@ function buildStructuredMaterialSections(draft = {}, form = {}) {
     },
     {
       title: 'Aktivitas Pembelajaran',
-      body: `Aktivitas individu: siswa menulis kembali pemahaman tentang ${topic} dalam 3–5 kalimat. Aktivitas berpasangan: siswa saling bertukar contoh dan memberi umpan balik. Aktivitas kelompok: siswa membuat mini poster, peta konsep, dialog, tabel, atau penyelesaian masalah sederhana sesuai karakter mata pelajaran. Guru berkeliling untuk memberi bantuan pada siswa yang masih kesulitan.`,
+      body: `Pendekatan utama: ${teachingApproach}. Aktivitas individu: siswa menulis kembali pemahaman tentang ${topic} dalam 3–5 kalimat. Aktivitas berpasangan: siswa saling bertukar contoh dan memberi umpan balik. Aktivitas kelompok: siswa membuat mini poster, peta konsep, dialog, tabel, atau penyelesaian masalah sederhana sesuai karakter mata pelajaran. Guru berkeliling untuk memberi bantuan pada siswa yang masih kesulitan.`,
     },
     {
       title: 'Cek Pemahaman',
       body: `Gunakan pertanyaan cepat berikut: (1) Apa inti dari ${topic}? (2) Sebutkan satu ciri atau langkah penting dalam ${topic}. (3) Berikan satu contoh ${topic} yang dekat dengan kehidupanmu. (4) Bagian mana yang masih membingungkan? Jawaban siswa menjadi dasar guru untuk remedial atau pengayaan.`,
     },
+    ...(successCriteria ? [{
+      title: 'Kriteria Berhasil',
+      body: successCriteria,
+    }] : []),
     {
       title: 'Rangkuman',
       body: `Materi ${topic} menekankan pemahaman konsep, contoh, penerapan, dan refleksi. Siswa perlu mampu menjelaskan inti materi, mengenali unsur penting, menggunakan konsep dalam konteks sederhana, serta menyampaikan kembali pemahamannya dengan bahasa sendiri.`,
@@ -718,7 +825,6 @@ function makeGeneratedQuestions(preview, form, total = 5) {
       difficulty,
       cognitiveLevel,
       type,
-      learningObjectiveId: form.learningObjectiveId || '',
       source: 'quality-generator',
     }
   })
@@ -765,7 +871,6 @@ function normalizeStudioQuestionsForStorage(rawQuestions, preview, form, subject
       difficulty: question.difficulty || fallback.difficulty || getQuestionDifficultyByIndex(form, index, total),
       cognitiveLevel: question.cognitiveLevel || fallback.cognitiveLevel || 'C2',
       type: question.type || fallback.type || getStudioQuestionType(form, index),
-      learningObjectiveId: question.learningObjectiveId || form.learningObjectiveId || '',
       source: question.source || 'quality-normalized',
     }
   })
@@ -869,12 +974,16 @@ function getStudioPreviewQuestions(preview, form) {
 
 function buildStudioConfiguredPreview(draft, form) {
   const materialDraft = enhanceStudioMaterialDraft(draft, form)
+  const outputType = form.outputType || draft.outputType || 'Soal'
   const generatedDraft = {
     ...materialDraft,
-    outputType: form.outputType || draft.outputType || 'Soal',
+    title: isMaterialOutput(outputType)
+      ? cleanAIPreviewTitle(materialDraft.title || form.topic || 'Materi pembelajaran', 'Materi pembelajaran')
+      : cleanAIPreviewTitle(materialDraft.title || `${getOutputLabel({ ...form, outputType })}: ${form.topic || 'Topik pembelajaran'}`, getOutputLabel({ ...form, outputType })),
+    outputType,
     hasGenerated: true,
   }
-  const questions = getStudioPreviewQuestions(generatedDraft, form)
+  const questions = isQuestionOutput(outputType) ? getStudioPreviewQuestions(generatedDraft, form) : []
 
   return {
     ...generatedDraft,
@@ -983,7 +1092,6 @@ function buildQuestionsFromText(text, topic, form) {
       topic,
       difficulty: form.level === 'Menantang' ? 'Sulit' : form.level === 'Mudah' ? 'Mudah' : 'Sedang',
       type: 'Pilihan ganda',
-      learningObjectiveId: form.learningObjectiveId || '',
       source: 'import-text',
     }
   })
@@ -1019,11 +1127,51 @@ function buildImportTextDraft(form) {
   const keywords = extractSourceKeywords(text, 10)
   const questions = buildQuestionsFromText(text, topic, form)
   const flashcards = buildFlashcardsFromText(text, topic, form)
+  const materialMode = isMaterialOutput(form.outputType || 'Materi')
 
   const summary = sentences.slice(0, 3).join('. ') || `Teks ini membahas ${topic}. Guru dapat mengembangkan materi dengan contoh, latihan, dan refleksi.`
   const importantPoints = keywords.length > 0
     ? keywords.slice(0, 6).map((keyword, index) => `${index + 1}. ${titleCase(keyword)}`).join('\n')
     : `1. Konsep utama ${topic}\n2. Contoh penerapan\n3. Latihan pemahaman\n4. Refleksi siswa`
+  const materialSections = [
+    { title: 'Ringkasan materi', body: summary },
+    { title: 'Poin penting', body: importantPoints },
+    { title: 'Glosarium belajar', body: flashcards.cards.map((card) => `${card.front}: ${card.back}`).join('\n') },
+    {
+      title: 'Aktivitas memahami teks',
+      body: `A. Baca teks dengan teliti.\nB. Tandai kata atau konsep penting.\nC. Buat peta konsep sederhana.\nD. Tulis kesimpulan ${topic} dengan bahasa sendiri.\nE. Ceritakan satu contoh penerapan yang dekat dengan kehidupan siswa.`,
+    },
+    {
+      title: 'Refleksi siswa',
+      body: [
+        `Apa gagasan paling penting dari teks tentang ${topic}?`,
+        `Bagian mana yang masih membingungkan dan perlu dijelaskan ulang?`,
+        `Bagaimana konsep ${topic} bisa digunakan dalam kehidupan sehari-hari atau lingkungan sekolah?`,
+      ].join('\n'),
+    },
+  ]
+  const assessmentSections = [
+    { title: 'Ringkasan materi', body: summary },
+    { title: 'Poin penting', body: importantPoints },
+    { title: 'Glosarium / flashcard', body: flashcards.cards.map((card) => `${card.front}: ${card.back}`).join('\n') },
+    { title: '5 soal pilihan ganda', body: questions.map((question, index) => `${index + 1}. ${question.questionText}\nJawaban: ${question.correctAnswer}`).join('\n\n') },
+    {
+      title: '3 pertanyaan refleksi',
+      body: [
+        `Apa gagasan paling penting dari teks tentang ${topic}?`,
+        `Bagian mana yang masih membingungkan dan perlu dijelaskan ulang?`,
+        `Bagaimana konsep ${topic} bisa digunakan dalam kehidupan sehari-hari atau lingkungan sekolah?`,
+      ].join('\n'),
+    },
+    {
+      title: 'LKPD singkat',
+      body: `A. Baca teks dengan teliti.\nB. Tandai 5 kata/konsep penting.\nC. Buat peta konsep sederhana.\nD. Jawab 5 soal pilihan ganda.\nE. Tulis kesimpulan ${topic} dengan bahasa sendiri.`,
+    },
+    {
+      title: 'Exit ticket',
+      body: `Sebelum keluar kelas, tuliskan: 1 hal yang dipahami, 1 pertanyaan, dan 1 contoh penerapan ${topic}.`,
+    },
+  ]
 
   return {
     id: `studio-import-text-${Date.now()}`,
@@ -1035,35 +1183,15 @@ function buildImportTextDraft(form) {
     outputType: form.outputType || 'Materi',
     level: form.level,
     duration: form.duration,
-    learningObjectiveId: form.learningObjectiveId || '',
     createdAt: new Date().toISOString(),
     source: 'import-text',
     importedText: text,
-    generatedQuestions: questions,
+    generatedQuestions: materialMode ? [] : questions,
     generatedFlashcard: flashcards,
-    sections: [
-      { title: 'Ringkasan materi', body: summary },
-      { title: 'Poin penting', body: importantPoints },
-      { title: 'Glosarium / flashcard', body: flashcards.cards.map((card) => `${card.front}: ${card.back}`).join('\n') },
-      { title: '5 soal pilihan ganda', body: questions.map((question, index) => `${index + 1}. ${question.questionText}\nJawaban: ${question.correctAnswer}`).join('\n\n') },
-      {
-        title: '3 pertanyaan refleksi',
-        body: [
-          `Apa gagasan paling penting dari teks tentang ${topic}?`,
-          `Bagian mana yang masih membingungkan dan perlu dijelaskan ulang?`,
-          `Bagaimana konsep ${topic} bisa digunakan dalam kehidupan sehari-hari atau lingkungan sekolah?`,
-        ].join('\n'),
-      },
-      {
-        title: 'LKPD singkat',
-        body: `A. Baca teks dengan teliti.\nB. Tandai 5 kata/konsep penting.\nC. Buat peta konsep sederhana.\nD. Jawab 5 soal pilihan ganda.\nE. Tulis kesimpulan ${topic} dengan bahasa sendiri.`,
-      },
-      {
-        title: 'Exit ticket',
-        body: `Sebelum keluar kelas, tuliskan: 1 hal yang dipahami, 1 pertanyaan, dan 1 contoh penerapan ${topic}.`,
-      },
-    ],
-    tools: ['Text Analyzer', 'Flashcard Maker', 'Quiz Maker', 'LKPD Builder', 'Exit Ticket'],
+    sections: materialMode ? materialSections : assessmentSections,
+    tools: materialMode
+      ? ['Text Analyzer', 'Flashcard Maker', 'LKPD Builder', 'Exit Ticket']
+      : ['Text Analyzer', 'Flashcard Maker', 'Quiz Maker', 'LKPD Builder', 'Exit Ticket'],
   }
 }
 
@@ -1129,7 +1257,6 @@ function buildVideoQuestions(form, parsedQuestions) {
     topic,
     difficulty: form.level === 'Menantang' ? 'Sulit' : form.level === 'Mudah' ? 'Mudah' : 'Sedang',
     type: 'Pilihan ganda',
-    learningObjectiveId: form.learningObjectiveId || '',
     source: 'video-interactive',
   }))
 }
@@ -1167,6 +1294,63 @@ function buildVideoInteractiveDraft(form) {
   const parsedQuestions = parseVideoQuestions(form.videoTimestamps)
   const generatedQuestions = buildVideoQuestions(form, parsedQuestions)
   const generatedFlashcard = buildVideoFlashcard(form)
+  const materialMode = isMaterialOutput(form.outputType)
+  const materialSections = [
+    {
+      title: 'Link video',
+      body: form.videoUrl || 'Link video belum diisi.',
+    },
+    {
+      title: 'Tujuan menonton',
+      body: `Siswa menonton video untuk memahami konsep ${topic}, mencatat poin penting, dan menghubungkannya dengan contoh yang dekat dengan kehidupan mereka.`,
+    },
+    {
+      title: 'Panduan menonton aktif',
+      body: parsedQuestions.map((item, index) => `${index + 1}. ${item.timestamp} — ${item.question}`).join('\n'),
+    },
+    {
+      title: 'Catatan guru',
+      body: form.videoNote?.trim() || 'Minta siswa menonton secara aktif, menjeda video pada bagian penting, lalu menulis catatan singkat.',
+    },
+    {
+      title: 'Aktivitas siswa',
+      body: `A. Tonton video.\nB. Catat poin penting.\nC. Diskusikan bagian yang belum dipahami.\nD. Tulis kesimpulan tentang ${topic} dengan bahasa sendiri.`,
+    },
+    {
+      title: 'Exit ticket',
+      body: `Setelah menonton video, tuliskan 1 hal baru yang dipahami, 1 bagian yang masih membingungkan, dan 1 contoh penerapan ${topic}.`,
+    },
+  ]
+  const assessmentSections = [
+    {
+      title: 'Link video',
+      body: form.videoUrl || 'Link video belum diisi.',
+    },
+    {
+      title: 'Tujuan menonton',
+      body: `Siswa menonton video untuk memahami konsep ${topic}, mencatat poin penting, dan menjawab pertanyaan pada timestamp tertentu.`,
+    },
+    {
+      title: 'Pertanyaan berbasis timestamp',
+      body: parsedQuestions.map((item, index) => `${index + 1}. ${item.timestamp} — ${item.question}`).join('\n'),
+    },
+    {
+      title: 'Catatan guru',
+      body: form.videoNote?.trim() || 'Minta siswa menonton secara aktif, menjeda video pada timestamp pertanyaan, lalu menulis jawaban singkat.',
+    },
+    {
+      title: 'Aktivitas siswa',
+      body: `A. Tonton video.\nB. Jeda pada timestamp yang ditentukan.\nC. Jawab pertanyaan.\nD. Diskusikan jawaban dengan teman.\nE. Tulis kesimpulan tentang ${topic}.`,
+    },
+    {
+      title: '5 soal pilihan ganda',
+      body: generatedQuestions.map((question, index) => `${index + 1}. ${question.questionText}\nJawaban: ${question.correctAnswer}`).join('\n\n'),
+    },
+    {
+      title: 'Exit ticket',
+      body: `Setelah menonton video, tuliskan 1 hal baru yang dipahami, 1 bagian yang masih membingungkan, dan 1 contoh penerapan ${topic}.`,
+    },
+  ]
 
   return {
     id: `studio-video-interactive-${Date.now()}`,
@@ -1178,45 +1362,17 @@ function buildVideoInteractiveDraft(form) {
     outputType: 'Video Interaktif',
     level: form.level,
     duration: form.duration,
-    learningObjectiveId: form.learningObjectiveId || '',
     createdAt: new Date().toISOString(),
     source: 'video-interactive',
     videoUrl: form.videoUrl,
     videoTitle,
     videoQuestions: parsedQuestions,
-    generatedQuestions,
+    generatedQuestions: materialMode ? [] : generatedQuestions,
     generatedFlashcard,
-    sections: [
-      {
-        title: 'Link video',
-        body: form.videoUrl || 'Link video belum diisi.',
-      },
-      {
-        title: 'Tujuan menonton',
-        body: `Siswa menonton video untuk memahami konsep ${topic}, mencatat poin penting, dan menjawab pertanyaan pada timestamp tertentu.`,
-      },
-      {
-        title: 'Pertanyaan berbasis timestamp',
-        body: parsedQuestions.map((item, index) => `${index + 1}. ${item.timestamp} — ${item.question}`).join('\n'),
-      },
-      {
-        title: 'Catatan guru',
-        body: form.videoNote?.trim() || 'Minta siswa menonton secara aktif, menjeda video pada timestamp pertanyaan, lalu menulis jawaban singkat.',
-      },
-      {
-        title: 'Aktivitas siswa',
-        body: `A. Tonton video.\nB. Jeda pada timestamp yang ditentukan.\nC. Jawab pertanyaan.\nD. Diskusikan jawaban dengan teman.\nE. Tulis kesimpulan tentang ${topic}.`,
-      },
-      {
-        title: '5 soal pilihan ganda',
-        body: generatedQuestions.map((question, index) => `${index + 1}. ${question.questionText}\nJawaban: ${question.correctAnswer}`).join('\n\n'),
-      },
-      {
-        title: 'Exit ticket',
-        body: `Setelah menonton video, tuliskan 1 hal baru yang dipahami, 1 bagian yang masih membingungkan, dan 1 contoh penerapan ${topic}.`,
-      },
-    ],
-    tools: ['Video Question Builder', 'Timestamp Prompt', 'Quiz Maker', 'Flashcard Maker', 'Exit Ticket'],
+    sections: materialMode ? materialSections : assessmentSections,
+    tools: materialMode
+      ? ['Video Guide Builder', 'Timestamp Prompt', 'Flashcard Maker', 'Exit Ticket']
+      : ['Video Question Builder', 'Timestamp Prompt', 'Quiz Maker', 'Flashcard Maker', 'Exit Ticket'],
   }
 }
 
@@ -1253,10 +1409,10 @@ function topEntries(counter, limit = 6) {
 
 function getTeacherAnalyticsSnapshot(contentRows, rubricRows) {
   const flashcards = readStorage(FLASHCARD_KEY, [])
-  const materials = readRowsByPrefix('sea-learning-teacher-materials-')
-  const questions = readRowsByPrefix('sea-learning-teacher-questions-')
-  const quizzes = readRowsByPrefix('sea-learning-teacher-quizzes-')
-  const assignments = readRowsByPrefix('sea-learning-teacher-assignments-')
+  const materials = readRowsByPrefix('islelearn-teacher-materials-')
+  const questions = readRowsByPrefix('islelearn-teacher-questions-')
+  const quizzes = readRowsByPrefix('islelearn-teacher-quizzes-')
+  const assignments = readRowsByPrefix('islelearn-teacher-assignments-')
 
   const allContent = [
     ...contentRows,
@@ -1276,8 +1432,11 @@ function getTeacherAnalyticsSnapshot(contentRows, rubricRows) {
     .sort((a, b) => String(b.createdAt || b.id || '').localeCompare(String(a.createdAt || a.id || '')))
     .slice(0, 8)
 
-  const objectiveLinked = allContent.filter((item) => item.learningObjectiveId || item.learning_objective_id).length
-  const objectiveCoverage = allContent.length ? Math.round((objectiveLinked / allContent.length) * 100) : 0
+  const readyDrafts = allContent.filter((item) => {
+    const text = `${item.title || ''} ${item.topic || ''} ${item.description || ''}`.trim()
+    return text.length >= 20
+  }).length
+  const readinessScore = allContent.length ? Math.round((readyDrafts / allContent.length) * 100) : 0
   const recommendations = []
 
   if (materials.length < 3) {
@@ -1292,7 +1451,7 @@ function getTeacherAnalyticsSnapshot(contentRows, rubricRows) {
     recommendations.push({
       title: 'Perbanyak bank soal',
       description: 'Bank soal masih perlu diperkuat. Gunakan Import Teks atau Video Builder untuk membuat soal otomatis.',
-      tone: 'purple',
+      tone: 'teal',
     })
   }
 
@@ -1315,7 +1474,7 @@ function getTeacherAnalyticsSnapshot(contentRows, rubricRows) {
   if (!contentRows.some((item) => item.outputType === 'Remedial')) {
     recommendations.push({
       title: 'Siapkan remedial otomatis',
-      description: 'Belum ada paket remedial dari Studio Konten. Buat satu paket untuk siswa yang belum tuntas.',
+      description: 'Belum ada paket remedial dari Siapkan Pembelajaran. Buat satu paket untuk siswa yang belum tuntas.',
       tone: 'amber',
     })
   }
@@ -1328,11 +1487,11 @@ function getTeacherAnalyticsSnapshot(contentRows, rubricRows) {
     })
   }
 
-  if (allContent.length > 0 && objectiveCoverage < 80) {
+  if (allContent.length > 0 && readinessScore < 80) {
     recommendations.push({
-      title: 'Hubungkan konten ke TP/ATP',
-      description: 'Sebagian konten lokal belum terhubung TP. Pilih TP saat membuat draft baru atau edit konten lama dari halaman guru.',
-      tone: 'purple',
+      title: 'Rapikan identitas draft',
+      description: 'Sebagian konten lokal masih minim judul, topik, atau deskripsi. Lengkapi identitas agar mudah dicari dan dipakai ulang.',
+      tone: 'teal',
     })
   }
 
@@ -1346,8 +1505,8 @@ function getTeacherAnalyticsSnapshot(contentRows, rubricRows) {
       flashcards: flashcards.length,
       rubrics: rubricRows.length,
       all: allContent.length,
-      objectiveLinked,
-      objectiveCoverage,
+      readyDrafts,
+      readinessScore,
     },
     subjectCounts,
     typeCounts,
@@ -1412,13 +1571,17 @@ function makeRecommendedLearningPack(kind) {
 
 function buildFallbackLesson(form) {
   if (isEnglishSubject(form.subject)) return englishFallbackLesson(form)
-  const template = subjectTemplates[form.subject] || subjectTemplates.Umum
+  const template = getSubjectTemplate(form.subject)
   const topic = form.topic?.trim() || template.sampleTopic
   const level = form.level || 'Standar'
+  const learningObjective = String(form.learningObjective || '').trim()
+  const studentNeed = String(form.studentNeed || '').trim()
+  const teachingApproach = form.teachingApproach || 'Diskusi kelas'
+  const successCriteria = String(form.successCriteria || '').trim()
 
   return {
     id: `studio-content-${Date.now()}`,
-    title: `${form.outputType}: ${topic}`,
+    title: isMaterialOutput(form.outputType) ? `Bahan ajar: ${topic}` : `${form.outputType}: ${topic}`,
     subject: form.subject,
     className: form.className,
     topic,
@@ -1430,8 +1593,12 @@ function buildFallbackLesson(form) {
     sections: [
       {
         title: 'Tujuan pembelajaran',
-        body: `Siswa mampu memahami konsep utama ${topic}, menjelaskan contoh penggunaannya, dan menerapkan konsep tersebut dalam latihan sesuai level ${level.toLowerCase()}.`,
+        body: learningObjective || `Siswa mampu memahami konsep utama ${topic}, menjelaskan contoh penggunaannya, dan menerapkan konsep tersebut dalam latihan sesuai level ${level.toLowerCase()}.`,
       },
+      ...(studentNeed ? [{
+        title: 'Kebutuhan siswa',
+        body: studentNeed,
+      }] : []),
       {
         title: 'Ringkasan materi',
         body: `${topic} dipelajari melalui penjelasan bertahap, contoh kontekstual, aktivitas singkat, dan refleksi. Guru dapat menyesuaikan contoh dengan kondisi siswa SMAN 6 Pangkep.`,
@@ -1454,12 +1621,18 @@ function buildFallbackLesson(form) {
       },
       {
         title: 'Aktivitas siswa',
-        body: `Siswa membaca ringkasan, mengamati contoh, berdiskusi berpasangan, lalu mengerjakan latihan singkat atau LKPD sesuai arahan guru.`,
+        body: `Pendekatan utama: ${teachingApproach}. Siswa membaca ringkasan, mengamati contoh, berdiskusi berpasangan, lalu mengerjakan latihan singkat atau LKPD sesuai arahan guru.`,
       },
       {
-        title: 'Latihan',
-        body: `Buat 5 soal pemahaman dasar, 3 soal penerapan, dan 2 soal refleksi. Tambahkan pembahasan singkat agar siswa bisa belajar mandiri.`,
+        title: isMaterialOutput(form.outputType) ? 'Latihan pemahaman' : 'Latihan',
+        body: isMaterialOutput(form.outputType)
+          ? `Sediakan latihan belajar ringan: siswa menulis ulang inti ${topic}, memberi satu contoh, dan menjawab pertanyaan reflektif tanpa format ujian.`
+          : `Buat 5 soal pemahaman dasar, 3 soal penerapan, dan 2 soal refleksi. Tambahkan pembahasan singkat agar siswa bisa belajar mandiri.`,
       },
+      ...(successCriteria ? [{
+        title: 'Kriteria berhasil',
+        body: successCriteria,
+      }] : []),
       {
         title: 'Remedial dan pengayaan',
         body: `Remedial: berikan contoh lebih sederhana dan latihan bertahap. Pengayaan: berikan studi kasus atau proyek kecil yang menantang.`,
@@ -1495,7 +1668,6 @@ function buildSmartTemplateDraft(template, form) {
     outputType: template.outputType,
     level: template.level,
     duration: template.duration,
-    learningObjectiveId: form.learningObjectiveId || template.learningObjectiveId || '',
     createdAt: new Date().toISOString(),
     source: 'smart-template',
     sections: template.sections.map(([title, body]) => ({ title, body })),
@@ -1593,7 +1765,7 @@ function studioLanguageInstruction(form) {
 
 function englishFallbackLesson(form) {
   const topic = form.topic || 'Learning Topic'
-  const subject = form.subject || 'Bahasa Inggris'
+  const subject = form.subject || 'Mata pelajaran'
   const className = form.className || 'X'
   const contentType = form.contentType || 'Reading passage'
 
@@ -1673,28 +1845,43 @@ function englishFallbackLesson(form) {
 
 
 function buildStudioPrompt(form) {
+  const materialMode = isMaterialOutput(form.outputType)
   return [
     'WAJIB kembalikan JSON valid tanpa markdown.',
     'Gunakan struktur:',
-    '{"title":"...","sections":[{"title":"...","body":"..."}],"tools":["..."],"generatedQuestions":[{"questionText":"...","options":["A","B","C","D"],"correctAnswer":"...","explanation":"..."}]}',
+    materialMode
+      ? '{"title":"...","sections":[{"title":"...","body":"..."}],"tools":["..."],"generatedQuestions":[]}'
+      : '{"title":"...","sections":[{"title":"...","body":"..."}],"tools":["..."],"generatedQuestions":[{"questionText":"...","options":["A","B","C","D"],"correctAnswer":"...","explanation":"..."}]}',
     '',
     studioLanguageInstruction(form),
     '',
     `Mata pelajaran: ${form.subject}`,
     `Kelas: ${form.className}`,
     `Topik: ${form.topic}`,
+    `Tujuan pembelajaran guru: ${form.learningObjective || 'Belum diisi; rumuskan tujuan yang realistis untuk satu pertemuan.'}`,
+    `Fokus pertemuan: ${form.lessonPurpose || 'Pertemuan baru'}`,
+    `Kesiapan siswa: ${form.studentReadiness || 'Belum dipetakan'}`,
+    `Kebutuhan/kondisi siswa: ${form.studentNeed || 'Belum diisi.'}`,
+    `Cara belajar utama: ${form.teachingApproach || 'Diskusi kelas'}`,
+    `Kriteria berhasil: ${form.successCriteria || 'Belum diisi; buat indikator yang dapat diamati.'}`,
     `Jenis konten: ${form.contentType}`,
     `Simpan sebagai: ${form.outputType}`,
     `Level: ${form.level}`,
     `Durasi: ${form.duration}`,
     `Instruksi khusus guru: ${form.customInstruction || 'Tidak ada instruksi khusus. Buat versi terbaik yang praktis untuk kelas.'}`,
     '',
-    'Ikuti instruksi khusus guru selama tidak bertentangan dengan tujuan pembelajaran.',
+    materialMode
+      ? 'MODE MATERI: buat bahan belajar siswa. Jangan perlakukan sebagai sumatif, tes, ujian, bank soal, kunci jawaban, atau kisi-kisi. Jika ada cek pemahaman, tulis sebagai aktivitas belajar di dalam sections, bukan generatedQuestions formal.'
+      : `MODE ASESMEN/KERJA: jenis asesmen ${form.assessmentType || 'Formatif'}. Buat soal/aktivitas sesuai output yang dipilih.`,
+    '',
+    'Ikuti instruksi khusus guru selama tetap sesuai dengan target belajar topik.',
     '',
     'Buat draft pembelajaran yang siap dipakai guru.',
     'Untuk mapel Bahasa Inggris, pastikan model text, contoh kalimat, dialog, soal, opsi jawaban, dan correct answer berbahasa Inggris.',
     'Untuk mapel Bahasa Inggris, pastikan penjelasan konsep, pembahasan jawaban, instruksi bantuan, dan arahan belajar menggunakan Bahasa Indonesia.',
-    'Sertakan tujuan pembelajaran, ringkasan/model text, aktivitas siswa, latihan/pertanyaan, dan exit ticket.',
+    materialMode
+      ? 'Sertakan tujuan belajar, penjelasan materi, contoh, aktivitas belajar siswa, refleksi, dan tindak lanjut.'
+      : 'Sertakan target belajar, ringkasan seperlunya, soal/aktivitas, pembahasan, dan tindak lanjut.',
   ].join('\n')
 }
 
@@ -1862,7 +2049,7 @@ function normalizeAILesson(aiText, form) {
           parsed.modelText && { title: 'Model Text / Example', body: parsed.modelText },
           parsed.activity && { title: 'Aktivitas Siswa', body: parsed.activity },
           parsed.practice && { title: 'Latihan', body: parsed.practice },
-          parsed.assessment && { title: 'Asesmen', body: parsed.assessment },
+          !isMaterialOutput(form.outputType) && parsed.assessment && { title: 'Asesmen', body: parsed.assessment },
         ].filter(Boolean)
 
     const sections = rawSections.length > 0
@@ -1875,10 +2062,9 @@ function normalizeAILesson(aiText, form) {
         })
       : fallback.sections
 
-    const generatedQuestions = normalizeAIQuestions(
-      parsed.generatedQuestions || parsed.questions || parsed.quiz || parsed.latihan,
-      form
-    )
+    const generatedQuestions = isMaterialOutput(form.outputType)
+      ? []
+      : normalizeAIQuestions(parsed.generatedQuestions || parsed.questions || parsed.quiz || parsed.latihan, form)
 
     return {
       ...fallback,
@@ -2000,7 +2186,7 @@ function isDuplicateQuestionError(error) {
     || message.includes('unique constraint')
 }
 
-function enrichStudioQuestion(question, { subjectId, classId, topic, learningObjectiveId, token, sequence, forceUnique = false }) {
+function enrichStudioQuestion(question, { subjectId, classId, topic, token, sequence, forceUnique = false }) {
   const options = Array.isArray(question.options) && question.options.length > 0
     ? question.options
     : ['Benar', 'Salah', 'Perlu diskusi', 'Belum cukup informasi']
@@ -2017,7 +2203,6 @@ function enrichStudioQuestion(question, { subjectId, classId, topic, learningObj
     explanation: question.explanation || `Pembahasan terkait ${topic}.`,
     subjectId,
     classId,
-    learningObjectiveId: learningObjectiveId || question.learningObjectiveId || '',
     topic,
     difficulty: question.difficulty || 'Sedang',
     type: question.type || 'Pilihan ganda',
@@ -2059,7 +2244,7 @@ async function saveStudioQuestionsToSupabase({ accessToken, teacherId, questions
 }
 
 async function publishStudioDraftToSupabase({ target, accessToken, user, form, preview, lookups }) {
-  const subject = form.subject || user?.subject || 'Bahasa Inggris'
+  const subject = form.subject || user?.subject || 'Mata pelajaran'
   const className = String(form.className || '').startsWith('Kelas') ? form.className : `Kelas ${form.className || 'umum'}`
   const topic = preview.topic || form.topic || 'Topik pembelajaran'
   const contentText = previewToPlainText(preview)
@@ -2067,7 +2252,7 @@ async function publishStudioDraftToSupabase({ target, accessToken, user, form, p
   const classId = resolveStudioClassId(lookups, form.className)
 
   const token = shortStudioToken()
-  const context = { subjectId, classId, topic, learningObjectiveId: form.learningObjectiveId || '', token }
+  const context = { subjectId, classId, topic, token }
 
   if (target === 'materi') {
     await saveMaterial({
@@ -2075,14 +2260,13 @@ async function publishStudioDraftToSupabase({ target, accessToken, user, form, p
       teacherId: user.id,
       material: {
         title: preview.title || `Materi ${topic}`,
-        description: `Draft materi dari Studio Konten untuk topik ${topic}.`,
+        description: `Draft materi dari Siapkan Pembelajaran untuk topik ${topic}.`,
         content: contentText,
         subjectId,
         classId,
         subject,
         className,
         topic,
-        learningObjectiveId: form.learningObjectiveId || '',
         type: 'Teks',
         status: 'Draft',
       },
@@ -2101,7 +2285,6 @@ async function publishStudioDraftToSupabase({ target, accessToken, user, form, p
         classId,
         subject,
         className,
-        learningObjectiveId: form.learningObjectiveId || '',
         deadline: '',
         status: 'Draft',
       },
@@ -2139,7 +2322,6 @@ async function publishStudioDraftToSupabase({ target, accessToken, user, form, p
         classId,
         subject,
         className,
-        learningObjectiveId: form.learningObjectiveId || '',
         duration: 30,
         status: 'Draft',
       },
@@ -2158,23 +2340,29 @@ export default function ContentStudio({ user: propUser }) {
   const [resultTab, setResultTab] = useState('soal')
   const [editingQuestionIndex, setEditingQuestionIndex] = useState(null)
   const [form, setForm] = useState({
-    subject: 'Bahasa Inggris',
-    className: 'X',
-    topic: 'Descriptive Text',
-    contentType: 'Reading passage',
+    subject: user?.subject || '',
+    className: '',
+    topic: '',
+    contentType: '',
     outputType: 'Materi',
     level: 'Standar',
     duration: '2 JP',
     sourceText: '',
     videoUrl: '',
     videoTitle: '',
-    videoTimestamps: '00:30 | Apa konsep awal yang disampaikan?\n03:00 | Contoh apa yang muncul dalam video?\n05:00 | Apa kesimpulan penting dari video?',
+    videoTimestamps: '',
     videoNote: '',
+    learningObjective: '',
+    lessonPurpose: 'Pertemuan baru',
+    studentReadiness: 'Belum dipetakan',
+    studentNeed: '',
+    teachingApproach: 'Diskusi kelas',
+    successCriteria: '',
     customInstruction: '',
     teacherName: user?.name || '',
     schoolName: 'SMA Negeri 6 Pangkajene dan Kepulauan',
     educationLevel: 'SMA/MA',
-    assessmentType: 'Sumatif Harian',
+    assessmentType: 'Formatif',
     answerOptionCount: '4 Opsi (A-D)',
     mcCount: 5,
     shortAnswerCount: 0,
@@ -2188,13 +2376,13 @@ export default function ContentStudio({ user: propUser }) {
     illustrationCount: 0,
     diagramCount: 0,
     conceptMapCount: 0,
-    referenceMode: 'Tanpa Materi',
+    referenceMode: 'Topik saja',
   })
   const [preview, setPreview] = useState(() => buildEmptyStudioPreview({
-    subject: 'Bahasa Inggris',
-    className: 'X',
-    topic: 'Descriptive Text',
-    contentType: 'Reading passage',
+    subject: user?.subject || '',
+    className: '',
+    topic: '',
+    contentType: '',
     outputType: 'Materi',
     level: 'Standar',
     duration: '2 JP',
@@ -2202,13 +2390,12 @@ export default function ContentStudio({ user: propUser }) {
   const [contentRows, setContentRows] = useState(() => readStorage(CONTENT_KEY, []))
   const [rubricRows, setRubricRows] = useState(() => readStorage(RUBRIC_KEY, []))
   const [deliveryStatus, setDeliveryStatus] = useState(null)
-  const [curriculumData, setCurriculumData] = useState(() => ({ subjects: [], phases: [], elements: [], outcomes: [], objectives: [], flows: [] }))
-  const [curriculumError, setCurriculumError] = useState('')
   const [lookups, setLookups] = useState({ subjects: [], classes: [] })
   const [savingTarget, setSavingTarget] = useState('')
   const [analyticsTick, setAnalyticsTick] = useState(0)
 
-  const template = subjectTemplates[form.subject] || subjectTemplates.Umum
+  const template = getSubjectTemplate(form.subject)
+  const subjectOptions = useMemo(() => buildStudioSubjectOptions(lookups.subjects, user?.subject), [lookups.subjects, user?.subject])
   const availableContentTypes = template.contentTypes
   const analyticsSnapshot = useMemo(() => getTeacherAnalyticsSnapshot(contentRows, rubricRows), [analyticsTick, contentRows, rubricRows])
 
@@ -2250,86 +2437,62 @@ export default function ContentStudio({ user: propUser }) {
   }, [accessToken])
 
 
-  useEffect(() => {
-    let active = true
-
-    async function loadCurriculum() {
-      if (!accessToken) {
-        setCurriculumData({ subjects: [], phases: [], elements: [], outcomes: [], objectives: [], flows: [] })
-        return
-      }
-
-      try {
-        const overview = await fetchCurriculumOverview({ accessToken })
-        if (active) {
-          setCurriculumData(overview)
-          setCurriculumError('')
-        }
-      } catch (error) {
-        if (active) {
-          setCurriculumError(error.message || 'Bank kurikulum belum tersedia.')
-          setCurriculumData({ subjects: [], phases: [], elements: [], outcomes: [], objectives: [], flows: [] })
-        }
-      }
-    }
-
-    loadCurriculum()
-
-    return () => {
-      active = false
-    }
-  }, [accessToken])
-
-  const selectedLearningObjective = useMemo(() => {
-    return curriculumData.objectives.find((objective) => objective.id === form.learningObjectiveId) || null
-  }, [curriculumData.objectives, form.learningObjectiveId])
-
-  function selectLearningObjective(objectiveId) {
-    const objective = curriculumData.objectives.find((item) => item.id === objectiveId)
-    setForm((current) => ({
-      ...current,
-      learningObjectiveId: objectiveId,
-      subject: objective?.subjectName || current.subject,
-      className: objective?.grade ? String(objective.grade) : current.className,
-      topic: objective?.objective ? objective.objective.slice(0, 70) : current.topic,
-    }))
-    setDeliveryStatus(null)
-  }
-
   function updateForm(field, value) {
     setForm((current) => {
       const next = { ...current, [field]: value }
       if (field === 'subject') {
-        const nextTemplate = subjectTemplates[value] || subjectTemplates.Umum
-        next.topic = nextTemplate.sampleTopic
-        next.contentType = nextTemplate.contentTypes[0]
+        const nextTemplate = getSubjectTemplate(value)
+        if (!current.contentType || !nextTemplate.contentTypes.includes(current.contentType)) {
+          next.contentType = nextTemplate.contentTypes[0]
+        }
       }
       return next
     })
   }
 
+  function ensureLearningContext() {
+    const missing = []
+    if (!String(form.subject || '').trim()) missing.push('mapel')
+    if (!String(form.className || '').trim()) missing.push('kelas')
+    if (!String(form.topic || '').trim()) missing.push('topik')
+
+    if (missing.length > 0) {
+      setToast(`Lengkapi ${missing.join(', ')} terlebih dahulu agar draft tidak generik.`)
+      return false
+    }
+
+    return true
+  }
+
   async function generateDraft() {
+    if (!ensureLearningContext()) return
+
     try {
-      setToast(form.outputType === 'Materi' ? 'Membuat materi otomatis...' : 'Membuat soal otomatis...')
+      setToast(isMaterialOutput(form.outputType) ? 'Membuat materi otomatis...' : isQuestionOutput(form.outputType) ? 'Membuat soal otomatis...' : 'Membuat draft otomatis...')
       const aiDraft = await requestStudioAIDraft(form)
       const draft = buildStudioConfiguredPreview(aiDraft, form)
       setPreview(draft)
-      setResultTab(form.outputType === 'Materi' ? 'materi' : 'soal')
+      setResultTab(isQuestionOutput(form.outputType) ? 'soal' : 'materi')
       setToast(draft.source === 'ai' ? 'Draft berhasil dibuat dengan AI server.' : 'Draft berhasil dibuat dan dirapikan.')
     } catch (aiError) {
       const draft = buildStudioConfiguredPreview(buildFallbackLesson(form), form)
       setPreview(draft)
-      setResultTab(form.outputType === 'Materi' ? 'materi' : 'soal')
+      setResultTab(isQuestionOutput(form.outputType) ? 'soal' : 'materi')
       setToast('AI belum tersedia, draft lokal berhasil dibuat.')
     }
   }
 
   function saveContent() {
+    if (!preview?.hasGenerated) {
+      setToast('Siapkan draft terlebih dahulu sebelum menyimpan ke arsip.')
+      return
+    }
+
     const item = { ...preview, id: `studio-content-${Date.now()}`, savedAs: form.outputType }
     const nextRows = [item, ...contentRows]
     setContentRows(nextRows)
     writeStorage(CONTENT_KEY, nextRows)
-    setToast(`${form.outputType} tersimpan di arsip Studio Konten.`)
+    setToast(`${form.outputType} tersimpan di arsip Siapkan Pembelajaran.`)
   }
 
   function saveRubric() {
@@ -2344,7 +2507,6 @@ export default function ContentStudio({ user: propUser }) {
       outputType: 'Rubrik',
       level: form.level,
       duration: form.duration,
-      learningObjectiveId: form.learningObjectiveId || '',
       sections: (Array.isArray(rubric.criteria) ? rubric.criteria : []).map((criterion) => ({
         title: criterion.aspect,
         body: Object.entries(criterion.levels || {}).reverse().map(([score, text]) => `Skor ${score}: ${text}`).join('\n'),
@@ -2386,7 +2548,7 @@ export default function ContentStudio({ user: propUser }) {
   }
 
   async function publishToFeature(target) {
-    const subject = form.subject || user?.subject || 'Bahasa Inggris'
+    const subject = form.subject || user?.subject || 'Mata pelajaran'
     const className = `Kelas ${form.className}`
     const topic = preview.topic || form.topic || 'Topik pembelajaran'
     const contentText = previewToPlainText(preview)
@@ -2411,11 +2573,10 @@ export default function ContentStudio({ user: propUser }) {
       appendStorageRows(teacherStorageKey('materials', user, subject), [{
         id: `studio-material-${Date.now()}`,
         title: preview.title || `Materi ${topic}`,
-        description: `Draft materi dari Studio Konten untuk topik ${topic}.`,
+        description: `Draft materi dari Siapkan Pembelajaran untuk topik ${topic}.`,
         content: contentText,
         subject,
         className,
-        learningObjectiveId: form.learningObjectiveId || '',
         teacher: user?.name || 'Guru',
         topic,
         type: 'Teks',
@@ -2435,7 +2596,6 @@ export default function ContentStudio({ user: propUser }) {
         description: contentText.slice(0, 600),
         subject,
         className,
-        learningObjectiveId: form.learningObjectiveId || '',
         teacher: user?.name || 'Guru',
         deadline: '',
         status: 'Draft',
@@ -2471,11 +2631,10 @@ export default function ContentStudio({ user: propUser }) {
       appendStorageRows(teacherStorageKey('quizzes', user, subject), [{
         id: `studio-quiz-${Date.now()}`,
         title: `Kuis ${topic}`,
-        description: `Kuis otomatis dari Studio Konten untuk topik ${topic}.`,
+        description: `Kuis otomatis dari Siapkan Pembelajaran untuk topik ${topic}.`,
         subject,
         className,
         teacher: user?.name || 'Guru',
-        learningObjectiveId: form.learningObjectiveId || '',
         duration: 30,
         status: 'Draft',
         source: 'local',
@@ -2525,7 +2684,6 @@ export default function ContentStudio({ user: propUser }) {
       outputType: template.outputType || form.outputType || 'Materi',
       level: template.level || form.level || 'Standar',
       duration: template.duration || form.duration || '2 JP',
-      learningObjectiveId: template.learningObjectiveId || form.learningObjectiveId || '',
     }
 
     const draft = buildStudioConfiguredPreview(buildSmartTemplateDraft(template, nextForm), nextForm)
@@ -2542,10 +2700,8 @@ export default function ContentStudio({ user: propUser }) {
     const topic = preview.topic || form.topic || 'topik pembelajaran'
     const qualitySections = [
       {
-        title: 'Tujuan Pembelajaran Terukur',
-        body: form.learningObjectiveId
-          ? `Draft ini sudah diarahkan ke TP/ATP terpilih. Guru perlu memastikan aktivitas, soal, dan refleksi tetap sesuai dengan tujuan pembelajaran tentang ${topic}.`
-          : `Pilih TP/ATP terlebih dahulu, lalu pastikan tujuan belajar ${topic} ditulis sebagai kemampuan yang dapat diamati. Contoh: siswa mampu memahami, menerapkan, dan merefleksikan konsep ${topic}.`,
+        title: 'Target belajar terukur',
+        body: `Pastikan target belajar ${topic} ditulis sebagai kemampuan yang dapat diamati. Contoh: siswa mampu memahami, menerapkan, dan merefleksikan konsep ${topic}.`,
       },
       {
         title: 'Asesmen Formatif',
@@ -2568,7 +2724,6 @@ export default function ContentStudio({ user: propUser }) {
 
     setPreview({
       ...preview,
-      learningObjectiveId: form.learningObjectiveId || preview.learningObjectiveId || '',
       sections: [...cleanedSections, ...qualitySections],
       generatedQuestions: existingQuestions.length > 0 ? existingQuestions : makeGeneratedQuestions(preview, form, 5),
       tools: Array.from(new Set([...(preview.tools || []), 'Quality checklist', 'Asesmen formatif', 'Deep Learning', 'Exit ticket', 'Diferensiasi'])),
@@ -2579,6 +2734,8 @@ export default function ContentStudio({ user: propUser }) {
   }
 
   function createFromText() {
+    if (!ensureLearningContext()) return
+
     if (!form.sourceText.trim()) {
       setToast('Tempel teks materi terlebih dahulu.')
       return
@@ -2588,10 +2745,12 @@ export default function ContentStudio({ user: propUser }) {
     setPreview(draft)
     setResultTab(form.outputType === 'Materi' ? 'materi' : 'soal')
     setDeliveryStatus(null)
-    setToast('Teks berhasil diubah menjadi materi dan soal siap review.')
+    setToast(isMaterialOutput(form.outputType) ? 'Teks berhasil diubah menjadi bahan ajar siap review.' : 'Teks berhasil diubah menjadi draft asesmen siap review.')
   }
 
   function createVideoInteractive() {
+    if (!ensureLearningContext()) return
+
     if (!form.videoUrl.trim()) {
       setToast('Tempel link video terlebih dahulu.')
       return
@@ -2599,9 +2758,9 @@ export default function ContentStudio({ user: propUser }) {
 
     const draft = buildStudioConfiguredPreview(buildVideoInteractiveDraft(form), form)
     setPreview(draft)
-    setResultTab('soal')
+    setResultTab(isMaterialOutput(form.outputType) ? 'materi' : 'soal')
     setDeliveryStatus(null)
-    setToast('Video interaktif berhasil dibuat dengan soal dan pertanyaan timestamp.')
+    setToast(isMaterialOutput(form.outputType) ? 'Panduan belajar dari video berhasil dibuat.' : 'Video interaktif berhasil dibuat dengan soal dan pertanyaan timestamp.')
   }
 
   function updatePreviewQuestion(index, nextQuestion) {
@@ -2641,20 +2800,23 @@ export default function ContentStudio({ user: propUser }) {
   return (
     <div>
       <PageHeader
-        eyebrow="Studio Konten Guru"
-        title="Buat materi dan soal otomatis."
-        description="Isi data, generate, lalu review hasil di bawah sebelum dikirim ke fitur guru."
+        eyebrow="Ruang Kerja Guru"
+        title="Siapkan pembelajaran."
+        description="Mulai dari konteks kelas dan kebutuhan siswa, lalu jadikan hasilnya bahan ajar, tugas, kuis, atau soal."
       />
 
-      <div className="mx-auto grid max-w-5xl gap-4">
+      <div className="mx-auto grid max-w-6xl gap-4">
         <SimpleStudioBuilder
           form={form}
           template={template}
+          subjectOptions={subjectOptions}
           availableContentTypes={availableContentTypes}
           updateForm={updateForm}
           generateDraft={generateDraft}
           saveContent={saveContent}
+          canSave={Boolean(preview?.hasGenerated)}
           createFromText={createFromText}
+          createVideoInteractive={createVideoInteractive}
         />
 
         <StudioOutputWorkspace
@@ -2696,7 +2858,7 @@ function StudioWorkflowGuide({ activeTab }) {
           <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Alur Kerja Guru</p>
           <h2 className="mt-1 text-2xl font-black text-slate-950">Buat konten sampai siap dipakai siswa.</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Anda sedang berada di mode <b>{activeLabels[activeTab] || 'Studio Konten'}</b>. Ikuti alur sederhana ini agar konten tidak berhenti di draft saja.
+            Anda sedang berada di mode <b>{activeLabels[activeTab] || 'Siapkan Pembelajaran'}</b>. Ikuti alur sederhana ini agar konten tidak berhenti di draft saja.
           </p>
         </div>
         <StatusBadge tone="green">Panduan Cepat</StatusBadge>
@@ -2721,15 +2883,15 @@ function StudioWorkflowGuide({ activeTab }) {
 
 function StudioMiniNumberInput({ label, value, onChange, min = 0, suffix = '' }) {
   return (
-    <label className="grid gap-1 text-sm font-bold text-slate-700">
-      {label}
-      <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 ring-1 ring-slate-100">
+    <label className="grid gap-1 text-[11px] font-black text-slate-500">
+      <span className="truncate">{label}</span>
+      <div className="flex min-h-12 items-center gap-1 rounded-2xl border border-slate-200 bg-white px-2 py-2">
         <input
           type="number"
           min={min}
           value={value ?? 0}
           onChange={(event) => onChange(event.target.value)}
-          className="w-full bg-transparent text-center text-lg font-black text-slate-950 outline-none"
+          className="w-full bg-transparent text-center text-base font-black text-slate-950 outline-none"
         />
         {suffix && <span className="text-xs font-bold text-slate-400">{suffix}</span>}
       </div>
@@ -2737,17 +2899,78 @@ function StudioMiniNumberInput({ label, value, onChange, min = 0, suffix = '' })
   )
 }
 
-function SimpleStudioBuilder({ form, template, availableContentTypes, updateForm, generateDraft, saveContent, createFromText }) {
+function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOptions, availableContentTypes, updateForm, generateDraft, saveContent, canSave = false, createFromText, createVideoInteractive }) {
   const outputModes = [
-    ['Soal', 'Soal', FileQuestion],
-    ['Kuis', 'Kuis', PlayCircle],
-    ['Materi', 'Materi', BookOpen],
-    ['Tugas', 'Tugas', ClipboardList],
+    {
+      id: 'Materi',
+      label: 'Bahan ajar',
+      description: 'Untuk dipelajari siswa',
+      icon: BookOpen,
+    },
+    {
+      id: 'Tugas',
+      label: 'Tugas',
+      description: 'Aktivitas mandiri/kelompok',
+      icon: ClipboardList,
+    },
+    {
+      id: 'Kuis',
+      label: 'Kuis',
+      description: 'Cek pemahaman cepat',
+      icon: PlayCircle,
+    },
+    {
+      id: 'Soal',
+      label: 'Soal',
+      description: 'Bank soal terarah',
+      icon: FileQuestion,
+    },
   ]
-  const referenceModes = ['Tanpa Materi', 'Ketik Manual', 'Link Video']
+  const sourceModes = [
+    {
+      id: 'Topik saja',
+      label: 'Topik',
+      description: 'Mulai dari topik dan tujuan belajar.',
+      icon: Wand2,
+    },
+    {
+      id: 'Tempel materi',
+      label: 'Catatan guru',
+      description: 'Pakai modul, catatan, atau ringkasan guru.',
+      icon: ClipboardList,
+    },
+    {
+      id: 'Pakai video',
+      label: 'Link sumber',
+      description: 'Pakai video, artikel, atau sumber online.',
+      icon: LinkIcon,
+    },
+  ]
   const cognitiveLevels = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6']
   const selectedLevels = Array.isArray(form.cognitiveLevels) ? form.cognitiveLevels : ['C2', 'C3', 'C4']
-  const isQuestionMode = form.outputType !== 'Materi'
+  const isQuestionMode = isQuestionOutput(form.outputType)
+  const isTaskMode = form.outputType === 'Tugas'
+  const contentTypeOptions = Array.isArray(availableContentTypes) && availableContentTypes.length > 0 ? availableContentTypes : ['Materi teks']
+  const primaryActionLabel = form.outputType === 'Kuis'
+    ? 'Siapkan kuis'
+    : form.outputType === 'Soal'
+      ? 'Siapkan soal'
+      : isTaskMode
+        ? 'Siapkan tugas'
+        : 'Siapkan bahan ajar'
+  const legacySourceModes = {
+    'Tanpa Materi': 'Topik saja',
+    'Ketik Manual': 'Tempel materi',
+    'Link Video': 'Pakai video',
+  }
+  const activeSourceMode = legacySourceModes[form.referenceMode] || form.referenceMode || 'Topik saja'
+  const selectedSource = sourceModes.find((mode) => mode.id === activeSourceMode) || sourceModes[0]
+  const summaryItems = [
+    [GraduationCap, form.subject || 'Mapel belum dipilih', 'Mapel'],
+    [Users, form.className ? `Kelas ${form.className}` : 'Kelas belum dipilih', 'Kelas'],
+    [Compass, form.lessonPurpose || 'Pertemuan baru', 'Fokus'],
+    [Clock3, form.duration || '2 JP', 'Durasi'],
+  ]
 
   function toggleLevel(level) {
     const next = selectedLevels.includes(level)
@@ -2757,151 +2980,257 @@ function SimpleStudioBuilder({ form, template, availableContentTypes, updateForm
   }
 
   return (
-    <SectionCard>
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Studio Konten</p>
-          <h2 className="mt-1 text-xl font-black text-slate-950">Buat materi atau soal.</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-500">Isi data inti, generate, lalu cek hasil di bawah.</p>
-        </div>
-        <StatusBadge tone="green">Kosong sampai generate</StatusBadge>
-      </div>
-
-      <div className="mb-4 grid gap-2 sm:grid-cols-4">
-        {outputModes.map(([id, label, Icon]) => (
-          <button
-            key={id}
-            onClick={() => updateForm('outputType', id)}
-            className={`rounded-2xl px-3 py-3 text-left ring-1 transition ${
-              form.outputType === id
-                ? 'bg-galaxy-action text-white shadow-glow ring-galaxy-action'
-                : 'bg-white text-slate-700 ring-purple-100 hover:bg-galaxy-lavender'
-            }`}
-          >
-            <Icon size={17} />
-            <span className="mt-1 block text-sm font-black">{label}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
-        <p className="mb-3 text-sm font-black text-slate-950">Identitas</p>
-        <div className="grid gap-3 md:grid-cols-2">
-          <SelectField label="Jenjang" value={form.educationLevel || 'SMA/MA'} onChange={(value) => updateForm('educationLevel', value)} options={['SMA/MA', 'SMK/MAK', 'SMP/MTs']} />
-          <SelectField label="Kelas" value={form.className} onChange={(value) => updateForm('className', value)} options={classOptions} />
-          <SelectField label="Mapel" value={form.subject} onChange={(value) => updateForm('subject', value)} options={Object.keys(subjectTemplates)} />
-          <TextField label="Topik / Materi" value={form.topic} onChange={(value) => updateForm('topic', value)} placeholder={template.sampleTopic} />
-        </div>
-      </div>
-
-      <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-black text-slate-950">Referensi</p>
-          <div className="flex flex-wrap gap-2">
-            {referenceModes.map((mode) => (
-              <button
-                key={mode}
-                onClick={() => updateForm('referenceMode', mode)}
-                className={`rounded-xl px-3 py-2 text-xs font-extrabold ${
-                  form.referenceMode === mode
-                    ? 'bg-galaxy-action text-white'
-                    : 'bg-white text-galaxy-purple ring-1 ring-purple-100'
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
+    <section className="overflow-hidden rounded-[1.35rem] bg-white shadow-[0_18px_70px_rgba(18,60,59,0.10)] ring-1 ring-slate-200/70">
+      <div className="bg-[#123c3b] p-4 text-white sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-emerald-100">Siapkan Pembelajaran</p>
+            <h2 className="mt-1 text-2xl font-black">Rancang pertemuan dari kebutuhan kelas</h2>
+            <p className="mt-1 max-w-2xl text-sm font-medium leading-6 text-emerald-50/80">
+              Konteks mengajar menjadi dasar sebelum memilih bahan ajar, tugas, kuis, atau soal.
+            </p>
           </div>
+          <span className="rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-emerald-50 ring-1 ring-white/15">
+            {form.subject || 'Pilih mapel'} · {form.className ? `Kelas ${form.className}` : 'Kelas belum dipilih'}
+          </span>
         </div>
 
-        {form.referenceMode === 'Ketik Manual' && (
+        <div className="mt-5 grid gap-2 sm:grid-cols-4">
+          {summaryItems.map(([Icon, value, label]) => (
+            <div key={label} className="rounded-[0.95rem] bg-white/8 px-3 py-3 ring-1 ring-white/12">
+              <div className="flex items-center gap-2 text-emerald-50">
+                <Icon size={15} />
+                <span className="text-[0.68rem] font-black uppercase tracking-[0.12em] opacity-75">{label}</span>
+              </div>
+              <p className="mt-2 truncate text-sm font-black text-white">{value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-0 lg:grid-cols-[1.08fr_0.92fr]">
+        <div className="p-4 sm:p-5">
+          <div className="mb-4 flex items-start gap-3">
+            <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#e8f4ef] text-[#0f766e] ring-1 ring-[#123c3b]/10">
+              <Users size={18} />
+            </span>
+            <div>
+              <p className="text-sm font-black text-slate-950">Konteks mengajar</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                Isi bagian yang guru pakai untuk mengambil keputusan di kelas.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SelectField label="Jenjang sekolah" value={form.educationLevel || 'SMA/MA'} onChange={(value) => updateForm('educationLevel', value)} options={educationLevelOptions} disabled />
+            <SelectField label="Kelas" value={form.className} onChange={(value) => updateForm('className', value)} options={classOptions} />
+            <SelectField label="Mapel" value={form.subject} onChange={(value) => updateForm('subject', value)} options={subjectOptions} placeholder="Pilih mapel SMA" />
+            <TextField label="Topik" value={form.topic} onChange={(value) => updateForm('topic', value)} placeholder="Topik pembelajaran" />
+            <SelectField label="Fokus pertemuan" value={form.lessonPurpose || 'Pertemuan baru'} onChange={(value) => updateForm('lessonPurpose', value)} options={lessonPurposeOptions} />
+            <SelectField label="Kesiapan siswa" value={form.studentReadiness || 'Belum dipetakan'} onChange={(value) => updateForm('studentReadiness', value)} options={readinessOptions} />
+          </div>
+
           <label className="mt-3 grid gap-2 text-sm font-bold text-slate-700">
-            Teks referensi
+            Tujuan pembelajaran
             <textarea
-              value={form.sourceText || ''}
-              onChange={(event) => updateForm('sourceText', event.target.value)}
-              rows={4}
-              className="rounded-2xl border border-purple-100 bg-white px-4 py-3 text-sm leading-7 outline-none focus:border-purple-300"
-              placeholder="Tempel materi, ringkasan buku, modul, atau catatan guru."
+              value={form.learningObjective || ''}
+              onChange={(event) => updateForm('learningObjective', event.target.value)}
+              rows={3}
+              placeholder="Tulis kemampuan yang ingin dicapai siswa pada pertemuan ini."
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#2f7d74] focus:ring-4 focus:ring-emerald-900/10"
             />
-            <button onClick={createFromText} className="w-fit rounded-xl bg-cyan-50 px-3 py-2 text-xs font-extrabold text-cyan-700 ring-1 ring-cyan-100">
-              Jadikan draft
-            </button>
           </label>
-        )}
 
-        {form.referenceMode === 'Link Video' && (
-          <div className="mt-3">
-            <TextField label="Link video / artikel" value={form.videoUrl || ''} onChange={(value) => updateForm('videoUrl', value)} placeholder="https://..." />
-          </div>
-        )}
-      </div>
+          <label className="mt-3 grid gap-2 text-sm font-bold text-slate-700">
+            Kebutuhan atau kondisi siswa
+            <textarea
+              value={form.studentNeed || ''}
+              onChange={(event) => updateForm('studentNeed', event.target.value)}
+              rows={3}
+              placeholder="Contoh: siswa masih lemah di konsep dasar, perlu contoh lokal, atau perlu latihan bertahap."
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#2f7d74] focus:ring-4 focus:ring-emerald-900/10"
+            />
+          </label>
 
-      <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
-        <p className="text-sm font-black text-slate-950">{isQuestionMode ? 'Konfigurasi Soal' : 'Konfigurasi Materi'}</p>
-
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <SelectField label="Jenis" value={form.assessmentType || 'Sumatif Harian'} onChange={(value) => updateForm('assessmentType', value)} options={['Sumatif Harian', 'Formatif', 'Diagnostik', 'Latihan Harian', 'Remedial']} />
-          <SelectField label="Opsi PG" value={form.answerOptionCount || '4 Opsi (A-D)'} onChange={(value) => updateForm('answerOptionCount', value)} options={['4 Opsi (A-D)', '5 Opsi (A-E)', 'Benar/Salah']} />
-        </div>
-
-        {isQuestionMode && (
-          <>
-            <div className="mt-3 grid gap-2 sm:grid-cols-5">
-              <StudioMiniNumberInput label="PG" value={form.mcCount} onChange={(value) => updateForm('mcCount', value)} />
-              <StudioMiniNumberInput label="Isian" value={form.shortAnswerCount} onChange={(value) => updateForm('shortAnswerCount', value)} />
-              <StudioMiniNumberInput label="Essay" value={form.essayCount} onChange={(value) => updateForm('essayCount', value)} />
-              <StudioMiniNumberInput label="B/S" value={form.trueFalseCount} onChange={(value) => updateForm('trueFalseCount', value)} />
-              <StudioMiniNumberInput label="Match" value={form.matchingCount} onChange={(value) => updateForm('matchingCount', value)} />
+          <div className="mt-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-sm font-black text-slate-950">Bahan guru</p>
+              <span className="text-xs font-bold text-slate-400">{selectedSource.label}</span>
             </div>
-
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              <StudioMiniNumberInput label="Mudah" value={form.easyPct} onChange={(value) => updateForm('easyPct', value)} suffix="%" />
-              <StudioMiniNumberInput label="Sedang" value={form.mediumPct} onChange={(value) => updateForm('mediumPct', value)} suffix="%" />
-              <StudioMiniNumberInput label="Sulit" value={form.hardPct} onChange={(value) => updateForm('hardPct', value)} suffix="%" />
-            </div>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {cognitiveLevels.map((level) => (
+            <div className="grid gap-2 sm:grid-cols-3">
+              {sourceModes.map(({ id, label, description, icon: Icon }) => (
                 <button
-                  key={level}
-                  onClick={() => toggleLevel(level)}
-                  className={`grid h-9 w-9 place-items-center rounded-full text-xs font-black ring-1 ${
-                    selectedLevels.includes(level)
-                      ? 'bg-galaxy-action text-white ring-galaxy-action'
-                      : 'bg-white text-slate-500 ring-slate-200'
+                  key={id}
+                  onClick={() => updateForm('referenceMode', id)}
+                  className={`min-h-28 rounded-2xl p-3 text-left transition ${
+                    activeSourceMode === id
+                      ? 'bg-[#123c3b] text-white shadow-lg shadow-emerald-950/10'
+                      : 'bg-slate-50 text-slate-700 ring-1 ring-slate-200 hover:bg-white'
                   }`}
                 >
-                  {level}
+                  <Icon size={18} />
+                  <span className="mt-3 block text-sm font-black">{label}</span>
+                  <span className={`mt-1 block text-xs font-semibold leading-5 ${activeSourceMode === id ? 'text-emerald-50/80' : 'text-slate-500'}`}>
+                    {description}
+                  </span>
                 </button>
               ))}
             </div>
-          </>
-        )}
-      </div>
 
-      <label className="mt-3 grid gap-2 text-sm font-bold text-slate-700">
-        Instruksi tambahan
-        <textarea
-          value={form.customInstruction || ''}
-          onChange={(event) => updateForm('customInstruction', event.target.value)}
-          rows={3}
-          placeholder="Contoh: buat soal kontekstual, dekat dengan kehidupan siswa kepulauan, sertakan pembahasan singkat."
-          className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 text-sm leading-7 outline-none focus:border-purple-300"
-        />
-      </label>
+            {activeSourceMode === 'Tempel materi' && (
+              <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                <textarea
+                  value={form.sourceText || ''}
+                  onChange={(event) => updateForm('sourceText', event.target.value)}
+                  rows={5}
+                  className="w-full resize-y rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#2f7d74] focus:ring-4 focus:ring-emerald-900/10"
+                  placeholder="Tempel modul, ringkasan buku, catatan guru, atau teks yang ingin diubah menjadi draft."
+                />
+                <button onClick={createFromText} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#123c3b] px-4 py-2.5 text-xs font-black text-white">
+                  <Wand2 size={14} />
+                  Olah teks
+                </button>
+              </div>
+            )}
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button onClick={generateDraft} className="inline-flex items-center gap-2 rounded-xl bg-galaxy-action px-5 py-3 text-sm font-black text-white shadow-glow">
-          <Sparkles size={17} />
-          {isQuestionMode ? 'Buat Soal Otomatis' : 'Buat Materi Otomatis'}
-        </button>
-        <button onClick={saveContent} className="inline-flex items-center gap-2 rounded-xl bg-galaxy-surface px-4 py-3 text-sm font-extrabold text-galaxy-purple ring-1 ring-purple-100">
-          <Save size={16} />
-          Simpan Draft
-        </button>
+            {activeSourceMode === 'Pakai video' && (
+              <div className="mt-3 grid gap-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                <TextField label="Link video / artikel" value={form.videoUrl || ''} onChange={(value) => updateForm('videoUrl', value)} placeholder="https://..." />
+                <TextField label="Judul sumber" value={form.videoTitle || ''} onChange={(value) => updateForm('videoTitle', value)} placeholder={`Video ${form.topic || template.sampleTopic}`} />
+                <button onClick={createVideoInteractive} className="w-fit rounded-xl bg-[#123c3b] px-4 py-2.5 text-xs font-black text-white">
+                  Buat dari link
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200 bg-slate-50/80 p-4 sm:p-5 lg:border-l lg:border-t-0">
+          <div>
+            <p className="text-sm font-black text-slate-950">Hasil yang disiapkan</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+              Pilih satu keluaran yang paling cocok dengan kebutuhan pertemuan.
+            </p>
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {outputModes.map(({ id, label, description, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => updateForm('outputType', id)}
+                className={`min-h-20 rounded-[1rem] p-3 text-left ring-1 transition ${
+                  form.outputType === id
+                    ? 'bg-[#123c3b] text-white shadow-lg shadow-emerald-950/10 ring-[#123c3b]'
+                    : 'bg-white text-slate-700 ring-slate-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,31,42,0.07)]'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Icon size={17} />
+                  <span className="text-sm font-black">{label}</span>
+                </div>
+                <span className={`mt-2 block text-xs font-semibold leading-5 ${form.outputType === id ? 'text-emerald-50/80' : 'text-slate-500'}`}>
+                  {description}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="mt-5 text-sm font-black text-slate-950">{isQuestionMode ? 'Komposisi asesmen' : isTaskMode ? 'Rancangan tugas' : 'Rancangan bahan ajar'}</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                {isQuestionMode ? `${form.mcCount || 0} PG · ${selectedLevels.join(', ')}` : `${form.contentType || contentTypeOptions[0]} · ${form.duration}`}
+              </p>
+            </div>
+            <StatusBadge tone="green">{form.outputType}</StatusBadge>
+          </div>
+
+          <div className="mt-4 grid gap-3">
+            {isQuestionMode ? (
+              <>
+                <SelectField label="Jenis asesmen" value={form.assessmentType || 'Formatif'} onChange={(value) => updateForm('assessmentType', value)} options={['Formatif', 'Diagnostik', 'Latihan Harian', 'Sumatif Harian', 'Remedial']} />
+                <SelectField label="Opsi jawaban" value={form.answerOptionCount || '4 Opsi (A-D)'} onChange={(value) => updateForm('answerOptionCount', value)} options={['4 Opsi (A-D)', '5 Opsi (A-E)', 'Benar/Salah']} />
+              </>
+            ) : (
+              <>
+                <SelectField label={isTaskMode ? 'Jenis tugas' : 'Jenis bahan ajar'} value={form.contentType || contentTypeOptions[0]} onChange={(value) => updateForm('contentType', value)} options={contentTypeOptions} />
+                <TextField label="Durasi belajar" value={form.duration || ''} onChange={(value) => updateForm('duration', value)} placeholder="2 JP" />
+              </>
+            )}
+          </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <SelectField label="Cara belajar" value={form.teachingApproach || 'Diskusi kelas'} onChange={(value) => updateForm('teachingApproach', value)} options={teachingApproachOptions} />
+            <SelectField label="Tingkat dukungan" value={form.level || 'Standar'} onChange={(value) => updateForm('level', value)} options={levelOptions} />
+          </div>
+
+          <div className="mt-3">
+            <TextField label="Kriteria berhasil" value={form.successCriteria || ''} onChange={(value) => updateForm('successCriteria', value)} placeholder="Tanda siswa sudah memahami materi" />
+          </div>
+
+          {isQuestionMode && (
+            <>
+              <div className="mt-4 grid grid-cols-5 gap-2">
+                <StudioMiniNumberInput label="PG" value={form.mcCount} onChange={(value) => updateForm('mcCount', value)} />
+                <StudioMiniNumberInput label="Isian" value={form.shortAnswerCount} onChange={(value) => updateForm('shortAnswerCount', value)} />
+                <StudioMiniNumberInput label="Essay" value={form.essayCount} onChange={(value) => updateForm('essayCount', value)} />
+                <StudioMiniNumberInput label="B/S" value={form.trueFalseCount} onChange={(value) => updateForm('trueFalseCount', value)} />
+                <StudioMiniNumberInput label="Match" value={form.matchingCount} onChange={(value) => updateForm('matchingCount', value)} />
+              </div>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                <StudioMiniNumberInput label="Mudah" value={form.easyPct} onChange={(value) => updateForm('easyPct', value)} suffix="%" />
+                <StudioMiniNumberInput label="Sedang" value={form.mediumPct} onChange={(value) => updateForm('mediumPct', value)} suffix="%" />
+                <StudioMiniNumberInput label="Sulit" value={form.hardPct} onChange={(value) => updateForm('hardPct', value)} suffix="%" />
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {cognitiveLevels.map((level) => (
+                  <button
+                    key={level}
+                    onClick={() => toggleLevel(level)}
+                    className={`grid h-9 min-w-9 place-items-center rounded-xl px-2 text-xs font-black ring-1 transition ${
+                      selectedLevels.includes(level)
+                        ? 'bg-[#123c3b] text-white ring-[#123c3b]'
+                        : 'bg-white text-slate-500 ring-slate-200 hover:text-[#123c3b]'
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
+            Catatan guru
+            <textarea
+              value={form.customInstruction || ''}
+              onChange={(event) => updateForm('customInstruction', event.target.value)}
+              rows={4}
+              placeholder="Tambahkan arahan khusus, gaya bahasa, konteks lokal, atau batasan yang perlu dijaga."
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#2f7d74] focus:ring-4 focus:ring-emerald-900/10"
+            />
+          </label>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+            <button onClick={generateDraft} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#123c3b] px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-950/15 transition hover:-translate-y-0.5">
+              <Sparkles size={17} />
+              {primaryActionLabel}
+            </button>
+            <button
+              onClick={saveContent}
+              disabled={!canSave}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-extrabold text-[#123c3b] ring-1 ring-slate-200 transition disabled:cursor-not-allowed disabled:text-slate-400 disabled:opacity-60"
+            >
+              <Save size={16} />
+              Simpan arsip
+            </button>
+          </div>
+        </div>
       </div>
-    </SectionCard>
+    </section>
   )
 }
 
@@ -2918,92 +3247,111 @@ function StudioOutputWorkspace({
   setEditingQuestionIndex,
   updatePreviewQuestion,
 }) {
+  const materialMode = isMaterialOutput(form.outputType)
+  const questionMode = isQuestionOutput(form.outputType)
   const questions = getStudioPreviewQuestions(preview, form)
   const total = questions.length
   const hasGenerated = Boolean(preview?.hasGenerated)
-  const tabs = [
-    ['soal', 'Soal'],
-    ['kunci', 'Kunci'],
-    ['kisi', 'Kisi-Kisi'],
-    ['analisis', 'Analisis'],
-  ]
-  const safeResultTab = resultTab === 'kuis' ? 'soal' : resultTab
+  const tabs = materialMode
+    ? [['materi', 'Materi', BookOpen]]
+    : questionMode
+      ? [
+          ['soal', 'Soal', FileQuestion],
+          ['kunci', 'Kunci', CheckCircle2],
+          ['kisi', 'Kisi-kisi', ClipboardList],
+          ['analisis', 'Analisis', Brain],
+        ]
+      : [
+          ['materi', form.outputType === 'Tugas' ? 'Tugas' : 'Draft', ClipboardList],
+        ]
+  const safeResultTab = tabs.some(([id]) => id === resultTab)
+    ? resultTab
+    : tabs[0][0]
   const editingQuestion = editingQuestionIndex !== null ? questions[editingQuestionIndex] : null
 
   return (
-    <SectionCard className="bg-white">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Hasil Generasi</p>
-          <h2 className="mt-1 text-xl font-black text-slate-950">{form.assessmentType || 'Sumatif Harian'}</h2>
+    <section className="overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/90 shadow-[0_16px_52px_rgba(15,31,42,0.075)]">
+      <div className="grid gap-3 border-b border-[#123c3b]/10 bg-[#f7f4ee]/72 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#0f766e]">Hasil kerja guru</p>
+          <h2 className="mt-1 truncate text-2xl font-black text-slate-950">{getOutputLabel(form)}</h2>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            {form.subject} · {String(form.className || '').startsWith('Kelas') ? form.className : `Kelas ${form.className}`} · {total} soal
+            {getOutputMeta(form, total)}
           </p>
         </div>
-        <StatusBadge tone={hasGenerated ? 'green' : 'amber'}>
-          {hasGenerated ? 'Siap dikirim' : 'Kosong'}
-        </StatusBadge>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <span className={`rounded-[0.8rem] px-3 py-2 text-xs font-black ring-1 ${hasGenerated ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-amber-50 text-amber-700 ring-amber-100'}`}>
+            {hasGenerated ? 'Siap direview' : 'Belum disiapkan'}
+          </span>
+        </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2 border-b border-purple-100 pb-3">
-        {tabs.map(([id, label]) => (
+      <div className="flex gap-1 overflow-x-auto border-b border-[#123c3b]/10 px-4 py-2">
+        {tabs.map(([id, label, Icon]) => (
           <button
             key={id}
             onClick={() => setResultTab(id)}
-            className={`rounded-xl px-3 py-2 text-xs font-black ${
+            className={`inline-flex min-h-10 flex-shrink-0 items-center gap-2 rounded-[0.85rem] px-3 text-xs font-black transition ${
               safeResultTab === id
-                ? 'bg-galaxy-action text-white shadow-glow'
-                : 'bg-slate-50 text-slate-600 ring-1 ring-slate-100'
+                ? 'bg-[#123c3b] text-white shadow-[0_10px_24px_rgba(15,31,42,0.14)]'
+                : 'text-slate-600 hover:bg-[#e8f4ef]'
             }`}
           >
+            <Icon size={15} />
             {label}
           </button>
         ))}
       </div>
 
-      {deliveryStatus && (
-        <div className="mt-4 rounded-2xl bg-emerald-50 p-3 text-sm font-semibold leading-6 text-emerald-800 ring-1 ring-emerald-100">
-          <b>{deliveryStatus.success}</b> {deliveryStatus.nextStep}
-        </div>
-      )}
-
-      {safeResultTab === 'soal' && (
-        <StudioQuestionDocument
-          questions={questions}
-          form={form}
-          preview={preview}
-          onEditQuestion={setEditingQuestionIndex}
-        />
-      )}
-      {safeResultTab === 'kunci' && <StudioAnswerKey questions={questions} />}
-      {safeResultTab === 'kisi' && <StudioBlueprint questions={questions} form={form} />}
-      {safeResultTab === 'analisis' && <StudioAnalysisPanel questions={questions} form={form} />}
-      {safeResultTab === 'materi' && <StudioMaterialDocument preview={preview} />}
-
-      <div className="mt-4 border-t border-purple-100 pt-4">
-        <StudioPublishPanel
-          publishToFeature={publishToFeature}
-          savingTarget={savingTarget}
-          disabled={!hasGenerated}
-        />
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          {['Copy', 'Print', 'Word', 'PDF'].map((item) => (
-            <button
-              key={item}
-              disabled={!hasGenerated}
-              className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-black text-galaxy-purple ring-1 ring-purple-100 disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-
-        {!hasGenerated && (
-          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 ring-1 ring-amber-100">
-            Generate konten terlebih dahulu agar tombol pengiriman aktif.
-          </p>
+      <div className="p-4">
+        {deliveryStatus && (
+          <div className="mb-4 rounded-[0.95rem] bg-emerald-50 p-3 text-sm font-semibold leading-6 text-emerald-800 ring-1 ring-emerald-100">
+            <b>{deliveryStatus.success}</b> {deliveryStatus.nextStep}
+          </div>
         )}
+
+        <div className="min-h-[14rem]">
+          {safeResultTab === 'soal' && (
+            <StudioQuestionDocument
+              questions={questions}
+              form={form}
+              preview={preview}
+              onEditQuestion={setEditingQuestionIndex}
+            />
+          )}
+          {safeResultTab === 'kunci' && <StudioAnswerKey questions={questions} />}
+          {safeResultTab === 'kisi' && <StudioBlueprint questions={questions} form={form} />}
+          {safeResultTab === 'analisis' && <StudioAnalysisPanel questions={questions} form={form} />}
+          {safeResultTab === 'materi' && <StudioMaterialDocument preview={preview} />}
+        </div>
+
+        <div className="mt-4 border-t border-[#123c3b]/10 pt-4">
+          <StudioPublishPanel
+            outputType={form.outputType}
+            publishToFeature={publishToFeature}
+            savingTarget={savingTarget}
+            disabled={!hasGenerated}
+          />
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-xs font-black uppercase tracking-[0.14em] text-slate-400">Ambil sebagai dokumen</span>
+            {['Copy', 'Print', 'Word', 'PDF'].map((item) => (
+              <button
+                key={item}
+                disabled={!hasGenerated}
+                className="rounded-[0.8rem] bg-[#f7f4ee] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+
+          {!hasGenerated && (
+            <p className="mt-3 rounded-[0.85rem] bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 ring-1 ring-amber-100">
+              Siapkan draft terlebih dahulu agar pengiriman dan export aktif.
+            </p>
+          )}
+        </div>
       </div>
 
       {editingQuestion && (
@@ -3014,7 +3362,7 @@ function StudioOutputWorkspace({
           onSave={(nextQuestion) => updatePreviewQuestion(editingQuestionIndex, nextQuestion)}
         />
       )}
-    </SectionCard>
+    </section>
   )
 }
 
@@ -3027,85 +3375,84 @@ function StudioQuestionDocument({ questions, form, preview, onEditQuestion }) {
 
   if (!questions.length) {
     return (
-      <div className="mt-4 rounded-2xl border border-dashed border-purple-200 bg-slate-50 p-5 text-center">
-        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Belum ada soal</p>
-        <h3 className="mt-2 text-2xl font-black text-slate-950">Hasil generasi masih kosong.</h3>
-        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
-          Isi identitas konten, pilih mata pelajaran, kelas, topik, dan konfigurasi soal. Setelah itu klik <b>Buat Soal Otomatis</b>.
-        </p>
+      <div className="grid min-h-[13rem] place-items-center rounded-[1rem] bg-[#f7f4ee]/70 p-5 text-center ring-1 ring-[#123c3b]/10">
+        <div>
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-[0.9rem] bg-white text-[#0f766e] ring-1 ring-[#123c3b]/10">
+            <FileQuestion size={20} />
+          </span>
+          <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-[#0f766e]">Belum ada soal</p>
+          <h3 className="mt-2 text-2xl font-black text-slate-950">Draft masih kosong.</h3>
+          <p className="mx-auto mt-2 max-w-xl text-sm font-medium leading-6 text-slate-500">
+            Lengkapi topik dan komposisi soal, lalu klik tombol buat soal di panel atas.
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="mt-5">
-      <div className="mb-4 flex items-center gap-2">
-        <CheckCircle2 className="text-galaxy-purple" size={20} />
-        <h3 className="text-xl font-black text-galaxy-purple">Daftar Soal</h3>
-        <span className="text-sm font-bold text-slate-400">({questions.length} soal)</span>
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="text-[#0f766e]" size={19} />
+          <h3 className="text-lg font-black text-slate-950">Daftar soal</h3>
+        </div>
+        <span className="rounded-[0.75rem] bg-[#e8f4ef] px-3 py-1 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/10">{questions.length} soal</span>
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid gap-3">
         {questions.map((question, index) => (
-          <div key={question.id || index} className="rounded-2xl border-l-4 border-galaxy-action bg-white p-4 shadow-sm ring-1 ring-slate-100">
-            <div className="flex gap-4">
-              <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-2xl bg-galaxy-lavender text-sm font-black text-galaxy-purple">
+          <article key={question.id || index} className="rounded-[1rem] bg-white p-4 ring-1 ring-[#123c3b]/10">
+            <div className="grid gap-3 sm:grid-cols-[auto_1fr_auto]">
+              <span className="grid h-9 w-9 place-items-center rounded-[0.75rem] bg-[#123c3b] text-sm font-black text-white">
                 {index + 1}
               </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <p className="whitespace-pre-line text-base font-semibold leading-8 text-slate-800">{question.questionText}</p>
-                  <button
-                    onClick={() => onEditQuestion(index)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-xs font-black text-violet-700 ring-1 ring-violet-100"
-                  >
-                    <PenTool size={13} />
-                    Edit
-                  </button>
-                </div>
-
-                {index < illustrationCount && (
-                  <div className="mt-4 rounded-2xl bg-violet-50 p-4 ring-1 ring-violet-100">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-black text-violet-700">Ilustrasi:</p>
-                      <StatusBadge tone="green">Selesai</StatusBadge>
-                    </div>
-                    <p className="mt-2 text-sm leading-6 text-violet-700">
-                      Ilustrasi kontekstual tentang {preview.topic || form.topic}, dibuat sebagai panduan visual untuk soal ini.
-                    </p>
-                    <div className="mt-3 grid h-40 place-items-center rounded-2xl bg-gradient-to-br from-cyan-100 via-white to-amber-100 text-center text-sm font-black text-slate-500 ring-1 ring-white">
-                      Preview Ilustrasi / Gambar
-                    </div>
-                  </div>
-                )}
-
-                {index < diagramCount && (
-                  <div className="mt-4 rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-100">
-                    <p className="text-sm font-black text-emerald-700">Diagram/Grafik:</p>
-                    <div className="mt-3 flex h-32 items-end gap-3 rounded-2xl bg-white p-4 ring-1 ring-emerald-100">
-                      {[35, 68, 44, 80, 55].map((height, barIndex) => (
-                        <span key={barIndex} className="w-full rounded-t-2xl bg-emerald-200" style={{ height: `${height}%` }} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-4 grid gap-2">
+              <div className="min-w-0">
+                <p className="whitespace-pre-line text-sm font-semibold leading-7 text-slate-800">{question.questionText}</p>
+                <div className="mt-3 grid gap-2">
                   {(question.options || []).slice(0, 5).map((option, optionIndex) => (
-                    <p key={`${question.id}-${optionIndex}`} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-100">
+                    <p key={`${question.id}-${optionIndex}`} className="rounded-[0.8rem] bg-[#f7f4ee] px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-[#123c3b]/8">
                       {String.fromCharCode(65 + optionIndex)}. {option}
                     </p>
                   ))}
                 </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <StatusBadge>{question.type || 'Pilihan Ganda'}</StatusBadge>
-                  <StatusBadge tone="purple">{question.cognitiveLevel || 'C2'}</StatusBadge>
+                  <StatusBadge tone="teal">{question.cognitiveLevel || 'C2'}</StatusBadge>
                   <StatusBadge tone={question.difficulty === 'Sulit' ? 'red' : question.difficulty === 'Sedang' ? 'amber' : 'green'}>{question.difficulty || 'Mudah'}</StatusBadge>
                 </div>
               </div>
+              <button
+                onClick={() => onEditQuestion(index)}
+                className="h-fit rounded-[0.8rem] bg-[#e8f4ef] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/10"
+              >
+                Edit
+              </button>
             </div>
-          </div>
+
+            {index < illustrationCount && (
+              <div className="mt-4 rounded-[0.95rem] bg-[#e8f4ef] p-4 ring-1 ring-[#123c3b]/10">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-black text-[#0f766e]">Ilustrasi</p>
+                  <StatusBadge tone="green">Selesai</StatusBadge>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-[#0f766e]">
+                  Ilustrasi kontekstual tentang {preview.topic || form.topic}, dibuat sebagai panduan visual untuk soal ini.
+                </p>
+              </div>
+            )}
+
+            {index < diagramCount && (
+              <div className="mt-4 rounded-[0.95rem] bg-emerald-50 p-4 ring-1 ring-emerald-100">
+                <p className="text-sm font-black text-emerald-700">Diagram/Grafik</p>
+                <div className="mt-3 flex h-32 items-end gap-3 rounded-[0.9rem] bg-white p-4 ring-1 ring-emerald-100">
+                  {[35, 68, 44, 80, 55].map((height, barIndex) => (
+                    <span key={barIndex} className="w-full rounded-t-[0.5rem] bg-emerald-200" style={{ height: `${height}%` }} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </article>
         ))}
       </div>
     </div>
@@ -3177,10 +3524,10 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-glow ring-1 ring-purple-100">
+      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-[0_24px_70px_rgba(15,31,42,0.18)] ring-1 ring-[#123c3b]/10">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Edit Soal</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#0f766e]">Edit Soal</p>
             <h2 className="mt-1 text-xl font-black text-slate-950">Soal nomor {questionNumber}</h2>
           </div>
           <button onClick={onClose} className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-black text-slate-600 ring-1 ring-slate-100">
@@ -3194,7 +3541,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
             value={draft.questionText}
             onChange={(event) => updateField('questionText', event.target.value)}
             rows={4}
-            className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm leading-7 outline-none focus:border-purple-300"
+            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-7 outline-none focus:border-[#2f7d74]"
           />
         </label>
 
@@ -3205,7 +3552,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
               <input
                 value={option}
                 onChange={(event) => updateOption(index, event.target.value)}
-                className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-purple-300"
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#2f7d74]"
               />
             </label>
           ))}
@@ -3217,7 +3564,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
             <select
               value={draft.correctAnswer}
               onChange={(event) => updateField('correctAnswer', event.target.value)}
-              className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-purple-300"
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#2f7d74]"
             >
               {draft.options.filter(Boolean).map((option) => <option key={option}>{option}</option>)}
             </select>
@@ -3228,7 +3575,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
             <select
               value={draft.type}
               onChange={(event) => updateField('type', event.target.value)}
-              className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-purple-300"
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#2f7d74]"
             >
               {['Pilihan Ganda', 'Isian Singkat', 'Essay/Uraian', 'Benar/Salah', 'Menjodohkan'].map((item) => <option key={item}>{item}</option>)}
             </select>
@@ -3239,7 +3586,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
             <select
               value={draft.cognitiveLevel}
               onChange={(event) => updateField('cognitiveLevel', event.target.value)}
-              className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-purple-300"
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#2f7d74]"
             >
               {['C1', 'C2', 'C3', 'C4', 'C5', 'C6'].map((item) => <option key={item}>{item}</option>)}
             </select>
@@ -3250,7 +3597,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
             <select
               value={draft.difficulty}
               onChange={(event) => updateField('difficulty', event.target.value)}
-              className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-purple-300"
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#2f7d74]"
             >
               {['Mudah', 'Sedang', 'Sulit'].map((item) => <option key={item}>{item}</option>)}
             </select>
@@ -3262,7 +3609,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
           <input
             value={draft.indicator}
             onChange={(event) => updateField('indicator', event.target.value)}
-            className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-purple-300"
+            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#2f7d74]"
           />
         </label>
 
@@ -3272,7 +3619,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
             value={draft.explanation}
             onChange={(event) => updateField('explanation', event.target.value)}
             rows={3}
-            className="rounded-2xl border border-purple-100 bg-slate-50 px-4 py-3 text-sm leading-7 outline-none focus:border-purple-300"
+            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-7 outline-none focus:border-[#2f7d74]"
           />
         </label>
 
@@ -3280,7 +3627,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
           <button onClick={onClose} className="rounded-xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-600 ring-1 ring-slate-100">
             Batal
           </button>
-          <button onClick={handleSave} className="rounded-xl bg-galaxy-action px-4 py-3 text-sm font-black text-white shadow-glow">
+          <button onClick={handleSave} className="rounded-xl bg-[#123c3b] px-4 py-3 text-sm font-black text-white shadow-[0_12px_28px_rgba(18,60,59,0.18)]">
             Simpan Perubahan
           </button>
         </div>
@@ -3330,7 +3677,7 @@ function StudioBlueprint({ questions, form }) {
           <div className="mb-2 flex flex-wrap gap-2">
             <StatusBadge tone="cyan">Soal {index + 1}</StatusBadge>
             <StatusBadge>{question.type}</StatusBadge>
-            <StatusBadge tone="purple">{question.cognitiveLevel}</StatusBadge>
+            <StatusBadge tone="green">{question.cognitiveLevel}</StatusBadge>
             <StatusBadge tone="amber">{question.difficulty}</StatusBadge>
           </div>
           <p className="text-sm font-bold leading-6 text-slate-700">
@@ -3342,22 +3689,43 @@ function StudioBlueprint({ questions, form }) {
   )
 }
 
-function StudioPublishPanel({ publishToFeature, savingTarget, disabled = false }) {
-  const actions = [
-    ['questions', 'Kirim ke Bank Soal', FileQuestion, 'Simpan soal agar bisa diedit dan dipakai ulang.'],
-    ['quiz', 'Buat Kuis Live', PlayCircle, 'Buat draft kuis dari soal yang sudah dihasilkan.'],
-    ['material', 'Kirim ke Materi', BookOpen, 'Simpan sebagai draft materi guru.'],
-    ['assignment', 'Kirim ke Tugas', ClipboardList, 'Simpan sebagai draft tugas siswa.'],
-  ]
+function StudioPublishPanel({ outputType, publishToFeature, savingTarget, disabled = false }) {
+  const actions = isMaterialOutput(outputType)
+    ? [
+        ['materi', 'Simpan ke Materi Siswa', BookOpen, 'Masukkan draft ini ke halaman Materi sebagai bahan belajar siswa.'],
+      ]
+    : isQuestionOutput(outputType)
+      ? [
+          ['bank-soal', 'Bank Soal', FileQuestion, 'Simpan soal agar bisa diedit dan dipakai ulang.'],
+          ['kuis', 'Kuis Live', PlayCircle, 'Buat draft kuis dari soal yang sudah dihasilkan.'],
+        ]
+      : outputType === 'Tugas'
+        ? [
+            ['tugas', 'Tugas', ClipboardList, 'Simpan sebagai draft tugas siswa.'],
+          ]
+        : [
+            ['materi', 'Materi', BookOpen, 'Simpan sebagai draft konten guru.'],
+          ]
+  const panelTitle = isMaterialOutput(outputType) ? 'Publikasi materi' : 'Kirim ke fitur guru'
+  const panelDescription = isMaterialOutput(outputType)
+    ? 'Simpan draft sebagai materi pelajaran. Materi tidak masuk Bank Soal, Kuis, atau Tugas.'
+    : 'Pilih tujuan setelah draft selesai direview.'
+  const readyLabel = isMaterialOutput(outputType) ? 'Siap disimpan' : 'Siap kirim'
+  const waitingLabel = isMaterialOutput(outputType) ? 'Menunggu materi' : 'Menunggu draft'
 
   return (
-    <div>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-black text-slate-950">Aksi Pengiriman</p>
-        <StatusBadge tone={disabled ? 'amber' : 'green'}>{disabled ? 'Belum aktif' : 'Siap kirim'}</StatusBadge>
+    <div className="rounded-[1rem] bg-[#f7f4ee]/72 p-3 ring-1 ring-[#123c3b]/10">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-black text-slate-950">{panelTitle}</p>
+          <p className="mt-0.5 text-xs font-semibold text-slate-500">{panelDescription}</p>
+        </div>
+        <span className={`rounded-[0.75rem] px-3 py-1 text-xs font-black ring-1 ${disabled ? 'bg-amber-50 text-amber-700 ring-amber-100' : 'bg-emerald-50 text-emerald-700 ring-emerald-100'}`}>
+          {disabled ? waitingLabel : readyLabel}
+        </span>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-2 sm:grid-cols-2">
         {actions.map(([target, label, Icon, description]) => {
           const active = savingTarget === target
           return (
@@ -3365,20 +3733,30 @@ function StudioPublishPanel({ publishToFeature, savingTarget, disabled = false }
               key={target}
               onClick={() => publishToFeature(target)}
               disabled={disabled || Boolean(savingTarget)}
-              className={`rounded-2xl p-3 text-left ring-1 transition ${
+              className={`group flex min-h-20 items-center gap-3 rounded-[0.95rem] p-3 text-left ring-1 transition ${
                 disabled
-                  ? 'cursor-not-allowed bg-slate-50 text-slate-400 ring-slate-100'
+                  ? 'cursor-not-allowed bg-white/58 text-slate-400 ring-slate-200'
                   : active
-                    ? 'bg-galaxy-action text-white ring-galaxy-action'
-                    : 'bg-white text-slate-700 ring-purple-100 hover:-translate-y-0.5 hover:shadow-soft'
+                    ? 'bg-[#123c3b] text-white ring-[#123c3b]'
+                    : 'bg-white text-slate-700 ring-[#123c3b]/10 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(15,31,42,0.08)]'
               }`}
             >
-              <Icon size={17} />
-              <span className="mt-2 block text-sm font-black">
-                {active ? 'Mengirim...' : label}
+              <span className={`grid h-10 w-10 flex-shrink-0 place-items-center rounded-[0.85rem] ring-1 ${
+                active
+                  ? 'bg-white/12 text-white ring-white/15'
+                  : disabled
+                    ? 'bg-slate-100 text-slate-400 ring-slate-200'
+                    : 'bg-[#e8f4ef] text-[#0f766e] ring-[#123c3b]/10 group-hover:bg-[#123c3b] group-hover:text-white'
+              }`}>
+                <Icon size={17} />
               </span>
-              <span className="mt-1 block text-xs font-semibold leading-5 opacity-75">
-                {description}
+              <span className="min-w-0">
+                <span className="block text-sm font-black">
+                  {active ? 'Mengirim...' : label}
+                </span>
+                <span className="mt-1 block text-xs font-semibold leading-5 opacity-75">
+                  {description}
+                </span>
               </span>
             </button>
           )
@@ -3419,10 +3797,10 @@ function StudioAnalysisPanel({ questions, form }) {
       </div>
 
       <SectionCard>
-        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Level Kognitif</p>
+        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#0f766e]">Level Kognitif</p>
         <div className="mt-4 flex flex-wrap gap-2">
           {['C1', 'C2', 'C3', 'C4', 'C5', 'C6'].map((level) => (
-            <StatusBadge key={level} tone={(cognitiveCounts[level] || 0) > 0 ? 'purple' : 'gray'}>
+            <StatusBadge key={level} tone={(cognitiveCounts[level] || 0) > 0 ? 'green' : 'gray'}>
               {level}: {cognitiveCounts[level] || 0}
             </StatusBadge>
           ))}
@@ -3437,11 +3815,11 @@ function StudioMaterialDocument({ preview }) {
 
   if (!preview?.hasGenerated || sections.length === 0) {
     return (
-      <div className="mt-4 rounded-2xl border border-dashed border-purple-200 bg-slate-50 p-5 text-center">
-        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Belum ada materi</p>
-        <h3 className="mt-2 text-2xl font-black text-slate-950">Materi akan muncul setelah generate.</h3>
+      <div className="mt-4 rounded-2xl border border-dashed border-[#99c8bd] bg-slate-50 p-5 text-center">
+        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#0f766e]">Belum ada bahan ajar</p>
+        <h3 className="mt-2 text-2xl font-black text-slate-950">Hasil akan muncul setelah pembelajaran disiapkan.</h3>
         <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
-          Isi identitas, topik, referensi, dan instruksi tambahan. Setelah itu klik <b>Buat Materi Otomatis</b>.
+          Isi konteks kelas, topik, tujuan, dan kebutuhan siswa. Setelah itu klik <b>Siapkan bahan ajar</b>.
         </p>
       </div>
     )
@@ -3450,7 +3828,7 @@ function StudioMaterialDocument({ preview }) {
   return (
     <div className="mt-5">
       <div className="mb-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
-        <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Modul Ringkas</p>
+        <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#0f766e]">Bahan ajar siswa</p>
         <h3 className="mt-1 text-2xl font-black text-slate-950">{preview.title || preview.topic || 'Materi Pembelajaran'}</h3>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
           {preview.subject || 'Mata pelajaran'} · {preview.className || 'Kelas'} · {preview.topic || 'Topik'}
@@ -3461,7 +3839,7 @@ function StudioMaterialDocument({ preview }) {
         {sections.map((section, index) => (
           <article key={`${section.title}-${index}`} className="rounded-2xl bg-white p-4 ring-1 ring-slate-100">
             <div className="flex gap-3">
-              <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl bg-galaxy-lavender text-sm font-black text-galaxy-purple">
+              <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl bg-[#e8f4ef] text-sm font-black text-[#0f766e]">
                 {index + 1}
               </span>
               <div className="min-w-0">
@@ -3492,7 +3870,7 @@ function BuilderPanel({ form, template, availableContentTypes, updateForm, gener
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <SelectField label="1. Mata pelajaran" value={form.subject} onChange={(value) => updateForm('subject', value)} options={Object.keys(subjectTemplates)} />
+        <SelectField label="1. Mata pelajaran" value={form.subject} onChange={(value) => updateForm('subject', value)} options={smaSubjectOptions} placeholder="Pilih mapel SMA" />
         <SelectField label="2. Kelas" value={form.className} onChange={(value) => updateForm('className', value)} options={classOptions} />
         <TextField label="3. Topik" value={form.topic} onChange={(value) => updateForm('topic', value)} placeholder={template.sampleTopic} />
         <SelectField label="4. Jenis konten" value={form.contentType} onChange={(value) => updateForm('contentType', value)} options={availableContentTypes} />
@@ -3548,9 +3926,9 @@ function buildContentQualityReport(preview, form) {
 
   const checks = [
     {
-      label: 'TP/ATP sudah dipilih',
-      passed: Boolean(form.learningObjectiveId || preview.learningObjectiveId),
-      suggestion: 'Pilih TP/ATP di panel Kurikulum Merdeka sebelum draft dikirim ke fitur aplikasi.',
+      label: 'Target belajar jelas',
+      passed: Boolean((form.topic || preview.topic || '').trim()),
+      suggestion: 'Isi topik dan tulis target belajar sebagai kemampuan yang bisa diamati siswa.',
     },
     {
       label: 'Judul jelas dan sesuai topik',
@@ -3696,7 +4074,7 @@ function QualityCheckPanel({ preview, form, onApplySuggestion }) {
 
 function AnalyticsPanel({ preview, snapshot }) {
   const analytics = snapshot || getTeacherAnalyticsSnapshot([], [])
-  const previewReport = buildContentQualityReport(preview, { topic: preview.topic, learningObjectiveId: preview.learningObjectiveId })
+  const previewReport = buildContentQualityReport(preview, { topic: preview.topic })
 
   return (
     <div className="grid gap-4">
@@ -3704,7 +4082,7 @@ function AnalyticsPanel({ preview, snapshot }) {
         <StatCard label="Total item lokal" value={analytics.totals.all} tone="cyan" />
         <StatCard label="Bank soal" value={analytics.totals.questions} tone="purple" />
         <StatCard label="Kuis" value={analytics.totals.quizzes} tone="amber" />
-        <StatCard label="Coverage TP" value={`${analytics.totals.objectiveCoverage}%`} tone="green" />
+        <StatCard label="Draft rapi" value={`${analytics.totals.readinessScore}%`} tone="green" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -3742,7 +4120,7 @@ function AnalyticsPanel({ preview, snapshot }) {
           <div className="mt-4 grid gap-3">
             {(analytics.recommendations.length ? analytics.recommendations : [{
               title: 'Data lokal sudah cukup rapi',
-              description: 'Lanjutkan membuat konten baru dengan memilih TP/ATP dan cek Quality Check sebelum publish.',
+              description: 'Lanjutkan membuat konten baru, cek Quality Check, lalu kirim ke fitur guru yang sesuai.',
               tone: 'green',
             }]).slice(0, 6).map((item) => (
               <div key={item.title} className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
@@ -3763,7 +4141,7 @@ function AnalyticsPanel({ preview, snapshot }) {
                   <p className="font-bold text-slate-800">{item.title}</p>
                   <p className="text-xs font-semibold text-slate-500">{item.subject || 'Umum'} · {item.topic || item.outputType}</p>
                 </div>
-                <StatusBadge tone={item.learningObjectiveId ? 'green' : 'amber'}>{item.outputType || 'Draft'}</StatusBadge>
+                <StatusBadge tone={item.topic ? 'green' : 'amber'}>{item.outputType || 'Draft'}</StatusBadge>
               </div>
             )) : (
               <p className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-500 ring-1 ring-slate-100">
@@ -3790,78 +4168,6 @@ function AnalyticsPanel({ preview, snapshot }) {
   )
 }
 
-
-
-function CurriculumPickerPanel({ curriculumData, curriculumError, selectedLearningObjective, selectedObjectiveId, onSelectObjective }) {
-  const objectives = curriculumData.objectives || []
-  const activeSubjects = (curriculumData.subjects || []).filter((item) => item.is_active !== false)
-
-  return (
-    <SectionCard>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Kurikulum Merdeka</p>
-          <h2 className="mt-1 text-xl font-black text-slate-950">Hubungkan draft ke CP/TP/ATP.</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-            Pilih tujuan pembelajaran agar materi, soal, kuis, tugas, remedial, pengayaan, dan laporan bisa terbaca sebagai capaian kurikulum.
-          </p>
-        </div>
-        <StatusBadge tone={selectedLearningObjective ? 'green' : 'amber'}>
-          {selectedLearningObjective ? 'TP terhubung' : 'Belum pilih TP'}
-        </StatusBadge>
-      </div>
-
-      {curriculumError && (
-        <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
-          {curriculumError}. Jalankan migration dan seed kurikulum di Supabase jika data belum muncul.
-        </div>
-      )}
-
-      <div className="mt-4 grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
-          Pilih TP/ATP
-          <select
-            value={selectedObjectiveId || ''}
-            onChange={(event) => onSelectObjective(event.target.value)}
-            className="min-h-12 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"
-          >
-            <option value="">Belum memilih TP</option>
-            {objectives.slice(0, 300).map((objective) => (
-              <option key={objective.id} value={objective.id}>
-                {objective.subjectCode} · K{objective.grade} S{objective.semester} · {objective.code}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
-          {selectedLearningObjective ? (
-            <>
-              <div className="flex flex-wrap gap-2">
-                <StatusBadge tone="purple">{selectedLearningObjective.subjectName}</StatusBadge>
-                <StatusBadge tone="cyan">{selectedLearningObjective.phaseName}</StatusBadge>
-                <StatusBadge tone="amber">Kelas {selectedLearningObjective.grade} · S{selectedLearningObjective.semester}</StatusBadge>
-              </div>
-              <p className="mt-3 text-sm font-extrabold text-slate-950">{selectedLearningObjective.code}</p>
-              <p className="mt-1 text-sm leading-6 text-slate-600">{selectedLearningObjective.objective}</p>
-              <p className="mt-2 text-xs font-bold text-amber-600">{selectedLearningObjective.verification_status}</p>
-            </>
-          ) : (
-            <>
-              <p className="font-extrabold text-slate-950">Draft belum terhubung ke TP.</p>
-              <p className="mt-1 text-sm leading-6 text-slate-500">
-                Guru tetap bisa membuat draft, tetapi konten perlu dihubungkan ke TP agar masuk laporan kurikulum dan mastery learning.
-              </p>
-              <p className="mt-3 text-xs font-bold text-slate-400">
-                Mapel aktif tersedia: {activeSubjects.length || 0}
-              </p>
-            </>
-          )}
-        </div>
-      </div>
-    </SectionCard>
-  )
-}
 
 
 function PreviewPanel({ preview, publishToFeature, deliveryStatus, savingTarget }) {
@@ -4235,7 +4541,7 @@ function GraphingTool() {
               const y = 30 + index * 35
               return <line key={`hy-${index}`} x1="20" y1={y} x2="340" y2={y} stroke="#E2E8F0" strokeWidth="0.8" />
             })}
-            <polyline points={polyline} fill="none" stroke="#7C3AED" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+            <polyline points={polyline} fill="none" stroke="#0F766E" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
 
@@ -4595,7 +4901,7 @@ function RubricPanel({ form, updateForm, saveRubric }) {
       </p>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
-        <SelectField label="Mata pelajaran" value={form.subject} onChange={(value) => updateForm('subject', value)} options={Object.keys(subjectTemplates)} />
+        <SelectField label="Mata pelajaran" value={form.subject} onChange={(value) => updateForm('subject', value)} options={smaSubjectOptions} placeholder="Pilih mapel SMA" />
         <SelectField label="Kelas" value={form.className} onChange={(value) => updateForm('className', value)} options={classOptions} />
         <TextField label="Tugas / proyek" value={form.topic} onChange={(value) => updateForm('topic', value)} placeholder="Pidato, laporan praktikum, proyek sejarah..." />
         <SelectField label="Level" value={form.level} onChange={(value) => updateForm('level', value)} options={levelOptions} />
@@ -4653,7 +4959,7 @@ function ImportPanel({ form, updateForm, createFromText, createVideoInteractive 
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-3">
-        <SelectField label="Mata pelajaran" value={form.subject} onChange={(value) => updateForm('subject', value)} options={Object.keys(subjectTemplates)} />
+        <SelectField label="Mata pelajaran" value={form.subject} onChange={(value) => updateForm('subject', value)} options={smaSubjectOptions} placeholder="Pilih mapel SMA" />
         <SelectField label="Kelas" value={form.className} onChange={(value) => updateForm('className', value)} options={classOptions} />
         <TextField label="Topik" value={form.topic} onChange={(value) => updateForm('topic', value)} placeholder="Masukkan topik" />
       </div>
@@ -4823,27 +5129,29 @@ function ArchivePanel({ contentRows, rubricRows, onClearArchive }) {
 
 function TextField({ label, value, onChange, placeholder }) {
   return (
-    <label className="grid gap-2 text-sm font-bold text-slate-700">
+    <label className="grid gap-2 text-sm font-black text-slate-700">
       {label}
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300"
+        className="min-h-12 rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2f7d74] focus:ring-4 focus:ring-emerald-900/10"
       />
     </label>
   )
 }
 
-function SelectField({ label, value, onChange, options }) {
+function SelectField({ label, value, onChange, options, placeholder = '', disabled = false }) {
   return (
-    <label className="grid gap-2 text-sm font-bold text-slate-700">
+    <label className="grid gap-2 text-sm font-black text-slate-700">
       {label}
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-2xl border border-purple-100 bg-galaxy-surface px-4 py-3 outline-none focus:border-purple-300"
+        disabled={disabled}
+        className="min-h-12 rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 outline-none transition focus:border-[#2f7d74] focus:ring-4 focus:ring-emerald-900/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
       >
+        {placeholder && <option value="">{placeholder}</option>}
         {options.map((option) => <option key={option}>{option}</option>)}
       </select>
     </label>

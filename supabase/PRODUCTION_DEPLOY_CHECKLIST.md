@@ -1,14 +1,14 @@
-# SEA Learning - Production Deploy Checklist
+# IsleLearn - Production Deploy Checklist
 
 ## A. Supabase
 
 - [ ] Jalankan `supabase/schema.sql`
 - [ ] Jalankan `supabase/seed.sql`
 - [ ] Buat akun Auth:
-  - [ ] admin@sea-learning.local
-  - [ ] guru@sea-learning.local
-  - [ ] siswa@sea-learning.local
-  - [ ] pimpinan@sea-learning.local
+  - [ ] admin@islelearn.local
+  - [ ] guru@islelearn.local
+  - [ ] siswa@islelearn.local
+  - [ ] pimpinan@islelearn.local
 - [ ] Copy User UID dari Authentication
 - [ ] Edit `supabase/production-accounts-template.sql`
 - [ ] Jalankan `supabase/production-accounts-template.sql`

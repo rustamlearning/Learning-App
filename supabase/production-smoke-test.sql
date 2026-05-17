@@ -1,4 +1,4 @@
--- SEA Learning Production Smoke Test
+-- IsleLearn Production Smoke Test
 -- Jalankan di Supabase SQL Editor setelah schema, seed, dan akun Auth selesai dihubungkan.
 
 -- 1. Cek profile utama dan auth_user_id

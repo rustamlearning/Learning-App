@@ -1,4 +1,4 @@
-# SEA Learning - Setup Akun Production Supabase
+# IsleLearn - Setup Akun Production Supabase
 
 ## Urutan aman
 
@@ -26,10 +26,10 @@ Buat akun berikut:
 
 | Role | Email | Username alias | Catatan |
 |---|---|---|---|
-| Admin | admin@sea-learning.local | admin | Akun pengelola |
-| Guru | guru@sea-learning.local | guru | Akun guru Bahasa Inggris |
-| Siswa | siswa@sea-learning.local | siswa | Akun siswa contoh |
-| Pimpinan | pimpinan@sea-learning.local | pimpinan | Akun monitoring |
+| Admin | admin@islelearn.local | admin | Akun pengelola |
+| Guru | guru@islelearn.local | guru | Akun guru Bahasa Inggris |
+| Siswa | siswa@islelearn.local | siswa | Akun siswa contoh |
+| Pimpinan | pimpinan@islelearn.local | pimpinan | Akun monitoring |
 
 Gunakan password yang kuat. Jangan commit password ke GitHub.
 

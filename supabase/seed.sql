@@ -1,9 +1,9 @@
 insert into users_profile (name, email, role, status)
 values
-  ('Andi Saputra', 'siswa@sea-learning.local', 'siswa', 'Aktif'),
-  ('Rustam, S.Pd.', 'guru@sea-learning.local', 'guru', 'Aktif'),
-  ('Admin Sekolah', 'admin@sea-learning.local', 'admin', 'Aktif'),
-  ('Wakasek Kesiswaan', 'pimpinan@sea-learning.local', 'pimpinan', 'Aktif')
+  ('Andi Saputra', 'siswa@islelearn.local', 'siswa', 'Aktif'),
+  ('Rustam, S.Pd.', 'guru@islelearn.local', 'guru', 'Aktif'),
+  ('Admin Sekolah', 'admin@islelearn.local', 'admin', 'Aktif'),
+  ('Wakasek Kesiswaan', 'pimpinan@islelearn.local', 'pimpinan', 'Aktif')
 on conflict (email) do update set
   name = excluded.name,
   role = excluded.role,
@@ -13,10 +13,10 @@ insert into login_aliases (profile_id, username, email, role)
 select id, lower(regexp_replace(name, '\s+', ' ', 'g')), lower(email), role
 from users_profile
 where email in (
-  'siswa@sea-learning.local',
-  'guru@sea-learning.local',
-  'admin@sea-learning.local',
-  'pimpinan@sea-learning.local'
+  'siswa@islelearn.local',
+  'guru@islelearn.local',
+  'admin@islelearn.local',
+  'pimpinan@islelearn.local'
 )
 on conflict (username) do update set
   profile_id = excluded.profile_id,
@@ -35,7 +35,7 @@ on conflict (name, academic_year) do update set
 
 insert into subjects (name, code, teacher_id)
 values
-  ('Bahasa Inggris', 'BIG', (select id from users_profile where email = 'guru@sea-learning.local')),
+  ('Bahasa Inggris', 'BIG', (select id from users_profile where email = 'guru@islelearn.local')),
   ('Matematika', 'MTK', null),
   ('Bahasa Indonesia', 'BIN', null),
   ('Biologi', 'BIO', null),
@@ -49,7 +49,7 @@ on conflict (code) do update set
 
 insert into students (user_id, nis, nisn, class_id, gender, status)
 values (
-  (select id from users_profile where email = 'siswa@sea-learning.local'),
+  (select id from users_profile where email = 'siswa@islelearn.local'),
   '2026001',
   '006120001',
   (select id from classes where name = 'X.1' and academic_year = '2026/2027'),
@@ -65,7 +65,7 @@ on conflict (user_id) do update set
 
 insert into teachers (user_id, nip, subject_id, status)
 values (
-  (select id from users_profile where email = 'guru@sea-learning.local'),
+  (select id from users_profile where email = 'guru@islelearn.local'),
   '1987012026011',
   (select id from subjects where code = 'BIG'),
   'Aktif'
@@ -83,7 +83,7 @@ values
     'Descriptive text adalah teks yang menjelaskan orang, tempat, benda, atau hewan secara detail. Struktur umumnya identification dan description. Hari ini, coba deskripsikan pulau atau sekolahmu dengan kalimat sederhana.',
     (select id from subjects where code = 'BIG'),
     (select id from classes where name = 'X.1' and academic_year = '2026/2027'),
-    (select id from users_profile where email = 'guru@sea-learning.local'),
+    (select id from users_profile where email = 'guru@islelearn.local'),
     'Text Type',
     'Teks',
     'Publish'
@@ -94,7 +94,7 @@ values
     'Simple Present Tense dipakai untuk rutinitas, fakta umum, dan kebiasaan. Pola dasarnya Subject + Verb 1. Untuk he, she, it, tambahkan s/es pada verb.',
     (select id from subjects where code = 'BIG'),
     (select id from classes where name = 'X.1' and academic_year = '2026/2027'),
-    (select id from users_profile where email = 'guru@sea-learning.local'),
+    (select id from users_profile where email = 'guru@islelearn.local'),
     'Grammar',
     'Teks',
     'Publish'
@@ -105,7 +105,7 @@ values
     'Narrative text menceritakan kejadian imajinatif atau pengalaman dengan struktur orientation, complication, dan resolution. Fokus utama: memahami alur cerita dan pesan moral.',
     (select id from subjects where code = 'BIG'),
     (select id from classes where name = 'XI.1' and academic_year = '2026/2027'),
-    (select id from users_profile where email = 'guru@sea-learning.local'),
+    (select id from users_profile where email = 'guru@islelearn.local'),
     'Reading',
     'Teks',
     'Draft'
@@ -131,7 +131,7 @@ values
     'Text Type',
     'Mudah',
     'Pilihan ganda',
-    (select id from users_profile where email = 'guru@sea-learning.local')
+    (select id from users_profile where email = 'guru@islelearn.local')
   ),
   (
     'Which sentence uses simple present tense correctly?',
@@ -143,7 +143,7 @@ values
     'Grammar',
     'Sedang',
     'Pilihan ganda',
-    (select id from users_profile where email = 'guru@sea-learning.local')
+    (select id from users_profile where email = 'guru@islelearn.local')
   ),
   (
     'Mention the generic structure of narrative text.',
@@ -155,7 +155,7 @@ values
     'Reading',
     'Sedang',
     'Pilihan ganda',
-    (select id from users_profile where email = 'guru@sea-learning.local')
+    (select id from users_profile where email = 'guru@islelearn.local')
   )
 on conflict (question_text, subject_id, class_id) do update set
   options = excluded.options,
@@ -172,7 +172,7 @@ values (
   'Kuis singkat untuk mengukur pemahaman descriptive text.',
   (select id from subjects where code = 'BIG'),
   (select id from classes where name = 'X.1' and academic_year = '2026/2027'),
-  (select id from users_profile where email = 'guru@sea-learning.local'),
+  (select id from users_profile where email = 'guru@islelearn.local'),
   20,
   'Publish'
 )
@@ -198,7 +198,7 @@ values
     'Write five English sentences about your island or neighborhood.',
     (select id from subjects where code = 'BIG'),
     (select id from classes where name = 'X.1' and academic_year = '2026/2027'),
-    (select id from users_profile where email = 'guru@sea-learning.local'),
+    (select id from users_profile where email = 'guru@islelearn.local'),
     '2026-05-06 23:59:00+08',
     'Aktif'
   ),
@@ -207,7 +207,7 @@ values
     'Collect ten new English words from your daily life and write the meanings.',
     (select id from subjects where code = 'BIG'),
     (select id from classes where name = 'X.1' and academic_year = '2026/2027'),
-    (select id from users_profile where email = 'guru@sea-learning.local'),
+    (select id from users_profile where email = 'guru@islelearn.local'),
     '2026-05-10 23:59:00+08',
     'Draft'
   )

@@ -1,4 +1,4 @@
--- SEA Learning Production Account Linking Template
+-- IsleLearn Production Account Linking Template
 -- Jalankan file ini di Supabase SQL Editor SETELAH:
 -- 1. supabase/schema.sql dijalankan
 -- 2. supabase/seed.sql dijalankan
@@ -9,25 +9,25 @@
 -- 1. Hubungkan profile aplikasi dengan akun Auth Supabase
 update users_profile
 set auth_user_id = 'AUTH_USER_ID_ADMIN'
-where email = 'admin@sea-learning.local';
+where email = 'admin@islelearn.local';
 
 update users_profile
 set auth_user_id = 'AUTH_USER_ID_GURU'
-where email = 'guru@sea-learning.local';
+where email = 'guru@islelearn.local';
 
 update users_profile
 set auth_user_id = 'AUTH_USER_ID_SISWA'
-where email = 'siswa@sea-learning.local';
+where email = 'siswa@islelearn.local';
 
 update users_profile
 set auth_user_id = 'AUTH_USER_ID_PIMPINAN'
-where email = 'pimpinan@sea-learning.local';
+where email = 'pimpinan@islelearn.local';
 
 -- 2. Pastikan alias login tersedia
 insert into login_aliases (profile_id, username, email, role)
 select id, 'admin', lower(email), role
 from users_profile
-where email = 'admin@sea-learning.local'
+where email = 'admin@islelearn.local'
 on conflict (username) do update set
   profile_id = excluded.profile_id,
   email = excluded.email,
@@ -36,7 +36,7 @@ on conflict (username) do update set
 insert into login_aliases (profile_id, username, email, role)
 select id, 'guru', lower(email), role
 from users_profile
-where email = 'guru@sea-learning.local'
+where email = 'guru@islelearn.local'
 on conflict (username) do update set
   profile_id = excluded.profile_id,
   email = excluded.email,
@@ -45,7 +45,7 @@ on conflict (username) do update set
 insert into login_aliases (profile_id, username, email, role)
 select id, 'siswa', lower(email), role
 from users_profile
-where email = 'siswa@sea-learning.local'
+where email = 'siswa@islelearn.local'
 on conflict (username) do update set
   profile_id = excluded.profile_id,
   email = excluded.email,
@@ -54,7 +54,7 @@ on conflict (username) do update set
 insert into login_aliases (profile_id, username, email, role)
 select id, 'pimpinan', lower(email), role
 from users_profile
-where email = 'pimpinan@sea-learning.local'
+where email = 'pimpinan@islelearn.local'
 on conflict (username) do update set
   profile_id = excluded.profile_id,
   email = excluded.email,

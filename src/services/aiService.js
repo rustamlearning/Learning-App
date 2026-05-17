@@ -18,14 +18,14 @@ export async function generateQuestions(options = {}) {
   if (live) return parseGeneratedQuestions(live.content)
 
   await wait(320)
-  const topic = options.topic || 'Descriptive Text'
-  const subject = options.subject || 'Bahasa Inggris'
+  const topic = options.topic || 'topik yang dipilih'
+  const subject = options.subject || 'mata pelajaran'
   const total = Number(options.total || 3)
   return Array.from({ length: total }).map((_, index) => ({
-    question: `${index + 1}. Which statement best describes ${topic}?`,
-    options: ['It explains details clearly', 'It lists random facts', 'It only tells opinions', 'It gives instructions'],
-    answer: 'It explains details clearly',
-    explanation: `Dalam ${subject}, ${topic} menekankan detail, ciri, dan gambaran yang mudah dipahami pembaca.`,
+    question: `${index + 1}. Pernyataan mana yang paling tepat tentang ${topic}?`,
+    options: ['Jawaban paling tepat', 'Pernyataan kurang lengkap', 'Jawaban tidak relevan', 'Distraktor konseptual'],
+    answer: 'Jawaban paling tepat',
+    explanation: `Dalam ${subject}, soal ini perlu menilai pemahaman inti tentang ${topic}, bukan sekadar hafalan kata.`,
   }))
 }
 
@@ -43,9 +43,9 @@ export async function generateFlashcards(text) {
 
   await wait(240)
   return [
-    { front: 'Identification', back: 'Bagian awal descriptive text yang mengenalkan objek.' },
-    { front: 'Description', back: 'Bagian yang menjelaskan ciri dan detail objek.' },
-    { front: 'Explore', back: 'Menjelajahi atau mempelajari sesuatu lebih dalam.' },
+    { front: 'Konsep inti', back: 'Gagasan utama yang harus dipahami sebelum latihan.' },
+    { front: 'Kata kunci', back: 'Istilah penting yang membantu siswa mengenali pola materi.' },
+    { front: 'Latihan singkat', back: 'Pertanyaan ringkas untuk mengecek pemahaman awal.' },
   ]
 }
 

@@ -10,17 +10,25 @@ import {
   ClipboardCheck,
   ClipboardList,
   Download,
+  FileText,
   FileQuestion,
   FlaskConical,
+  Layers3,
+  Link2,
   Megaphone,
+  PencilLine,
   PlayCircle,
   Plus,
   Radio,
+  Save,
   School,
+  Send,
   Sparkles,
   Target,
+  Trash2,
   Trophy,
   UsersRound,
+  X,
 } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -37,32 +45,35 @@ import {
   quizzes,
   remedials,
   scoreTrend,
-  seaclub,
+  isleclub,
   students,
   subjectProgress,
   subjects,
   teachers,
 } from '../data/dummyData.js'
 import {
+  ActionList,
+  CompactList,
   ConfirmDialog,
   DashboardCard,
   DataTable,
   EmptyState,
   LoadingState,
+  MetricStrip,
   PageHeader,
   QuickActionButton,
   SearchFilterBar,
   SectionCard,
   StatCard,
   StatusBadge,
+  TimelineList,
   Toast,
   ProgressRing,
 } from '../components/ui.jsx'
-import { AIChatPanel, AIGeneratorPanel, BadgeCard, DailyMissionCard, FlashcardDeck, LearningPath, SEAClubCorner } from '../components/learning.jsx'
+import { AIChatPanel, AIGeneratorPanel, BadgeCard, DailyMissionCard, FlashcardDeck, LearningPath, IsleClubCorner } from '../components/learning.jsx'
 import { fetchMaterialLookups, fetchMaterials, fetchStudentMaterialProgress, markMaterialCompleted, removeMaterial, saveMaterial } from '../services/materialService.js'
 import { fetchQuestions, removeQuestion, saveQuestion } from '../services/questionService.js'
 import { fetchQuizAttempts, fetchQuizQuestions, fetchQuizzes, fetchStudentRecord, removeQuiz, saveQuiz, submitQuizAttempt } from '../services/quizService.js'
-import { fetchCurriculumContentAudit, fetchCurriculumOverview } from '../services/curriculumService.js'
 import { exportBackupData, fetchAdminStudents, fetchAdminTeachers, fetchClasses, fetchSubjects, removeAdminStudent, removeAdminTeacher, removeClass, removeSubject, saveAdminStudent, saveAdminTeacher, saveClass, saveSubject } from '../services/adminService.js'
 import { createAssignmentSubmission, fetchAssignmentSubmissions, fetchAssignments, removeAssignment, saveAssignment } from '../services/assignmentService.js'
 
@@ -101,7 +112,7 @@ function renderSiswa(page, user, notify, appContext) {
   if (page === 'ai-tutor') return <AIPage />
   if (page === 'progres') return <ProgresPage user={user} />
   if (page === 'leaderboard') return <LeaderboardPage />
-  if (page === 'seaclub') return <SEAClubPage />
+  if (page === 'isleclub') return <IsleClubPage />
   if (page === 'profil') return <ProfilPage user={user} />
   return <EmptyState />
 }
@@ -115,7 +126,7 @@ function renderGuru(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'kuis-live') return <KuisLive user={user} notify={notify} appContext={appContext} />
   if (page === 'studio-konten') {
     return (
-      <Suspense fallback={<div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-500 shadow-soft">Memuat Studio Konten...</div>}>
+      <Suspense fallback={<div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-500 shadow-soft">Memuat Siapkan Pembelajaran...</div>}>
         <ContentStudio user={user} notify={notify} />
       </Suspense>
     )
@@ -133,7 +144,6 @@ function renderAdmin(page, notify, setConfirmOpen, appContext) {
   if (page === 'siswa') return <AdminProfiles role="siswa" title="Data Siswa" notify={notify} appContext={appContext} />
   if (page === 'kelas') return <AdminKelas notify={notify} appContext={appContext} />
   if (page === 'mapel') return <AdminMapel notify={notify} appContext={appContext} />
-  if (page === 'kurikulum') return <CurriculumAdminPage />
   if (page === 'pengaturan') return <Pengaturan notify={notify} />
   if (page === 'laporan') return <LaporanSekolah notify={notify} />
   if (page === 'backup') return <BackupPage notify={notify} setConfirmOpen={setConfirmOpen} appContext={appContext} />
@@ -155,80 +165,130 @@ function SiswaDashboard({ user, notify }) {
   const navigate = useNavigate()
   const userId = user?.id || 'demo'
   const completedMaterials = getCompletedMaterials(userId)
-  const practiceResults = getStoredResultsByPrefix('sea-learning-practice-result-')
-  const quizResults = getStoredResultsByPrefix(`sea-learning-quiz-result-${userId}-`)
-  const assignmentSubmissions = readLocalRowsByPrefix('sea-learning-assignment-submissions-').filter((item) => item.userId === userId)
+  const practiceResults = getStoredResultsByPrefix('islelearn-practice-result-')
+  const quizResults = getStoredResultsByPrefix(`islelearn-quiz-result-${userId}-`)
+  const assignmentSubmissions = readLocalRowsByPrefix('islelearn-assignment-submissions-').filter((item) => item.userId === userId)
   const average = averageScore([...practiceResults, ...quizResults])
   const learningProgress = Math.min(100, completedMaterials.length * 20 + practiceResults.length * 10 + quizResults.length * 15 + assignmentSubmissions.length * 15)
 
+  const classAssignments = assignments.filter((item) => !user?.className || item.className === user.className)
+  const activeAssignments = classAssignments.filter((item) => ['Aktif', 'Terlambat'].includes(item.status))
+  const activeQuizzes = quizzes.filter((item) => ['Berlangsung', 'Belum mulai'].includes(item.status))
+  const continuingMaterials = materials
+    .filter((item) => item.status !== 'Selesai')
+    .sort((a, b) => b.progress - a.progress)
+    .slice(0, 3)
+
+  const metricItems = [
+    { label: 'Progress', value: `${learningProgress}%`, caption: `${completedMaterials.length} materi selesai`, icon: BarChart3 },
+    { label: 'Tugas', value: assignmentSubmissions.length, caption: 'submission tersimpan', icon: ClipboardCheck },
+    { label: 'Aktivitas', value: practiceResults.length + quizResults.length, caption: 'latihan/kuis', icon: CalendarClock },
+    { label: 'Rata-rata', value: average || '-', caption: average ? 'nilai tersimpan' : 'belum ada skor', icon: Award },
+  ]
+
   const quickLinks = [
-    ['Materi', 'Lanjutkan materi dari guru', BookOpen, '/siswa/materi', 'cyan'],
-    ['Tugas', 'Cek dan kirim jawaban', ClipboardCheck, '/siswa/tugas', 'amber'],
-    ['Kuis', 'Kerjakan kuis aktif', FileQuestion, '/siswa/kuis', 'purple'],
-    ['AI Tutor', 'Tanya materi yang sulit', Bot, '/siswa/ai-tutor', 'green'],
+    { label: 'Materi', description: 'Lanjutkan materi dari guru', icon: BookOpen, onClick: () => navigate('/siswa/materi') },
+    { label: 'Tugas', description: 'Cek dan kirim jawaban', icon: ClipboardCheck, onClick: () => navigate('/siswa/tugas') },
+    { label: 'Kuis', description: 'Kerjakan kuis aktif', icon: FileQuestion, onClick: () => navigate('/siswa/kuis') },
+    { label: 'AI Tutor', description: 'Tanya materi yang sulit', icon: Bot, onClick: () => navigate('/siswa/ai-tutor') },
+  ]
+
+  const priorityItems = [
+    ...activeQuizzes.slice(0, 2).map((item) => ({
+      id: `quiz-${item.id}`,
+      title: item.title,
+      eyebrow: item.subject,
+      meta: `${item.duration} menit · ${item.date}`,
+      status: item.status,
+      icon: FileQuestion,
+      actionLabel: item.status === 'Berlangsung' ? 'Kerjakan' : 'Lihat',
+      onClick: () => navigate('/siswa/kuis'),
+    })),
+    ...activeAssignments.slice(0, 2).map((item) => ({
+      id: `assignment-${item.id}`,
+      title: item.title,
+      eyebrow: item.subject,
+      meta: `Deadline ${item.deadline} · ${item.className}`,
+      status: item.status,
+      icon: ClipboardCheck,
+      actionLabel: 'Buka',
+      onClick: () => navigate('/siswa/tugas'),
+    })),
+  ].slice(0, 4)
+
+  const materialItems = continuingMaterials.map((item) => ({
+    id: item.id,
+    title: item.title,
+    eyebrow: item.subject,
+    meta: `${item.topic} · ${item.progress}% selesai`,
+    status: item.status,
+    icon: BookOpen,
+    actionLabel: 'Lanjut',
+    onClick: () => navigate('/siswa/materi'),
+  }))
+
+  const activityItems = [
+    ...activities.slice(0, 4),
+    learningProgress === 0 ? 'Mulai satu materi untuk membuka rekomendasi belajar berikutnya.' : `${firstName} sudah mencapai ${learningProgress}% progres belajar.`,
   ]
 
   return (
-    <div>
-      <PageHeader
-        eyebrow="Siswa"
-        title={`Halo, ${firstName}`}
-        description="Fokus belajar hari ini: buka materi, selesaikan tugas, dan kerjakan kuis yang aktif."
-        action={<QuickActionButton icon={BookOpen} label="Mulai Belajar" onClick={() => navigate('/siswa/materi')} />}
-      />
-
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={LineChartIcon} label="Progress" value={`${learningProgress}%`} caption={`${completedMaterials.length} materi selesai`} tone="purple" />
-        <StatCard icon={ClipboardCheck} label="Tugas" value={assignmentSubmissions.length} caption="submission tersimpan" tone="cyan" />
-        <StatCard icon={CalendarClock} label="Aktivitas" value={practiceResults.length + quizResults.length} caption="latihan/kuis" tone="amber" />
-        <StatCard icon={Award} label="Rata-rata" value={average || '-'} caption={average ? 'nilai tersimpan' : 'belum ada skor'} tone="green" />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-        <DashboardCard title="Akses Cepat">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {quickLinks.map(([label, description, Icon, route, tone]) => (
-              <button
-                key={label}
-                onClick={() => navigate(route)}
-                className="rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft"
-              >
-                <div className="flex items-start gap-3">
-                  <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-galaxy-lavender text-galaxy-purple">
-                    <Icon size={18} />
-                  </span>
-                  <div>
-                    <StatusBadge tone={tone}>{label}</StatusBadge>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{description}</p>
-                  </div>
-                </div>
-              </button>
-            ))}
+    <div className="space-y-4">
+      <section className="overflow-hidden rounded-[1.6rem] sea-ink-panel p-5 text-white shadow-[0_20px_54px_rgba(15,31,42,0.16)]">
+        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#b9e4dc]">Today view · {user?.className || 'Kelas aktif'}</p>
+            <h1 className="mt-3 text-balance text-3xl font-black leading-none tracking-[-0.02em] sm:text-4xl">
+              Halo, {firstName}. Mulai dari yang paling penting dulu.
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-200/78">
+              Buka materi lanjutan, cek tugas aktif, lalu kerjakan kuis yang sudah dibuka guru.
+            </p>
           </div>
-        </DashboardCard>
 
-        <DashboardCard title="Ringkasan Belajar">
-          <div className="grid gap-3">
-            <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-black text-slate-950">Progress belajar</p>
-                <StatusBadge tone={learningProgress >= 70 ? 'green' : 'amber'}>{learningProgress}%</StatusBadge>
+          <div className="rounded-2xl bg-white/[0.08] p-4 ring-1 ring-white/10">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#b9e4dc]">Fokus hari ini</p>
+                <p className="mt-1 text-lg font-black">Lanjutkan materi aktif</p>
               </div>
-              <div className="mt-3 h-2 rounded-full bg-galaxy-lavender">
-                <div className="h-2 rounded-full bg-galaxy-action" style={{ width: `${learningProgress}%` }} />
-              </div>
+              <StatusBadge tone={learningProgress >= 70 ? 'green' : 'amber'}>{learningProgress}%</StatusBadge>
             </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button onClick={() => navigate('/siswa/materi')} className="rounded-2xl bg-cyan-50 p-4 text-left text-sm font-bold text-cyan-800 ring-1 ring-cyan-100">
-                Lanjutkan materi
-              </button>
-              <button onClick={() => navigate('/siswa/kuis')} className="rounded-2xl bg-violet-50 p-4 text-left text-sm font-bold text-violet-800 ring-1 ring-violet-100">
-                Cek kuis aktif
-              </button>
+            <div className="mt-4 h-2 rounded-full bg-white/14">
+              <div className="h-2 rounded-full bg-[#f1c36d]" style={{ width: `${learningProgress}%` }} />
             </div>
+            <button
+              onClick={() => navigate('/siswa/materi')}
+              className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#f1c36d] px-4 text-sm font-black text-[#13232d] transition hover:-translate-y-0.5 hover:bg-[#ffd37f]"
+            >
+              <BookOpen size={17} /> Mulai belajar
+            </button>
           </div>
-        </DashboardCard>
+        </div>
+      </section>
+
+      <MetricStrip items={metricItems} />
+
+      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="space-y-4">
+          <CompactList
+            title="Perlu dikerjakan"
+            description="Tugas dan kuis aktif muncul sebagai antrean kerja, bukan kartu besar."
+            items={priorityItems}
+            emptyLabel="Tidak ada tugas atau kuis aktif saat ini."
+          />
+
+          <CompactList
+            title="Lanjutkan belajar"
+            description="Materi yang masih berjalan diprioritaskan agar progres tidak tercecer."
+            items={materialItems}
+          />
+        </div>
+
+        <div className="space-y-4">
+          <ActionList items={quickLinks} />
+          <TimelineList title="Aktivitas terbaru" items={activityItems} />
+        </div>
       </div>
     </div>
   )
@@ -273,9 +333,14 @@ function readLocalRowsByPrefix(prefix) {
         const rows = safeReadLocalJson(key, [])
         return Array.isArray(rows) ? rows : []
       })
+      .filter((row) => !isLegacyDemoRow(row))
   } catch (error) {
     return []
   }
+}
+
+function isLegacyDemoRow(row) {
+  return /^(material|question|assignment|quiz)-\d+$/.test(row?.id || '')
 }
 
 function safeReadLocalJson(key, fallback = null) {
@@ -314,7 +379,7 @@ function safeWriteLocalJson(key, value) {
 
 
 function getPublishedLocalTeacherMaterials() {
-  return readLocalRowsByPrefix('sea-learning-teacher-materials-')
+  return readLocalRowsByPrefix('islelearn-teacher-materials-')
     .filter((item) => item && item.status === 'Publish')
     .map((item) => ({
       ...item,
@@ -329,7 +394,7 @@ function getPublishedLocalTeacherMaterials() {
 }
 
 function getPublishedLocalTeacherQuizzes() {
-  return readLocalRowsByPrefix('sea-learning-teacher-quizzes-')
+  return readLocalRowsByPrefix('islelearn-teacher-quizzes-')
     .filter((item) => item && item.status === 'Publish')
     .map((item) => ({
       ...item,
@@ -342,7 +407,7 @@ function getPublishedLocalTeacherQuizzes() {
 }
 
 function getPublishedLocalTeacherAssignments() {
-  return readLocalRowsByPrefix('sea-learning-teacher-assignments-')
+  return readLocalRowsByPrefix('islelearn-teacher-assignments-')
     .filter((item) => item && item.status === 'Aktif')
     .map((item) => ({
       ...item,
@@ -357,7 +422,7 @@ function getPublishedLocalTeacherAssignments() {
 }
 
 function getAllLocalTeacherQuestions() {
-  return readLocalRowsByPrefix('sea-learning-teacher-questions-')
+  return readLocalRowsByPrefix('islelearn-teacher-questions-')
     .filter((item) => item && item.questionText)
     .map((item) => ({
       ...item,
@@ -476,18 +541,6 @@ function MateriBelajar({ user, notify, appContext }) {
   )
 }
 
-function CurriculumLinkBadge({ item }) {
-  const code = item?.learningObjectiveCode || item?.learningObjectiveId
-  if (!code) return <StatusBadge tone="amber">TP belum terhubung</StatusBadge>
-  return <StatusBadge tone="green">{item.learningObjectiveCode || 'TP terhubung'}</StatusBadge>
-}
-
-function CurriculumLinkText({ item }) {
-  const code = item?.learningObjectiveCode || item?.learningObjectiveId
-  if (!code) return <span className="text-xs font-bold text-amber-600">TP belum terhubung</span>
-  return <span className="text-xs font-bold text-emerald-600">{item.learningObjectiveCode || 'TP terhubung'}</span>
-}
-
 function normalizeLookupText(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '')
 }
@@ -497,107 +550,14 @@ function extractGrade(value) {
   return match ? Number(match[1]) : null
 }
 
-function LearningObjectivePicker({ value, subjectId, classId, subjectName, className, subjectsList, classesList, onChange }) {
-  const { accessToken } = useAuth()
-  const [objectives, setObjectives] = useState([])
-  const [loading, setLoading] = useState(Boolean(accessToken))
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let active = true
-
-    async function loadObjectives() {
-      if (!accessToken) {
-        setObjectives([])
-        setLoading(false)
-        return
-      }
-
-      try {
-        setLoading(true)
-        const overview = await fetchCurriculumOverview({ accessToken })
-        if (active) {
-          setObjectives(overview.objectives || [])
-          setError('')
-        }
-      } catch (loadError) {
-        if (active) {
-          setObjectives([])
-          setError(loadError.message || 'TP belum bisa dimuat.')
-        }
-      } finally {
-        if (active) setLoading(false)
-      }
-    }
-
-    loadObjectives()
-    return () => {
-      active = false
-    }
-  }, [accessToken])
-
-  const selectedSubject = subjectsList.find((item) => String(item.id || '') === String(subjectId || ''))
-  const selectedClass = classesList.find((item) => String(item.id || '') === String(classId || ''))
-  const selectedSubjectName = selectedSubject?.name || subjectName || ''
-  const selectedSubjectCode = selectedSubject?.code || ''
-  const selectedGrade = selectedClass?.grade || extractGrade(selectedClass?.name || className)
-  const normalizedSubject = normalizeLookupText(selectedSubjectName)
-  const normalizedCode = normalizeLookupText(selectedSubjectCode)
-
-  const subjectMatches = objectives.filter((objective) => {
-    if (!normalizedSubject && !normalizedCode) return true
-    const objectiveSubject = normalizeLookupText(objective.subjectName)
-    const objectiveCode = normalizeLookupText(objective.subjectCode)
-    return objectiveSubject === normalizedSubject
-      || objectiveCode === normalizedCode
-      || (normalizedSubject && objectiveSubject.includes(normalizedSubject))
-      || (objectiveSubject && normalizedSubject.includes(objectiveSubject))
-  })
-  const gradeMatches = selectedGrade
-    ? subjectMatches.filter((objective) => Number(objective.grade) === Number(selectedGrade))
-    : subjectMatches
-  const filteredObjectives = gradeMatches.length > 0 ? gradeMatches : subjectMatches
-  const selectedObjective = objectives.find((objective) => objective.id === value)
-  const pickerOptions = selectedObjective && !filteredObjectives.some((objective) => objective.id === selectedObjective.id)
-    ? [selectedObjective, ...filteredObjectives]
-    : filteredObjectives
-
-  function handleChange(objectiveId) {
-    const objective = objectives.find((item) => item.id === objectiveId)
-    onChange(objectiveId, objective)
-  }
-
-  return (
-    <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Tujuan Pembelajaran / TP
-      <select
-        value={value || ''}
-        onChange={(event) => handleChange(event.target.value)}
-        disabled={loading || pickerOptions.length === 0}
-        className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300 disabled:cursor-not-allowed disabled:opacity-70"
-      >
-        <option value="">{loading ? 'Memuat TP...' : 'Pilih TP/ATP untuk konten ini'}</option>
-        {pickerOptions.slice(0, 80).map((objective) => (
-          <option key={objective.id} value={objective.id}>
-            {objective.code} - Kelas {objective.grade} S{objective.semester} - {objective.objective}
-          </option>
-        ))}
-      </select>
-      <span className="text-xs font-semibold text-slate-500">
-        {error
-          ? `TP belum dimuat: ${error}`
-          : pickerOptions.length > 0
-            ? `${pickerOptions.length} TP cocok dengan mapel/kelas. Data masih template awal dan perlu verifikasi sekolah.`
-            : 'Pilih mapel dan kelas terlebih dahulu, atau login Supabase agar bank TP sekolah terbaca.'}
-      </span>
-    </label>
-  )
-}
-
 function MaterialCard({ item, onOpen, notify }) {
   const navigate = useNavigate()
   return (
     <SectionCard>
-      <div className="mb-4 flex items-center justify-between gap-2"><StatusBadge tone="cyan">{item.subject}</StatusBadge><CurriculumLinkBadge item={item} /></div>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <StatusBadge tone="cyan">{item.subject}</StatusBadge>
+        <StatusBadge tone={item.status === 'Selesai' ? 'green' : 'amber'}>{item.status}</StatusBadge>
+      </div>
       <h2 className="text-lg font-black text-gray-950">{item.title}</h2>
       <p className="mt-2 text-sm leading-6 text-gray-500">{item.description}</p>
       <div className="mt-4 h-2 rounded-full bg-galaxy-lavender"><div className="h-2 rounded-full bg-galaxy-action" style={{ width: `${item.progress}%` }} /></div>
@@ -626,16 +586,16 @@ function findLearningText(paragraphs, keywords) {
 function buildMaterialLearningSections(item) {
   const paragraphs = splitLearningParagraphs(item.content)
   const mainText = paragraphs.length > 0 ? paragraphs.join('\n\n') : item.description || 'Materi ini belum memiliki isi lengkap.'
-  const objectiveText = item.learningObjectiveText || findLearningText(paragraphs, ['tujuan', 'mampu', 'learning objective'])
+  const objectiveText = findLearningText(paragraphs, ['tujuan', 'mampu', 'target belajar', 'learning objective'])
   const exampleText = findLearningText(paragraphs, ['contoh', 'model text', 'example'])
   const practiceText = findLearningText(paragraphs, ['latihan', 'pertanyaan', 'cek pemahaman', 'guided practice'])
   const reflectionText = findLearningText(paragraphs, ['refleksi', 'exit ticket', 'kesimpulan'])
 
   return [
     {
-      title: 'Tujuan Pembelajaran',
-      body: objectiveText || 'Tujuan pembelajaran belum terhubung. Guru dapat menambahkan TP agar materi masuk laporan kurikulum.',
-      tone: item.learningObjectiveId ? 'green' : 'amber',
+      title: 'Target Belajar',
+      body: objectiveText || `Setelah membaca materi ini, pahami ide utama ${item.topic || item.title}, catat bagian sulit, dan siapkan satu pertanyaan untuk guru atau AI Tutor.`,
+      tone: 'green',
     },
     {
       title: 'Pengantar',
@@ -729,7 +689,7 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
             <p><b>Kelas:</b> {item.className}</p>
             <p><b>Guru:</b> {item.teacher}</p>
             <p><b>Status:</b> {item.status}</p>
-            <p><b>TP/ATP:</b> <CurriculumLinkText item={item} /></p>
+            <p><b>Topik:</b> {item.topic || item.title}</p>
           </div>
           <div className="mt-5">
             <div className="mb-2 flex items-center justify-between text-xs font-bold text-slate-500">
@@ -747,15 +707,15 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
 }
 
 function getCompletedMaterials(userId) {
-  return safeReadLocalJson(`sea-learning-material-progress-${userId || 'demo'}`, [])
+  return safeReadLocalJson(`islelearn-material-progress-${userId || 'demo'}`, [])
 }
 
 function setCompletedMaterials(userId, ids) {
-  safeWriteLocalJson(`sea-learning-material-progress-${userId || 'demo'}`, Array.isArray(ids) ? ids : [])
+  safeWriteLocalJson(`islelearn-material-progress-${userId || 'demo'}`, Array.isArray(ids) ? ids : [])
 }
 
 function assignmentSubmissionStorageKey(assignmentId) {
-  return `sea-learning-assignment-submissions-${assignmentId || 'unknown'}`
+  return `islelearn-assignment-submissions-${assignmentId || 'unknown'}`
 }
 
 function getLocalAssignmentSubmissions(assignmentId) {
@@ -869,7 +829,7 @@ function SiswaTugas({ user, notify, appContext }) {
           <SectionCard>
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge tone={submission ? 'green' : 'amber'}>{submission ? 'Sudah submit' : 'Belum submit'}</StatusBadge>
-              <CurriculumLinkBadge item={selected} />
+              <StatusBadge tone={statusTone(selected.status)}>{selected.status}</StatusBadge>
             </div>
             <div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
               <p className="text-sm font-extrabold text-slate-950">Instruksi tugas</p>
@@ -895,7 +855,7 @@ function SiswaTugas({ user, notify, appContext }) {
             <div className="mt-4 space-y-3 text-sm text-slate-600">
               <p><b>Guru:</b> {selected.teacher || 'Guru'}</p>
               <p><b>Deadline:</b> {selected.deadline || '-'}</p>
-              <p><b>TP/ATP:</b> <CurriculumLinkText item={selected} /></p>
+              <p><b>Mapel:</b> {selected.subject}</p>
               <p><b>Terakhir submit:</b> {submission ? new Date(submission.submittedAt).toLocaleString('id-ID') : '-'}</p>
             </div>
             <div className="mt-5 rounded-2xl bg-cyan-50 p-3 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">
@@ -924,7 +884,7 @@ function SiswaTugas({ user, notify, appContext }) {
               <SectionCard key={assignment.id}>
                 <div className="mb-4 flex items-center justify-between gap-2">
                   <StatusBadge tone={submission ? 'green' : statusTone(assignment.status)}>{submission ? 'Terkirim' : assignment.status}</StatusBadge>
-                  <CurriculumLinkBadge item={assignment} />
+                  <StatusBadge tone="cyan">{assignment.subject}</StatusBadge>
                 </div>
                 <h2 className="text-lg font-extrabold">{assignment.title}</h2>
                 <p className="mt-2 text-sm leading-6 text-gray-500">{assignment.description}</p>
@@ -944,11 +904,11 @@ function SiswaTugas({ user, notify, appContext }) {
 }
 
 function getPracticeResult(practiceId) {
-  return safeReadLocalJson(`sea-learning-practice-result-${practiceId}`, null)
+  return safeReadLocalJson(`islelearn-practice-result-${practiceId}`, null)
 }
 
 function savePracticeResult(practiceId, result) {
-  safeWriteLocalJson(`sea-learning-practice-result-${practiceId}`, result || {})
+  safeWriteLocalJson(`islelearn-practice-result-${practiceId}`, result || {})
 }
 
 function LatihanPage({ notify }) {
@@ -1121,11 +1081,11 @@ function PracticeDetail({ practice, onBack, notify }) {
 }
 
 function getQuizResult(quizId, userId) {
-  return safeReadLocalJson(`sea-learning-quiz-result-${userId || 'demo'}-${quizId}`, null)
+  return safeReadLocalJson(`islelearn-quiz-result-${userId || 'demo'}-${quizId}`, null)
 }
 
 function saveQuizResult(quizId, userId, result) {
-  safeWriteLocalJson(`sea-learning-quiz-result-${userId || 'demo'}-${quizId}`, result || {})
+  safeWriteLocalJson(`islelearn-quiz-result-${userId || 'demo'}-${quizId}`, result || {})
 }
 
 function getQuizQuestionSet(quiz) {
@@ -1428,7 +1388,7 @@ function FlashcardPage() {
       />
 
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <StatCard icon={Layers3} label="Deck flashcard" value={decks.length} caption={`${studioDecks.length} dari Studio Konten`} tone="purple" />
+        <StatCard icon={Layers3} label="Deck flashcard" value={decks.length} caption={`${studioDecks.length} dari Siapkan Pembelajaran`} tone="green" />
         <StatCard icon={Brain} label="Remedial" value={learningPacks.filter((item) => item.outputType === 'Remedial').length} caption="Latihan perbaikan" tone="amber" />
         <StatCard icon={Sparkles} label="Pengayaan" value={learningPacks.filter((item) => item.outputType === 'Pengayaan').length} caption="Tantangan lanjutan" tone="cyan" />
       </div>
@@ -1482,7 +1442,7 @@ function FlashcardPage() {
               ))}
             </div>
           ) : (
-            <EmptyState title="Belum ada paket remedial/pengayaan." description="Guru dapat membuatnya dari Studio Konten." />
+            <EmptyState title="Belum ada paket remedial/pengayaan." description="Guru dapat membuatnya dari Siapkan Pembelajaran." />
           )}
         </DashboardCard>
       </div>
@@ -1560,8 +1520,8 @@ function averageScore(rows) {
 function ProgresPage({ user }) {
   const userId = user?.id || 'demo'
   const completedMaterials = getCompletedMaterials(userId)
-  const practiceResults = getStoredResultsByPrefix('sea-learning-practice-result-')
-  const quizResults = getStoredResultsByPrefix(`sea-learning-quiz-result-${userId}-`)
+  const practiceResults = getStoredResultsByPrefix('islelearn-practice-result-')
+  const quizResults = getStoredResultsByPrefix(`islelearn-quiz-result-${userId}-`)
 
   const materialProgress = Math.min(100, completedMaterials.length * 25)
   const practiceAverage = averageScore(practiceResults)
@@ -1601,7 +1561,7 @@ function ProgresPage({ user }) {
       </div>
 
       {!hasLearningData && (
-        <SectionCard className="mb-4 bg-gradient-to-r from-violet-50 to-cyan-50">
+        <SectionCard className="mb-4 bg-gradient-to-r from-[#e8f4ef] to-cyan-50">
           <StatusBadge tone="amber">Belum ada data nyata</StatusBadge>
           <h2 className="mt-3 text-xl font-extrabold text-slate-950">Mulai dari materi, latihan, atau kuis.</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -1618,7 +1578,7 @@ function ProgresPage({ user }) {
               <XAxis dataKey="name" />
               <YAxis domain={[0, 100]} />
               <Tooltip />
-              <Line type="monotone" dataKey="nilai" stroke="#7C3AED" strokeWidth={3} />
+              <Line type="monotone" dataKey="nilai" stroke="#0F766E" strokeWidth={3} />
             </LineChart>
           </ResponsiveContainer>
         </DashboardCard>
@@ -1672,14 +1632,14 @@ function LeaderboardPage() {
   )
 }
 
-function SEAClubPage() {
+function IsleClubPage() {
   return (
     <div>
-      <PageHeader eyebrow="SEAClub Corner" title="English practice for island learners." description="Word, phrase, speaking challenge, writing prompt, dan AI feedback untuk latihan siswa." />
-      <SEAClubCorner />
+      <PageHeader eyebrow="IsleClub Corner" title="English practice for island learners." description="Word, phrase, speaking challenge, writing prompt, dan AI feedback untuk latihan siswa." />
+      <IsleClubCorner />
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <DashboardCard title="Mini Dialogue">{seaclub.dialogue.map(([speaker, text]) => <p key={text} className="mb-2 rounded-2xl bg-galaxy-surface p-3 text-sm"><b>{speaker}:</b> {text}</p>)}</DashboardCard>
-        <DashboardCard title="SEAClub Leaderboard">{leaderboard.slice(0, 5).map((item, index) => <p key={item.id} className="flex justify-between border-b border-purple-50 py-2 text-sm"><span>{index + 1}. {item.name}</span><b>{item.xp} XP</b></p>)}</DashboardCard>
+        <DashboardCard title="Mini Dialogue">{isleclub.dialogue.map(([speaker, text]) => <p key={text} className="mb-2 rounded-2xl bg-galaxy-surface p-3 text-sm"><b>{speaker}:</b> {text}</p>)}</DashboardCard>
+        <DashboardCard title="IsleClub Leaderboard">{leaderboard.slice(0, 5).map((item, index) => <p key={item.id} className="flex justify-between border-b border-purple-50 py-2 text-sm"><span>{index + 1}. {item.name}</span><b>{item.xp} XP</b></p>)}</DashboardCard>
       </div>
     </div>
   )
@@ -1706,105 +1666,260 @@ function ProfilPage({ user }) {
 
 function GuruDashboard({ notify }) {
   const navigate = useNavigate()
-  const teacherMaterials = readLocalRowsByPrefix('sea-learning-teacher-materials-')
-  const teacherAssignments = readLocalRowsByPrefix('sea-learning-teacher-assignments-')
-  const teacherQuestions = readLocalRowsByPrefix('sea-learning-teacher-questions-')
-  const teacherQuizzes = readLocalRowsByPrefix('sea-learning-teacher-quizzes-')
-  const activeAssignments = teacherAssignments.filter((item) => item.status === 'Aktif')
-  const publishedQuizzes = teacherQuizzes.filter((item) => item.status === 'Publish')
-  const unlinkedContent = [...teacherMaterials, ...teacherAssignments, ...teacherQuestions, ...teacherQuizzes].filter((item) => !item.learningObjectiveId).length
+  const teacherMaterials = readLocalRowsByPrefix('islelearn-teacher-materials-')
+  const teacherAssignments = readLocalRowsByPrefix('islelearn-teacher-assignments-')
+  const teacherQuestions = readLocalRowsByPrefix('islelearn-teacher-questions-')
+  const teacherQuizzes = readLocalRowsByPrefix('islelearn-teacher-quizzes-')
+  const assignmentSubmissions = readLocalRowsByPrefix('islelearn-assignment-submissions-')
+  const isStatus = (item, status) => String(item?.status || '').toLowerCase() === status.toLowerCase()
+  const draftMaterials = teacherMaterials.filter((item) => isStatus(item, 'Draft'))
+  const publishedMaterials = teacherMaterials.filter((item) => isStatus(item, 'Publish'))
+  const activeAssignments = teacherAssignments.filter((item) => isStatus(item, 'Aktif'))
+  const draftAssignments = teacherAssignments.filter((item) => !isStatus(item, 'Aktif'))
+  const draftQuizzes = teacherQuizzes.filter((item) => isStatus(item, 'Draft'))
+  const publishedQuizzes = teacherQuizzes.filter((item) => isStatus(item, 'Publish'))
+  const ungradedSubmissions = assignmentSubmissions.filter((item) => item.score === undefined || item.score === null || item.score === '')
+  const draftTotal = draftMaterials.length + draftAssignments.length + draftQuizzes.length
+  const openWorkTotal = draftTotal + activeAssignments.length + ungradedSubmissions.length
+  const hasTeacherData = teacherMaterials.length > 0 || teacherAssignments.length > 0 || teacherQuestions.length > 0 || teacherQuizzes.length > 0 || assignmentSubmissions.length > 0
+
+  const metricItems = [
+    { label: 'Perlu dipublish', value: draftTotal, caption: 'draft materi/tugas/kuis', icon: Send },
+    { label: 'Tugas aktif', value: activeAssignments.length, caption: 'sedang berjalan', icon: ClipboardCheck },
+    { label: 'Submission', value: assignmentSubmissions.length, caption: `${ungradedSubmissions.length} belum dinilai`, icon: FileText },
+    { label: 'Bank soal', value: teacherQuestions.length, caption: 'siap dipakai ulang', icon: FileQuestion },
+    { label: 'Kuis publish', value: publishedQuizzes.length, caption: `${draftQuizzes.length} draft kuis`, icon: PlayCircle },
+  ]
+
   const quickActions = [
-    ['Studio Konten', 'Buat materi dan soal otomatis', Sparkles, '/guru/studio-konten', 'purple'],
-    ['Materi', 'Kelola materi siswa', BookOpen, '/guru/materi', 'cyan'],
-    ['Tugas', 'Buat dan pantau tugas', ClipboardList, '/guru/tugas', 'amber'],
-    ['Bank Soal', 'Kelola soal asesmen', FileQuestion, '/guru/bank-soal', 'purple'],
-    ['Kuis Live', 'Publish kuis ke siswa', PlayCircle, '/guru/kuis-live', 'green'],
-    ['Analisis', 'Lihat nilai dan tindak lanjut', LineChartIcon, '/guru/analisis', 'cyan'],
+    { label: 'Siapkan Pembelajaran', description: 'Rancang pertemuan dari kebutuhan kelas', icon: Sparkles, onClick: () => navigate('/guru/studio-konten') },
+    { label: 'Materi', description: `${publishedMaterials.length} publish · ${draftMaterials.length} draft`, icon: BookOpen, onClick: () => navigate('/guru/materi') },
+    { label: 'Tugas', description: `${activeAssignments.length} aktif · ${draftAssignments.length} draft`, icon: ClipboardList, onClick: () => navigate('/guru/tugas') },
+    { label: 'Bank Soal', description: `${teacherQuestions.length} soal tersimpan`, icon: FileQuestion, onClick: () => navigate('/guru/bank-soal') },
+    { label: 'Kuis Live', description: `${publishedQuizzes.length} publish · ${draftQuizzes.length} draft`, icon: PlayCircle, onClick: () => navigate('/guru/kuis-live') },
+    { label: 'Analisis', description: 'Tentukan remedial dan pengayaan', icon: LineChartIcon, onClick: () => navigate('/guru/analisis-nilai') },
+  ]
+
+  const priorityItems = hasTeacherData ? [
+    {
+      id: 'publish-content',
+      title: draftTotal > 0 ? `${draftTotal} draft perlu dicek sebelum tampil ke siswa` : 'Belum ada draft yang menunggu publish',
+      eyebrow: 'Sebelum siswa melihat',
+      meta: draftTotal > 0 ? 'Review instruksi, contoh, dan status publish.' : 'Buat bahan ajar atau tugas dari Siapkan Pembelajaran.',
+      status: draftTotal > 0 ? 'Review' : 'Kosong',
+      icon: Send,
+      actionLabel: draftTotal > 0 ? 'Cek' : 'Mulai',
+      onClick: () => navigate(draftTotal > 0 ? '/guru/materi' : '/guru/studio-konten'),
+    },
+    {
+      id: 'assignment-monitoring',
+      title: activeAssignments.length > 0 ? `${activeAssignments.length} tugas aktif perlu dipantau` : 'Tidak ada tugas aktif saat ini',
+      eyebrow: 'Saat pembelajaran berjalan',
+      meta: activeAssignments.length > 0 ? `${assignmentSubmissions.length} submission terbaca di perangkat.` : 'Aktifkan tugas saat aktivitas siswa sudah siap.',
+      status: activeAssignments.length > 0 ? 'Pantau' : 'Tenang',
+      icon: ClipboardCheck,
+      actionLabel: 'Tugas',
+      onClick: () => navigate('/guru/tugas'),
+    },
+    {
+      id: 'feedback-loop',
+      title: ungradedSubmissions.length > 0 ? `${ungradedSubmissions.length} submission belum dinilai` : 'Belum ada submission yang perlu dinilai',
+      eyebrow: 'Umpan balik',
+      meta: ungradedSubmissions.length > 0 ? 'Berikan nilai atau komentar singkat agar siswa tahu langkah berikutnya.' : 'Submission siswa akan muncul setelah tugas dikerjakan.',
+      status: ungradedSubmissions.length > 0 ? 'Nilai' : 'Kosong',
+      icon: PencilLine,
+      actionLabel: 'Buka',
+      onClick: () => navigate('/guru/tugas'),
+    },
+    {
+      id: 'next-meeting',
+      title: 'Siapkan pertemuan belajar berikutnya',
+      eyebrow: 'Rencana mengajar',
+      meta: 'Mulai dari kelas, topik, tujuan, dan kebutuhan siswa.',
+      status: 'Siap',
+      icon: Sparkles,
+      actionLabel: 'Rancang',
+      onClick: () => navigate('/guru/studio-konten'),
+    },
+  ] : [
+    {
+      id: 'start-teaching-flow',
+      title: 'Siapkan pertemuan pertama',
+      eyebrow: 'Mulai kerja guru',
+      meta: 'Isi kelas, mapel, topik, tujuan, dan kebutuhan siswa.',
+      status: 'Mulai',
+      icon: Sparkles,
+      actionLabel: 'Rancang',
+      onClick: () => navigate('/guru/studio-konten'),
+    },
+    {
+      id: 'create-material',
+      title: 'Buat bahan ajar yang bisa langsung dibaca siswa',
+      eyebrow: 'Bahan belajar',
+      meta: 'Materi tidak masuk Bank Soal, Kuis, atau Tugas.',
+      status: 'Belum ada',
+      icon: BookOpen,
+      actionLabel: 'Materi',
+      onClick: () => navigate('/guru/studio-konten'),
+    },
+    {
+      id: 'check-understanding',
+      title: 'Tambahkan cek pemahaman setelah materi siap',
+      eyebrow: 'Asesmen ringan',
+      meta: 'Gunakan tugas, kuis, atau soal hanya saat tujuan belajarnya jelas.',
+      status: 'Nanti',
+      icon: Target,
+      actionLabel: 'Siapkan',
+      onClick: () => navigate('/guru/studio-konten'),
+    },
+  ]
+
+  const rhythmCards = [
+    {
+      title: '1. Siapkan',
+      text: 'Rancang pertemuan dari konteks kelas, tujuan, kesiapan siswa, dan bahan guru.',
+      meta: hasTeacherData ? `${draftTotal} draft menunggu keputusan` : 'Belum ada draft',
+      icon: Sparkles,
+      action: 'Siapkan Pembelajaran',
+      onClick: () => navigate('/guru/studio-konten'),
+    },
+    {
+      title: '2. Bagikan',
+      text: 'Publish materi, aktifkan tugas, atau jadwalkan kuis hanya setelah instruksi jelas.',
+      meta: `${publishedMaterials.length} materi publish · ${activeAssignments.length} tugas aktif`,
+      icon: Send,
+      action: 'Kelola materi',
+      onClick: () => navigate('/guru/materi'),
+    },
+    {
+      title: '3. Tindak lanjut',
+      text: 'Baca hasil kerja siswa, beri umpan balik, lalu pilih remedial atau pengayaan.',
+      meta: `${assignmentSubmissions.length} submission · ${teacherQuestions.length} soal`,
+      icon: ClipboardCheck,
+      action: 'Pantau tugas',
+      onClick: () => navigate('/guru/tugas'),
+    },
   ]
 
   return (
-    <div>
-      <PageHeader
-        eyebrow="Guru"
-        title="Ruang kerja guru"
-        description="Buat konten, publish ke siswa, dan pantau aktivitas belajar dari menu inti."
-        action={<QuickActionButton icon={Sparkles} label="Buka Studio Konten" onClick={() => navigate('/guru/studio-konten')} />}
-      />
+    <div className="space-y-4">
+      <section className="overflow-hidden rounded-[1.35rem] bg-white shadow-[0_18px_60px_rgba(15,31,42,0.08)] ring-1 ring-[#123c3b]/10">
+        <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="sea-ink-panel p-5 text-white sm:p-6">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#b9e4dc]">Ruang kerja guru</p>
+            <h1 className="mt-3 text-balance text-3xl font-black leading-none tracking-[-0.02em] sm:text-4xl">
+              {openWorkTotal > 0 ? `${openWorkTotal} pekerjaan terbuka.` : 'Mulai dari pertemuan berikutnya.'}
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-200/78">
+              Dashboard ini membaca data nyata yang sudah dibuat guru. Tidak ada data contoh; kalau masih kosong, alurnya mulai dari menyiapkan pembelajaran.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                onClick={() => navigate('/guru/studio-konten')}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#f1c36d] px-4 text-sm font-black text-[#13232d] transition hover:-translate-y-0.5 hover:bg-[#ffd37f]"
+              >
+                <Sparkles size={17} /> Siapkan Pembelajaran
+              </button>
+              <button
+                onClick={() => navigate('/guru/tugas')}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/15 transition hover:bg-white/15"
+              >
+                <ClipboardCheck size={17} /> Pantau Tugas
+              </button>
+            </div>
+          </div>
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard icon={BookOpen} label="Materi" value={teacherMaterials.length} caption="draft/publish" tone="cyan" />
-        <StatCard icon={ClipboardCheck} label="Tugas Aktif" value={activeAssignments.length} caption="perlu pantauan" tone="amber" />
-        <StatCard icon={FileQuestion} label="Bank Soal" value={teacherQuestions.length} caption="siap asesmen" tone="purple" />
-        <StatCard icon={PlayCircle} label="Kuis Publish" value={publishedQuizzes.length} caption="bisa dikerjakan" tone="green" />
-        <StatCard icon={Target} label="Belum TP" value={unlinkedContent} caption="perlu ditautkan" tone={unlinkedContent > 0 ? 'amber' : 'green'} />
-      </div>
-
-      <DashboardCard title="Menu Kerja Utama">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {quickActions.map(([label, description, Icon, route, tone]) => (
-            <button
-              key={label}
-              onClick={() => navigate(route)}
-              className="rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft"
-            >
-              <div className="flex items-start gap-3">
-                <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-galaxy-lavender text-galaxy-purple">
-                  <Icon size={18} />
-                </span>
-                <div>
-                  <StatusBadge tone={tone}>{label}</StatusBadge>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{description}</p>
+          <div className="bg-[#f7f4ee]/78 p-4 sm:p-5">
+            <p className="text-sm font-black text-[#13232d]">Keputusan hari ini</p>
+            <div className="mt-3 grid gap-2">
+              {[
+                ['Draft menunggu', draftTotal, draftTotal > 0 ? 'Cek dan publish yang sudah layak.' : 'Tidak ada draft tertahan.'],
+                ['Aktivitas berjalan', activeAssignments.length + publishedQuizzes.length, activeAssignments.length || publishedQuizzes.length ? 'Pantau tugas atau kuis aktif.' : 'Belum ada aktivitas aktif.'],
+                ['Umpan balik', ungradedSubmissions.length, ungradedSubmissions.length > 0 ? 'Nilai submission siswa.' : 'Belum ada submission menunggu.'],
+              ].map(([label, value, text]) => (
+                <div key={label} className="flex items-center gap-3 rounded-[0.95rem] bg-white px-3 py-3 ring-1 ring-[#123c3b]/8">
+                  <span className="font-mono text-2xl font-black text-[#0f766e]">{value}</span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-black text-[#13232d]">{label}</span>
+                    <span className="block truncate text-xs font-semibold text-slate-500">{text}</span>
+                  </span>
                 </div>
-              </div>
-            </button>
-          ))}
+              ))}
+            </div>
+          </div>
         </div>
-      </DashboardCard>
+      </section>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <DashboardCard title="Prioritas Hari Ini">
-          <div className="grid gap-2">
-            <p className="rounded-2xl bg-cyan-50 p-3 text-sm font-semibold text-cyan-800 ring-1 ring-cyan-100">
-              Publish draft materi/tugas yang sudah siap agar muncul ke siswa.
-            </p>
-            <p className="rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
-              Tautkan konten yang belum memiliki TP agar laporan kurikulum lebih rapi.
-            </p>
-          </div>
-        </DashboardCard>
+      <MetricStrip items={metricItems} />
 
-        <DashboardCard title="Alur Cepat">
-          <div className="grid gap-2 text-sm font-semibold text-slate-600">
-            <p>1. Buat materi/soal di Studio Konten.</p>
-            <p>2. Review hasil, lalu kirim ke Materi, Bank Soal, atau Kuis.</p>
-            <p>3. Publish agar siswa bisa melihat dan mengerjakan.</p>
+      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <CompactList
+          title="Antrean kerja"
+          description={hasTeacherData ? 'Urutan kerja yang perlu diputuskan guru berdasarkan data yang ada.' : 'Belum ada data kelas atau konten. Mulai dari pertemuan pertama.'}
+          items={priorityItems}
+        />
+
+        <section className="rounded-[1.15rem] border border-[#123c3b]/10 bg-white/88 p-4 shadow-[0_14px_44px_rgba(15,31,42,0.065)]">
+          <h2 className="text-lg font-black tracking-[-0.01em] text-[#13232d]">Ritme mengajar</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-500">Satu siklus kerja yang lebih dekat dengan rutinitas guru.</p>
+          <div className="mt-4 grid gap-3">
+            {rhythmCards.map(({ title, text, meta, icon: Icon, action, onClick }) => (
+              <article key={title} className="rounded-[1rem] bg-[#f7f4ee]/78 p-3 ring-1 ring-[#123c3b]/8">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[0.85rem] bg-[#e8f4ef] text-[#0f766e] ring-1 ring-[#0f766e]/10">
+                    <Icon size={18} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="text-sm font-black text-[#13232d]">{title}</h3>
+                      <StatusBadge tone="teal">{meta}</StatusBadge>
+                    </div>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{text}</p>
+                    <button onClick={onClick} className="mt-3 rounded-[0.8rem] bg-white px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/10 transition hover:bg-[#e8f4ef]">
+                      {action}
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
           </div>
-        </DashboardCard>
+        </section>
       </div>
+
+      <section className="grid gap-4 xl:grid-cols-[0.7fr_1.3fr]">
+        <TimelineList
+          title="Alur cepat"
+          items={[
+            'Siapkan pertemuan dari kelas, topik, tujuan, dan kebutuhan siswa.',
+            'Review hasil, lalu kirim ke Materi, Bank Soal, Tugas, atau Kuis.',
+            'Publish agar siswa bisa melihat dan mengerjakan.',
+            'Baca submission atau hasil kuis untuk menentukan tindak lanjut.',
+          ]}
+        />
+        <ActionList items={quickActions} />
+      </section>
     </div>
   )
 }
 
 
 function GuruKelas() {
-  return <CardsPage eyebrow="Kelas" title="Kelas yang diajar" items={classes.map((c) => ({ title: `${c.name} Bahasa Inggris`, meta: `${c.students} siswa · rata-rata ${c.average}`, value: `${c.progress}% progress`, status: `${Math.max(1, 6 - c.grade + 10)} remedial` }))} />
+  return <CardsPage eyebrow="Kelas" title="Kelas yang diajar" items={classes.map((c) => ({ title: c.name, meta: `${c.students} siswa · rata-rata ${c.average}`, value: `${c.progress}% progress`, status: `${Math.max(1, 6 - c.grade + 10)} remedial` }))} />
 }
 
 function teacherMaterialStorageKey(user, teacherSubject) {
-  return `sea-learning-teacher-materials-${user?.id || teacherSubject || 'demo'}`
+  return `islelearn-teacher-materials-${user?.id || teacherSubject || 'demo'}`
 }
 
 function getLocalTeacherMaterials(user, teacherSubject) {
-  const fallbackRows = materials.filter((item) => item.subject === teacherSubject)
   const key = teacherMaterialStorageKey(user, teacherSubject)
   const storedRows = safeReadLocalJson(key, null)
 
   if (Array.isArray(storedRows)) {
-    return storedRows
+    return storedRows.filter((row) => !isLegacyDemoRow(row))
   }
 
-  safeWriteLocalJson(key, fallbackRows)
-  return fallbackRows
+  return []
 }
 
 function setLocalTeacherMaterials(user, teacherSubject, rows) {
@@ -1812,13 +1927,20 @@ function setLocalTeacherMaterials(user, teacherSubject, rows) {
 }
 
 function GuruMateri({ user, notify, appContext }) {
-  const teacherSubject = user?.subject || 'Bahasa Inggris'
+  const hasTeacherSubject = Boolean(user?.subject?.trim())
+  const teacherSubject = hasTeacherSubject ? user.subject.trim() : ''
+  const pageTitle = hasTeacherSubject ? `Materi ${teacherSubject}` : 'Materi guru'
+  const materialScope = hasTeacherSubject ? teacherSubject : 'semua mapel'
   const [rows, setRows] = useState([])
   const [lookups, setLookups] = useState({ subjects: [], classes: [] })
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)
+  const publishedCount = rows.filter((item) => item.status === 'Publish').length
+  const draftCount = rows.filter((item) => item.status !== 'Publish').length
+  const localMode = !appContext?.accessToken || !isUuid(user?.id)
+  const sourceLabel = localMode ? 'Preview lokal' : 'Supabase'
 
   useEffect(() => {
     let active = true
@@ -1863,8 +1985,8 @@ function GuruMateri({ user, notify, appContext }) {
       const localMaterial = {
         ...material,
         id: material.id || `local-material-${now}`,
-        subject: material.subject || teacherSubject,
-        className: material.className || 'Kelas umum',
+        subject: material.subject || teacherSubject || 'Mapel belum dipilih',
+        className: material.className || 'Semua kelas',
         teacher: user?.name,
         progress: material.status === 'Publish' ? 35 : 0,
       }
@@ -1917,33 +2039,69 @@ function GuruMateri({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Materi" title={`Materi ${teacherSubject}`} description="Kelola draft dan materi yang tampil ke siswa." action={<QuickActionButton icon={Plus} label="Tambah materi" onClick={() => setEditing(emptyMaterial(lookups, teacherSubject))} />} />
-      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal mapel guru ditampilkan.</div>}
+      <PageHeader
+        eyebrow="Materi"
+        title={pageTitle}
+        description={`Tulis dan kelola bahan belajar siswa untuk ${materialScope}. Fokus pada bacaan, tautan, video, dan catatan ringkas yang mudah dibuka.`}
+        action={<QuickActionButton icon={Plus} label={editing ? 'Editor terbuka' : 'Tulis materi'} disabled={Boolean(editing)} onClick={() => setEditing(emptyMaterial(lookups, teacherSubject))} />}
+      />
+
+      <section className="mb-4 flex flex-col gap-3 rounded-[1.15rem] border border-[#123c3b]/10 bg-white/80 px-4 py-3 shadow-[0_12px_36px_rgba(15,31,42,0.055)] sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-black text-[#13232d]">
+          <span className="inline-flex items-center gap-1.5 rounded-[0.75rem] bg-[#e8f4ef] px-3 py-1.5 text-[#0f766e] ring-1 ring-[#0f766e]/10">
+            <BookOpen size={14} /> {rows.length} materi
+          </span>
+          <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{publishedCount} publish</span>
+          <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{draftCount} draft</span>
+        </div>
+        <p className="text-xs font-bold text-slate-500">
+          Sumber data: <span className="text-[#0f766e]">{sourceLabel}</span>
+        </p>
+      </section>
+
+      {error && <div className="mb-4 rounded-[1rem] bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal mapel guru ditampilkan.</div>}
       
       {editing && <MaterialForm material={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat materi guru dari Supabase..." /> : (
         rows.length > 0 ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <section className="overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
             {rows.map((row) => (
-              <SectionCard key={row.id}>
-                <div className="mb-4 flex items-center justify-between gap-2">
-                  <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>
-                  <StatusBadge tone="cyan">{row.type || 'Teks'}</StatusBadge>
+              <article key={row.id} className="grid gap-3 border-b border-[#123c3b]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                <div className="min-w-0">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>
+                    <StatusBadge tone="teal">{row.type || 'Teks'}</StatusBadge>
+                    <span className="text-xs font-bold text-slate-400">{row.source === 'supabase' ? 'Tersimpan server' : 'Tersimpan perangkat'}</span>
+                  </div>
+                  <h2 className="truncate text-lg font-black text-[#13232d]">{row.title || 'Tanpa judul'}</h2>
+                  <p className="mt-1 line-clamp-2 max-w-3xl text-sm leading-6 text-slate-500">{row.description || 'Belum ada deskripsi.'}</p>
+                  <p className="mt-2 text-xs font-bold text-slate-500">
+                    {(row.subject || 'Mapel belum dipilih')} · {(row.className || 'Semua kelas')} · {(row.topic || 'Tanpa topik')}
+                  </p>
                 </div>
-                <h2 className="text-lg font-extrabold">{row.title}</h2>
-                <p className="mt-2 text-sm leading-6 text-gray-500">{row.description}</p>
-                <p className="mt-3 text-xs font-bold text-slate-500">{row.subject} · {row.className} · {row.topic}</p>
-                <div className="mt-3"><CurriculumLinkBadge item={row} /></div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button>
-                  <button onClick={() => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })} className="rounded-xl bg-cyan-50 px-3 py-2 text-xs font-extrabold text-cyan-700">{row.status === 'Publish' ? 'Kembalikan ke Draft' : 'Publish ke siswa'}</button>
-                  <button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700">Hapus</button>
+
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <button onClick={() => setEditing(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-[#f7f4ee] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/8 transition hover:bg-[#e8f4ef]">
+                    <PencilLine size={14} /> Edit
+                  </button>
+                  <button onClick={() => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
+                    <Send size={14} /> {row.status === 'Publish' ? 'Jadikan draft' : 'Publish'}
+                  </button>
+                  <button onClick={() => setDeleting(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
+                    <Trash2 size={14} /> Hapus
+                  </button>
                 </div>
-              </SectionCard>
+              </article>
             ))}
-          </div>
+          </section>
         ) : (
-          <EmptyState title={`Belum ada materi ${teacherSubject}.`} description="Klik Tambah materi untuk membuat materi pertama." />
+          !editing && (
+            <EmptyState
+              title={hasTeacherSubject ? `Belum ada materi ${teacherSubject}.` : 'Belum ada materi guru.'}
+              description="Tulis materi pertama saat siap. Halaman ini tidak menampilkan contoh palsu."
+              action={<QuickActionButton icon={Plus} label="Tulis materi pertama" onClick={() => setEditing(emptyMaterial(lookups, teacherSubject))} />}
+            />
+          )
         )
       )}
       <ConfirmDialog open={Boolean(deleting)} title="Hapus materi?" description={`Materi "${deleting?.title || ''}" akan dihapus. Aksi ini membutuhkan konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
@@ -1951,84 +2109,186 @@ function GuruMateri({ user, notify, appContext }) {
   )
 }
 
+const materialInputClass = 'w-full rounded-[0.9rem] border border-[#123c3b]/10 bg-white/86 px-3 py-2.5 text-sm font-semibold text-[#13232d] outline-none transition placeholder:text-slate-400 focus:border-[#0f766e] focus:bg-white focus:ring-4 focus:ring-[#0f766e]/10'
+const materialLabelClass = 'grid gap-1.5 text-sm font-black text-[#13232d]'
+const materialTypeOptions = ['Teks', 'PDF', 'Video', 'Link']
+
+function getMaterialTypeIcon(type) {
+  if (type === 'PDF') return Download
+  if (type === 'Video') return PlayCircle
+  if (type === 'Link') return Link2
+  return FileText
+}
+
 function MaterialForm({ material, lookups, onCancel, onSave }) {
   const [form, setForm] = useState(material)
-  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: material.subject || 'Bahasa Inggris' }]
-  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: material.className || 'Kelas umum' }]
+  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: material.subject || 'Mapel belum dipilih' }]
+  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: material.className || 'Semua kelas' }]
   const externalMaterial = isExternalMaterialType(form.type)
-  const validMaterial = form.title.trim() && (!externalMaterial || isValidMaterialUrl(form.content))
+  const content = form.content || ''
+  const hasContent = content.trim().length > 0
+  const hasTitle = (form.title || '').trim().length > 0
+  const invalidExternalUrl = externalMaterial && hasContent && !isValidMaterialUrl(content)
+  const publishNeedsContent = form.status === 'Publish' && !hasContent
+  const publishNeedsUrl = form.status === 'Publish' && externalMaterial && !isValidMaterialUrl(content)
+  const validMaterial = hasTitle && !invalidExternalUrl && !publishNeedsContent && !publishNeedsUrl
+
+  useEffect(() => {
+    setForm(material)
+  }, [material])
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
-  function updateLearningObjective(objectiveId, objective) {
+  function updateSubject(value) {
+    const selected = subjectsList.find((subject) => String(subject.id || '') === value)
     setForm((current) => ({
       ...current,
-      learningObjectiveId: objectiveId,
-      learningObjectiveCode: objective?.code || '',
-      learningObjectiveText: objective?.objective || '',
+      subjectId: value,
+      subject: selected?.name || current.subject || 'Mapel belum dipilih',
+    }))
+  }
+
+  function updateClass(value) {
+    const selected = classesList.find((classItem) => String(classItem.id || '') === value)
+    setForm((current) => ({
+      ...current,
+      classId: value,
+      className: selected?.name || current.className || 'Semua kelas',
     }))
   }
 
   return (
-    <SectionCard className="mb-4">
-      <h2 className="text-lg font-black text-gray-950">{form.id ? 'Edit materi' : 'Tambah materi'}</h2>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Judul
-          <input value={form.title} onChange={(event) => updateField('title', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Topik
-          <input value={form.topic} onChange={(event) => updateField('topic', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
-          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id}>{subject.name}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Kelas
-          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id}>{classItem.name}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Jenis
-          <select value={form.type} onChange={(event) => updateField('type', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {['Teks', 'PDF', 'Video', 'Link'].map((type) => <option key={type}>{type}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Status
-          <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {['Draft', 'Publish'].map((status) => <option key={status}>{status}</option>)}
-          </select>
-          <span className="text-xs font-semibold text-slate-500">Draft belum tampil ke siswa. Publish membuat materi tampil di Siswa Materi.</span>
-        </label>
-        <LearningObjectivePicker
-          value={form.learningObjectiveId || ''}
-          subjectId={form.subjectId || ''}
-          classId={form.classId || ''}
-          subjectName={form.subject}
-          className={form.className}
-          subjectsList={subjectsList}
-          classesList={classesList}
-          onChange={updateLearningObjective}
-        />
-        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Deskripsi
-          <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={3} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">{externalMaterial ? `URL ${form.type}` : 'Konten materi'}
-          <textarea value={form.content} onChange={(event) => updateField('content', event.target.value)} rows={externalMaterial ? 2 : 6} placeholder={externalMaterial ? 'https://...' : 'Tulis isi materi ringan di sini.'} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        {externalMaterial && !isValidMaterialUrl(form.content) && (
-          <div className="rounded-2xl bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100 md:col-span-2">
-            Untuk materi Link/Video/PDF, simpan URL http/https saja. File besar tidak disimpan langsung di database.
+    <section className="mb-5 overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/88 shadow-[0_16px_48px_rgba(15,31,42,0.07)] backdrop-blur-xl">
+      <header className="flex flex-col gap-3 border-b border-[#123c3b]/8 bg-[#fbfaf7]/78 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#e8f4ef] text-[#0f766e] ring-1 ring-[#0f766e]/10">
+            <BookOpen size={20} />
+          </span>
+          <div>
+            <h2 className="text-xl font-black leading-tight text-[#13232d]">{form.id ? 'Edit bahan belajar' : 'Tulis bahan belajar'}</h2>
+            <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+              Materi adalah bacaan, tautan, video, atau PDF untuk siswa. Gunakan bagian ini untuk penjelasan, contoh, dan arahan belajar yang ringan dibuka.
+            </p>
           </div>
-        )}
+        </div>
+        <StatusBadge tone={form.status === 'Publish' ? 'green' : 'amber'}>{form.status}</StatusBadge>
+      </header>
+
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <div className="space-y-3 p-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className={materialLabelClass}>Judul
+              <input value={form.title || ''} onChange={(event) => updateField('title', event.target.value)} placeholder="Judul materi" className={materialInputClass} />
+            </label>
+            <label className={materialLabelClass}>Topik
+              <input value={form.topic || ''} onChange={(event) => updateField('topic', event.target.value)} placeholder="Topik singkat" className={materialInputClass} />
+            </label>
+          </div>
+
+          <label className={materialLabelClass}>Deskripsi
+            <textarea value={form.description || ''} onChange={(event) => updateField('description', event.target.value)} rows={2} placeholder="Ringkasan singkat untuk membantu siswa memilih materi." className={`${materialInputClass} resize-y leading-6`} />
+          </label>
+
+          <label className={materialLabelClass}>{externalMaterial ? `URL ${form.type}` : 'Isi materi'}
+            <textarea
+              value={content}
+              onChange={(event) => updateField('content', event.target.value)}
+              rows={externalMaterial ? 3 : 7}
+              placeholder={externalMaterial ? 'https://...' : 'Tulis isi materi, instruksi baca, atau catatan ringkas untuk siswa.'}
+              className={`${materialInputClass} resize-y leading-7`}
+            />
+          </label>
+
+          {invalidExternalUrl && (
+            <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
+              Untuk PDF, Video, atau Link, gunakan URL lengkap yang diawali http atau https.
+            </div>
+          )}
+          {publishNeedsContent && (
+            <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
+              Publish membutuhkan isi materi atau URL agar siswa tidak melihat halaman kosong.
+            </div>
+          )}
+        </div>
+
+        <aside className="space-y-4 border-t border-[#123c3b]/8 bg-[#f7f4ee]/58 p-4 lg:border-l lg:border-t-0">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0f766e]">Jenis materi</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {materialTypeOptions.map((type) => {
+                const TypeIcon = getMaterialTypeIcon(type)
+                const active = form.type === type
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => updateField('type', type)}
+                    className={`inline-flex items-center justify-center gap-2 rounded-[0.85rem] px-3 py-2.5 text-xs font-black ring-1 transition ${
+                      active
+                        ? 'bg-[#123c3b] text-white ring-[#123c3b]'
+                        : 'bg-white text-slate-600 ring-[#123c3b]/10 hover:bg-[#e8f4ef] hover:text-[#0f766e]'
+                    }`}
+                  >
+                    <TypeIcon size={14} /> {type}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0f766e]">Status</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {['Draft', 'Publish'].map((status) => {
+                const active = form.status === status
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => updateField('status', status)}
+                    className={`rounded-[0.85rem] px-3 py-2.5 text-xs font-black ring-1 transition ${
+                      active
+                        ? 'bg-[#123c3b] text-white ring-[#123c3b]'
+                        : 'bg-white text-slate-600 ring-[#123c3b]/10 hover:bg-[#e8f4ef] hover:text-[#0f766e]'
+                    }`}
+                  >
+                    {status}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+              Draft tetap tersimpan untuk guru. Publish membuat materi muncul di halaman siswa.
+            </p>
+          </div>
+
+          <label className={materialLabelClass}>Mata pelajaran
+            <select value={form.subjectId || ''} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
+              {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id || ''}>{subject.name}</option>)}
+            </select>
+          </label>
+
+          <label className={materialLabelClass}>Kelas
+            <select value={form.classId || ''} onChange={(event) => updateClass(event.target.value)} className={materialInputClass}>
+              {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id || ''}>{classItem.name}</option>)}
+            </select>
+          </label>
+        </aside>
       </div>
-      <div className="mt-4 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form)} disabled={!validMaterial} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan materi</button>
-      </div>
-    </SectionCard>
+
+      <footer className="flex flex-col-reverse gap-2 border-t border-[#123c3b]/8 bg-white/72 px-4 py-3 sm:flex-row sm:justify-end">
+        <button onClick={onCancel} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-100">
+          <X size={16} /> Batal
+        </button>
+        <button onClick={() => onSave(form)} disabled={!validMaterial} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] bg-[#123c3b] px-4 py-2.5 text-sm font-black text-white shadow-[0_12px_28px_rgba(15,31,42,0.14)] transition hover:bg-[#0f766e] disabled:cursor-not-allowed disabled:opacity-45">
+          <Save size={16} /> Simpan materi
+        </button>
+      </footer>
+    </section>
   )
 }
 
@@ -2041,12 +2301,11 @@ function emptyMaterial(lookups, teacherSubject) {
     content: '',
     subjectId: subject?.id || '',
     classId: classItem?.id || '',
-    subject: subject?.name || teacherSubject,
-    className: classItem?.name || 'Kelas umum',
+    subject: subject?.name || teacherSubject || 'Mapel belum dipilih',
+    className: classItem?.name || 'Semua kelas',
     topic: '',
     type: 'Teks',
     status: 'Draft',
-    learningObjectiveId: '',
   }
 }
 
@@ -2055,20 +2314,18 @@ function isUuid(value) {
 }
 
 function teacherQuestionStorageKey(user, teacherSubject) {
-  return `sea-learning-teacher-questions-${user?.id || teacherSubject || 'demo'}`
+  return `islelearn-teacher-questions-${user?.id || teacherSubject || 'demo'}`
 }
 
 function getLocalTeacherQuestions(user, teacherSubject) {
-  const fallbackRows = questions.filter((item) => item.subject === teacherSubject)
   const key = teacherQuestionStorageKey(user, teacherSubject)
   const storedRows = safeReadLocalJson(key, null)
 
   if (Array.isArray(storedRows)) {
-    return storedRows
+    return storedRows.filter((row) => !isLegacyDemoRow(row))
   }
 
-  safeWriteLocalJson(key, fallbackRows)
-  return fallbackRows
+  return []
 }
 
 function setLocalTeacherQuestions(user, teacherSubject, rows) {
@@ -2076,13 +2333,20 @@ function setLocalTeacherQuestions(user, teacherSubject, rows) {
 }
 
 function BankSoal({ user, notify, appContext }) {
-  const teacherSubject = user?.subject || 'Bahasa Inggris'
+  const hasTeacherSubject = Boolean(user?.subject?.trim())
+  const teacherSubject = hasTeacherSubject ? user.subject.trim() : ''
+  const pageTitle = hasTeacherSubject ? `Bank soal ${teacherSubject}` : 'Bank soal'
+  const assessmentScope = hasTeacherSubject ? teacherSubject : 'semua mapel'
   const [rows, setRows] = useState([])
   const [lookups, setLookups] = useState({ subjects: [], classes: [] })
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)
+  const localMode = !appContext?.accessToken || !isUuid(user?.id)
+  const sourceLabel = localMode ? 'Preview lokal' : 'Supabase'
+  const multipleChoiceCount = rows.filter((item) => item.type === 'Pilihan ganda').length
+  const essayCount = rows.filter((item) => ['Essay', 'Isian'].includes(item.type)).length
 
   useEffect(() => {
     let active = true
@@ -2126,8 +2390,8 @@ function BankSoal({ user, notify, appContext }) {
       const localQuestion = {
         ...question,
         id: question.id || `local-question-${Date.now()}`,
-        subject: question.subject || teacherSubject,
-        className: question.className || 'Kelas umum',
+        subject: question.subject || teacherSubject || 'Mapel belum dipilih',
+        className: question.className || 'Semua kelas',
         source: 'local',
       }
 
@@ -2179,21 +2443,63 @@ function BankSoal({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Bank Soal" title={`Bank soal ${teacherSubject}`} description="Kelola soal yang siap dipakai untuk kuis." action={<QuickActionButton icon={Plus} label="Tambah soal" onClick={() => setEditing(emptyQuestion(lookups, teacherSubject))} />} />
-      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data soal: {error}. Data lokal mapel guru ditampilkan.</div>}
+      <PageHeader
+        eyebrow="Bank Soal"
+        title={pageTitle}
+        description={`Kelola butir soal, kunci, pilihan jawaban, dan pembahasan untuk asesmen ${assessmentScope}.`}
+        action={<QuickActionButton icon={Plus} label={editing ? 'Editor terbuka' : 'Tulis soal'} disabled={Boolean(editing)} onClick={() => setEditing(emptyQuestion(lookups, teacherSubject))} />}
+      />
+
+      <section className="mb-4 flex flex-col gap-3 rounded-[1.15rem] border border-[#123c3b]/10 bg-white/80 px-4 py-3 shadow-[0_12px_36px_rgba(15,31,42,0.055)] sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-black text-[#13232d]">
+          <span className="inline-flex items-center gap-1.5 rounded-[0.75rem] bg-[#e8f4ef] px-3 py-1.5 text-[#0f766e] ring-1 ring-[#0f766e]/10">
+            <FileQuestion size={14} /> {rows.length} soal
+          </span>
+          <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{multipleChoiceCount} pilihan ganda</span>
+          <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{essayCount} uraian/isian</span>
+        </div>
+        <p className="text-xs font-bold text-slate-500">
+          Sumber data: <span className="text-[#0f766e]">{sourceLabel}</span>
+        </p>
+      </section>
+
+      {error && <div className="mb-4 rounded-[1rem] bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data soal: {error}. Data lokal mapel guru ditampilkan.</div>}
       {editing && <QuestionForm question={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat bank soal dari Supabase..." /> : rows.length > 0 ? (
-        <DataTable columns={[
-          { key: 'questionText', label: 'Soal' },
-          { key: 'subject', label: 'Mapel' },
-          { key: 'topic', label: 'Topik' },
-          { key: 'learningObjectiveCode', label: 'TP', render: (row) => <CurriculumLinkText item={row} /> },
-          { key: 'difficulty', label: 'Level' },
-          { key: 'type', label: 'Jenis' },
-          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
-        ]} rows={rows} />
+        <section className="overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
+          {rows.map((row) => (
+            <article key={row.id} className="grid gap-3 border-b border-[#123c3b]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <StatusBadge tone={row.difficulty === 'Sulit' ? 'red' : row.difficulty === 'Sedang' ? 'amber' : 'green'}>{row.difficulty || 'Level belum diisi'}</StatusBadge>
+                  <StatusBadge tone="teal">{row.type || 'Jenis belum diisi'}</StatusBadge>
+                  <span className="text-xs font-bold text-slate-400">{row.source === 'supabase' ? 'Tersimpan server' : 'Tersimpan perangkat'}</span>
+                </div>
+                <h2 className="line-clamp-2 text-base font-black leading-6 text-[#13232d]">{row.questionText || 'Pertanyaan belum diisi'}</h2>
+                <p className="mt-2 text-xs font-bold text-slate-500">
+                  {(row.subject || 'Mapel belum dipilih')} · {(row.className || 'Semua kelas')} · {(row.topic || 'Tanpa topik')}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 lg:justify-end">
+                <button onClick={() => setEditing(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-[#f7f4ee] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/8 transition hover:bg-[#e8f4ef]">
+                  <PencilLine size={14} /> Edit
+                </button>
+                <button onClick={() => setDeleting(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
+                  <Trash2 size={14} /> Hapus
+                </button>
+              </div>
+            </article>
+          ))}
+        </section>
       ) : (
-        <EmptyState title={`Belum ada soal ${teacherSubject}.`} description="Soal mapel yang Anda ampu akan tampil di sini setelah dibuat." />
+        !editing && (
+          <EmptyState
+            title={hasTeacherSubject ? `Belum ada soal ${teacherSubject}.` : 'Belum ada soal.'}
+            description="Tulis soal pertama saat siap. Halaman ini tidak menampilkan contoh palsu."
+            action={<QuickActionButton icon={Plus} label="Tulis soal pertama" onClick={() => setEditing(emptyQuestion(lookups, teacherSubject))} />}
+          />
+        )
       )}
       <ConfirmDialog open={Boolean(deleting)} title="Hapus soal?" description="Soal akan dihapus dari bank soal setelah konfirmasi." onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
     </div>
@@ -2205,8 +2511,8 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
     ...question,
     optionsText: (question.options || []).join('\n'),
   })
-  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: question.subject || 'Bahasa Inggris' }]
-  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: question.className || 'Kelas umum' }]
+  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: question.subject || 'Mapel belum dipilih' }]
+  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: question.className || 'Semua kelas' }]
   const options = form.optionsText.split('\n').map((item) => item.trim()).filter(Boolean)
   const isMultipleChoice = form.type === 'Pilihan ganda'
   const validQuestion = form.questionText.trim()
@@ -2214,16 +2520,32 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
     && (!isMultipleChoice || options.length >= 2)
     && (!isMultipleChoice || options.includes(form.correctAnswer.trim()))
 
+  useEffect(() => {
+    setForm({
+      ...question,
+      optionsText: (question.options || []).join('\n'),
+    })
+  }, [question])
+
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
-  function updateLearningObjective(objectiveId, objective) {
+  function updateSubject(value) {
+    const selected = subjectsList.find((subject) => String(subject.id || '') === value)
     setForm((current) => ({
       ...current,
-      learningObjectiveId: objectiveId,
-      learningObjectiveCode: objective?.code || '',
-      learningObjectiveText: objective?.objective || '',
+      subjectId: value,
+      subject: selected?.name || current.subject || 'Mapel belum dipilih',
+    }))
+  }
+
+  function updateClass(value) {
+    const selected = classesList.find((classItem) => String(classItem.id || '') === value)
+    setForm((current) => ({
+      ...current,
+      classId: value,
+      className: selected?.name || current.className || 'Semua kelas',
     }))
   }
 
@@ -2236,65 +2558,125 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
   }
 
   return (
-    <SectionCard className="mb-4">
-      <h2 className="text-lg font-black text-gray-950">{form.id ? 'Edit soal' : 'Tambah soal'}</h2>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Pertanyaan
-          <textarea value={form.questionText} onChange={(event) => updateField('questionText', event.target.value)} rows={3} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
-          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id}>{subject.name}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Kelas
-          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id}>{classItem.name}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Topik
-          <input value={form.topic} onChange={(event) => updateField('topic', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Level
-          <select value={form.difficulty} onChange={(event) => updateField('difficulty', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {['Mudah', 'Sedang', 'Sulit'].map((level) => <option key={level}>{level}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Jenis soal
-          <select value={form.type} onChange={(event) => updateField('type', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {['Pilihan ganda', 'Benar/salah', 'Isian', 'Essay'].map((type) => <option key={type}>{type}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Jawaban benar
-          <input value={form.correctAnswer} onChange={(event) => updateField('correctAnswer', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        <LearningObjectivePicker
-          value={form.learningObjectiveId || ''}
-          subjectId={form.subjectId || ''}
-          classId={form.classId || ''}
-          subjectName={form.subject}
-          className={form.className}
-          subjectsList={subjectsList}
-          classesList={classesList}
-          onChange={updateLearningObjective}
-        />
-        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Pilihan jawaban, satu baris per opsi
-          <textarea value={form.optionsText} onChange={(event) => updateField('optionsText', event.target.value)} rows={4} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        {!validQuestion && (
-          <div className="rounded-2xl bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100 md:col-span-2">
-            Pertanyaan dan jawaban benar wajib diisi. Untuk pilihan ganda, minimal 2 opsi dan jawaban benar harus sama persis dengan salah satu opsi.
+    <section className="mb-5 overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/88 shadow-[0_16px_48px_rgba(15,31,42,0.07)] backdrop-blur-xl">
+      <header className="flex flex-col gap-3 border-b border-[#123c3b]/8 bg-[#fbfaf7]/78 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#e8f4ef] text-[#0f766e] ring-1 ring-[#0f766e]/10">
+            <FileQuestion size={20} />
+          </span>
+          <div>
+            <h2 className="text-xl font-black leading-tight text-[#13232d]">{form.id ? 'Edit butir soal' : 'Tulis butir soal'}</h2>
+            <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+              Soal asesmen boleh memuat kunci, pilihan jawaban, dan pembahasan. Buat ringkas agar mudah dipakai ulang ke kuis.
+            </p>
           </div>
-        )}
-        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Pembahasan
-          <textarea value={form.explanation} onChange={(event) => updateField('explanation', event.target.value)} rows={3} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
+        </div>
+        <StatusBadge tone={validQuestion ? 'green' : 'amber'}>{validQuestion ? 'Siap disimpan' : 'Lengkapi soal'}</StatusBadge>
+      </header>
+
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <div className="space-y-3 p-4">
+          <label className={materialLabelClass}>Pertanyaan
+            <textarea value={form.questionText || ''} onChange={(event) => updateField('questionText', event.target.value)} rows={4} placeholder="Tulis pertanyaan asesmen di sini." className={`${materialInputClass} resize-y leading-7`} />
+          </label>
+
+          {isMultipleChoice && (
+            <label className={materialLabelClass}>Pilihan jawaban
+              <textarea value={form.optionsText} onChange={(event) => updateField('optionsText', event.target.value)} rows={4} placeholder="Satu opsi per baris. Jawaban benar harus sama persis dengan salah satu opsi." className={`${materialInputClass} resize-y leading-7`} />
+            </label>
+          )}
+
+          <label className={materialLabelClass}>Pembahasan
+            <textarea value={form.explanation || ''} onChange={(event) => updateField('explanation', event.target.value)} rows={3} placeholder="Tulis alasan jawaban atau catatan koreksi untuk guru/siswa." className={`${materialInputClass} resize-y leading-7`} />
+          </label>
+
+          {!validQuestion && (
+            <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
+              Pertanyaan dan jawaban benar wajib diisi. Untuk pilihan ganda, minimal 2 opsi dan jawaban benar harus sama persis dengan salah satu opsi.
+            </div>
+          )}
+        </div>
+
+        <aside className="space-y-4 border-t border-[#123c3b]/8 bg-[#f7f4ee]/58 p-4 lg:border-l lg:border-t-0">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0f766e]">Jenis soal</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {['Pilihan ganda', 'Benar/salah', 'Isian', 'Essay'].map((type) => {
+                const active = form.type === type
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => updateField('type', type)}
+                    className={`rounded-[0.85rem] px-3 py-2.5 text-xs font-black ring-1 transition ${
+                      active
+                        ? 'bg-[#123c3b] text-white ring-[#123c3b]'
+                        : 'bg-white text-slate-600 ring-[#123c3b]/10 hover:bg-[#e8f4ef] hover:text-[#0f766e]'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0f766e]">Level</p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {['Mudah', 'Sedang', 'Sulit'].map((level) => {
+                const active = form.difficulty === level
+                return (
+                  <button
+                    key={level}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => updateField('difficulty', level)}
+                    className={`rounded-[0.85rem] px-2 py-2.5 text-xs font-black ring-1 transition ${
+                      active
+                        ? 'bg-[#123c3b] text-white ring-[#123c3b]'
+                        : 'bg-white text-slate-600 ring-[#123c3b]/10 hover:bg-[#e8f4ef] hover:text-[#0f766e]'
+                    }`}
+                  >
+                    {level}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <label className={materialLabelClass}>Jawaban benar
+            <input value={form.correctAnswer || ''} onChange={(event) => updateField('correctAnswer', event.target.value)} placeholder={isMultipleChoice ? 'Sama persis dengan salah satu opsi' : 'Jawaban/kunci'} className={materialInputClass} />
+          </label>
+
+          <label className={materialLabelClass}>Topik
+            <input value={form.topic || ''} onChange={(event) => updateField('topic', event.target.value)} placeholder="Topik soal" className={materialInputClass} />
+          </label>
+
+          <label className={materialLabelClass}>Mata pelajaran
+            <select value={form.subjectId || ''} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
+              {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id || ''}>{subject.name}</option>)}
+            </select>
+          </label>
+
+          <label className={materialLabelClass}>Kelas
+            <select value={form.classId || ''} onChange={(event) => updateClass(event.target.value)} className={materialInputClass}>
+              {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id || ''}>{classItem.name}</option>)}
+            </select>
+          </label>
+        </aside>
       </div>
-      <div className="mt-4 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={submit} disabled={!validQuestion} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan soal</button>
-      </div>
-    </SectionCard>
+
+      <footer className="flex flex-col-reverse gap-2 border-t border-[#123c3b]/8 bg-white/72 px-4 py-3 sm:flex-row sm:justify-end">
+        <button onClick={onCancel} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-100">
+          <X size={16} /> Batal
+        </button>
+        <button onClick={submit} disabled={!validQuestion} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] bg-[#123c3b] px-4 py-2.5 text-sm font-black text-white shadow-[0_12px_28px_rgba(15,31,42,0.14)] transition hover:bg-[#0f766e] disabled:cursor-not-allowed disabled:opacity-45">
+          <Save size={16} /> Simpan soal
+        </button>
+      </footer>
+    </section>
   )
 }
 
@@ -2308,30 +2690,27 @@ function emptyQuestion(lookups, teacherSubject) {
     explanation: '',
     subjectId: subject?.id || '',
     classId: classItem?.id || '',
-    subject: subject?.name || teacherSubject,
-    className: classItem?.name || 'Kelas umum',
+    subject: subject?.name || teacherSubject || 'Mapel belum dipilih',
+    className: classItem?.name || 'Semua kelas',
     topic: '',
     difficulty: 'Mudah',
     type: 'Pilihan ganda',
-    learningObjectiveId: '',
   }
 }
 
 function teacherAssignmentStorageKey(user, teacherSubject) {
-  return `sea-learning-teacher-assignments-${user?.id || teacherSubject || 'demo'}`
+  return `islelearn-teacher-assignments-${user?.id || teacherSubject || 'demo'}`
 }
 
 function getLocalTeacherAssignments(user, teacherSubject) {
-  const fallbackRows = assignments.filter((item) => item.subject === teacherSubject)
   const key = teacherAssignmentStorageKey(user, teacherSubject)
   const storedRows = safeReadLocalJson(key, null)
 
   if (Array.isArray(storedRows)) {
-    return storedRows
+    return storedRows.filter((row) => !isLegacyDemoRow(row))
   }
 
-  safeWriteLocalJson(key, fallbackRows)
-  return fallbackRows
+  return []
 }
 
 function setLocalTeacherAssignments(user, teacherSubject, rows) {
@@ -2339,7 +2718,7 @@ function setLocalTeacherAssignments(user, teacherSubject, rows) {
 }
 
 function GuruTugas({ user, notify, appContext }) {
-  const teacherSubject = user?.subject || 'Bahasa Inggris'
+  const teacherSubject = user?.subject?.trim() || ''
   const [rows, setRows] = useState([])
   const [lookups, setLookups] = useState({ subjects: [], classes: [] })
   const [editing, setEditing] = useState(null)
@@ -2347,6 +2726,9 @@ function GuruTugas({ user, notify, appContext }) {
   const [viewingSubmissions, setViewingSubmissions] = useState(null)
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
+  const activeCount = rows.filter((item) => item.status === 'Aktif').length
+  const draftCount = rows.filter((item) => item.status !== 'Aktif').length
+  const sourceLabel = (!appContext?.accessToken || !isUuid(user?.id)) ? 'Preview lokal' : 'Supabase'
 
   useEffect(() => {
     let active = true
@@ -2386,8 +2768,8 @@ function GuruTugas({ user, notify, appContext }) {
       const localAssignment = {
         ...assignment,
         id: assignment.id || `local-assignment-${Date.now()}`,
-        subject: assignment.subject || teacherSubject,
-        className: assignment.className || 'Kelas umum',
+        subject: assignment.subject || teacherSubject || 'Mapel belum dipilih',
+        className: assignment.className || 'Semua kelas',
         source: 'local',
       }
 
@@ -2460,7 +2842,7 @@ function GuruTugas({ user, notify, appContext }) {
           eyebrow="Submission Tugas"
           title={viewingSubmissions.assignment.title}
           description={`${viewingSubmissions.rows.length} submission terbaca · sumber ${viewingSubmissions.source}`}
-          action={<button onClick={() => setViewingSubmissions(null)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>}
+          action={<button onClick={() => setViewingSubmissions(null)} className="rounded-[0.85rem] bg-[#f7f4ee] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/8 transition hover:bg-[#e8f4ef]">Kembali</button>}
         />
         {viewingSubmissions.rows.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2">
@@ -2487,30 +2869,69 @@ function GuruTugas({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Tugas" title="Tugas kelas" description="Kelola draft, tugas aktif, dan submission siswa." action={<QuickActionButton icon={Plus} label="Buat tugas" onClick={() => setEditing(emptyAssignment(lookups, teacherSubject))} />} />
-      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data tugas: {error}. Data lokal ditampilkan.</div>}
+      <PageHeader
+        eyebrow="Tugas"
+        title="Tugas kelas"
+        description="Kelola instruksi, tenggat, rubrik, dan submission siswa tanpa contoh palsu."
+        action={<QuickActionButton icon={Plus} label={editing ? 'Editor terbuka' : 'Buat tugas'} disabled={Boolean(editing)} onClick={() => setEditing(emptyAssignment(lookups, teacherSubject))} />}
+      />
+
+      <section className="mb-4 flex flex-col gap-3 rounded-[1.15rem] border border-[#123c3b]/10 bg-white/80 px-4 py-3 shadow-[0_12px_36px_rgba(15,31,42,0.055)] sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-black text-[#13232d]">
+          <span className="inline-flex items-center gap-1.5 rounded-[0.75rem] bg-[#e8f4ef] px-3 py-1.5 text-[#0f766e] ring-1 ring-[#0f766e]/10">
+            <ClipboardList size={14} /> {rows.length} tugas
+          </span>
+          <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{activeCount} aktif</span>
+          <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{draftCount} draft/selesai</span>
+        </div>
+        <p className="text-xs font-bold text-slate-500">
+          Sumber data: <span className="text-[#0f766e]">{sourceLabel}</span>
+        </p>
+      </section>
+
+      {error && <div className="mb-4 rounded-[1rem] bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data tugas: {error}. Data lokal ditampilkan.</div>}
       
       {editing && <AssignmentForm assignment={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat tugas dari Supabase..." /> : rows.length > 0 ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <section className="overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
           {rows.map((row) => (
-            <SectionCard key={row.id}>
-              <div className="mb-4 flex items-center justify-between gap-2"><StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge><StatusBadge tone="cyan">{row.className}</StatusBadge></div>
-              <h2 className="text-lg font-extrabold">{row.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-gray-500">{row.description}</p>
-              <p className="mt-3 text-xs font-bold text-slate-500">{row.subject} · Deadline {row.deadline || '-'}</p>
-              <div className="mt-3"><CurriculumLinkBadge item={row} /></div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button>
-                <button onClick={() => handleSave({ ...row, status: row.status === 'Aktif' ? 'Draft' : 'Aktif' })} className="rounded-xl bg-cyan-50 px-3 py-2 text-xs font-extrabold text-cyan-700">{row.status === 'Aktif' ? 'Kembalikan ke Draft' : 'Aktifkan ke siswa'}</button>
-                <button onClick={() => openSubmissions(row)} className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-extrabold text-emerald-700">Submission ({getLocalAssignmentSubmissions(row.id).length})</button>
-                <button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700">Hapus</button>
+            <article key={row.id} className="grid gap-3 border-b border-[#123c3b]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>
+                  <StatusBadge tone="teal">{row.className || 'Semua kelas'}</StatusBadge>
+                  <span className="text-xs font-bold text-slate-400">Deadline {row.deadline || 'belum diatur'}</span>
+                </div>
+                <h2 className="truncate text-lg font-black text-[#13232d]">{row.title || 'Tanpa judul'}</h2>
+                <p className="mt-1 line-clamp-2 max-w-3xl text-sm leading-6 text-slate-500">{row.description || 'Belum ada deskripsi.'}</p>
+                <p className="mt-2 text-xs font-bold text-slate-500">{row.subject || 'Mapel belum dipilih'}</p>
               </div>
-            </SectionCard>
+
+              <div className="flex flex-wrap gap-2 lg:justify-end">
+                <button onClick={() => setEditing(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-[#f7f4ee] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/8 transition hover:bg-[#e8f4ef]">
+                  <PencilLine size={14} /> Edit
+                </button>
+                <button onClick={() => handleSave({ ...row, status: row.status === 'Aktif' ? 'Draft' : 'Aktif' })} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
+                  <Send size={14} /> {row.status === 'Aktif' ? 'Jadikan draft' : 'Aktifkan'}
+                </button>
+                <button onClick={() => openSubmissions(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 ring-1 ring-emerald-100 transition hover:bg-emerald-100">
+                  <ClipboardCheck size={14} /> Submission ({getLocalAssignmentSubmissions(row.id).length})
+                </button>
+                <button onClick={() => setDeleting(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
+                  <Trash2 size={14} /> Hapus
+                </button>
+              </div>
+            </article>
           ))}
-        </div>
+        </section>
       ) : (
-        <EmptyState title="Belum ada tugas." description="Klik Buat tugas untuk menambahkan tugas kelas." />
+        !editing && (
+          <EmptyState
+            title="Belum ada tugas."
+            description="Buat tugas pertama saat instruksi, tenggat, dan rubrik sudah siap."
+            action={<QuickActionButton icon={Plus} label="Buat tugas pertama" onClick={() => setEditing(emptyAssignment(lookups, teacherSubject))} />}
+          />
+        )
       )}
       <ConfirmDialog open={Boolean(deleting)} title="Hapus tugas?" description={`Tugas "${deleting?.title || ''}" akan dihapus setelah konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
     </div>
@@ -2519,70 +2940,129 @@ function GuruTugas({ user, notify, appContext }) {
 
 function AssignmentForm({ assignment, lookups, onCancel, onSave }) {
   const [form, setForm] = useState(assignment)
-  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: assignment.subject || 'Bahasa Inggris' }]
-  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: assignment.className || 'Kelas umum' }]
+  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: assignment.subject || 'Mapel belum dipilih' }]
+  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: assignment.className || 'Semua kelas' }]
+  const validAssignment = form.title.trim()
+
+  useEffect(() => {
+    setForm(assignment)
+  }, [assignment])
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
-  function updateLearningObjective(objectiveId, objective) {
+  function updateSubject(value) {
+    const selected = subjectsList.find((subject) => String(subject.id || '') === value)
     setForm((current) => ({
       ...current,
-      learningObjectiveId: objectiveId,
-      learningObjectiveCode: objective?.code || '',
-      learningObjectiveText: objective?.objective || '',
+      subjectId: value,
+      subject: selected?.name || current.subject || 'Mapel belum dipilih',
+    }))
+  }
+
+  function updateClass(value) {
+    const selected = classesList.find((classItem) => String(classItem.id || '') === value)
+    setForm((current) => ({
+      ...current,
+      classId: value,
+      className: selected?.name || current.className || 'Semua kelas',
     }))
   }
 
   return (
-    <SectionCard className="mb-4">
-      <h2 className="text-lg font-black text-gray-950">{form.id ? 'Edit tugas' : 'Buat tugas'}</h2>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Judul
-          <input value={form.title} onChange={(event) => updateField('title', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Deadline
-          <input type="date" value={form.deadline || ''} onChange={(event) => updateField('deadline', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
-          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id}>{subject.name}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Kelas
-          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id}>{classItem.name}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Status
-          <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {['Draft', 'Aktif', 'Selesai'].map((status) => <option key={status}>{status}</option>)}
-          </select>
-          <span className="text-xs font-semibold text-slate-500">Draft belum tampil. Aktif membuat tugas muncul di Siswa Tugas.</span>
-        </label>
-        <LearningObjectivePicker
-          value={form.learningObjectiveId || ''}
-          subjectId={form.subjectId || ''}
-          classId={form.classId || ''}
-          subjectName={form.subject}
-          className={form.className}
-          subjectsList={subjectsList}
-          classesList={classesList}
-          onChange={updateLearningObjective}
-        />
-        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Deskripsi
-          <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={4} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Rubrik sederhana
-          <textarea value={form.rubric || ''} onChange={(event) => updateField('rubric', event.target.value)} rows={3} placeholder="Contoh: Isi 40%, ketepatan konsep 30%, kerapian 20%, refleksi 10%." className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
+    <section className="mb-5 overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/88 shadow-[0_16px_48px_rgba(15,31,42,0.07)] backdrop-blur-xl">
+      <header className="flex flex-col gap-3 border-b border-[#123c3b]/8 bg-[#fbfaf7]/78 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#e8f4ef] text-[#0f766e] ring-1 ring-[#0f766e]/10">
+            <ClipboardList size={20} />
+          </span>
+          <div>
+            <h2 className="text-xl font-black leading-tight text-[#13232d]">{form.id ? 'Edit tugas' : 'Buat tugas'}</h2>
+            <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+              Tugas berisi instruksi kerja siswa, tenggat, dan rubrik ringkas agar penilaian tetap jelas.
+            </p>
+          </div>
+        </div>
+        <StatusBadge tone={form.status === 'Aktif' ? 'green' : 'amber'}>{form.status}</StatusBadge>
+      </header>
+
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <div className="space-y-3 p-4">
+          <label className={materialLabelClass}>Judul
+            <input value={form.title || ''} onChange={(event) => updateField('title', event.target.value)} placeholder="Judul tugas" className={materialInputClass} />
+          </label>
+
+          <label className={materialLabelClass}>Instruksi tugas
+            <textarea value={form.description || ''} onChange={(event) => updateField('description', event.target.value)} rows={5} placeholder="Tulis instruksi pengerjaan, format jawaban, dan batasan yang perlu diketahui siswa." className={`${materialInputClass} resize-y leading-7`} />
+          </label>
+
+          <label className={materialLabelClass}>Rubrik sederhana
+            <textarea value={form.rubric || ''} onChange={(event) => updateField('rubric', event.target.value)} rows={3} placeholder="Contoh: isi 40%, ketepatan konsep 30%, kerapian 20%, refleksi 10%." className={`${materialInputClass} resize-y leading-7`} />
+          </label>
+
+          {!validAssignment && (
+            <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
+              Judul tugas wajib diisi sebelum disimpan.
+            </div>
+          )}
+        </div>
+
+        <aside className="space-y-4 border-t border-[#123c3b]/8 bg-[#f7f4ee]/58 p-4 lg:border-l lg:border-t-0">
+          <label className={materialLabelClass}>Deadline
+            <input type="date" value={form.deadline || ''} onChange={(event) => updateField('deadline', event.target.value)} className={materialInputClass} />
+          </label>
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0f766e]">Status</p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {['Draft', 'Aktif', 'Selesai'].map((status) => {
+                const active = form.status === status
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => updateField('status', status)}
+                    className={`rounded-[0.85rem] px-2 py-2.5 text-xs font-black ring-1 transition ${
+                      active
+                        ? 'bg-[#123c3b] text-white ring-[#123c3b]'
+                        : 'bg-white text-slate-600 ring-[#123c3b]/10 hover:bg-[#e8f4ef] hover:text-[#0f766e]'
+                    }`}
+                  >
+                    {status}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+              Draft belum tampil. Aktif membuat tugas muncul di halaman siswa.
+            </p>
+          </div>
+
+          <label className={materialLabelClass}>Mata pelajaran
+            <select value={form.subjectId || ''} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
+              {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id || ''}>{subject.name}</option>)}
+            </select>
+          </label>
+
+          <label className={materialLabelClass}>Kelas
+            <select value={form.classId || ''} onChange={(event) => updateClass(event.target.value)} className={materialInputClass}>
+              {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id || ''}>{classItem.name}</option>)}
+            </select>
+          </label>
+        </aside>
       </div>
-      <div className="mt-4 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form)} disabled={!form.title.trim()} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan tugas</button>
-      </div>
-    </SectionCard>
+
+      <footer className="flex flex-col-reverse gap-2 border-t border-[#123c3b]/8 bg-white/72 px-4 py-3 sm:flex-row sm:justify-end">
+        <button onClick={onCancel} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-100">
+          <X size={16} /> Batal
+        </button>
+        <button onClick={() => onSave(form)} disabled={!validAssignment} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] bg-[#123c3b] px-4 py-2.5 text-sm font-black text-white shadow-[0_12px_28px_rgba(15,31,42,0.14)] transition hover:bg-[#0f766e] disabled:cursor-not-allowed disabled:opacity-45">
+          <Save size={16} /> Simpan tugas
+        </button>
+      </footer>
+    </section>
   )
 }
 
@@ -2594,30 +3074,27 @@ function emptyAssignment(lookups, teacherSubject) {
     description: '',
     subjectId: subject?.id || '',
     classId: classItem?.id || '',
-    subject: subject?.name || teacherSubject,
-    className: classItem?.name || 'Kelas umum',
+    subject: subject?.name || teacherSubject || 'Mapel belum dipilih',
+    className: classItem?.name || 'Semua kelas',
     deadline: '',
     status: 'Draft',
-    learningObjectiveId: '',
     rubric: '',
   }
 }
 
 function teacherQuizStorageKey(user, teacherSubject) {
-  return `sea-learning-teacher-quizzes-${user?.id || teacherSubject || 'demo'}`
+  return `islelearn-teacher-quizzes-${user?.id || teacherSubject || 'demo'}`
 }
 
 function getLocalTeacherQuizzes(user, teacherSubject) {
-  const fallbackRows = quizzes.filter((item) => item.subject === teacherSubject)
   const key = teacherQuizStorageKey(user, teacherSubject)
   const storedRows = safeReadLocalJson(key, null)
 
   if (Array.isArray(storedRows)) {
-    return storedRows
+    return storedRows.filter((row) => !isLegacyDemoRow(row))
   }
 
-  safeWriteLocalJson(key, fallbackRows)
-  return fallbackRows
+  return []
 }
 
 function setLocalTeacherQuizzes(user, teacherSubject, rows) {
@@ -2625,7 +3102,7 @@ function setLocalTeacherQuizzes(user, teacherSubject, rows) {
 }
 
 function KuisLive({ user, notify, appContext }) {
-  const teacherSubject = user?.subject || 'Bahasa Inggris'
+  const teacherSubject = user?.subject?.trim() || ''
   const [quizRows, setQuizRows] = useState([])
   const [questionRows, setQuestionRows] = useState([])
   const [lookups, setLookups] = useState({ subjects: [], classes: [] })
@@ -2634,6 +3111,9 @@ function KuisLive({ user, notify, appContext }) {
   const [attempts, setAttempts] = useState([])
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
+  const publishedCount = quizRows.filter((item) => item.status === 'Publish').length
+  const draftCount = quizRows.filter((item) => item.status !== 'Publish').length
+  const sourceLabel = (!appContext?.accessToken || !isUuid(user?.id)) ? 'Preview lokal' : 'Supabase'
 
   useEffect(() => {
     let active = true
@@ -2683,9 +3163,9 @@ function KuisLive({ user, notify, appContext }) {
       const localQuiz = {
         ...quiz,
         id: quiz.id || `local-quiz-${Date.now()}`,
-        subject: quiz.subject || teacherSubject,
+        subject: quiz.subject || teacherSubject || 'Mapel belum dipilih',
         teacher: user?.name,
-        className: quiz.className || 'Kelas umum',
+        className: quiz.className || 'Semua kelas',
         source: 'local',
         questionIds: selectedQuestionIds,
         questionCount: selectedQuestionIds.length,
@@ -2739,28 +3219,71 @@ function KuisLive({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Kuis Live" title="Kuis dan ujian" description="Kelola draft kuis dan publish ke siswa." action={<QuickActionButton icon={FlaskConical} label="Buat Kuis" onClick={() => setEditing(emptyQuiz(lookups, teacherSubject))} />} />
-      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Data lokal mapel guru ditampilkan.</div>}
+      <PageHeader
+        eyebrow="Kuis Live"
+        title="Kuis live"
+        description="Rakit kuis dari Bank Soal, atur durasi, lalu publish saat siap dikerjakan siswa."
+        action={<QuickActionButton icon={FlaskConical} label={questionRows.length === 0 ? 'Butuh soal' : editing ? 'Editor terbuka' : 'Buat kuis'} disabled={Boolean(editing) || questionRows.length === 0} onClick={() => setEditing(emptyQuiz(lookups, teacherSubject))} />}
+      />
+
+      <section className="mb-4 flex flex-col gap-3 rounded-[1.15rem] border border-[#123c3b]/10 bg-white/80 px-4 py-3 shadow-[0_12px_36px_rgba(15,31,42,0.055)] sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-black text-[#13232d]">
+          <span className="inline-flex items-center gap-1.5 rounded-[0.75rem] bg-[#e8f4ef] px-3 py-1.5 text-[#0f766e] ring-1 ring-[#0f766e]/10">
+            <FlaskConical size={14} /> {quizRows.length} kuis
+          </span>
+          <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{publishedCount} publish</span>
+          <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{draftCount} draft</span>
+          <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{questionRows.length} soal tersedia</span>
+        </div>
+        <p className="text-xs font-bold text-slate-500">
+          Sumber data: <span className="text-[#0f766e]">{sourceLabel}</span>
+        </p>
+      </section>
+
+      {error && <div className="mb-4 rounded-[1rem] bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Data lokal mapel guru ditampilkan.</div>}
       
       {editing && <QuizForm quiz={editing} lookups={lookups} questions={questionRows} onCancel={() => setEditing(null)} onSave={handleSave} />}
       
       {loading ? <LoadingState label="Memuat kuis guru dari Supabase..." /> : (
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {quizRows.map((quiz) => (
-            <SectionCard key={quiz.id}>
-              <div className="flex items-center justify-between gap-2"><StatusBadge tone={statusTone(quiz.status)}>{quiz.status}</StatusBadge><StatusBadge tone="cyan">{quiz.duration} menit</StatusBadge></div>
-              <h2 className="mt-4 text-lg font-extrabold">{quiz.title}</h2>
-              <p className="mt-2 text-sm text-gray-500">{quiz.subject} · {quiz.className}</p>
-              <div className="mt-3"><CurriculumLinkBadge item={quiz} /></div>
-              <p className="mt-3 text-sm font-bold text-galaxy-purple">{attempts.filter((attempt) => attempt.quiz_id === quiz.id).length} attempt masuk</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button onClick={() => setEditing(quiz)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button>
-                <button onClick={() => handleSave({ ...quiz, status: quiz.status === 'Publish' ? 'Draft' : 'Publish' }, quiz.questionIds || [])} className="rounded-xl bg-cyan-50 px-3 py-2 text-xs font-extrabold text-cyan-700">{quiz.status === 'Publish' ? 'Kembalikan ke Draft' : 'Publish ke siswa'}</button>
-                <button onClick={() => setDeleting(quiz)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700">Hapus</button>
-              </div>
-            </SectionCard>
-          ))}
-        </div>
+        quizRows.length > 0 ? (
+          <section className="overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
+            {quizRows.map((quiz) => (
+              <article key={quiz.id} className="grid gap-3 border-b border-[#123c3b]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                <div className="min-w-0">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <StatusBadge tone={statusTone(quiz.status)}>{quiz.status}</StatusBadge>
+                    <StatusBadge tone="teal">{quiz.duration} menit</StatusBadge>
+                    <span className="text-xs font-bold text-slate-400">{attempts.filter((attempt) => attempt.quiz_id === quiz.id).length} attempt masuk</span>
+                  </div>
+                  <h2 className="truncate text-lg font-black text-[#13232d]">{quiz.title || 'Tanpa judul'}</h2>
+                  <p className="mt-2 text-xs font-bold text-slate-500">
+                    {(quiz.subject || 'Mapel belum dipilih')} · {(quiz.className || 'Semua kelas')} · {(quiz.questionCount || quiz.questionIds?.length || 0)} soal
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <button onClick={() => setEditing(quiz)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-[#f7f4ee] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/8 transition hover:bg-[#e8f4ef]">
+                    <PencilLine size={14} /> Edit
+                  </button>
+                  <button onClick={() => handleSave({ ...quiz, status: quiz.status === 'Publish' ? 'Draft' : 'Publish' }, quiz.questionIds || [])} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
+                    <Send size={14} /> {quiz.status === 'Publish' ? 'Jadikan draft' : 'Publish'}
+                  </button>
+                  <button onClick={() => setDeleting(quiz)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
+                    <Trash2 size={14} /> Hapus
+                  </button>
+                </div>
+              </article>
+            ))}
+          </section>
+        ) : (
+          !editing && (
+            <EmptyState
+              title="Belum ada kuis."
+              description={questionRows.length > 0 ? 'Buat kuis pertama dari soal yang sudah tersedia.' : 'Buat soal di Bank Soal dulu, lalu rakit kuis saat siap.'}
+              action={<QuickActionButton icon={FlaskConical} label="Buat kuis" disabled={questionRows.length === 0} onClick={() => setEditing(emptyQuiz(lookups, teacherSubject))} />}
+            />
+          )
+        )
       )}
       <ConfirmDialog open={Boolean(deleting)} title="Hapus kuis?" description={`Kuis "${deleting?.title || ''}" akan dihapus setelah konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
     </div>
@@ -2770,21 +3293,35 @@ function KuisLive({ user, notify, appContext }) {
 function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSave }) {
   const [form, setForm] = useState(quiz)
   const [selectedQuestionIds, setSelectedQuestionIds] = useState(quiz.questionIds || [])
-  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: quiz.subject || 'Bahasa Inggris' }]
-  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: quiz.className || 'Kelas umum' }]
+  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: quiz.subject || 'Mapel belum dipilih' }]
+  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: quiz.className || 'Semua kelas' }]
   const selectedCount = selectedQuestionIds.length
   const validQuiz = form.title.trim() && selectedCount > 0
+
+  useEffect(() => {
+    setForm(quiz)
+    setSelectedQuestionIds(quiz.questionIds || [])
+  }, [quiz])
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
-  function updateLearningObjective(objectiveId, objective) {
+  function updateSubject(value) {
+    const selected = subjectsList.find((subject) => String(subject.id || '') === value)
     setForm((current) => ({
       ...current,
-      learningObjectiveId: objectiveId,
-      learningObjectiveCode: objective?.code || '',
-      learningObjectiveText: objective?.objective || '',
+      subjectId: value,
+      subject: selected?.name || current.subject || 'Mapel belum dipilih',
+    }))
+  }
+
+  function updateClass(value) {
+    const selected = classesList.find((classItem) => String(classItem.id || '') === value)
+    setForm((current) => ({
+      ...current,
+      classId: value,
+      className: selected?.name || current.className || 'Semua kelas',
     }))
   }
 
@@ -2793,68 +3330,120 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSa
   }
 
   return (
-    <SectionCard className="mb-4">
-      <h2 className="text-lg font-black text-gray-950">{form.id ? 'Edit kuis' : 'Buat kuis'}</h2>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Judul
-          <input value={form.title} onChange={(event) => updateField('title', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Durasi menit
-          <input type="number" value={form.duration} onChange={(event) => updateField('duration', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
-          <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id}>{subject.name}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Kelas
-          <select value={form.classId || ''} onChange={(event) => updateField('classId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id}>{classItem.name}</option>)}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Status
-          <select value={form.status} onChange={(event) => updateField('status', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-            {['Draft', 'Publish'].map((status) => <option key={status}>{status}</option>)}
-          </select>
-          <span className="text-xs font-semibold text-slate-500">Draft belum tampil. Publish membuat kuis bisa dikerjakan siswa.</span>
-        </label>
-        <LearningObjectivePicker
-          value={form.learningObjectiveId || ''}
-          subjectId={form.subjectId || ''}
-          classId={form.classId || ''}
-          subjectName={form.subject}
-          className={form.className}
-          subjectsList={subjectsList}
-          classesList={classesList}
-          onChange={updateLearningObjective}
-        />
-        <label className="grid gap-1 text-sm font-bold text-gray-700 md:col-span-2">Deskripsi
-          <textarea value={form.description} onChange={(event) => updateField('description', event.target.value)} rows={3} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-      </div>
-      <div className="mt-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-extrabold text-gray-950">Pilih soal dari bank soal</p>
-          <StatusBadge tone={selectedCount > 0 ? 'green' : 'amber'}>{selectedCount} soal dipilih</StatusBadge>
+    <section className="mb-5 overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/88 shadow-[0_16px_48px_rgba(15,31,42,0.07)] backdrop-blur-xl">
+      <header className="flex flex-col gap-3 border-b border-[#123c3b]/8 bg-[#fbfaf7]/78 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#e8f4ef] text-[#0f766e] ring-1 ring-[#0f766e]/10">
+            <FlaskConical size={20} />
+          </span>
+          <div>
+            <h2 className="text-xl font-black leading-tight text-[#13232d]">{form.id ? 'Edit kuis' : 'Buat kuis'}</h2>
+            <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+              Pilih soal dari Bank Soal agar kuis tetap terstruktur dan bisa dipakai ulang.
+            </p>
+          </div>
         </div>
-        <div className="mt-3 grid gap-2 md:grid-cols-2">
-          {availableQuestions.length > 0 ? availableQuestions.map((question) => (
-            <button key={question.id} onClick={() => toggleQuestion(question.id)} className={`rounded-2xl p-3 text-left text-sm font-semibold ring-1 ${selectedQuestionIds.includes(question.id) ? 'bg-galaxy-deep text-white ring-galaxy-deep' : 'bg-galaxy-surface text-gray-700 ring-purple-100'}`}>
-              <span className="block">{question.questionText}</span>
-              <span className="mt-2 block text-xs opacity-75">{question.topic || 'Topik umum'} · {question.difficulty || 'Mudah'}</span>
-            </button>
-          )) : (
-            <div className="rounded-2xl bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100 md:col-span-2">
-              Bank soal belum tersedia. Buat soal terlebih dahulu di menu Bank Soal, lalu kembali membuat kuis.
+        <StatusBadge tone={validQuiz ? 'green' : 'amber'}>{selectedCount} soal dipilih</StatusBadge>
+      </header>
+
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <div className="space-y-4 p-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className={materialLabelClass}>Judul
+              <input value={form.title || ''} onChange={(event) => updateField('title', event.target.value)} placeholder="Judul kuis" className={materialInputClass} />
+            </label>
+            <label className={materialLabelClass}>Durasi menit
+              <input type="number" min="1" value={form.duration} onChange={(event) => updateField('duration', event.target.value)} className={materialInputClass} />
+            </label>
+          </div>
+
+          <label className={materialLabelClass}>Deskripsi
+            <textarea value={form.description || ''} onChange={(event) => updateField('description', event.target.value)} rows={3} placeholder="Keterangan singkat untuk siswa sebelum memulai kuis." className={`${materialInputClass} resize-y leading-7`} />
+          </label>
+
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-black text-[#13232d]">Pilih soal dari Bank Soal</p>
+              <StatusBadge tone={selectedCount > 0 ? 'green' : 'amber'}>{selectedCount} soal dipilih</StatusBadge>
             </div>
-          )}
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {availableQuestions.length > 0 ? availableQuestions.map((question) => {
+                const selected = selectedQuestionIds.includes(question.id)
+                return (
+                  <button
+                    key={question.id}
+                    type="button"
+                    onClick={() => toggleQuestion(question.id)}
+                    className={`rounded-[0.95rem] p-3 text-left text-sm font-semibold ring-1 transition ${
+                      selected
+                        ? 'bg-[#123c3b] text-white ring-[#123c3b]'
+                        : 'bg-[#f7f4ee] text-slate-700 ring-[#123c3b]/8 hover:bg-[#e8f4ef] hover:text-[#0f766e]'
+                    }`}
+                  >
+                    <span className="line-clamp-2 font-black">{question.questionText}</span>
+                    <span className="mt-2 block text-xs opacity-75">{question.topic || 'Tanpa topik'} · {question.difficulty || 'Mudah'}</span>
+                  </button>
+                )
+              }) : (
+                <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100 md:col-span-2">
+                  Bank Soal belum tersedia. Buat soal terlebih dahulu di menu Bank Soal, lalu kembali membuat kuis.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+
+        <aside className="space-y-4 border-t border-[#123c3b]/8 bg-[#f7f4ee]/58 p-4 lg:border-l lg:border-t-0">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0f766e]">Status</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {['Draft', 'Publish'].map((status) => {
+                const active = form.status === status
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => updateField('status', status)}
+                    className={`rounded-[0.85rem] px-3 py-2.5 text-xs font-black ring-1 transition ${
+                      active
+                        ? 'bg-[#123c3b] text-white ring-[#123c3b]'
+                        : 'bg-white text-slate-600 ring-[#123c3b]/10 hover:bg-[#e8f4ef] hover:text-[#0f766e]'
+                    }`}
+                  >
+                    {status}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+              Publish membuat kuis bisa dikerjakan siswa.
+            </p>
+          </div>
+
+          <label className={materialLabelClass}>Mata pelajaran
+            <select value={form.subjectId || ''} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
+              {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id || ''}>{subject.name}</option>)}
+            </select>
+          </label>
+
+          <label className={materialLabelClass}>Kelas
+            <select value={form.classId || ''} onChange={(event) => updateClass(event.target.value)} className={materialInputClass}>
+              {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id || ''}>{classItem.name}</option>)}
+            </select>
+          </label>
+        </aside>
       </div>
-      <div className="mt-4 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form, selectedQuestionIds)} disabled={!validQuiz} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan kuis</button>
-      </div>
-    </SectionCard>
+
+      <footer className="flex flex-col-reverse gap-2 border-t border-[#123c3b]/8 bg-white/72 px-4 py-3 sm:flex-row sm:justify-end">
+        <button onClick={onCancel} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-100">
+          <X size={16} /> Batal
+        </button>
+        <button onClick={() => onSave(form, selectedQuestionIds)} disabled={!validQuiz} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] bg-[#123c3b] px-4 py-2.5 text-sm font-black text-white shadow-[0_12px_28px_rgba(15,31,42,0.14)] transition hover:bg-[#0f766e] disabled:cursor-not-allowed disabled:opacity-45">
+          <Save size={16} /> Simpan kuis
+        </button>
+      </footer>
+    </section>
   )
 }
 
@@ -2866,20 +3455,47 @@ function emptyQuiz(lookups, teacherSubject) {
     description: '',
     subjectId: subject?.id || '',
     classId: classItem?.id || '',
-    subject: subject?.name || teacherSubject,
-    className: classItem?.name || 'Kelas umum',
+    subject: subject?.name || teacherSubject || 'Mapel belum dipilih',
+    className: classItem?.name || 'Semua kelas',
     duration: 30,
     status: 'Draft',
-    learningObjectiveId: '',
   }
 }
 
 function AnalisisNilai() {
+  const nilaiRows = scoreTrend.filter((item) => Number.isFinite(Number(item.nilai)))
+  const nilaiValues = nilaiRows.map((item) => Number(item.nilai))
+  const average = nilaiValues.length ? Math.round(nilaiValues.reduce((total, item) => total + item, 0) / nilaiValues.length) : 0
+  const highest = nilaiValues.length ? Math.max(...nilaiValues) : 0
+  const lowest = nilaiValues.length ? Math.min(...nilaiValues) : 0
+
   return (
     <div>
       <PageHeader eyebrow="Analisis Nilai" title="Insight kelas untuk tindak lanjut." />
-      <div className="mb-4 grid gap-3 sm:grid-cols-4"><StatCard label="Rata-rata" value="84" icon={BarChart3} /><StatCard label="Tertinggi" value="96" tone="green" /><StatCard label="Terendah" value="62" tone="amber" /><StatCard label="Soal sulit" value="7" tone="purple" /></div>
-      <DashboardCard title="Sebaran nilai"><ResponsiveContainer width="100%" height={300}><BarChart data={scoreTrend}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="nilai" fill="#7C3AED" radius={[12, 12, 0, 0]} /></BarChart></ResponsiveContainer></DashboardCard>
+      <div className="mb-4 grid gap-3 sm:grid-cols-4">
+        <StatCard label="Rata-rata" value={average || '-'} icon={BarChart3} />
+        <StatCard label="Tertinggi" value={highest || '-'} tone="green" />
+        <StatCard label="Terendah" value={lowest || '-'} tone="amber" />
+        <StatCard label="Soal sulit" value="-" tone="teal" />
+      </div>
+      <DashboardCard title="Sebaran nilai">
+        {nilaiRows.length > 0 ? (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={nilaiRows}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="nilai" fill="#0F766E" radius={[12, 12, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <EmptyState
+            title="Belum ada data nilai"
+            description="Nilai akan muncul setelah siswa mengerjakan latihan, kuis, atau tugas yang dipublish."
+          />
+        )}
+      </DashboardCard>
     </div>
   )
 }
@@ -2894,15 +3510,15 @@ function AIGeneratorPage() {
       <PageHeader
         eyebrow="AI Cepat"
         title="Generator cepat untuk draft sederhana."
-        description="Gunakan halaman ini untuk membuat draft cepat. Untuk membuat paket pembelajaran lengkap, gunakan Studio Konten."
+        description="Gunakan halaman ini untuk membuat draft cepat. Untuk menyiapkan pembelajaran lengkap, gunakan Siapkan Pembelajaran."
         action={
           <a href="/guru/studio-konten" className="rounded-2xl bg-galaxy-action px-5 py-3 text-sm font-extrabold text-white shadow-glow">
-            Buka Studio Konten
+            Buka Siapkan Pembelajaran
           </a>
         }
       />
 
-      <SectionCard className="mb-5 bg-gradient-to-br from-violet-50 via-white to-cyan-50">
+      <SectionCard className="mb-5 bg-gradient-to-br from-[#e8f4ef] via-white to-cyan-50">
         <div className="grid gap-4 lg:grid-cols-[1fr_18rem] lg:items-center">
           <div>
             <StatusBadge tone="cyan">Shortcut AI</StatusBadge>
@@ -2913,24 +3529,24 @@ function AIGeneratorPage() {
               Pakai AI Cepat saat guru hanya butuh draft ringkas seperti soal, rangkuman,
               flashcard, atau rubrik awal. Jika ingin membuat materi lengkap, LKPD, video
               interaktif, STEM tools, remedial, pengayaan, dan mengirim hasil ke fitur siswa,
-              gunakan Studio Konten.
+              gunakan Siapkan Pembelajaran.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <StatusBadge tone="purple">Soal cepat</StatusBadge>
+              <StatusBadge tone="teal">Soal cepat</StatusBadge>
               <StatusBadge tone="amber">Rangkuman</StatusBadge>
               <StatusBadge tone="green">Rubrik awal</StatusBadge>
               <StatusBadge tone="cyan">Flashcard draft</StatusBadge>
             </div>
           </div>
 
-          <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-purple-100">
+          <div className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-[#123c3b]/10">
             <p className="text-sm font-extrabold text-slate-950">Butuh paket lengkap?</p>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Studio Konten adalah pusat utama untuk membuat dan mengirim konten ke Materi,
+              Siapkan Pembelajaran adalah ruang utama untuk membuat dan mengirim konten ke Materi,
               Bank Soal, Kuis Live, Flashcard, Remedial, dan Pengayaan.
             </p>
             <a href="/guru/studio-konten" className="mt-4 inline-flex w-full justify-center rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-extrabold text-white">
-              Masuk Studio Konten
+              Masuk Siapkan Pembelajaran
             </a>
           </div>
         </div>
@@ -2946,66 +3562,50 @@ function LaporanGuru({ notify }) {
 }
 
 function AdminDashboard() {
-  const localMaterials = readLocalRowsByPrefix('sea-learning-teacher-materials-')
-  const localAssignments = readLocalRowsByPrefix('sea-learning-teacher-assignments-')
-  const localQuestions = readLocalRowsByPrefix('sea-learning-teacher-questions-')
-  const localQuizzes = readLocalRowsByPrefix('sea-learning-teacher-quizzes-')
+  const navigate = useNavigate()
+  const localMaterials = readLocalRowsByPrefix('islelearn-teacher-materials-')
+  const localAssignments = readLocalRowsByPrefix('islelearn-teacher-assignments-')
+  const localQuestions = readLocalRowsByPrefix('islelearn-teacher-questions-')
+  const localQuizzes = readLocalRowsByPrefix('islelearn-teacher-quizzes-')
   const localContent = [...localMaterials, ...localAssignments, ...localQuestions, ...localQuizzes]
-  const linkedContent = localContent.filter((item) => item.learningObjectiveId).length
-  const localCoverage = localContent.length ? Math.round((linkedContent / localContent.length) * 100) : 0
 
   const adminMenus = [
-    ['Guru', `${teachers.length} data guru`, UsersRound, '/admin/guru', 'purple'],
-    ['Siswa', `${students.length} data siswa`, UsersRound, '/admin/siswa', 'cyan'],
-    ['Kelas', `${classes.length} rombel`, School, '/admin/kelas', 'green'],
-    ['Mapel', `${subjects.length} mata pelajaran`, BookOpen, '/admin/mapel', 'amber'],
-    ['Kurikulum', `${localCoverage}% coverage lokal`, Target, '/admin/kurikulum', 'purple'],
-    ['Backup', 'Ekspor data aman', Download, '/admin/backup', 'cyan'],
+    { label: 'Guru', description: `${teachers.length} data guru`, icon: UsersRound, onClick: () => navigate('/admin/guru') },
+    { label: 'Siswa', description: `${students.length} data siswa`, icon: UsersRound, onClick: () => navigate('/admin/siswa') },
+    { label: 'Kelas', description: `${classes.length} rombel`, icon: School, onClick: () => navigate('/admin/kelas') },
+    { label: 'Mapel', description: `${subjects.length} mata pelajaran`, icon: BookOpen, onClick: () => navigate('/admin/mapel') },
+    { label: 'Backup', description: 'Ekspor data aman', icon: Download, onClick: () => navigate('/admin/backup') },
+  ]
+
+  const metricItems = [
+    { label: 'Guru', value: teachers.length, caption: 'akun/profile', icon: UsersRound },
+    { label: 'Siswa', value: students.length, caption: 'dalam sistem', icon: UsersRound },
+    { label: 'Kelas', value: classes.length, caption: 'rombel', icon: School },
+    { label: 'Konten', value: localContent.length, caption: 'lokal guru', icon: BookOpen },
   ]
 
   return (
-    <div>
-      <PageHeader
-        eyebrow="Admin"
-        title="Pusat data sekolah"
-        description="Kelola data utama aplikasi tanpa panel dekoratif yang tidak perlu."
-      />
+    <div className="space-y-4">
+      <section className="rounded-[1.6rem] sea-ink-panel p-5 text-white shadow-[0_20px_54px_rgba(15,31,42,0.16)]">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#b9e4dc]">Admin · konsol data</p>
+        <h1 className="mt-3 text-balance text-3xl font-black leading-none tracking-[-0.02em] sm:text-4xl">
+          Pusat data sekolah.
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-200/78">
+          Kelola data utama aplikasi dengan ringkasan compact, daftar aksi, dan tabel yang mudah dipindai.
+        </p>
+      </section>
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={UsersRound} label="Guru" value={teachers.length} caption="akun/profile" tone="purple" />
-        <StatCard icon={UsersRound} label="Siswa" value={students.length} caption="akun/profile" tone="cyan" />
-        <StatCard icon={School} label="Kelas" value={classes.length} caption="rombel" tone="green" />
-        <StatCard icon={Target} label="Coverage TP" value={`${localCoverage}%`} caption="konten lokal" tone={localCoverage >= 80 ? 'green' : 'amber'} />
-      </div>
+      <MetricStrip items={metricItems} />
 
-      <DashboardCard title="Menu Admin">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {adminMenus.map(([label, description, Icon, route, tone]) => (
-            <a
-              key={label}
-              href={route}
-              className="rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-purple-100 transition hover:-translate-y-0.5 hover:shadow-soft"
-            >
-              <div className="flex items-start gap-3">
-                <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-galaxy-lavender text-galaxy-purple">
-                  <Icon size={18} />
-                </span>
-                <div>
-                  <StatusBadge tone={tone}>{label}</StatusBadge>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{description}</p>
-                </div>
-              </div>
-            </a>
-          ))}
-        </div>
-      </DashboardCard>
+      <ActionList items={adminMenus} />
     </div>
   )
 }
 
 
 function adminProfileStorageKey(role) {
-  return `sea-learning-admin-profiles-${role}`
+  return `islelearn-admin-profiles-${role}`
 }
 
 function getLocalAdminProfiles(role, fallbackRows) {
@@ -3236,7 +3836,7 @@ function ProfileForm({ title, role, profile, lookups, onCancel, onSave }) {
 }
 
 function adminCollectionStorageKey(collection) {
-  return `sea-learning-admin-${collection}`
+  return `islelearn-admin-${collection}`
 }
 
 function getLocalAdminCollection(collection, fallbackRows) {
@@ -3515,364 +4115,6 @@ function LaporanSekolah({ notify }) {
 
 
 
-function CurriculumAuditPanel() {
-  const { accessToken } = useAuth()
-  const navigate = useNavigate()
-  const [audit, setAudit] = useState({
-    totals: { total: 0, linked: 0, unlinked: 0, percentage: 0 },
-    summary: [],
-    unlinkedItems: [],
-  })
-  const [activeFilter, setActiveFilter] = useState('all')
-  const [loading, setLoading] = useState(Boolean(accessToken))
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let active = true
-
-    async function loadAudit() {
-      if (!accessToken) {
-        setLoading(false)
-        return
-      }
-
-      try {
-        setLoading(true)
-        const data = await fetchCurriculumContentAudit({ accessToken })
-        if (active) {
-          setAudit(data)
-          setError('')
-        }
-      } catch (auditError) {
-        if (active) setError(auditError.message || 'Audit kurikulum gagal dimuat.')
-      } finally {
-        if (active) setLoading(false)
-      }
-    }
-
-    loadAudit()
-    return () => {
-      active = false
-    }
-  }, [accessToken])
-
-  const auditActions = [
-    { id: 'materials', type: 'Materi', label: 'Materi', button: 'Buka Materi Guru', path: '/guru/materi', icon: BookOpen },
-    { id: 'assignments', type: 'Tugas', label: 'Tugas', button: 'Buka Tugas Guru', path: '/guru/tugas', icon: ClipboardList },
-    { id: 'questions', type: 'Soal', label: 'Bank Soal', button: 'Buka Bank Soal', path: '/guru/bank-soal', icon: FileQuestion },
-    { id: 'quizzes', type: 'Kuis', label: 'Kuis', button: 'Buka Kuis Live', path: '/guru/kuis-live', icon: PlayCircle },
-  ]
-
-  const filterOptions = [
-    { id: 'all', label: 'Semua', type: null },
-    ...auditActions.map((item) => ({ id: item.id, label: item.label, type: item.type })),
-  ]
-
-  const filteredItems = activeFilter === 'all'
-    ? audit.unlinkedItems
-    : audit.unlinkedItems.filter((item) => item.type === filterOptions.find((option) => option.id === activeFilter)?.type)
-
-  const selectedAction = auditActions.find((item) => item.id === activeFilter)
-  const selectedSummary = audit.summary.find((item) => item.id === activeFilter)
-  const topUnlinked = audit.summary.filter((item) => item.unlinked > 0).sort((a, b) => b.unlinked - a.unlinked)[0]
-  const priorityLabel = topUnlinked?.label || 'Konten'
-
-  return (
-    <SectionCard className="mb-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Audit Keterhubungan Konten</p>
-          <h2 className="mt-1 text-xl font-black text-slate-950">Cek konten yang sudah terhubung ke TP/ATP.</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-            Panel ini membantu admin melihat materi, tugas, bank soal, dan kuis yang sudah atau belum terhubung ke tujuan pembelajaran.
-          </p>
-        </div>
-        <StatusBadge tone={audit.totals.percentage >= 80 ? 'green' : audit.totals.percentage >= 50 ? 'amber' : 'red'}>
-          {audit.totals.percentage}% lengkap
-        </StatusBadge>
-      </div>
-
-      {error && (
-        <div className="mt-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
-          Audit belum bisa dimuat: {error}
-        </div>
-      )}
-
-      {loading ? (
-        <LoadingState label="Memuat audit keterhubungan kurikulum..." />
-      ) : (
-        <>
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
-              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400">Total belum terhubung</p>
-              <p className="mt-1 text-2xl font-black text-slate-950">{audit.totals.unlinked}</p>
-              <p className="mt-1 text-xs font-bold text-slate-500">Dari {audit.totals.total} konten utama.</p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
-              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400">Prioritas pertama</p>
-              <p className="mt-2 text-lg font-black text-slate-950">{audit.totals.unlinked ? priorityLabel : 'Tidak ada'}</p>
-              <p className="mt-1 text-xs font-bold text-slate-500">{topUnlinked ? `${topUnlinked.unlinked} item perlu dihubungkan ke TP/ATP.` : 'Semua konten utama sudah rapi.'}</p>
-            </div>
-            <div className="rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-100">
-              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-amber-600">Rekomendasi tindakan</p>
-              <p className="mt-2 text-sm font-bold leading-6 text-amber-800">
-                {audit.totals.unlinked
-                  ? 'Buka halaman guru sesuai jenis konten untuk menemukan konten lama yang perlu diprioritaskan. Konten baru sebaiknya dibuat lewat Studio Konten agar TP/ATP langsung terhubung.'
-                  : 'Lanjutkan kebiasaan memilih TP/ATP saat membuat materi, tugas, soal, dan kuis baru.'}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-4">
-            {audit.summary.map((item) => (
-              <div key={item.id} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-extrabold text-slate-950">{item.label}</p>
-                  <StatusBadge tone={item.unlinked === 0 ? 'green' : 'amber'}>{item.percentage}%</StatusBadge>
-                </div>
-                <p className="mt-2 text-2xl font-black text-slate-950">{item.linked}/{item.total}</p>
-                <p className="mt-1 text-xs font-bold text-slate-500">{item.unlinked} belum terhubung TP</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {auditActions.map((item) => (
-              <QuickActionButton key={item.id} icon={item.icon} label={item.button} onClick={() => navigate(item.path)} />
-            ))}
-            <QuickActionButton icon={Sparkles} label="Buka Studio Konten" onClick={() => navigate('/guru/studio-konten')} />
-          </div>
-
-          <div className="mt-5 rounded-2xl bg-white p-3 ring-1 ring-slate-100">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-extrabold text-slate-950">Daftar prioritas perbaikan</p>
-                <p className="mt-1 text-xs font-semibold text-slate-500">
-                  Tampilkan maksimal 12 konten lama yang perlu dihubungkan ke TP.
-                </p>
-              </div>
-              <StatusBadge tone={audit.totals.unlinked === 0 ? 'green' : 'amber'}>
-                {activeFilter === 'all' ? audit.totals.unlinked : selectedSummary?.unlinked || 0} belum terhubung
-              </StatusBadge>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {filterOptions.map((option) => {
-                const summary = audit.summary.find((item) => item.id === option.id)
-                const count = option.id === 'all' ? audit.totals.unlinked : summary?.unlinked || 0
-                const isActive = activeFilter === option.id
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setActiveFilter(option.id)}
-                    className={`rounded-2xl px-4 py-2.5 text-xs font-extrabold ring-1 transition ${
-                      isActive
-                        ? 'bg-galaxy-action text-white ring-galaxy-action'
-                        : 'bg-slate-50 text-slate-600 ring-slate-100 hover:bg-white'
-                    }`}
-                  >
-                    {option.label} ({count})
-                  </button>
-                )
-              })}
-            </div>
-
-            {selectedAction && (
-              <div className="mt-3 rounded-2xl bg-purple-50 p-3 text-sm font-bold leading-6 text-purple-800 ring-1 ring-purple-100">
-                Rekomendasi: buka halaman {selectedAction.label}, cek item lama yang belum punya badge TP, lalu jadikan daftar ini dasar kerja Patch 3 untuk edit manual TP.
-              </div>
-            )}
-
-            {filteredItems.length > 0 ? (
-              <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                {filteredItems.slice(0, 12).map((item) => (
-                  <div key={`${item.type}-${item.id}`} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <StatusBadge tone="amber">{item.type}</StatusBadge>
-                      <StatusBadge>{item.status}</StatusBadge>
-                    </div>
-                    <p className="text-sm font-extrabold text-slate-950">{item.title}</p>
-                    <p className="mt-2 text-xs font-semibold text-slate-500">{item.subject} · {item.className} · {item.teacher}</p>
-                    <p className="mt-3 text-xs font-bold text-amber-600">Rekomendasi: edit dari halaman guru atau buat ulang dari Studio Konten dengan memilih TP/ATP.</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700 ring-1 ring-emerald-100">
-                {activeFilter === 'all'
-                  ? 'Semua konten utama sudah terhubung ke TP/ATP.'
-                  : `${selectedAction?.label || 'Konten'} sudah terhubung ke TP/ATP.`}
-              </div>
-            )}
-          </div>
-        </>
-      )}
-    </SectionCard>
-  )
-}
-
-function CurriculumAdminPage() {
-  const { accessToken } = useAuth()
-  const [data, setData] = useState(() => ({
-    subjects: [],
-    phases: [],
-    elements: [],
-    outcomes: [],
-    objectives: [],
-    flows: [],
-  }))
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let active = true
-
-    async function loadCurriculum() {
-      setLoading(true)
-      setError('')
-
-      try {
-        const overview = await fetchCurriculumOverview({ accessToken })
-        if (active) setData(overview)
-      } catch (loadError) {
-        if (active) {
-          setError(loadError.message || 'Data kurikulum belum tersedia.')
-          setData({ subjects: [], phases: [], elements: [], outcomes: [], objectives: [], flows: [] })
-        }
-      } finally {
-        if (active) setLoading(false)
-      }
-    }
-
-    loadCurriculum()
-
-    return () => {
-      active = false
-    }
-  }, [accessToken])
-
-  const activeSubjects = data.subjects.filter((item) => item.is_active !== false)
-  const verifiedOutcomes = data.outcomes.filter((item) => !String(item.verification_status || '').toLowerCase().includes('perlu verifikasi'))
-  const templateObjectives = data.objectives.filter((item) => String(item.verification_status || '').toLowerCase().includes('template'))
-
-  return (
-    <div>
-      <PageHeader
-        eyebrow="Kurikulum Merdeka"
-        title="Bank CP/TP/ATP sekolah"
-        description="Pusat data kurikulum untuk menghubungkan materi, soal, kuis, tugas, remedial, pengayaan, dan laporan ke tujuan pembelajaran."
-      />
-
-      <CurriculumAuditPanel />
-
-      {error && (
-        <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
-          {error}. Jalankan migration dan seed kurikulum di Supabase SQL Editor.
-        </div>
-      )}
-
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ['Mapel aktif', activeSubjects.length, 'Termasuk Pendidikan Agama Islam saja sebagai mapel agama default'],
-          ['Fase', data.phases.length, 'Fase E dan F'],
-          ['CP', data.outcomes.length, `${verifiedOutcomes.length} terverifikasi`],
-          ['TP template', data.objectives.length, `${templateObjectives.length} template sekolah`],
-        ].map(([label, value, caption]) => (
-          <div key={label} className="rounded-2xl bg-white p-4 shadow-soft ring-1 ring-purple-100">
-            <p className="text-sm font-bold text-slate-500">{label}</p>
-            <p className="mt-1 text-2xl font-black text-slate-950">{loading ? '...' : value}</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">{caption}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-        <SectionCard>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Mata Pelajaran</p>
-              <h2 className="text-xl font-black text-slate-950">Mapel default SMA</h2>
-            </div>
-            <StatusBadge tone="green">Agama Islam default</StatusBadge>
-          </div>
-
-          <div className="grid gap-2">
-            {activeSubjects.slice(0, 24).map((subject) => (
-              <div key={subject.id} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-                <div>
-                  <p className="font-bold text-slate-800">{subject.name}</p>
-                  <p className="text-xs font-semibold text-slate-400">{subject.code} · {subject.group_name}</p>
-                </div>
-                <StatusBadge tone={subject.code === 'PAI' ? 'green' : 'cyan'}>{subject.is_active ? 'Aktif' : 'Nonaktif'}</StatusBadge>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-
-        <SectionCard>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">CP/TP/ATP</p>
-              <h2 className="text-xl font-black text-slate-950">Tujuan pembelajaran awal</h2>
-            </div>
-            <StatusBadge tone="amber">Perlu verifikasi sekolah</StatusBadge>
-          </div>
-
-          <div className="grid gap-3">
-            {data.objectives.slice(0, 12).map((objective) => (
-              <div key={objective.id} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusBadge tone="purple">{objective.subjectCode}</StatusBadge>
-                  <StatusBadge tone="cyan">{objective.phaseName}</StatusBadge>
-                  <StatusBadge tone="amber">Kelas {objective.grade} · S{objective.semester}</StatusBadge>
-                </div>
-                <p className="mt-3 text-sm font-extrabold text-slate-950">{objective.code}</p>
-                <p className="mt-1 text-sm leading-6 text-slate-600">{objective.objective}</p>
-                {objective.deep_learning_focus && (
-                  <p className="mt-2 rounded-2xl bg-cyan-50 px-3 py-2 text-xs font-bold leading-5 text-cyan-700 ring-1 ring-cyan-100">
-                    Fokus Deep Learning: {typeof objective.deep_learning_focus === 'string'
-                      ? objective.deep_learning_focus
-                      : Array.isArray(objective.deep_learning_focus)
-                        ? objective.deep_learning_focus.join(', ')
-                        : Object.entries(objective.deep_learning_focus || {})
-                            .map(([key, value]) => {
-                              const label = {
-                                holistic: 'Holistik',
-                                assessment: 'Asesmen',
-                                principles: 'Prinsip',
-                                experiences: 'Pengalaman belajar',
-                              }[key] || key
-
-                              const readableValue = Array.isArray(value)
-                                ? value.join(', ')
-                                : value && typeof value === 'object'
-                                  ? Object.values(value).join(', ')
-                                  : value
-
-                              return `${label}: ${readableValue}`
-                            })
-                            .join(' • ')}
-                  </p>
-                )}
-                <p className="mt-2 text-xs font-bold text-amber-600">{objective.verification_status}</p>
-              </div>
-            ))}
-
-            {!loading && data.objectives.length === 0 && (
-              <EmptyState
-                title="Bank TP belum tersedia."
-                description="Jalankan migration dan curriculum-seed.sql di Supabase SQL Editor untuk mengisi data awal CP/TP/ATP."
-              />
-            )}
-          </div>
-        </SectionCard>
-      </div>
-    </div>
-  )
-}
-
-
 function BackupPage({ notify, setConfirmOpen, appContext }) {
   const [exporting, setExporting] = useState(false)
 
@@ -3880,7 +4122,7 @@ function BackupPage({ notify, setConfirmOpen, appContext }) {
     if (!appContext?.accessToken) {
       const fallback = {
         exportedAt: new Date().toISOString(),
-        app: 'SEA Learning',
+        app: 'IsleLearn',
         school: 'SMA Negeri 6 Pangkajene dan Kepulauan',
         data: { students, teachers, classes, subjects, materials, questions, quizzes },
       }
@@ -3911,15 +4153,15 @@ function downloadJson(data) {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
-  anchor.download = `sea-learning-backup-${new Date().toISOString().slice(0, 10)}.json`
+  anchor.download = `islelearn-backup-${new Date().toISOString().slice(0, 10)}.json`
   anchor.click()
   URL.revokeObjectURL(url)
 }
 
 function PimpinanDashboard() {
-  const practiceResults = getStoredResultsByPrefix('sea-learning-practice-result-')
-  const quizResults = getStoredResultsByPrefix('sea-learning-quiz-result-')
-  const assignmentSubmissions = readLocalRowsByPrefix('sea-learning-assignment-submissions-')
+  const practiceResults = getStoredResultsByPrefix('islelearn-practice-result-')
+  const quizResults = getStoredResultsByPrefix('islelearn-quiz-result-')
+  const assignmentSubmissions = readLocalRowsByPrefix('islelearn-assignment-submissions-')
   const localAverage = averageScore([...practiceResults, ...quizResults])
 
   return (
@@ -4004,7 +4246,29 @@ function AdminTable({ title, rows, columns, button, notify = () => {}, setConfir
 }
 
 function CardsPage({ eyebrow, title, items, action }) {
-  return <div><PageHeader eyebrow={eyebrow} title={title} action={action} /><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{items.map((item) => <SectionCard key={`${item.title}-${item.meta}`}><StatusBadge>{item.status}</StatusBadge><h2 className="mt-3 text-lg font-black">{item.title}</h2><p className="mt-2 text-sm text-gray-500">{item.meta}</p><p className="mt-3 text-xl font-black text-galaxy-purple">{item.value}</p><button className="mt-5 w-full rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Detail</button></SectionCard>)}</div></div>
+  return (
+    <div>
+      <PageHeader eyebrow={eyebrow} title={title} action={action} />
+      {items.length > 0 ? (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {items.map((item) => (
+            <SectionCard key={`${item.title}-${item.meta}`}>
+              <StatusBadge>{item.status}</StatusBadge>
+              <h2 className="mt-3 text-lg font-black">{item.title}</h2>
+              <p className="mt-2 text-sm text-gray-500">{item.meta}</p>
+              <p className="mt-3 text-xl font-black text-galaxy-purple">{item.value}</p>
+              <button className="mt-5 w-full rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Detail</button>
+            </SectionCard>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="Belum ada data"
+          description="Data akan muncul setelah terhubung ke database atau dibuat dari menu terkait."
+        />
+      )}
+    </div>
+  )
 }
 
 
@@ -4095,7 +4359,7 @@ function ReportPage({ eyebrow, title, notify }) {
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Line dataKey="nilai" stroke="#7C3AED" strokeWidth={3} />
+              <Line dataKey="nilai" stroke="#0F766E" strokeWidth={3} />
             </LineChart>
           </ResponsiveContainer>
         </DashboardCard>

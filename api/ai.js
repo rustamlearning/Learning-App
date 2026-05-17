@@ -63,7 +63,7 @@ function buildMessages(action, body) {
     return [
       {
         role: 'system',
-        content: 'Anda adalah AI Tutor SEA Learning. Ringkas materi untuk siswa SMA dengan bahasa sederhana, bertahap, dan mudah dibaca di HP.',
+        content: 'Anda adalah AI Tutor IsleLearn. Ringkas materi untuk siswa SMA dengan bahasa sederhana, bertahap, dan mudah dibaca di HP.',
       },
       { role: 'user', content: body.text || 'Ringkas materi ini.' },
     ]
@@ -82,7 +82,7 @@ function buildMessages(action, body) {
   return [
     {
       role: 'system',
-      content: 'Anda adalah AI Tutor SEA Learning untuk siswa SMA. Jelaskan konsep bertahap, edukatif, dan aman. Jangan memberi jawaban langsung untuk ujian aktif; bantu siswa memahami cara berpikirnya.',
+      content: 'Anda adalah AI Tutor IsleLearn untuk siswa SMA. Jelaskan konsep bertahap, edukatif, dan aman. Jangan memberi jawaban langsung untuk ujian aktif; bantu siswa memahami cara berpikirnya.',
     },
     { role: 'user', content: body.prompt || 'Jelaskan materi ini.' },
   ]

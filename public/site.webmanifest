@@ -1,16 +1,16 @@
 {
-  "name": "SEA Learning App",
-  "short_name": "SEA Learning",
+  "name": "IsleLearn App",
+  "short_name": "IsleLearn",
   "description": "Aplikasi pembelajaran digital untuk SMA Negeri 6 Pangkajene dan Kepulauan.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0F172A",
-  "theme_color": "#4C1D95",
+  "background_color": "#0F1F2A",
+  "theme_color": "#123C3B",
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
+      "src": "/brand/islelearn-logo.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
     }
   ]
 }

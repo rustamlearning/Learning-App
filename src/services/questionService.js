@@ -1,6 +1,6 @@
 import { createRow, deleteRow, listRows, updateRow } from './supabaseClient.js'
 
-const QUESTION_SELECT = '*,subjects(id,name,code),classes(id,name),users_profile(id,name),learning_objectives(id,code,objective,grade,semester)'
+const QUESTION_SELECT = '*,subjects(id,name,code),classes(id,name),users_profile(id,name)'
 
 export async function fetchQuestions({ accessToken, teacherId } = {}) {
   const filters = {}
@@ -36,7 +36,6 @@ function toQuestionPayload(question, teacherId) {
     explanation: question.explanation,
     subject_id: question.subjectId || null,
     class_id: question.classId || null,
-    learning_objective_id: question.learningObjectiveId || question.learning_objective_id || null,
     topic: question.topic,
     difficulty: question.difficulty,
     type: question.type,
@@ -54,9 +53,6 @@ function toQuestionItem(row) {
     subjectId: row.subject_id,
     classId: row.class_id,
     teacherId: row.created_by,
-    learningObjectiveId: row.learning_objective_id || '',
-    learningObjectiveCode: row.learning_objectives?.code || '',
-    learningObjectiveText: row.learning_objectives?.objective || '',
     subject: row.subjects?.name || 'Mata pelajaran',
     className: row.classes?.name || 'Semua kelas',
     teacher: row.users_profile?.name || 'Guru',

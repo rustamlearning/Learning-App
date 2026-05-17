@@ -211,7 +211,7 @@ export async function exportBackupData({ accessToken }) {
   const entries = await Promise.all(tables.map(async (table) => [table, await listRows(table, { select: '*', accessToken })]))
   return {
     exportedAt: new Date().toISOString(),
-    app: 'SEA Learning',
+    app: 'IsleLearn',
     school: 'SMA Negeri 6 Pangkajene dan Kepulauan',
     data: Object.fromEntries(entries),
   }

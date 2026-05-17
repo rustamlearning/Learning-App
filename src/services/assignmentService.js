@@ -1,6 +1,6 @@
 import { createRow, deleteRow, listRows, updateRow } from './supabaseClient.js'
 
-const ASSIGNMENT_SELECT = '*,subjects(id,name,code),classes(id,name),users_profile(id,name),learning_objectives(id,code,objective,grade,semester)'
+const ASSIGNMENT_SELECT = '*,subjects(id,name,code),classes(id,name),users_profile(id,name)'
 
 export async function fetchAssignments({ accessToken, teacherId, publishedOnly = false } = {}) {
   const filters = {}
@@ -23,7 +23,6 @@ export async function saveAssignment({ accessToken, teacherId, assignment }) {
     subject_id: assignment.subjectId || assignment.subject_id || null,
     class_id: assignment.classId || assignment.class_id || null,
     teacher_id: teacherId || null,
-    learning_objective_id: assignment.learningObjectiveId || assignment.learning_objective_id || null,
     deadline: assignment.deadline || null,
     status: assignment.status || 'Draft',
   }
@@ -67,9 +66,6 @@ function toAssignmentItem(row) {
     subjectId: row.subject_id,
     classId: row.class_id,
     teacherId: row.teacher_id,
-    learningObjectiveId: row.learning_objective_id || '',
-    learningObjectiveCode: row.learning_objectives?.code || '',
-    learningObjectiveText: row.learning_objectives?.objective || '',
     subject: row.subjects?.name || 'Mata pelajaran',
     className: row.classes?.name || 'Semua kelas',
     teacher: row.users_profile?.name || 'Guru',

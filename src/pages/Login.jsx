@@ -11,16 +11,16 @@ import {
   Waves,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
-import { demoUsers, roleHome, roleLabels, school } from '../data/dummyData.js'
+import { roleHome, roleLabels, school } from '../data/dummyData.js'
 
 const officialSchoolName = school?.name || 'SMA Negeri 6 Pangkajene dan Kepulauan'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { loginAs, loginWithEmail } = useAuth()
-  const showDemoAccess = import.meta.env.DEV
-  const [identifier, setIdentifier] = useState(showDemoAccess ? 'Andi Saputra' : '')
-  const [password, setPassword] = useState(showDemoAccess ? 'password123' : '')
+  const { loginAs, loginWithEmail, demoAuthEnabled } = useAuth()
+  const showPreviewAccess = demoAuthEnabled
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -45,37 +45,35 @@ export default function Login() {
   }
 
   return (
-    <main className="grid min-h-dvh overflow-hidden bg-slate-50 lg:grid-cols-[1.02fr_0.98fr]">
-      <section className="relative flex min-h-[44dvh] items-center overflow-hidden bg-slate-950 px-6 py-8 text-white lg:min-h-dvh lg:px-14">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(34,211,238,0.22),transparent_28%),radial-gradient(circle_at_82%_72%,rgba(139,92,246,0.34),transparent_32%),linear-gradient(135deg,#0F172A_0%,#1E1B4B_48%,#4C1D95_100%)]" />
-        <div className="absolute -left-24 top-20 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
-        <div className="absolute -right-24 bottom-10 h-80 w-80 rounded-full bg-violet-400/20 blur-3xl" />
+    <main className="grid min-h-dvh overflow-hidden bg-[#f7f4ee] lg:grid-cols-[0.96fr_1.04fr]">
+      <section className="relative order-2 flex min-h-[44dvh] items-center overflow-hidden sea-ink-panel px-6 py-8 text-white lg:order-1 lg:min-h-dvh lg:px-14">
+        <div className="absolute inset-0 opacity-[0.14] [background-image:linear-gradient(rgba(255,255,255,0.22)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:44px_44px]" />
+        <div className="absolute right-0 top-0 h-full w-2/3 bg-[radial-gradient(circle_at_82%_18%,rgba(216,166,66,0.18),transparent_27rem)]" />
 
         <div className="relative mx-auto w-full max-w-2xl">
           <div className="mb-5">
-            <SandeqLogo />
+            <IsleLearnLogo />
           </div>
 
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-cyan-100 shadow-lg ring-1 ring-white/15 backdrop-blur-md">
+          <div className="inline-flex items-center gap-2 border border-white/15 bg-white/[0.08] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[#b9e4dc] shadow-lg backdrop-blur-md">
             <Sparkles size={15} />
-            Digital Learning Platform
+            Akses sekolah
           </div>
 
-          <h1 className="mt-5 text-balance text-2xl font-black leading-tight tracking-[-0.045em] sm:text-4xl">
-            SEA Learning
+          <h1 className="mt-5 text-balance text-5xl font-black leading-none tracking-[-0.02em] sm:text-6xl">
+            IsleLearn
           </h1>
 
-          <p className="mt-5 max-w-lg text-sm font-extrabold uppercase tracking-[0.18em] text-cyan-200/95">
+          <p className="mt-5 max-w-lg text-sm font-extrabold uppercase tracking-[0.18em] text-[#b9e4dc]">
             {officialSchoolName}
           </p>
 
-          <p className="mt-5 max-w-xl text-balance text-2xl font-black leading-tight tracking-[-0.035em] text-white sm:text-3xl">
-            Dari Pesisir ke Masa Depan Digital.
+          <p className="mt-5 max-w-xl text-balance text-3xl font-black leading-tight tracking-[-0.025em] text-white sm:text-4xl">
+            Masuk, lanjutkan belajar, dan lihat progres tanpa banyak langkah.
           </p>
 
-          <p className="mt-3 max-w-xl text-sm leading-7 text-slate-200/85">
-            Platform pembelajaran digital modern yang cepat, stabil, dan terintegrasi
-            untuk siswa, guru, admin, dan pimpinan sekolah.
+          <p className="mt-4 max-w-xl text-base leading-8 text-slate-200/76">
+            Platform sekolah yang cepat, stabil, dan terintegrasi untuk siswa, guru, admin, dan pimpinan.
           </p>
 
           <div className="mt-5 grid max-w-xl gap-2 sm:grid-cols-3">
@@ -86,16 +84,23 @@ export default function Login() {
         </div>
       </section>
 
-      <section className="flex min-h-[48dvh] items-center justify-center px-5 py-6 lg:min-h-dvh lg:px-8">
+      <section className="order-1 flex min-h-dvh items-center justify-center px-5 py-6 lg:order-2 lg:min-h-dvh lg:px-8">
         <div className="w-full max-w-md">
-          <div className="rounded-2xl bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.10)] ring-1 ring-slate-200 sm:p-4">
+          <div className="paper-surface rounded-[1.75rem] border border-white/70 p-5 ring-1 ring-[#123c3b]/10 sm:p-6">
             <header className="mb-5">
-              <p className="text-sm font-extrabold text-violet-700">Masuk ke aplikasi</p>
-              <h2 className="mt-1 text-2xl font-black tracking-[-0.035em] text-slate-950">
-                Selamat datang di SEA Learning.
+              <div className="mb-4 flex items-center gap-3 lg:hidden">
+                <IsleLearnLogo compact />
+                <div className="min-w-0">
+                  <p className="text-base font-black leading-tight tracking-[-0.02em] text-[#13232d]">IsleLearn</p>
+                  <p className="truncate text-xs font-bold text-[#0f766e]">{officialSchoolName}</p>
+                </div>
+              </div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0f766e]">Masuk ke aplikasi</p>
+              <h2 className="mt-2 text-3xl font-black leading-none tracking-[-0.02em] text-[#13232d]">
+                Selamat datang di IsleLearn.
               </h2>
-              <p className="mt-3 text-sm leading-6 text-slate-500">
-                {showDemoAccess ? 'Gunakan akun sekolah atau pilih akses demo sesuai role.' : 'Gunakan akun sekolah yang sudah terdaftar.'}
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                Gunakan akun sekolah yang sudah terdaftar.
               </p>
             </header>
 
@@ -105,8 +110,8 @@ export default function Login() {
                 <input
                   value={identifier}
                   onChange={(event) => setIdentifier(event.target.value)}
-                  placeholder="Contoh: Andi Saputra"
-                  className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-500/10"
+                  placeholder="Username atau email sekolah"
+                  className="h-12 rounded-2xl border border-[#123c3b]/10 bg-white/76 px-4 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#0f766e] focus:bg-white focus:ring-4 focus:ring-[#0f766e]/10"
                 />
               </label>
 
@@ -118,7 +123,7 @@ export default function Login() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder="Masukkan password"
-                    className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 pr-12 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-500/10"
+                    className="h-12 w-full rounded-2xl border border-[#123c3b]/10 bg-white/76 px-4 pr-12 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#0f766e] focus:bg-white focus:ring-4 focus:ring-[#0f766e]/10"
                   />
                   <button
                     type="button"
@@ -133,7 +138,7 @@ export default function Login() {
 
               <button
                 disabled={loading}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 via-violet-500 to-cyan-400 text-sm font-extrabold text-white shadow-lg transition hover:scale-[1.02] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#123c3b] text-sm font-extrabold text-white shadow-[0_18px_36px_rgba(15,31,42,0.18)] transition hover:-translate-y-0.5 hover:bg-[#0f766e] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
               >
                 {loading ? (
                   <Loader2 className="animate-spin" size={18} />
@@ -151,22 +156,22 @@ export default function Login() {
               )}
             </form>
 
-            {showDemoAccess && (
+            {showPreviewAccess && (
               <>
                 <div className="my-7 flex items-center gap-3">
                   <div className="h-px flex-1 bg-slate-200" />
                   <span className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-400">
-                    akses demo
+                    preview lokal
                   </span>
                   <div className="h-px flex-1 bg-slate-200" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  {Object.keys(demoUsers).map((role) => (
+                  {Object.keys(roleLabels).map((role) => (
                     <button
                       key={role}
                       onClick={() => finish(loginAs(role))}
-                      className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-extrabold text-slate-700 transition hover:-translate-y-0.5 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
+                      className="rounded-2xl border border-[#123c3b]/10 bg-white/70 px-4 py-3 text-sm font-extrabold text-slate-700 transition hover:-translate-y-0.5 hover:border-[#0f766e]/25 hover:bg-[#e8f4ef] hover:text-[#0f766e]"
                     >
                       {roleLabels[role]}
                     </button>
@@ -177,7 +182,7 @@ export default function Login() {
           </div>
 
           <p className="mt-6 text-center text-xs font-semibold leading-6 text-slate-400">
-            SEA Learning · {officialSchoolName}
+            IsleLearn · {officialSchoolName}
           </p>
         </div>
       </section>
@@ -187,32 +192,26 @@ export default function Login() {
 
 function MiniInfo({ icon: Icon, title, text }) {
   return (
-    <div className="rounded-2xl bg-white/10 p-3 shadow-lg ring-1 ring-white/15 backdrop-blur-md transition hover:scale-105 hover:bg-white/15">
-      <Icon className="text-cyan-200" size={22} />
+    <div className="rounded-2xl border border-white/12 bg-white/[0.08] p-3 shadow-lg backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/[0.13]">
+      <Icon className="text-[#f1c36d]" size={22} />
       <p className="mt-3 text-sm font-extrabold text-white">{title}</p>
       <p className="mt-1 text-xs leading-5 text-slate-300">{text}</p>
     </div>
   )
 }
 
-function SandeqLogo() {
+function IsleLearnLogo({ compact = false }) {
   return (
-    <div className="inline-flex h-18 w-18 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400/20 to-violet-500/25 shadow-xl ring-1 ring-white/20 backdrop-blur-md">
-      <svg
-        viewBox="0 0 128 128"
-        className="h-12 w-12 text-white"
-        fill="none"
-        role="img"
-        aria-label="Logo SEA Learning"
-      >
-        <g stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M64 19V84" strokeWidth="6" />
-          <path d="M68 25L101 80H68V25Z" fill="currentColor" strokeWidth="0" opacity="0.96" />
-          <path d="M58 35L28 80H58V35Z" fill="currentColor" strokeWidth="0" opacity="0.72" />
-          <path d="M24 89C38 100 53 104 66 103C81 102 96 97 108 89" strokeWidth="6" />
-          <path d="M22 106C33 111 43 111 53 106C63 101 72 101 82 106C92 111 101 111 112 106" strokeWidth="4.3" opacity="0.62" />
-        </g>
-      </svg>
+    <div className={`inline-flex items-center justify-center ${
+      compact
+        ? 'h-14 w-14'
+        : 'h-28 w-28 rounded-[1.4rem] bg-white/95 p-2.5 shadow-[0_18px_44px_rgba(0,0,0,0.22)] ring-1 ring-white/70 sm:h-32 sm:w-32'
+    }`}>
+      <img
+        src="/brand/islelearn-logo.png"
+        alt="Logo IsleLearn"
+        className="h-full w-full object-contain drop-shadow-[0_10px_24px_rgba(15,31,42,0.18)]"
+      />
     </div>
   )
 }
