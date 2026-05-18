@@ -126,3 +126,29 @@ export const englishGrade10Materials = [
     source: 'school-content',
   },
 ]
+
+export const englishGrade11Materials = [
+  {
+    id: 'english-xi-chapter-1-narrative-text',
+    title: 'Chapter 1 — Control Your Screen: Narrative Text',
+    description: 'Materi Bahasa Inggris Kelas XI tentang narrative text, kebiasaan digital, pengendalian diri, perubahan karakter, dan impian masa depan.',
+    content: '/materials/english-xi/chapter-1-control-your-screen-narrative-text.html',
+    subjectId: '',
+    classId: '',
+    teacherId: '',
+    subject: 'Bahasa Inggris',
+    className: 'Kelas XI',
+    teacher: 'Guru Bahasa Inggris',
+    topic: 'Narrative Text',
+    status: 'Publish',
+    type: 'HTML',
+    progress: 0,
+    lightweight: true,
+    source: 'school-content',
+  },
+]
+
+export const englishMaterials = [
+  ...englishGrade10Materials,
+  ...englishGrade11Materials,
+]

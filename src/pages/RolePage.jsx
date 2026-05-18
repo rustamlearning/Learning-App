@@ -51,7 +51,7 @@ import {
   subjects,
   teachers,
 } from '../data/dummyData.js'
-import { englishGrade10Materials } from '../data/englishMaterials.js'
+import { englishMaterials } from '../data/englishMaterials.js'
 import {
   ActionList,
   CompactList,
@@ -448,7 +448,7 @@ function uniqueRowsById(rows) {
 function getAvailablePublishedMaterials(remoteRows = []) {
   return uniqueRowsById([
     ...getPublishedLocalTeacherMaterials(),
-    ...englishGrade10Materials,
+    ...englishMaterials,
     ...(remoteRows.length > 0 ? remoteRows : materials),
   ]).filter((item) => item && item.status !== 'Draft')
 }
@@ -555,6 +555,74 @@ function MateriBelajar({ user, notify, appContext }) {
 
 function normalizeLookupText(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+const highSchoolSubjectFolders = [
+  'Pendidikan Agama dan Budi Pekerti',
+  'Pendidikan Pancasila',
+  'Bahasa Indonesia',
+  'Matematika',
+  'Bahasa Inggris',
+  'Informatika',
+  'Sejarah',
+  'PJOK',
+  'Seni Budaya',
+  'Prakarya dan Kewirausahaan',
+  'Biologi',
+  'Fisika',
+  'Kimia',
+  'Geografi',
+  'Ekonomi',
+  'Sosiologi',
+  'Antropologi',
+  'Muatan Lokal',
+]
+
+function uniqueSubjectNames(...collections) {
+  const names = []
+  const seen = new Set()
+
+  collections.flat().forEach((item) => {
+    const name = typeof item === 'string' ? item : item?.name || item?.subject
+    const trimmed = String(name || '').trim()
+    const key = normalizeLookupText(trimmed)
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    names.push(trimmed)
+  })
+
+  return names
+}
+
+function getMaterialSubjectFolders(rows = [], lookupSubjects = []) {
+  const subjectNames = uniqueSubjectNames(highSchoolSubjectFolders, lookupSubjects, rows)
+  return subjectNames.map((name) => {
+    const key = normalizeLookupText(name)
+    const subjectRows = rows.filter((row) => normalizeLookupText(row.subject || 'Mapel belum dipilih') === key)
+    return {
+      key,
+      name,
+      rows: subjectRows,
+      publishedCount: subjectRows.filter((item) => item.status === 'Publish').length,
+      draftCount: subjectRows.filter((item) => item.status !== 'Publish').length,
+    }
+  })
+}
+
+function getMaterialSubjectOptions(lookupSubjects = [], materialsForContext = []) {
+  const names = uniqueSubjectNames(highSchoolSubjectFolders, lookupSubjects, materialsForContext)
+  return names.map((name) => {
+    const lookup = lookupSubjects.find((item) => normalizeLookupText(item.name) === normalizeLookupText(name))
+    return {
+      id: lookup?.id || '',
+      name,
+      synthetic: !lookup?.id,
+    }
+  })
+}
+
+function subjectOptionValue(subject) {
+  return subject?.id || `subject:${subject?.name || ''}`
 }
 
 function extractGrade(value) {
@@ -1966,7 +2034,7 @@ function getSeededTeacherMaterials(teacherSubject) {
 
   if (!englishScope) return []
 
-  return englishGrade10Materials.map((item) => ({
+  return englishMaterials.map((item) => ({
     ...item,
     progress: item.status === 'Publish' ? 35 : 0,
   }))
@@ -2009,6 +2077,8 @@ function GuruMateri({ user, notify, appContext }) {
   const [deleting, setDeleting] = useState(null)
   const publishedCount = rows.filter((item) => item.status === 'Publish').length
   const draftCount = rows.filter((item) => item.status !== 'Publish').length
+  const subjectFolders = getMaterialSubjectFolders(rows, lookups.subjects)
+  const filledFolderCount = subjectFolders.filter((folder) => folder.rows.length > 0).length
   const localMode = !appContext?.accessToken || !isUuid(user?.id)
   const sourceLabel = localMode ? 'Preview lokal' : 'Supabase'
 
@@ -2121,6 +2191,8 @@ function GuruMateri({ user, notify, appContext }) {
           <span className="inline-flex items-center gap-1.5 rounded-[0.75rem] bg-[#e8f4ef] px-3 py-1.5 text-[#0f766e] ring-1 ring-[#0f766e]/10">
             <BookOpen size={14} /> {rows.length} materi
           </span>
+          <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{subjectFolders.length} folder mapel</span>
+          <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{filledFolderCount} folder terisi</span>
           <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{publishedCount} publish</span>
           <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{draftCount} draft</span>
         </div>
@@ -2133,51 +2205,95 @@ function GuruMateri({ user, notify, appContext }) {
       
       {editing && <MaterialForm material={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat materi guru dari Supabase..." /> : (
-        rows.length > 0 ? (
-          <section className="overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
-            {rows.map((row) => (
-              <article key={row.id} className="grid gap-3 border-b border-[#123c3b]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                <div className="min-w-0">
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>
-                    <StatusBadge tone="teal">{row.type || 'Teks'}</StatusBadge>
-                    <span className="text-xs font-bold text-slate-400">{materialSourceLabel(row.source)}</span>
+        <section className="space-y-3">
+          {subjectFolders.map((folder) => (
+            <details
+              key={folder.key}
+              open={folder.rows.length > 0 || folder.key === normalizeLookupText('Bahasa Inggris')}
+              className="group overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]"
+            >
+              <summary className="flex cursor-pointer list-none flex-col gap-3 bg-[#fbfaf7]/78 px-4 py-3 transition hover:bg-[#f7f4ee] sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#e8f4ef] text-[#0f766e] ring-1 ring-[#0f766e]/10">
+                    <BookOpen size={19} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0f766e]">Folder mata pelajaran</p>
+                    <h2 className="truncate text-lg font-black text-[#13232d]">{folder.name}</h2>
+                    <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                      {folder.rows.length > 0 ? `${folder.rows.length} materi tersedia` : 'Belum ada materi untuk mapel ini.'}
+                    </p>
                   </div>
-                  <h2 className="truncate text-lg font-black text-[#13232d]">{row.title || 'Tanpa judul'}</h2>
-                  <p className="mt-1 line-clamp-2 max-w-3xl text-sm leading-6 text-slate-500">{row.description || 'Belum ada deskripsi.'}</p>
-                  <p className="mt-2 text-xs font-bold text-slate-500">
-                    {(row.subject || 'Mapel belum dipilih')} · {(row.className || 'Semua kelas')} · {(row.topic || 'Tanpa topik')}
-                  </p>
                 </div>
+                <div className="flex flex-wrap gap-2 sm:justify-end">
+                  <StatusBadge tone={folder.rows.length > 0 ? 'green' : 'gray'}>{folder.rows.length} materi</StatusBadge>
+                  <StatusBadge tone="teal">{folder.publishedCount} publish</StatusBadge>
+                  {folder.draftCount > 0 && <StatusBadge tone="amber">{folder.draftCount} draft</StatusBadge>}
+                </div>
+              </summary>
 
-                <div className="flex flex-wrap gap-2 lg:justify-end">
-                  <button onClick={() => setEditing(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-[#f7f4ee] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/8 transition hover:bg-[#e8f4ef]">
-                    <PencilLine size={14} /> Edit
-                  </button>
-                  <button onClick={() => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
-                    <Send size={14} /> {row.status === 'Publish' ? 'Jadikan draft' : 'Publish'}
-                  </button>
-                  {row.source !== 'school-content' && (
-                    <button onClick={() => setDeleting(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
-                      <Trash2 size={14} /> Hapus
+              <div className="border-t border-[#123c3b]/8">
+                {folder.rows.length > 0 ? (
+                  folder.rows.map((row) => (
+                    <MaterialFolderRow
+                      key={row.id}
+                      row={row}
+                      onEdit={() => setEditing(row)}
+                      onToggleStatus={() => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })}
+                      onDelete={() => setDeleting(row)}
+                    />
+                  ))
+                ) : (
+                  <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-black text-[#13232d]">Folder ini masih kosong.</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-500">Belum ada bahan belajar nyata untuk {folder.name}. Tambahkan hanya saat materinya siap.</p>
+                    </div>
+                    <button onClick={() => setEditing(emptyMaterial(lookups, folder.name))} className="inline-flex items-center justify-center gap-1.5 rounded-[0.85rem] bg-[#e8f4ef] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#0f766e]/10 transition hover:bg-[#d9eee8]">
+                      <Plus size={14} /> Tambah materi
                     </button>
-                  )}
-                </div>
-              </article>
-            ))}
-          </section>
-        ) : (
-          !editing && (
-            <EmptyState
-              title={hasTeacherSubject ? `Belum ada materi ${teacherSubject}.` : 'Belum ada materi guru.'}
-              description="Tulis materi pertama saat siap. Halaman ini tidak menampilkan contoh palsu."
-              action={<QuickActionButton icon={Plus} label="Tulis materi pertama" onClick={() => setEditing(emptyMaterial(lookups, teacherSubject))} />}
-            />
-          )
-        )
+                  </div>
+                )}
+              </div>
+            </details>
+          ))}
+        </section>
       )}
       <ConfirmDialog open={Boolean(deleting)} title="Hapus materi?" description={`Materi "${deleting?.title || ''}" akan dihapus. Aksi ini membutuhkan konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
     </div>
+  )
+}
+
+function MaterialFolderRow({ row, onEdit, onToggleStatus, onDelete }) {
+  return (
+    <article className="grid gap-3 border-b border-[#123c3b]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+      <div className="min-w-0">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>
+          <StatusBadge tone="teal">{row.type || 'Teks'}</StatusBadge>
+          <span className="text-xs font-bold text-slate-400">{materialSourceLabel(row.source)}</span>
+        </div>
+        <h2 className="truncate text-lg font-black text-[#13232d]">{row.title || 'Tanpa judul'}</h2>
+        <p className="mt-1 line-clamp-2 max-w-3xl text-sm leading-6 text-slate-500">{row.description || 'Belum ada deskripsi.'}</p>
+        <p className="mt-2 text-xs font-bold text-slate-500">
+          {(row.className || 'Semua kelas')} · {(row.topic || 'Tanpa topik')}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2 lg:justify-end">
+        <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-[#f7f4ee] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/8 transition hover:bg-[#e8f4ef]">
+          <PencilLine size={14} /> Edit
+        </button>
+        <button onClick={onToggleStatus} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
+          <Send size={14} /> {row.status === 'Publish' ? 'Jadikan draft' : 'Publish'}
+        </button>
+        {row.source !== 'school-content' && (
+          <button onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
+            <Trash2 size={14} /> Hapus
+          </button>
+        )}
+      </div>
+    </article>
   )
 }
 
@@ -2195,7 +2311,7 @@ function getMaterialTypeIcon(type) {
 
 function MaterialForm({ material, lookups, onCancel, onSave }) {
   const [form, setForm] = useState(material)
-  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: material.subject || 'Mapel belum dipilih' }]
+  const subjectsList = getMaterialSubjectOptions(lookups.subjects, [material])
   const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: material.className || 'Semua kelas' }]
   const linkedMaterial = isLinkedMaterialType(form.type)
   const content = form.content || ''
@@ -2215,10 +2331,10 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
   }
 
   function updateSubject(value) {
-    const selected = subjectsList.find((subject) => String(subject.id || '') === value)
+    const selected = subjectsList.find((subject) => subjectOptionValue(subject) === value)
     setForm((current) => ({
       ...current,
-      subjectId: value,
+      subjectId: selected?.synthetic ? '' : selected?.id || '',
       subject: selected?.name || current.subject || 'Mapel belum dipilih',
     }))
   }
@@ -2340,8 +2456,8 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
           </div>
 
           <label className={materialLabelClass}>Mata pelajaran
-            <select value={form.subjectId || ''} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
-              {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id || ''}>{subject.name}</option>)}
+            <select value={form.subjectId || `subject:${form.subject || subjectsList[0]?.name || ''}`} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
+              {subjectsList.map((subject) => <option key={subjectOptionValue(subject)} value={subjectOptionValue(subject)}>{subject.name}</option>)}
             </select>
           </label>
 
@@ -2366,15 +2482,16 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
 }
 
 function emptyMaterial(lookups, teacherSubject) {
-  const subject = lookups.subjects.find((item) => item.name === teacherSubject) || lookups.subjects[0]
+  const subject = lookups.subjects.find((item) => normalizeLookupText(item.name) === normalizeLookupText(teacherSubject))
   const classItem = lookups.classes[0]
+  const subjectName = subject?.name || teacherSubject || highSchoolSubjectFolders[0]
   return {
     title: '',
     description: '',
     content: '',
     subjectId: subject?.id || '',
     classId: classItem?.id || '',
-    subject: subject?.name || teacherSubject || 'Mapel belum dipilih',
+    subject: subjectName,
     className: classItem?.name || 'Semua kelas',
     topic: '',
     type: 'Teks',
