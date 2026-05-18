@@ -51,6 +51,7 @@ import {
   subjects,
   teachers,
 } from '../data/dummyData.js'
+import { englishGrade10Materials } from '../data/englishMaterials.js'
 import {
   ActionList,
   CompactList,
@@ -174,7 +175,7 @@ function SiswaDashboard({ user, notify }) {
   const classAssignments = assignments.filter((item) => !user?.className || item.className === user.className)
   const activeAssignments = classAssignments.filter((item) => ['Aktif', 'Terlambat'].includes(item.status))
   const activeQuizzes = quizzes.filter((item) => ['Berlangsung', 'Belum mulai'].includes(item.status))
-  const continuingMaterials = materials
+  const continuingMaterials = getAvailablePublishedMaterials()
     .filter((item) => item.status !== 'Selesai')
     .sort((a, b) => b.progress - a.progress)
     .slice(0, 3)
@@ -221,7 +222,7 @@ function SiswaDashboard({ user, notify }) {
     title: item.title,
     eyebrow: item.subject,
     meta: `${item.topic} · ${item.progress}% selesai`,
-    status: item.status,
+    status: item.status === 'Publish' ? (Number(item.progress || 0) > 0 ? 'Dipelajari' : 'Belum Mulai') : item.status,
     icon: BookOpen,
     actionLabel: 'Lanjut',
     onClick: () => navigate('/siswa/materi'),
@@ -444,6 +445,14 @@ function uniqueRowsById(rows) {
   })
 }
 
+function getAvailablePublishedMaterials(remoteRows = []) {
+  return uniqueRowsById([
+    ...getPublishedLocalTeacherMaterials(),
+    ...englishGrade10Materials,
+    ...(remoteRows.length > 0 ? remoteRows : materials),
+  ]).filter((item) => item && item.status !== 'Draft')
+}
+
 
 function MateriBelajar({ user, notify, appContext }) {
   const [search, setSearch] = useState('')
@@ -489,10 +498,13 @@ function MateriBelajar({ user, notify, appContext }) {
     }
   }, [appContext?.accessToken, user?.id])
 
-  const localTeacherMaterials = getPublishedLocalTeacherMaterials()
-  const data = uniqueRowsById([...(remoteMaterials.length > 0 ? remoteMaterials : materials), ...localTeacherMaterials])
+  const data = getAvailablePublishedMaterials(remoteMaterials)
   const subjectsFilter = ['Semua', ...Array.from(new Set(data.map((item) => item.subject))), 'Selesai', 'Dipelajari', 'Belum Mulai']
-  const enriched = data.map((item) => completedIds.includes(item.id) ? { ...item, status: 'Selesai', progress: 100 } : item)
+  const enriched = data.map((item) => {
+    if (completedIds.includes(item.id)) return { ...item, status: 'Selesai', progress: 100 }
+    if (item.status === 'Publish') return { ...item, status: Number(item.progress || 0) > 0 ? 'Dipelajari' : 'Belum Mulai' }
+    return item
+  })
   const filtered = enriched.filter((item) => (filter === 'Semua' || item.status === filter || item.subject === filter) && item.title.toLowerCase().includes(search.toLowerCase()))
 
   async function markComplete(item) {
@@ -525,7 +537,7 @@ function MateriBelajar({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Materi" title="Materi belajar" description={remoteMaterials.length > 0 ? 'Materi dari guru siap dibaca.' : 'Materi akan muncul setelah guru publish.'} />
+      <PageHeader eyebrow="Materi" title="Materi belajar" description={data.length > 0 ? 'Materi publish siap dibaca siswa.' : 'Materi akan muncul setelah guru publish.'} />
       {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal tetap ditampilkan.</div>}
       <SearchFilterBar search={search} setSearch={setSearch} filters={subjectsFilter} activeFilter={filter} setActiveFilter={setFilter} />
       {loading ? <LoadingState label="Memuat materi dari Supabase..." /> : (
@@ -605,7 +617,7 @@ function buildMaterialLearningSections(item) {
     {
       title: 'Isi Utama',
       body: mainText,
-      tone: 'purple',
+      tone: 'teal',
     },
     {
       title: 'Contoh',
@@ -629,6 +641,14 @@ function isExternalMaterialType(type) {
   return ['Link', 'Video', 'PDF'].includes(type)
 }
 
+function isHtmlMaterialType(type) {
+  return type === 'HTML'
+}
+
+function isLinkedMaterialType(type) {
+  return isExternalMaterialType(type) || isHtmlMaterialType(type)
+}
+
 function isValidMaterialUrl(value) {
   try {
     const url = new URL(value)
@@ -638,12 +658,23 @@ function isValidMaterialUrl(value) {
   }
 }
 
+function isValidMaterialPath(value) {
+  return /^\/materials\/.+\.html(?:[?#].*)?$/i.test(String(value || '').trim())
+}
+
+function isValidLinkedMaterial(value, type) {
+  if (isHtmlMaterialType(type)) return isValidMaterialUrl(value) || isValidMaterialPath(value)
+  if (isExternalMaterialType(type)) return isValidMaterialUrl(value)
+  return true
+}
+
 function MaterialDetail({ item, onBack, onComplete, notify }) {
   const navigate = useNavigate()
   const sections = buildMaterialLearningSections(item)
   const progress = Number(item.progress || 0)
   const completed = item.status === 'Selesai' || progress >= 100
-  const externalMaterial = isExternalMaterialType(item.type) && isValidMaterialUrl(item.content)
+  const htmlMaterial = isHtmlMaterialType(item.type) && isValidLinkedMaterial(item.content, item.type)
+  const externalMaterial = !htmlMaterial && isExternalMaterialType(item.type) && isValidMaterialUrl(item.content)
 
   return (
     <div>
@@ -651,6 +682,22 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
       <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
         <SectionCard>
           <StatusBadge tone={item.status === 'Selesai' ? 'green' : 'cyan'}>{item.status}</StatusBadge>
+          {htmlMaterial && (
+            <div className="mt-5 overflow-hidden rounded-[1rem] border border-[#123c3b]/10 bg-white shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#123c3b]/8 bg-[#fbfaf7] px-3 py-2">
+                <StatusBadge tone="teal">HTML interaktif</StatusBadge>
+                <a href={item.content} target="_blank" rel="noreferrer" className="rounded-[0.75rem] bg-[#e8f4ef] px-3 py-1.5 text-xs font-black text-[#0f766e] ring-1 ring-[#0f766e]/10">
+                  Buka layar penuh
+                </a>
+              </div>
+              <iframe
+                title={item.title}
+                src={item.content}
+                className="h-[78vh] w-full bg-[#f7f4ee]"
+                sandbox="allow-scripts allow-same-origin"
+              />
+            </div>
+          )}
           {externalMaterial && (
             <div className="mt-5 rounded-2xl bg-cyan-50 p-3 ring-1 ring-cyan-100">
               <StatusBadge tone="cyan">{item.type}</StatusBadge>
@@ -662,16 +709,18 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
               </a>
             </div>
           )}
-          <div className="mt-5 grid gap-4">
-            {sections.map((section) => (
-              <div key={section.title} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <StatusBadge tone={section.tone}>{section.title}</StatusBadge>
+          {!htmlMaterial && (
+            <div className="mt-5 grid gap-4">
+              {sections.map((section) => (
+                <div key={section.title} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <StatusBadge tone={section.tone}>{section.title}</StatusBadge>
+                  </div>
+                  <p className="whitespace-pre-line text-sm leading-7 text-slate-700">{section.body}</p>
                 </div>
-                <p className="whitespace-pre-line text-sm leading-7 text-slate-700">{section.body}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
           <div className="mt-6 flex flex-wrap gap-2">
             <button onClick={onComplete} disabled={completed} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60">
               {completed ? 'Materi selesai' : 'Tandai selesai'}
@@ -1911,19 +1960,40 @@ function teacherMaterialStorageKey(user, teacherSubject) {
   return `islelearn-teacher-materials-${user?.id || teacherSubject || 'demo'}`
 }
 
+function getSeededTeacherMaterials(teacherSubject) {
+  const normalizedSubject = normalizeLookupText(teacherSubject)
+  const englishScope = !normalizedSubject || normalizedSubject === normalizeLookupText('Bahasa Inggris') || normalizedSubject.includes('inggris')
+
+  if (!englishScope) return []
+
+  return englishGrade10Materials.map((item) => ({
+    ...item,
+    progress: item.status === 'Publish' ? 35 : 0,
+  }))
+}
+
 function getLocalTeacherMaterials(user, teacherSubject) {
   const key = teacherMaterialStorageKey(user, teacherSubject)
   const storedRows = safeReadLocalJson(key, null)
 
   if (Array.isArray(storedRows)) {
-    return storedRows.filter((row) => !isLegacyDemoRow(row))
+    return uniqueRowsById([
+      ...storedRows.filter((row) => !isLegacyDemoRow(row)),
+      ...getSeededTeacherMaterials(teacherSubject),
+    ])
   }
 
-  return []
+  return getSeededTeacherMaterials(teacherSubject)
 }
 
 function setLocalTeacherMaterials(user, teacherSubject, rows) {
   safeWriteLocalJson(teacherMaterialStorageKey(user, teacherSubject), Array.isArray(rows) ? rows : [])
+}
+
+function materialSourceLabel(source) {
+  if (source === 'supabase') return 'Tersimpan server'
+  if (source === 'school-content') return 'Materi sekolah'
+  return 'Tersimpan perangkat'
 }
 
 function GuruMateri({ user, notify, appContext }) {
@@ -2071,7 +2141,7 @@ function GuruMateri({ user, notify, appContext }) {
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>
                     <StatusBadge tone="teal">{row.type || 'Teks'}</StatusBadge>
-                    <span className="text-xs font-bold text-slate-400">{row.source === 'supabase' ? 'Tersimpan server' : 'Tersimpan perangkat'}</span>
+                    <span className="text-xs font-bold text-slate-400">{materialSourceLabel(row.source)}</span>
                   </div>
                   <h2 className="truncate text-lg font-black text-[#13232d]">{row.title || 'Tanpa judul'}</h2>
                   <p className="mt-1 line-clamp-2 max-w-3xl text-sm leading-6 text-slate-500">{row.description || 'Belum ada deskripsi.'}</p>
@@ -2087,9 +2157,11 @@ function GuruMateri({ user, notify, appContext }) {
                   <button onClick={() => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
                     <Send size={14} /> {row.status === 'Publish' ? 'Jadikan draft' : 'Publish'}
                   </button>
-                  <button onClick={() => setDeleting(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
-                    <Trash2 size={14} /> Hapus
-                  </button>
+                  {row.source !== 'school-content' && (
+                    <button onClick={() => setDeleting(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
+                      <Trash2 size={14} /> Hapus
+                    </button>
+                  )}
                 </div>
               </article>
             ))}
@@ -2111,9 +2183,10 @@ function GuruMateri({ user, notify, appContext }) {
 
 const materialInputClass = 'w-full rounded-[0.9rem] border border-[#123c3b]/10 bg-white/86 px-3 py-2.5 text-sm font-semibold text-[#13232d] outline-none transition placeholder:text-slate-400 focus:border-[#0f766e] focus:bg-white focus:ring-4 focus:ring-[#0f766e]/10'
 const materialLabelClass = 'grid gap-1.5 text-sm font-black text-[#13232d]'
-const materialTypeOptions = ['Teks', 'PDF', 'Video', 'Link']
+const materialTypeOptions = ['Teks', 'HTML', 'PDF', 'Video', 'Link']
 
 function getMaterialTypeIcon(type) {
+  if (type === 'HTML') return FileText
   if (type === 'PDF') return Download
   if (type === 'Video') return PlayCircle
   if (type === 'Link') return Link2
@@ -2124,14 +2197,14 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
   const [form, setForm] = useState(material)
   const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: material.subject || 'Mapel belum dipilih' }]
   const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: material.className || 'Semua kelas' }]
-  const externalMaterial = isExternalMaterialType(form.type)
+  const linkedMaterial = isLinkedMaterialType(form.type)
   const content = form.content || ''
   const hasContent = content.trim().length > 0
   const hasTitle = (form.title || '').trim().length > 0
-  const invalidExternalUrl = externalMaterial && hasContent && !isValidMaterialUrl(content)
+  const invalidLinkedMaterial = linkedMaterial && hasContent && !isValidLinkedMaterial(content, form.type)
   const publishNeedsContent = form.status === 'Publish' && !hasContent
-  const publishNeedsUrl = form.status === 'Publish' && externalMaterial && !isValidMaterialUrl(content)
-  const validMaterial = hasTitle && !invalidExternalUrl && !publishNeedsContent && !publishNeedsUrl
+  const publishNeedsLinkedMaterial = form.status === 'Publish' && linkedMaterial && !isValidLinkedMaterial(content, form.type)
+  const validMaterial = hasTitle && !invalidLinkedMaterial && !publishNeedsContent && !publishNeedsLinkedMaterial
 
   useEffect(() => {
     setForm(material)
@@ -2191,19 +2264,19 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
             <textarea value={form.description || ''} onChange={(event) => updateField('description', event.target.value)} rows={2} placeholder="Ringkasan singkat untuk membantu siswa memilih materi." className={`${materialInputClass} resize-y leading-6`} />
           </label>
 
-          <label className={materialLabelClass}>{externalMaterial ? `URL ${form.type}` : 'Isi materi'}
+          <label className={materialLabelClass}>{linkedMaterial ? (form.type === 'HTML' ? 'Path/URL HTML' : `URL ${form.type}`) : 'Isi materi'}
             <textarea
               value={content}
               onChange={(event) => updateField('content', event.target.value)}
-              rows={externalMaterial ? 3 : 7}
-              placeholder={externalMaterial ? 'https://...' : 'Tulis isi materi, instruksi baca, atau catatan ringkas untuk siswa.'}
+              rows={linkedMaterial ? 3 : 7}
+              placeholder={linkedMaterial ? (form.type === 'HTML' ? '/materials/english-x/nama-file.html' : 'https://...') : 'Tulis isi materi, instruksi baca, atau catatan ringkas untuk siswa.'}
               className={`${materialInputClass} resize-y leading-7`}
             />
           </label>
 
-          {invalidExternalUrl && (
+          {invalidLinkedMaterial && (
             <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
-              Untuk PDF, Video, atau Link, gunakan URL lengkap yang diawali http atau https.
+              Untuk HTML, gunakan path /materials/...html atau URL lengkap. Untuk PDF, Video, dan Link, gunakan URL lengkap yang diawali http atau https.
             </div>
           )}
           {publishNeedsContent && (
@@ -4412,7 +4485,7 @@ function ReportPage({ eyebrow, title, notify }) {
 
 function statusTone(status) {
   if (['Aktif', 'Berlangsung', 'Selesai', 'Terkirim', 'Publish'].includes(status)) return 'green'
-  if (['Draft', 'Belum mulai', 'Dipelajari'].includes(status)) return 'amber'
+  if (['Draft', 'Belum mulai', 'Belum Mulai', 'Dipelajari'].includes(status)) return 'amber'
   if (['Terlambat', 'Dikunci', 'Perlu latihan', 'Perlu perhatian'].includes(status)) return 'red'
-  return 'purple'
+  return 'teal'
 }
