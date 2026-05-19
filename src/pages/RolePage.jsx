@@ -506,6 +506,7 @@ function MateriBelajar({ user, notify, appContext }) {
     return item
   })
   const filtered = enriched.filter((item) => (filter === 'Semua' || item.status === filter || item.subject === filter) && item.title.toLowerCase().includes(search.toLowerCase()))
+  const materialFolders = getMaterialSubjectFolders(filtered).filter((folder) => folder.rows.length > 0)
 
   async function markComplete(item) {
     if (appContext?.accessToken && item.source === 'supabase' && isUuid(user?.id)) {
@@ -542,9 +543,29 @@ function MateriBelajar({ user, notify, appContext }) {
       <SearchFilterBar search={search} setSearch={setSearch} filters={subjectsFilter} activeFilter={filter} setActiveFilter={setFilter} />
       {loading ? <LoadingState label="Memuat materi dari Supabase..." /> : (
         filtered.length > 0 ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((item) => <MaterialCard key={item.id} item={item} onOpen={() => setSelected(item)} notify={notify} />)}
-          </div>
+          <section className="space-y-3">
+            {materialFolders.map((folder) => (
+              <details key={folder.key} open className="overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
+                <summary className="flex cursor-pointer list-none flex-col gap-2 bg-[#fbfaf7]/78 px-4 py-3 transition hover:bg-[#f7f4ee] sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0f766e]">Mata pelajaran</p>
+                    <h2 className="text-lg font-black text-[#13232d]">{folder.name}</h2>
+                  </div>
+                  <StatusBadge tone="teal">{folder.rows.length} materi</StatusBadge>
+                </summary>
+                <div className="space-y-3 border-t border-[#123c3b]/8 p-3">
+                  {folder.gradeFolders.map((gradeFolder) => (
+                    <StudentMaterialGradeFolder
+                      key={gradeFolder.key}
+                      gradeFolder={gradeFolder}
+                      onOpen={setSelected}
+                      notify={notify}
+                    />
+                  ))}
+                </div>
+              </details>
+            ))}
+          </section>
         ) : (
           <EmptyState title="Belum ada materi di pulau ini." description="Guru akan segera menambahkan materi baru untuk kelasmu." />
         )
@@ -578,6 +599,12 @@ const highSchoolSubjectFolders = [
   'Muatan Lokal',
 ]
 
+const highSchoolGradeFolders = [
+  { key: 'kelas-x', name: 'Kelas X', grade: 10 },
+  { key: 'kelas-xi', name: 'Kelas XI', grade: 11 },
+  { key: 'kelas-xii', name: 'Kelas XII', grade: 12 },
+]
+
 function uniqueSubjectNames(...collections) {
   const names = []
   const seen = new Set()
@@ -599,14 +626,48 @@ function getMaterialSubjectFolders(rows = [], lookupSubjects = []) {
   return subjectNames.map((name) => {
     const key = normalizeLookupText(name)
     const subjectRows = rows.filter((row) => normalizeLookupText(row.subject || 'Mapel belum dipilih') === key)
+    const gradeFolders = getMaterialGradeFolders(subjectRows)
     return {
       key,
       name,
       rows: subjectRows,
+      gradeFolders,
       publishedCount: subjectRows.filter((item) => item.status === 'Publish').length,
       draftCount: subjectRows.filter((item) => item.status !== 'Publish').length,
     }
   })
+}
+
+function getMaterialGradeFolders(rows = []) {
+  const matchedRows = new Set()
+  const gradeFolders = highSchoolGradeFolders.map((gradeFolder) => {
+    const gradeRows = rows.filter((row) => {
+      const sameGrade = extractGrade(row.className) === gradeFolder.grade
+      if (sameGrade) matchedRows.add(row)
+      return sameGrade
+    })
+
+    return {
+      ...gradeFolder,
+      rows: gradeRows,
+      publishedCount: gradeRows.filter((item) => item.status === 'Publish').length,
+      draftCount: gradeRows.filter((item) => item.status !== 'Publish').length,
+    }
+  })
+
+  const unassignedRows = rows.filter((row) => !matchedRows.has(row))
+  if (unassignedRows.length > 0) {
+    gradeFolders.push({
+      key: 'kelas-belum-dipilih',
+      name: 'Kelas belum dipilih',
+      grade: null,
+      rows: unassignedRows,
+      publishedCount: unassignedRows.filter((item) => item.status === 'Publish').length,
+      draftCount: unassignedRows.filter((item) => item.status !== 'Publish').length,
+    })
+  }
+
+  return gradeFolders
 }
 
 function getMaterialSubjectOptions(lookupSubjects = [], materialsForContext = []) {
@@ -625,8 +686,36 @@ function subjectOptionValue(subject) {
   return subject?.id || `subject:${subject?.name || ''}`
 }
 
+function getMaterialClassOptions(lookupClasses = [], selectedClassName = '') {
+  const options = []
+  const seen = new Set()
+
+  function addOption(option) {
+    const name = String(option?.name || '').trim()
+    const key = normalizeLookupText(name)
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    options.push(option)
+  }
+
+  lookupClasses.forEach((classItem) => addOption(classItem))
+  highSchoolGradeFolders.forEach((gradeFolder) => addOption({ id: '', name: gradeFolder.name, synthetic: true }))
+  addOption({ id: '', name: selectedClassName, synthetic: true })
+
+  return options
+}
+
+function classOptionValue(classItem) {
+  return classItem?.id || `class:${classItem?.name || ''}`
+}
+
 function extractGrade(value) {
-  const match = String(value || '').match(/\b(10|11|12|[7-9])\b/)
+  const text = String(value || '').toLowerCase()
+  const match = text.match(/\b(10|11|12|[7-9])\b/)
+  if (match) return Number(match[1])
+  if (/(^|[^a-z])xii([^a-z]|$)/.test(text)) return 12
+  if (/(^|[^a-z])xi([^a-z]|$)/.test(text)) return 11
+  if (/(^|[^a-z])x([^a-z]|$)/.test(text)) return 10
   return match ? Number(match[1]) : null
 }
 
@@ -646,6 +735,36 @@ function MaterialCard({ item, onOpen, notify }) {
         <button onClick={() => navigate('/siswa/ai-tutor')} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Tanya AI</button>
       </div>
     </SectionCard>
+  )
+}
+
+function StudentMaterialGradeFolder({ gradeFolder, onOpen, notify }) {
+  const hasRows = gradeFolder.rows.length > 0
+
+  return (
+    <details open={hasRows} className="overflow-hidden rounded-[0.95rem] border border-[#123c3b]/10 bg-[#fbfaf7]/72">
+      <summary className="flex cursor-pointer list-none flex-col gap-2 px-3 py-2.5 transition hover:bg-[#f7f4ee] sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Tingkat</p>
+          <h3 className="text-base font-black text-[#13232d]">{gradeFolder.name}</h3>
+        </div>
+        <StatusBadge tone={hasRows ? 'green' : 'gray'}>{gradeFolder.rows.length} materi</StatusBadge>
+      </summary>
+
+      <div className="border-t border-[#123c3b]/8 p-3">
+        {hasRows ? (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {gradeFolder.rows.map((item) => (
+              <MaterialCard key={item.id} item={item} onOpen={() => onOpen(item)} notify={notify} />
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-[0.85rem] bg-white/78 px-3 py-2 text-sm font-semibold text-slate-500 ring-1 ring-[#123c3b]/8">
+            Belum ada materi untuk {gradeFolder.name}.
+          </p>
+        )}
+      </div>
+    </details>
   )
 }
 
@@ -2079,6 +2198,8 @@ function GuruMateri({ user, notify, appContext }) {
   const draftCount = rows.filter((item) => item.status !== 'Publish').length
   const subjectFolders = getMaterialSubjectFolders(rows, lookups.subjects)
   const filledFolderCount = subjectFolders.filter((folder) => folder.rows.length > 0).length
+  const gradeSubfolderCount = subjectFolders.reduce((total, folder) => total + folder.gradeFolders.length, 0)
+  const filledGradeSubfolderCount = subjectFolders.reduce((total, folder) => total + folder.gradeFolders.filter((gradeFolder) => gradeFolder.rows.length > 0).length, 0)
   const localMode = !appContext?.accessToken || !isUuid(user?.id)
   const sourceLabel = localMode ? 'Preview lokal' : 'Supabase'
 
@@ -2183,7 +2304,7 @@ function GuruMateri({ user, notify, appContext }) {
         eyebrow="Materi"
         title={pageTitle}
         description={`Tulis dan kelola bahan belajar siswa untuk ${materialScope}. Fokus pada bacaan, tautan, video, dan catatan ringkas yang mudah dibuka.`}
-        action={<QuickActionButton icon={Plus} label={editing ? 'Editor terbuka' : 'Tulis materi'} disabled={Boolean(editing)} onClick={() => setEditing(emptyMaterial(lookups, teacherSubject))} />}
+        action={<QuickActionButton icon={Plus} label={editing ? 'Editor terbuka' : 'Tulis materi'} disabled={Boolean(editing)} onClick={() => setEditing(emptyMaterial(lookups, teacherSubject, highSchoolGradeFolders[0].name))} />}
       />
 
       <section className="mb-4 flex flex-col gap-3 rounded-[1.15rem] border border-[#123c3b]/10 bg-white/80 px-4 py-3 shadow-[0_12px_36px_rgba(15,31,42,0.055)] sm:flex-row sm:items-center sm:justify-between">
@@ -2192,6 +2313,7 @@ function GuruMateri({ user, notify, appContext }) {
             <BookOpen size={14} /> {rows.length} materi
           </span>
           <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{subjectFolders.length} folder mapel</span>
+          <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{filledGradeSubfolderCount}/{gradeSubfolderCount} subfolder kelas terisi</span>
           <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{filledFolderCount} folder terisi</span>
           <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{publishedCount} publish</span>
           <span className="rounded-[0.75rem] bg-[#f7f4ee] px-3 py-1.5 text-slate-600 ring-1 ring-[#123c3b]/8">{draftCount} draft</span>
@@ -2232,28 +2354,19 @@ function GuruMateri({ user, notify, appContext }) {
                 </div>
               </summary>
 
-              <div className="border-t border-[#123c3b]/8">
-                {folder.rows.length > 0 ? (
-                  folder.rows.map((row) => (
-                    <MaterialFolderRow
-                      key={row.id}
-                      row={row}
-                      onEdit={() => setEditing(row)}
-                      onToggleStatus={() => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })}
-                      onDelete={() => setDeleting(row)}
-                    />
-                  ))
-                ) : (
-                  <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-black text-[#13232d]">Folder ini masih kosong.</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-500">Belum ada bahan belajar nyata untuk {folder.name}. Tambahkan hanya saat materinya siap.</p>
-                    </div>
-                    <button onClick={() => setEditing(emptyMaterial(lookups, folder.name))} className="inline-flex items-center justify-center gap-1.5 rounded-[0.85rem] bg-[#e8f4ef] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#0f766e]/10 transition hover:bg-[#d9eee8]">
-                      <Plus size={14} /> Tambah materi
-                    </button>
-                  </div>
-                )}
+              <div className="space-y-3 border-t border-[#123c3b]/8 p-3">
+                {folder.gradeFolders.map((gradeFolder) => (
+                  <TeacherMaterialGradeFolder
+                    key={gradeFolder.key}
+                    subjectName={folder.name}
+                    gradeFolder={gradeFolder}
+                    lookups={lookups}
+                    onAdd={() => setEditing(emptyMaterial(lookups, folder.name, gradeFolder.name))}
+                    onEdit={setEditing}
+                    onToggleStatus={(row) => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })}
+                    onDelete={setDeleting}
+                  />
+                ))}
               </div>
             </details>
           ))}
@@ -2261,6 +2374,50 @@ function GuruMateri({ user, notify, appContext }) {
       )}
       <ConfirmDialog open={Boolean(deleting)} title="Hapus materi?" description={`Materi "${deleting?.title || ''}" akan dihapus. Aksi ini membutuhkan konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
     </div>
+  )
+}
+
+function TeacherMaterialGradeFolder({ subjectName, gradeFolder, onAdd, onEdit, onToggleStatus, onDelete }) {
+  const hasRows = gradeFolder.rows.length > 0
+
+  return (
+    <details open={hasRows} className="overflow-hidden rounded-[0.95rem] border border-[#123c3b]/10 bg-[#fbfaf7]/72">
+      <summary className="flex cursor-pointer list-none flex-col gap-2 px-3 py-2.5 transition hover:bg-[#f7f4ee] sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Subfolder kelas</p>
+          <h3 className="truncate text-base font-black text-[#13232d]">{gradeFolder.name}</h3>
+        </div>
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <StatusBadge tone={hasRows ? 'green' : 'gray'}>{gradeFolder.rows.length} materi</StatusBadge>
+          <StatusBadge tone="teal">{gradeFolder.publishedCount} publish</StatusBadge>
+          {gradeFolder.draftCount > 0 && <StatusBadge tone="amber">{gradeFolder.draftCount} draft</StatusBadge>}
+        </div>
+      </summary>
+
+      <div className="border-t border-[#123c3b]/8">
+        {hasRows ? (
+          gradeFolder.rows.map((row) => (
+            <MaterialFolderRow
+              key={row.id}
+              row={row}
+              onEdit={() => onEdit(row)}
+              onToggleStatus={() => onToggleStatus(row)}
+              onDelete={() => onDelete(row)}
+            />
+          ))
+        ) : (
+          <div className="flex flex-col gap-3 bg-white/48 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black text-[#13232d]">Subfolder ini masih kosong.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">Belum ada bahan belajar nyata untuk {subjectName} {gradeFolder.name}. Tambahkan hanya saat materinya siap.</p>
+            </div>
+            <button onClick={onAdd} className="inline-flex items-center justify-center gap-1.5 rounded-[0.85rem] bg-[#e8f4ef] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#0f766e]/10 transition hover:bg-[#d9eee8]">
+              <Plus size={14} /> Tambah materi
+            </button>
+          </div>
+        )}
+      </div>
+    </details>
   )
 }
 
@@ -2312,7 +2469,7 @@ function getMaterialTypeIcon(type) {
 function MaterialForm({ material, lookups, onCancel, onSave }) {
   const [form, setForm] = useState(material)
   const subjectsList = getMaterialSubjectOptions(lookups.subjects, [material])
-  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: material.className || 'Semua kelas' }]
+  const classesList = getMaterialClassOptions(lookups.classes, material.className)
   const linkedMaterial = isLinkedMaterialType(form.type)
   const content = form.content || ''
   const hasContent = content.trim().length > 0
@@ -2340,10 +2497,10 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
   }
 
   function updateClass(value) {
-    const selected = classesList.find((classItem) => String(classItem.id || '') === value)
+    const selected = classesList.find((classItem) => classOptionValue(classItem) === value)
     setForm((current) => ({
       ...current,
-      classId: value,
+      classId: selected?.synthetic ? '' : selected?.id || '',
       className: selected?.name || current.className || 'Semua kelas',
     }))
   }
@@ -2462,8 +2619,8 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
           </label>
 
           <label className={materialLabelClass}>Kelas
-            <select value={form.classId || ''} onChange={(event) => updateClass(event.target.value)} className={materialInputClass}>
-              {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id || ''}>{classItem.name}</option>)}
+            <select value={form.classId || `class:${form.className || classesList[0]?.name || ''}`} onChange={(event) => updateClass(event.target.value)} className={materialInputClass}>
+              {classesList.map((classItem) => <option key={classOptionValue(classItem)} value={classOptionValue(classItem)}>{classItem.name}</option>)}
             </select>
           </label>
         </aside>
@@ -2481,18 +2638,19 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
   )
 }
 
-function emptyMaterial(lookups, teacherSubject) {
+function emptyMaterial(lookups, teacherSubject, className = highSchoolGradeFolders[0].name) {
   const subject = lookups.subjects.find((item) => normalizeLookupText(item.name) === normalizeLookupText(teacherSubject))
-  const classItem = lookups.classes[0]
+  const classOptions = getMaterialClassOptions(lookups.classes, className)
+  const classItem = classOptions.find((item) => normalizeLookupText(item.name) === normalizeLookupText(className)) || classOptions[0]
   const subjectName = subject?.name || teacherSubject || highSchoolSubjectFolders[0]
   return {
     title: '',
     description: '',
     content: '',
     subjectId: subject?.id || '',
-    classId: classItem?.id || '',
+    classId: classItem?.synthetic ? '' : classItem?.id || '',
     subject: subjectName,
-    className: classItem?.name || 'Semua kelas',
+    className: classItem?.name || className || highSchoolGradeFolders[0].name,
     topic: '',
     type: 'Teks',
     status: 'Draft',
