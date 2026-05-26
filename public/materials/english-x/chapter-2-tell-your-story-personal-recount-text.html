@@ -778,4 +778,19 @@ Digital Literacy	Caption/story post about past experiences
 Ini sudah menjadi draft materi Chapter 2 Personal Recount Text dalam bentuk biasa. Setelah ini bisa kita kembangkan menjadi versi HTML IsleLearn dengan gambar, TTS listening, quiz interaktif, writing box, picture story, dan desain modern seperti Chapter 1.</pre></details></div></section>
 </main><footer class="footer"><div class="container"><div class="card"><b>IsleLearn</b> • Chapter 2 Personal Recount Text • English X / Fase E<br><span>Modern layout version with all original material preserved and images placed by section.</span></div></div></footer></div><script>
 function speakText(id){const el=document.getElementById(id);if(!el)return;if(!('speechSynthesis'in window)){alert('TTS not supported in this browser.');return;}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(el.innerText.trim());u.lang='en-US';u.rate=.92;u.pitch=1;speechSynthesis.speak(u)}function stopSpeak(){if('speechSynthesis'in window)speechSynthesis.cancel()}function checkAnswer(btn,ok){const group=btn.parentElement;[...group.children].forEach(b=>b.disabled=true);btn.classList.add(ok?'correct':'wrong');const ans=group.nextElementSibling;if(ans)ans.style.display='block'}
-</script></body></html>
+</script>
+<script id="islelearn-material-back-button">
+(() => {
+  if (window.self !== window.top || document.getElementById('islelearn-back-to-materials')) return;
+  const link = document.createElement('a');
+  link.id = 'islelearn-back-to-materials';
+  link.href = '/siswa/materi';
+  link.textContent = '← Kembali ke daftar materi';
+  link.setAttribute('aria-label', 'Kembali ke daftar materi');
+  link.style.cssText = 'position:fixed;left:16px;top:16px;z-index:2147483647;display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 14px;border-radius:14px;background:#123c3b;color:#fff;text-decoration:none;font:800 14px/1.1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 12px 28px rgba(15,31,42,.2);border:1px solid rgba(255,255,255,.18);';
+  link.addEventListener('mouseenter', () => { link.style.background = '#0f766e'; });
+  link.addEventListener('mouseleave', () => { link.style.background = '#123c3b'; });
+  document.addEventListener('DOMContentLoaded', () => document.body.appendChild(link), { once: true });
+})();
+</script>
+</body></html>

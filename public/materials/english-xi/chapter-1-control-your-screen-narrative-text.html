@@ -361,5 +361,20 @@ document.querySelectorAll('.tab-btn[data-tab]').forEach(btn=>btn.addEventListene
 document.querySelectorAll('.q').forEach(q=>{q.querySelectorAll('.opt').forEach(o=>o.addEventListener('click',()=>{q.querySelectorAll('.opt').forEach(x=>{x.classList.remove('correct','wrong')});let ok=o.dataset.choice===q.dataset.answer;o.classList.add(ok?'correct':'wrong');if(!ok) q.querySelector(`.opt[data-choice="${q.dataset.answer}"]`).classList.add('correct');q.querySelector('.feedback').textContent=ok?'Correct. Good job.':'Not quite. Look at the highlighted correct answer and review the section.';}))});
 document.getElementById('speakBtn')?.addEventListener('click',()=>{const t=document.getElementById('listenText').textContent; if('speechSynthesis' in window){window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.lang='en-US'; u.rate=.9; window.speechSynthesis.speak(u);} else alert('Read aloud is not supported in this browser.')});
 </script>
+
+<script id="islelearn-material-back-button">
+(() => {
+  if (window.self !== window.top || document.getElementById('islelearn-back-to-materials')) return;
+  const link = document.createElement('a');
+  link.id = 'islelearn-back-to-materials';
+  link.href = '/siswa/materi';
+  link.textContent = '← Kembali ke daftar materi';
+  link.setAttribute('aria-label', 'Kembali ke daftar materi');
+  link.style.cssText = 'position:fixed;left:16px;top:16px;z-index:2147483647;display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 14px;border-radius:14px;background:#123c3b;color:#fff;text-decoration:none;font:800 14px/1.1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 12px 28px rgba(15,31,42,.2);border:1px solid rgba(255,255,255,.18);';
+  link.addEventListener('mouseenter', () => { link.style.background = '#0f766e'; });
+  link.addEventListener('mouseleave', () => { link.style.background = '#123c3b'; });
+  document.addEventListener('DOMContentLoaded', () => document.body.appendChild(link), { once: true });
+})();
+</script>
 </body>
 </html>

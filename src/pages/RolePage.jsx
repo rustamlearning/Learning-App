@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Award,
+  ArrowLeft,
   BarChart3,
   BookOpen,
   Bot,
@@ -51,7 +52,7 @@ import {
   subjects,
   teachers,
 } from '../data/dummyData.js'
-import { englishMaterials } from '../data/englishMaterials.js'
+import { schoolMaterials } from '../data/englishMaterials.js'
 import {
   ActionList,
   CompactList,
@@ -448,7 +449,7 @@ function uniqueRowsById(rows) {
 function getAvailablePublishedMaterials(remoteRows = []) {
   return uniqueRowsById([
     ...getPublishedLocalTeacherMaterials(),
-    ...englishMaterials,
+    ...schoolMaterials,
     ...(remoteRows.length > 0 ? remoteRows : materials),
   ]).filter((item) => item && item.status !== 'Draft')
 }
@@ -499,14 +500,36 @@ function MateriBelajar({ user, notify, appContext }) {
   }, [appContext?.accessToken, user?.id])
 
   const data = getAvailablePublishedMaterials(remoteMaterials)
-  const subjectsFilter = ['Semua', ...Array.from(new Set(data.map((item) => item.subject))), 'Selesai', 'Dipelajari', 'Belum Mulai']
+  const statusFilters = ['Semua', 'Selesai', 'Dipelajari', 'Belum Mulai']
   const enriched = data.map((item) => {
     if (completedIds.includes(item.id)) return { ...item, status: 'Selesai', progress: 100 }
     if (item.status === 'Publish') return { ...item, status: Number(item.progress || 0) > 0 ? 'Dipelajari' : 'Belum Mulai' }
     return item
   })
-  const filtered = enriched.filter((item) => (filter === 'Semua' || item.status === filter || item.subject === filter) && item.title.toLowerCase().includes(search.toLowerCase()))
-  const materialFolders = getMaterialSubjectFolders(filtered).filter((folder) => folder.rows.length > 0)
+  const statusRows = enriched.filter((item) => filter === 'Semua' || item.status === filter)
+  const materialFolders = getMaterialSubjectFolders(statusRows).filter((folder) => folder.rows.length > 0)
+  const [activeSubjectKey, setActiveSubjectKey] = useState('')
+  const materialFolderKeys = materialFolders.map((folder) => folder.key).join('|')
+  const activeFolder = materialFolders.find((folder) => folder.key === activeSubjectKey) || materialFolders[0] || null
+  const activeRows = activeFolder ? statusRows.filter((item) => normalizeLookupText(item.subject) === activeFolder.key) : []
+  const searchQuery = search.trim().toLowerCase()
+  const visibleRows = activeRows.filter((item) => {
+    if (!searchQuery) return true
+    return [item.title, item.description, item.topic, item.className, item.subject]
+      .some((value) => String(value || '').toLowerCase().includes(searchQuery))
+  })
+  const visibleGradeFolders = getMaterialGradeFolders(visibleRows).filter((gradeFolder) => gradeFolder.rows.length > 0)
+
+  useEffect(() => {
+    if (!materialFolders.length) {
+      if (activeSubjectKey) setActiveSubjectKey('')
+      return
+    }
+
+    if (!activeSubjectKey || !materialFolders.some((folder) => folder.key === activeSubjectKey)) {
+      setActiveSubjectKey(materialFolders[0].key)
+    }
+  }, [activeSubjectKey, materialFolderKeys])
 
   async function markComplete(item) {
     if (appContext?.accessToken && item.source === 'supabase' && isUuid(user?.id)) {
@@ -538,33 +561,73 @@ function MateriBelajar({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Materi" title="Materi belajar" description={data.length > 0 ? 'Materi publish siap dibaca siswa.' : 'Materi akan muncul setelah guru publish.'} />
+      <PageHeader eyebrow="Materi" title="Materi belajar" description={data.length > 0 ? 'Pilih mapel, lalu buka chapter sesuai kelas. Tampilan dibuat ringkas supaya mudah dicari saat materi bertambah.' : 'Materi akan muncul setelah guru publish.'} />
       {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal tetap ditampilkan.</div>}
-      <SearchFilterBar search={search} setSearch={setSearch} filters={subjectsFilter} activeFilter={filter} setActiveFilter={setFilter} />
+      <SearchFilterBar search={search} setSearch={setSearch} filters={statusFilters} activeFilter={filter} setActiveFilter={setFilter} />
       {loading ? <LoadingState label="Memuat materi dari Supabase..." /> : (
-        filtered.length > 0 ? (
-          <section className="space-y-3">
-            {materialFolders.map((folder) => (
-              <details key={folder.key} open className="overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
-                <summary className="flex cursor-pointer list-none flex-col gap-2 bg-[#fbfaf7]/78 px-4 py-3 transition hover:bg-[#f7f4ee] sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0f766e]">Mata pelajaran</p>
-                    <h2 className="text-lg font-black text-[#13232d]">{folder.name}</h2>
-                  </div>
-                  <StatusBadge tone="teal">{folder.rows.length} materi</StatusBadge>
-                </summary>
-                <div className="space-y-3 border-t border-[#123c3b]/8 p-3">
-                  {folder.gradeFolders.map((gradeFolder) => (
+        materialFolders.length > 0 ? (
+          <section className="grid gap-3 xl:grid-cols-[18rem_1fr]">
+            <aside className="rounded-[1.05rem] border border-[#123c3b]/10 bg-white/88 p-2 shadow-[0_12px_34px_rgba(15,31,42,0.055)]">
+              <div className="px-2 pb-2 pt-1">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0f766e]">Daftar mapel</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Pilih satu mapel agar daftar chapter tidak bercampur.</p>
+              </div>
+              <div className="grid gap-1">
+                {materialFolders.map((folder) => {
+                  const selectedFolder = activeFolder?.key === folder.key
+                  const gradeSummary = folder.gradeFolders
+                    .filter((gradeFolder) => gradeFolder.rows.length > 0)
+                    .map((gradeFolder) => `${gradeFolder.name.replace('Kelas ', '')}: ${gradeFolder.rows.length}`)
+                    .join(' · ')
+
+                  return (
+                    <button
+                      key={folder.key}
+                      onClick={() => setActiveSubjectKey(folder.key)}
+                      className={`group flex min-h-[4.25rem] items-center justify-between gap-3 rounded-[0.9rem] px-3 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f766e] ${selectedFolder ? 'bg-[#123c3b] text-white shadow-[0_10px_22px_rgba(15,31,42,0.13)]' : 'bg-transparent text-[#13232d] hover:bg-[#e8f4ef]'}`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-black">{folder.name}</span>
+                        <span className={`mt-0.5 block truncate text-xs font-semibold ${selectedFolder ? 'text-white/68' : 'text-slate-500'}`}>{gradeSummary || 'Belum ada kelas'}</span>
+                      </span>
+                      <span className={`flex-shrink-0 rounded-[0.7rem] px-2.5 py-1 text-xs font-black ring-1 ${selectedFolder ? 'bg-white/12 text-white ring-white/18' : 'bg-white text-[#0f766e] ring-[#0f766e]/10'}`}>
+                        {folder.rows.length}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </aside>
+
+            <section className="overflow-hidden rounded-[1.05rem] border border-[#123c3b]/10 bg-white/88 shadow-[0_12px_34px_rgba(15,31,42,0.055)]">
+              <header className="flex flex-col gap-2 border-b border-[#123c3b]/8 bg-[#fbfaf7]/82 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0f766e]">Folder mapel</p>
+                  <h2 className="text-xl font-black tracking-[-0.01em] text-[#13232d]">{activeFolder?.name || 'Materi'}</h2>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <StatusBadge tone="teal">{activeFolder?.rows.length || 0} materi</StatusBadge>
+                  {searchQuery && <StatusBadge tone="amber">{visibleRows.length} hasil</StatusBadge>}
+                </div>
+              </header>
+
+              {visibleGradeFolders.length > 0 ? (
+                <div className="divide-y divide-[#123c3b]/8">
+                  {visibleGradeFolders.map((gradeFolder, index) => (
                     <StudentMaterialGradeFolder
                       key={gradeFolder.key}
                       gradeFolder={gradeFolder}
                       onOpen={setSelected}
-                      notify={notify}
+                      defaultOpen={index === 0}
                     />
                   ))}
                 </div>
-              </details>
-            ))}
+              ) : (
+                <div className="p-4">
+                  <EmptyState title="Materi tidak ditemukan." description="Coba ganti kata pencarian, status, atau pilih mapel lain." />
+                </div>
+              )}
+            </section>
           </section>
         ) : (
           <EmptyState title="Belum ada materi di pulau ini." description="Guru akan segera menambahkan materi baru untuk kelasmu." />
@@ -582,7 +645,7 @@ const highSchoolSubjectFolders = [
   'Pendidikan Agama dan Budi Pekerti',
   'Pendidikan Pancasila',
   'Bahasa Indonesia',
-  'Matematika',
+  'Matematika Umum',
   'Bahasa Inggris',
   'Informatika',
   'Sejarah',
@@ -719,47 +782,87 @@ function extractGrade(value) {
   return match ? Number(match[1]) : null
 }
 
-function MaterialCard({ item, onOpen, notify }) {
+function getChapterLabel(title) {
+  const match = String(title || '').match(/chapter\s*(\d+)/i)
+  return match ? `Chapter ${match[1]}` : 'Materi'
+}
+
+function getChapterTitle(title) {
+  return String(title || '').replace(/^chapter\s*\d+\s*[—:-]\s*/i, '').trim() || title
+}
+
+function StudentMaterialRow({ item, onOpen }) {
   const navigate = useNavigate()
+  const completed = item.status === 'Selesai' || Number(item.progress || 0) >= 100
+
   return (
-    <SectionCard>
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <StatusBadge tone="cyan">{item.subject}</StatusBadge>
-        <StatusBadge tone={item.status === 'Selesai' ? 'green' : 'amber'}>{item.status}</StatusBadge>
+    <article className="grid gap-3 px-4 py-3 transition hover:bg-[#fbfaf7] sm:grid-cols-[6.5rem_1fr_auto] sm:items-center">
+      <div className="flex items-center gap-2 sm:block">
+        <span className="inline-flex min-w-[5.75rem] justify-center rounded-[0.75rem] bg-[#e8f4ef] px-2.5 py-1.5 font-mono text-xs font-black text-[#0f766e] ring-1 ring-[#0f766e]/10">
+          {getChapterLabel(item.title)}
+        </span>
+        <span className="sm:hidden">
+          <StatusBadge tone={completed ? 'green' : 'amber'}>{item.status}</StatusBadge>
+        </span>
       </div>
-      <h2 className="text-lg font-black text-gray-950">{item.title}</h2>
-      <p className="mt-2 text-sm leading-6 text-gray-500">{item.description}</p>
-      <div className="mt-4 h-2 rounded-full bg-galaxy-lavender"><div className="h-2 rounded-full bg-galaxy-action" style={{ width: `${item.progress}%` }} /></div>
-      <div className="mt-5 grid grid-cols-2 gap-2">
-        <button onClick={onOpen} className="rounded-2xl bg-galaxy-deep px-4 py-3 text-sm font-bold text-white">Lanjutkan</button>
-        <button onClick={() => navigate('/siswa/ai-tutor')} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Tanya AI</button>
+
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="min-w-0 text-base font-black leading-snug text-[#13232d] sm:truncate">
+            {getChapterTitle(item.title)}
+          </h3>
+          <span className="hidden sm:inline-flex">
+            <StatusBadge tone={completed ? 'green' : 'amber'}>{item.status}</StatusBadge>
+          </span>
+        </div>
+        <p className="mt-1 truncate text-xs font-black uppercase tracking-[0.12em] text-[#0f766e]">
+          {item.topic || item.subject} · {item.className}
+        </p>
+        <p className="mt-1 truncate text-sm font-medium text-slate-500">{item.description}</p>
+        <div className="mt-2 h-1.5 rounded-full bg-[#e8f4ef]">
+          <div className="h-1.5 rounded-full bg-[#0f766e]" style={{ width: `${item.progress}%` }} />
+        </div>
       </div>
-    </SectionCard>
+
+      <div className="flex items-center gap-2 sm:justify-end">
+        <button onClick={onOpen} className="inline-flex min-h-10 items-center justify-center rounded-[0.85rem] bg-[#123c3b] px-4 text-sm font-black text-white transition hover:bg-[#0f766e]">
+          Buka
+        </button>
+        <button onClick={() => navigate('/siswa/ai-tutor')} className="inline-flex min-h-10 items-center justify-center rounded-[0.85rem] bg-[#e8f4ef] px-3 text-xs font-black text-[#0f766e] ring-1 ring-[#0f766e]/10 transition hover:bg-[#d8eee8]">
+          AI
+        </button>
+      </div>
+    </article>
   )
 }
 
-function StudentMaterialGradeFolder({ gradeFolder, onOpen, notify }) {
+function StudentMaterialGradeFolder({ gradeFolder, onOpen, defaultOpen = false }) {
   const hasRows = gradeFolder.rows.length > 0
 
   return (
-    <details open={hasRows} className="overflow-hidden rounded-[0.95rem] border border-[#123c3b]/10 bg-[#fbfaf7]/72">
-      <summary className="flex cursor-pointer list-none flex-col gap-2 px-3 py-2.5 transition hover:bg-[#f7f4ee] sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Tingkat</p>
-          <h3 className="text-base font-black text-[#13232d]">{gradeFolder.name}</h3>
+    <details open={hasRows && defaultOpen} className="group">
+      <summary className="flex cursor-pointer list-none flex-col gap-2 bg-[#fbfaf7]/72 px-4 py-3 transition hover:bg-[#f7f4ee] sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="grid h-9 w-9 place-items-center rounded-[0.75rem] bg-white font-mono text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/8">
+            {gradeFolder.grade || '-'}
+          </span>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Tingkat</p>
+            <h3 className="text-base font-black text-[#13232d]">{gradeFolder.name}</h3>
+          </div>
         </div>
         <StatusBadge tone={hasRows ? 'green' : 'gray'}>{gradeFolder.rows.length} materi</StatusBadge>
       </summary>
 
-      <div className="border-t border-[#123c3b]/8 p-3">
+      <div className="border-t border-[#123c3b]/8">
         {hasRows ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="divide-y divide-[#123c3b]/8">
             {gradeFolder.rows.map((item) => (
-              <MaterialCard key={item.id} item={item} onOpen={() => onOpen(item)} notify={notify} />
+              <StudentMaterialRow key={item.id} item={item} onOpen={() => onOpen(item)} />
             ))}
           </div>
         ) : (
-          <p className="rounded-[0.85rem] bg-white/78 px-3 py-2 text-sm font-semibold text-slate-500 ring-1 ring-[#123c3b]/8">
+          <p className="m-3 rounded-[0.85rem] bg-white/78 px-3 py-2 text-sm font-semibold text-slate-500 ring-1 ring-[#123c3b]/8">
             Belum ada materi untuk {gradeFolder.name}.
           </p>
         )}
@@ -863,9 +966,36 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
   const htmlMaterial = isHtmlMaterialType(item.type) && isValidLinkedMaterial(item.content, item.type)
   const externalMaterial = !htmlMaterial && isExternalMaterialType(item.type) && isValidMaterialUrl(item.content)
 
+  useEffect(() => {
+    const resetScroll = () => {
+      window.scrollTo(0, 0)
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+      document.querySelectorAll('main').forEach((element) => {
+        element.scrollTop = 0
+      })
+    }
+
+    resetScroll()
+    const frame = requestAnimationFrame(resetScroll)
+    return () => cancelAnimationFrame(frame)
+  }, [item.id])
+
   return (
     <div>
-      <PageHeader eyebrow={item.subject} title={item.title} description={`${item.className} · ${item.topic} · ${item.type || 'Teks'} · Ringan dibuka`} action={<button onClick={onBack} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>} />
+      <div className="mb-5 border-b border-[#123c3b]/10 pb-4">
+        <button
+          onClick={onBack}
+          className="mb-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-[0.85rem] bg-[#123c3b] px-4 text-sm font-black text-white transition hover:bg-[#0f766e]"
+        >
+          <ArrowLeft size={16} /> Kembali ke daftar
+        </button>
+        <p className="mb-1 text-xs font-black uppercase tracking-[0.16em] text-[#0f766e]">{item.subject}</p>
+        <h1 className="text-balance text-3xl font-black leading-none text-[#13232d] sm:text-4xl">{item.title}</h1>
+        <p className="mt-2 max-w-3xl text-sm font-medium leading-7 text-slate-600">
+          {item.className} · {item.topic} · {item.type || 'Teks'} · Ringan dibuka
+        </p>
+      </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
         <SectionCard>
           <StatusBadge tone={item.status === 'Selesai' ? 'green' : 'cyan'}>{item.status}</StatusBadge>
@@ -2149,11 +2279,14 @@ function teacherMaterialStorageKey(user, teacherSubject) {
 
 function getSeededTeacherMaterials(teacherSubject) {
   const normalizedSubject = normalizeLookupText(teacherSubject)
-  const englishScope = !normalizedSubject || normalizedSubject === normalizeLookupText('Bahasa Inggris') || normalizedSubject.includes('inggris')
+  const scopedMaterials = normalizedSubject
+    ? schoolMaterials.filter((item) => {
+      const itemSubject = normalizeLookupText(item.subject)
+      return itemSubject === normalizedSubject || itemSubject.includes(normalizedSubject) || normalizedSubject.includes(itemSubject)
+    })
+    : schoolMaterials
 
-  if (!englishScope) return []
-
-  return englishMaterials.map((item) => ({
+  return scopedMaterials.map((item) => ({
     ...item,
     progress: item.status === 'Publish' ? 35 : 0,
   }))
@@ -2197,11 +2330,32 @@ function GuruMateri({ user, notify, appContext }) {
   const publishedCount = rows.filter((item) => item.status === 'Publish').length
   const draftCount = rows.filter((item) => item.status !== 'Publish').length
   const subjectFolders = getMaterialSubjectFolders(rows, lookups.subjects)
-  const filledFolderCount = subjectFolders.filter((folder) => folder.rows.length > 0).length
-  const gradeSubfolderCount = subjectFolders.reduce((total, folder) => total + folder.gradeFolders.length, 0)
-  const filledGradeSubfolderCount = subjectFolders.reduce((total, folder) => total + folder.gradeFolders.filter((gradeFolder) => gradeFolder.rows.length > 0).length, 0)
+  const teacherSubjectKey = normalizeLookupText(teacherSubject)
+  const teacherSubjectFolders = hasTeacherSubject
+    ? subjectFolders.filter((folder) => folder.key === teacherSubjectKey)
+    : subjectFolders.filter((folder) => folder.rows.length > 0)
+  const visibleSubjectFolders = teacherSubjectFolders.length > 0
+    ? teacherSubjectFolders
+    : subjectFolders.filter((folder) => !hasTeacherSubject || folder.key === teacherSubjectKey)
+  const filledFolderCount = visibleSubjectFolders.filter((folder) => folder.rows.length > 0).length
+  const gradeSubfolderCount = visibleSubjectFolders.reduce((total, folder) => total + folder.gradeFolders.length, 0)
+  const filledGradeSubfolderCount = visibleSubjectFolders.reduce((total, folder) => total + folder.gradeFolders.filter((gradeFolder) => gradeFolder.rows.length > 0).length, 0)
+  const [activeSubjectKey, setActiveSubjectKey] = useState('')
+  const visibleSubjectFolderKeys = visibleSubjectFolders.map((folder) => folder.key).join('|')
+  const activeFolder = visibleSubjectFolders.find((folder) => folder.key === activeSubjectKey) || visibleSubjectFolders[0] || null
   const localMode = !appContext?.accessToken || !isUuid(user?.id)
   const sourceLabel = localMode ? 'Preview lokal' : 'Supabase'
+
+  useEffect(() => {
+    if (!visibleSubjectFolders.length) {
+      if (activeSubjectKey) setActiveSubjectKey('')
+      return
+    }
+
+    if (!activeSubjectKey || !visibleSubjectFolders.some((folder) => folder.key === activeSubjectKey)) {
+      setActiveSubjectKey(visibleSubjectFolders[0].key)
+    }
+  }, [activeSubjectKey, visibleSubjectFolderKeys])
 
   useEffect(() => {
     let active = true
@@ -2327,50 +2481,81 @@ function GuruMateri({ user, notify, appContext }) {
       
       {editing && <MaterialForm material={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat materi guru dari Supabase..." /> : (
-        <section className="space-y-3">
-          {subjectFolders.map((folder) => (
-            <details
-              key={folder.key}
-              open={folder.rows.length > 0 || folder.key === normalizeLookupText('Bahasa Inggris')}
-              className="group overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]"
-            >
-              <summary className="flex cursor-pointer list-none flex-col gap-3 bg-[#fbfaf7]/78 px-4 py-3 transition hover:bg-[#f7f4ee] sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#e8f4ef] text-[#0f766e] ring-1 ring-[#0f766e]/10">
-                    <BookOpen size={19} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0f766e]">Folder mata pelajaran</p>
-                    <h2 className="truncate text-lg font-black text-[#13232d]">{folder.name}</h2>
-                    <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                      {folder.rows.length > 0 ? `${folder.rows.length} materi tersedia` : 'Belum ada materi untuk mapel ini.'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2 sm:justify-end">
-                  <StatusBadge tone={folder.rows.length > 0 ? 'green' : 'gray'}>{folder.rows.length} materi</StatusBadge>
-                  <StatusBadge tone="teal">{folder.publishedCount} publish</StatusBadge>
-                  {folder.draftCount > 0 && <StatusBadge tone="amber">{folder.draftCount} draft</StatusBadge>}
-                </div>
-              </summary>
-
-              <div className="space-y-3 border-t border-[#123c3b]/8 p-3">
-                {folder.gradeFolders.map((gradeFolder) => (
-                  <TeacherMaterialGradeFolder
-                    key={gradeFolder.key}
-                    subjectName={folder.name}
-                    gradeFolder={gradeFolder}
-                    lookups={lookups}
-                    onAdd={() => setEditing(emptyMaterial(lookups, folder.name, gradeFolder.name))}
-                    onEdit={setEditing}
-                    onToggleStatus={(row) => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })}
-                    onDelete={setDeleting}
-                  />
-                ))}
+        visibleSubjectFolders.length > 0 ? (
+          <section className="grid gap-3 xl:grid-cols-[18rem_1fr]">
+            <aside className="rounded-[1.05rem] border border-[#123c3b]/10 bg-white/88 p-2 shadow-[0_12px_34px_rgba(15,31,42,0.055)]">
+              <div className="px-2 pb-2 pt-1">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0f766e]">Daftar mapel</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Pilih mapel, lalu kelola chapter per kelas.</p>
               </div>
-            </details>
-          ))}
-        </section>
+              <div className="grid gap-1">
+                {visibleSubjectFolders.map((folder) => {
+                  const selectedFolder = activeFolder?.key === folder.key
+                  const gradeSummary = folder.gradeFolders
+                    .filter((gradeFolder) => gradeFolder.rows.length > 0)
+                    .map((gradeFolder) => `${gradeFolder.name.replace('Kelas ', '')}: ${gradeFolder.rows.length}`)
+                    .join(' · ')
+
+                  return (
+                    <button
+                      key={folder.key}
+                      onClick={() => setActiveSubjectKey(folder.key)}
+                      className={`group flex min-h-[4.25rem] items-center justify-between gap-3 rounded-[0.9rem] px-3 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f766e] ${selectedFolder ? 'bg-[#123c3b] text-white shadow-[0_10px_22px_rgba(15,31,42,0.13)]' : 'bg-transparent text-[#13232d] hover:bg-[#e8f4ef]'}`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-black">{folder.name}</span>
+                        <span className={`mt-0.5 block truncate text-xs font-semibold ${selectedFolder ? 'text-white/68' : 'text-slate-500'}`}>{gradeSummary || 'Belum ada kelas terisi'}</span>
+                      </span>
+                      <span className={`flex-shrink-0 rounded-[0.7rem] px-2.5 py-1 text-xs font-black ring-1 ${selectedFolder ? 'bg-white/12 text-white ring-white/18' : 'bg-white text-[#0f766e] ring-[#0f766e]/10'}`}>
+                        {folder.rows.length}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </aside>
+
+            <section className="overflow-hidden rounded-[1.05rem] border border-[#123c3b]/10 bg-white/88 shadow-[0_12px_34px_rgba(15,31,42,0.055)]">
+              <header className="flex flex-col gap-2 border-b border-[#123c3b]/8 bg-[#fbfaf7]/82 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0f766e]">Folder mapel</p>
+                  <h2 className="text-xl font-black tracking-[-0.01em] text-[#13232d]">{activeFolder?.name || 'Materi'}</h2>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <StatusBadge tone={activeFolder?.rows.length ? 'green' : 'gray'}>{activeFolder?.rows.length || 0} materi</StatusBadge>
+                  <StatusBadge tone="teal">{activeFolder?.publishedCount || 0} publish</StatusBadge>
+                  {(activeFolder?.draftCount || 0) > 0 && <StatusBadge tone="amber">{activeFolder.draftCount} draft</StatusBadge>}
+                </div>
+              </header>
+
+              <div className="divide-y divide-[#123c3b]/8">
+                {activeFolder?.gradeFolders.map((gradeFolder, index) => {
+                  const firstFilledIndex = activeFolder.gradeFolders.findIndex((folder) => folder.rows.length > 0)
+                  const defaultOpen = index === (firstFilledIndex >= 0 ? firstFilledIndex : 0)
+
+                  return (
+                    <TeacherMaterialGradeFolder
+                      key={gradeFolder.key}
+                      subjectName={activeFolder.name}
+                      gradeFolder={gradeFolder}
+                      defaultOpen={defaultOpen}
+                      onAdd={() => setEditing(emptyMaterial(lookups, activeFolder.name, gradeFolder.name))}
+                      onEdit={setEditing}
+                      onToggleStatus={(row) => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })}
+                      onDelete={setDeleting}
+                    />
+                  )
+                })}
+              </div>
+            </section>
+          </section>
+        ) : (
+          <EmptyState
+            title="Belum ada materi guru."
+            description="Tulis materi pertama agar folder mapel dan kelas mulai terisi."
+            action={<QuickActionButton icon={Plus} label="Tulis materi pertama" onClick={() => setEditing(emptyMaterial(lookups, teacherSubject, highSchoolGradeFolders[0].name))} />}
+          />
+        )
       )}
       <ConfirmDialog open={Boolean(deleting)} title="Hapus materi?" description={`Materi "${deleting?.title || ''}" akan dihapus. Aksi ini membutuhkan konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
     </div>
@@ -2854,54 +3039,138 @@ function BankSoal({ user, notify, appContext }) {
   )
 }
 
-function QuestionForm({ question, lookups, onCancel, onSave }) {
-  const [form, setForm] = useState({
+const questionTypes = [
+  { value: 'Pilihan ganda', label: 'Pilihan ganda', description: 'Opsi A-E dengan satu kunci.' },
+  { value: 'Benar/salah', label: 'Benar/salah', description: 'Pernyataan dengan kunci Benar atau Salah.' },
+  { value: 'Isian', label: 'Isian singkat', description: 'Jawaban pendek atau beberapa variasi jawaban.' },
+  { value: 'Essay', label: 'Uraian/essay', description: 'Jawaban terbuka dengan rubrik ringkas.' },
+]
+
+const optionLetters = ['A', 'B', 'C', 'D', 'E']
+
+function normalizeQuestionForm(question) {
+  const type = question.type || 'Pilihan ganda'
+  const rawOptions = Array.isArray(question.options) ? question.options.map((item) => String(item || '')) : []
+  let options = rawOptions.filter(Boolean)
+
+  if (type === 'Pilihan ganda') {
+    options = optionLetters.map((_, index) => rawOptions[index] || '')
+  }
+
+  if (type === 'Benar/salah') {
+    options = ['Benar', 'Salah']
+  }
+
+  return {
     ...question,
-    optionsText: (question.options || []).join('\n'),
-  })
-  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: question.subject || 'Mapel belum dipilih' }]
-  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: question.className || 'Semua kelas' }]
-  const options = form.optionsText.split('\n').map((item) => item.trim()).filter(Boolean)
+    type,
+    options,
+    correctAnswer: question.correctAnswer || (type === 'Benar/salah' ? 'Benar' : ''),
+  }
+}
+
+function getQuestionSubmitOptions(form) {
+  const answer = String(form.correctAnswer || '').trim()
+
+  if (form.type === 'Pilihan ganda') {
+    return optionLetters.map((_, index) => String(form.options?.[index] || '').trim())
+  }
+
+  const options = Array.isArray(form.options) ? form.options.map((item) => String(item || '').trim()).filter(Boolean) : []
+
+  if (form.type === 'Benar/salah') return ['Benar', 'Salah']
+  if (form.type === 'Isian') return Array.from(new Set([answer, ...options].filter(Boolean)))
+  return []
+}
+
+function QuestionForm({ question, lookups, onCancel, onSave }) {
+  const [form, setForm] = useState(() => normalizeQuestionForm(question))
+  const subjectsList = getMaterialSubjectOptions(lookups.subjects, [question])
+  const classesList = getMaterialClassOptions(lookups.classes, question.className)
+  const answer = String(form.correctAnswer || '').trim()
   const isMultipleChoice = form.type === 'Pilihan ganda'
-  const validQuestion = form.questionText.trim()
-    && form.correctAnswer.trim()
-    && (!isMultipleChoice || options.length >= 2)
-    && (!isMultipleChoice || options.includes(form.correctAnswer.trim()))
+  const isTrueFalse = form.type === 'Benar/salah'
+  const isShortAnswer = form.type === 'Isian'
+  const isEssay = form.type === 'Essay'
+  const multipleChoiceOptions = optionLetters.map((_, index) => String(form.options?.[index] || '').trim())
+  const multipleChoiceReady = multipleChoiceOptions.every(Boolean) && multipleChoiceOptions.includes(answer)
+  const validQuestion = Boolean(
+    String(form.questionText || '').trim()
+      && answer
+      && (!isMultipleChoice || multipleChoiceReady)
+      && (!isTrueFalse || ['Benar', 'Salah'].includes(answer)),
+  )
+  const activeType = questionTypes.find((item) => item.value === form.type) || questionTypes[0]
 
   useEffect(() => {
-    setForm({
-      ...question,
-      optionsText: (question.options || []).join('\n'),
-    })
+    setForm(normalizeQuestionForm(question))
   }, [question])
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
+  function changeType(type) {
+    setForm((current) => {
+      if (type === 'Pilihan ganda') {
+        const currentOptions = current.type === 'Pilihan ganda' && current.options?.length ? current.options : []
+        const options = optionLetters.map((_, index) => currentOptions[index] || '')
+        const correctAnswer = options.includes(current.correctAnswer) ? current.correctAnswer : ''
+        return { ...current, type, options, correctAnswer }
+      }
+
+      if (type === 'Benar/salah') {
+        return { ...current, type, options: ['Benar', 'Salah'], correctAnswer: ['Benar', 'Salah'].includes(current.correctAnswer) ? current.correctAnswer : 'Benar' }
+      }
+
+      if (type === 'Isian') {
+        return { ...current, type, options: current.type === 'Isian' ? current.options || [] : [], correctAnswer: current.correctAnswer || '' }
+      }
+
+      return { ...current, type, options: [], correctAnswer: current.correctAnswer || '' }
+    })
+  }
+
   function updateSubject(value) {
-    const selected = subjectsList.find((subject) => String(subject.id || '') === value)
+    const selected = subjectsList.find((subject) => subjectOptionValue(subject) === value)
     setForm((current) => ({
       ...current,
-      subjectId: value,
+      subjectId: selected?.synthetic ? '' : selected?.id || '',
       subject: selected?.name || current.subject || 'Mapel belum dipilih',
     }))
   }
 
   function updateClass(value) {
-    const selected = classesList.find((classItem) => String(classItem.id || '') === value)
+    const selected = classesList.find((classItem) => classOptionValue(classItem) === value)
     setForm((current) => ({
       ...current,
-      classId: value,
+      classId: selected?.synthetic ? '' : selected?.id || '',
       className: selected?.name || current.className || 'Semua kelas',
     }))
+  }
+
+  function updateOption(index, value) {
+    setForm((current) => {
+      const options = [...(current.options || [])]
+      const previous = options[index]
+      options[index] = value
+      return {
+        ...current,
+        options,
+        correctAnswer: previous && current.correctAnswer === previous ? value : current.correctAnswer,
+      }
+    })
   }
 
   function submit() {
     if (!validQuestion) return
     onSave({
       ...form,
-      options,
+      questionText: String(form.questionText || '').trim(),
+      correctAnswer: answer,
+      explanation: String(form.explanation || '').trim(),
+      topic: String(form.topic || '').trim(),
+      options: getQuestionSubmitOptions(form),
     })
   }
 
@@ -2915,60 +3184,128 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
           <div>
             <h2 className="text-xl font-black leading-tight text-[#13232d]">{form.id ? 'Edit butir soal' : 'Tulis butir soal'}</h2>
             <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-              Soal asesmen boleh memuat kunci, pilihan jawaban, dan pembahasan. Buat ringkas agar mudah dipakai ulang ke kuis.
+              Pilih model soal dulu. Field kunci dan pilihan jawaban akan menyesuaikan supaya guru tidak perlu menebak format input.
             </p>
           </div>
         </div>
         <StatusBadge tone={validQuestion ? 'green' : 'amber'}>{validQuestion ? 'Siap disimpan' : 'Lengkapi soal'}</StatusBadge>
       </header>
 
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <div className="space-y-3 p-4">
-          <label className={materialLabelClass}>Pertanyaan
-            <textarea value={form.questionText || ''} onChange={(event) => updateField('questionText', event.target.value)} rows={4} placeholder="Tulis pertanyaan asesmen di sini." className={`${materialInputClass} resize-y leading-7`} />
-          </label>
-
-          {isMultipleChoice && (
-            <label className={materialLabelClass}>Pilihan jawaban
-              <textarea value={form.optionsText} onChange={(event) => updateField('optionsText', event.target.value)} rows={4} placeholder="Satu opsi per baris. Jawaban benar harus sama persis dengan salah satu opsi." className={`${materialInputClass} resize-y leading-7`} />
-            </label>
-          )}
-
-          <label className={materialLabelClass}>Pembahasan
-            <textarea value={form.explanation || ''} onChange={(event) => updateField('explanation', event.target.value)} rows={3} placeholder="Tulis alasan jawaban atau catatan koreksi untuk guru/siswa." className={`${materialInputClass} resize-y leading-7`} />
-          </label>
-
-          {!validQuestion && (
-            <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
-              Pertanyaan dan jawaban benar wajib diisi. Untuk pilihan ganda, minimal 2 opsi dan jawaban benar harus sama persis dengan salah satu opsi.
-            </div>
-          )}
-        </div>
-
-        <aside className="space-y-4 border-t border-[#123c3b]/8 bg-[#f7f4ee]/58 p-4 lg:border-l lg:border-t-0">
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="space-y-4 p-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0f766e]">Jenis soal</p>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {['Pilihan ganda', 'Benar/salah', 'Isian', 'Essay'].map((type) => {
-                const active = form.type === type
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0f766e]">Model soal</p>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+              {questionTypes.map((type) => {
+                const active = form.type === type.value
                 return (
                   <button
-                    key={type}
+                    key={type.value}
                     type="button"
                     aria-pressed={active}
-                    onClick={() => updateField('type', type)}
-                    className={`rounded-[0.85rem] px-3 py-2.5 text-xs font-black ring-1 transition ${
+                    onClick={() => changeType(type.value)}
+                    className={`min-h-[4.25rem] rounded-[0.95rem] px-3 py-2 text-left ring-1 transition ${
                       active
                         ? 'bg-[#123c3b] text-white ring-[#123c3b]'
-                        : 'bg-white text-slate-600 ring-[#123c3b]/10 hover:bg-[#e8f4ef] hover:text-[#0f766e]'
+                        : 'bg-[#fbfaf7] text-[#13232d] ring-[#123c3b]/10 hover:bg-[#e8f4ef]'
                     }`}
                   >
-                    {type}
+                    <span className="block text-sm font-black">{type.label}</span>
+                    <span className={`mt-1 block text-xs font-semibold leading-5 ${active ? 'text-white/70' : 'text-slate-500'}`}>{type.description}</span>
                   </button>
                 )
               })}
             </div>
           </div>
+
+          <label className={materialLabelClass}>Pertanyaan atau stimulus
+            <textarea value={form.questionText || ''} onChange={(event) => updateField('questionText', event.target.value)} rows={5} placeholder={isTrueFalse ? 'Tulis pernyataan yang akan dinilai benar atau salah.' : 'Tulis pertanyaan, instruksi, atau stimulus singkat di sini.'} className={`${materialInputClass} resize-y leading-7`} />
+          </label>
+
+          {isMultipleChoice && (
+            <div>
+              <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-sm font-black text-[#13232d]">Pilihan jawaban</p>
+                  <p className="text-xs font-semibold leading-5 text-slate-500">Isi opsi A-E, lalu pilih huruf opsi sebagai kunci. Tidak perlu mengetik huruf A/B/C/D/E di teks jawaban.</p>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                {optionLetters.map((letter, index) => {
+                  const option = form.options?.[index] || ''
+                  const trimmed = String(option || '').trim()
+                  const selected = answer && trimmed === answer
+
+                  return (
+                    <div key={letter} className={`grid gap-2 rounded-[0.95rem] p-2 ring-1 sm:grid-cols-[auto_1fr] sm:items-center ${selected ? 'bg-[#e8f4ef] ring-[#0f766e]/25' : 'bg-[#fbfaf7] ring-[#123c3b]/8'}`}>
+                      <button
+                        type="button"
+                        onClick={() => trimmed && updateField('correctAnswer', trimmed)}
+                        className={`grid h-9 w-9 place-items-center rounded-[0.75rem] font-mono text-xs font-black ring-1 ${selected ? 'bg-[#123c3b] text-white ring-[#123c3b]' : 'bg-white text-[#0f766e] ring-[#123c3b]/10'}`}
+                        aria-label={`Jadikan opsi ${letter} sebagai kunci`}
+                      >
+                        {letter}
+                      </button>
+                      <input value={option} onChange={(event) => updateOption(index, event.target.value)} placeholder={`Opsi ${letter}`} className={materialInputClass} />
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {isTrueFalse && (
+            <div>
+              <p className="text-sm font-black text-[#13232d]">Kunci jawaban</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {['Benar', 'Salah'].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => updateField('correctAnswer', value)}
+                    className={`rounded-[0.95rem] px-4 py-3 text-sm font-black ring-1 transition ${answer === value ? 'bg-[#123c3b] text-white ring-[#123c3b]' : 'bg-[#fbfaf7] text-[#13232d] ring-[#123c3b]/10 hover:bg-[#e8f4ef]'}`}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isShortAnswer && (
+            <div className="grid gap-3">
+              <label className={materialLabelClass}>Kunci jawaban utama
+                <input value={form.correctAnswer || ''} onChange={(event) => updateField('correctAnswer', event.target.value)} placeholder="Contoh: mitosis" className={materialInputClass} />
+              </label>
+              <label className={materialLabelClass}>Alternatif jawaban yang masih diterima
+                <textarea value={(form.options || []).join('\n')} onChange={(event) => updateField('options', event.target.value.split('\n'))} rows={3} placeholder="Opsional. Satu variasi jawaban per baris." className={`${materialInputClass} resize-y leading-7`} />
+              </label>
+            </div>
+          )}
+
+          {isEssay && (
+            <label className={materialLabelClass}>Rubrik atau jawaban ideal
+              <textarea value={form.correctAnswer || ''} onChange={(event) => updateField('correctAnswer', event.target.value)} rows={4} placeholder="Tulis poin-poin jawaban yang diharapkan atau rubrik penilaian singkat." className={`${materialInputClass} resize-y leading-7`} />
+            </label>
+          )}
+
+          <label className={materialLabelClass}>{isEssay ? 'Catatan pembahasan untuk guru/siswa' : 'Pembahasan'}
+            <textarea value={form.explanation || ''} onChange={(event) => updateField('explanation', event.target.value)} rows={3} placeholder="Tulis alasan jawaban atau catatan koreksi." className={`${materialInputClass} resize-y leading-7`} />
+          </label>
+
+          {!validQuestion && (
+            <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
+              Lengkapi pertanyaan dan kunci. Untuk pilihan ganda, opsi A sampai E wajib terisi dan satu opsi harus dipilih sebagai kunci.
+            </div>
+          )}
+        </div>
+
+        <aside className="space-y-4 border-t border-[#123c3b]/8 bg-[#f7f4ee]/58 p-4 lg:border-l lg:border-t-0">
+          <section className="rounded-[0.95rem] bg-white/72 p-3 ring-1 ring-[#123c3b]/8">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0f766e]">Ringkasan model</p>
+            <h3 className="mt-2 text-base font-black text-[#13232d]">{activeType.label}</h3>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{activeType.description}</p>
+          </section>
 
           <div>
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0f766e]">Level</p>
@@ -2994,23 +3331,19 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
             </div>
           </div>
 
-          <label className={materialLabelClass}>Jawaban benar
-            <input value={form.correctAnswer || ''} onChange={(event) => updateField('correctAnswer', event.target.value)} placeholder={isMultipleChoice ? 'Sama persis dengan salah satu opsi' : 'Jawaban/kunci'} className={materialInputClass} />
-          </label>
-
           <label className={materialLabelClass}>Topik
-            <input value={form.topic || ''} onChange={(event) => updateField('topic', event.target.value)} placeholder="Topik soal" className={materialInputClass} />
+            <input value={form.topic || ''} onChange={(event) => updateField('topic', event.target.value)} placeholder="Misalnya: Keanekaragaman hayati" className={materialInputClass} />
           </label>
 
           <label className={materialLabelClass}>Mata pelajaran
-            <select value={form.subjectId || ''} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
-              {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id || ''}>{subject.name}</option>)}
+            <select value={form.subjectId || `subject:${form.subject || subjectsList[0]?.name || ''}`} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
+              {subjectsList.map((subject) => <option key={subjectOptionValue(subject)} value={subjectOptionValue(subject)}>{subject.name}</option>)}
             </select>
           </label>
 
           <label className={materialLabelClass}>Kelas
-            <select value={form.classId || ''} onChange={(event) => updateClass(event.target.value)} className={materialInputClass}>
-              {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id || ''}>{classItem.name}</option>)}
+            <select value={form.classId || `class:${form.className || classesList[0]?.name || ''}`} onChange={(event) => updateClass(event.target.value)} className={materialInputClass}>
+              {classesList.map((classItem) => <option key={classOptionValue(classItem)} value={classOptionValue(classItem)}>{classItem.name}</option>)}
             </select>
           </label>
         </aside>
@@ -3029,17 +3362,20 @@ function QuestionForm({ question, lookups, onCancel, onSave }) {
 }
 
 function emptyQuestion(lookups, teacherSubject) {
-  const subject = lookups.subjects.find((item) => item.name === teacherSubject) || lookups.subjects[0]
-  const classItem = lookups.classes[0]
+  const subject = lookups.subjects.find((item) => normalizeLookupText(item.name) === normalizeLookupText(teacherSubject))
+  const classOptions = getMaterialClassOptions(lookups.classes, highSchoolGradeFolders[0].name)
+  const classItem = classOptions.find((item) => normalizeLookupText(item.name) === normalizeLookupText(highSchoolGradeFolders[0].name)) || classOptions[0]
+  const subjectName = subject?.name || teacherSubject || highSchoolSubjectFolders[0]
+
   return {
     questionText: '',
-    options: [''],
+    options: optionLetters.map(() => ''),
     correctAnswer: '',
     explanation: '',
     subjectId: subject?.id || '',
-    classId: classItem?.id || '',
-    subject: subject?.name || teacherSubject || 'Mapel belum dipilih',
-    className: classItem?.name || 'Semua kelas',
+    classId: classItem?.synthetic ? '' : classItem?.id || '',
+    subject: subjectName,
+    className: classItem?.name || highSchoolGradeFolders[0].name,
     topic: '',
     difficulty: 'Mudah',
     type: 'Pilihan ganda',

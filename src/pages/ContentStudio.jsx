@@ -50,7 +50,7 @@ const smaSubjectOptions = [
   'Pendidikan Agama Islam dan Budi Pekerti',
   'Pendidikan Pancasila',
   'Bahasa Indonesia',
-  'Matematika',
+  'Matematika Umum',
   'Bahasa Inggris',
   'PJOK',
   'Sejarah',
@@ -71,7 +71,7 @@ const smaSubjectOptions = [
 ]
 
 const subjectTemplates = {
-  Matematika: {
+  'Matematika Umum': {
     icon: Calculator,
     color: 'teal',
     contentTypes: ['Rumus interaktif', 'Grafik fungsi', 'Geometri', 'Latihan bertahap', 'Pembahasan langkah demi langkah'],
@@ -137,8 +137,9 @@ const subjectTemplateAliases = {
   Sejarah: 'Sosial',
   'Pendidikan Pancasila': 'Sosial',
   'Pendidikan Pancasila dan Kewarganegaraan': 'Sosial',
-  Informatika: 'Matematika',
-  'Matematika Tingkat Lanjut': 'Matematika',
+  Matematika: 'Matematika Umum',
+  Informatika: 'Matematika Umum',
+  'Matematika Tingkat Lanjut': 'Matematika Umum',
   'Bahasa Indonesia Tingkat Lanjut': 'Bahasa Indonesia',
   'Bahasa Inggris Tingkat Lanjut': 'Bahasa Inggris',
 }
@@ -196,14 +197,14 @@ const stemResources = [
     title: 'GeoGebra',
     description: 'Grafik, geometri, kalkulator 3D, dan aktivitas matematika interaktif.',
     url: 'https://www.geogebra.org',
-    subject: 'Matematika',
+    subject: 'Matematika Umum',
     icon: Calculator,
   },
   {
     title: 'Desmos',
     description: 'Graphing calculator dan aktivitas matematika visual.',
     url: 'https://www.desmos.com/calculator',
-    subject: 'Matematika',
+    subject: 'Matematika Umum',
     icon: Calculator,
   },
   {
@@ -325,7 +326,7 @@ const featureTargets = [
 const smartTemplates = [
   {
     id: 'math-graph-function',
-    subject: 'Matematika',
+    subject: 'Matematika Umum',
     title: 'Grafik Fungsi Interaktif',
     topic: 'Fungsi Kuadrat',
     contentType: 'Grafik fungsi',
