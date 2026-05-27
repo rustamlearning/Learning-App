@@ -65,10 +65,10 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
 
         <div className="relative flex-shrink-0 border-b border-slate-200 p-4">
           <div className="mb-4 flex items-start justify-between">
-            <div className="flex items-end gap-3">
+            <div className="flex items-start gap-3">
               <IsleLearnMiniLogo />
 
-              <div className="pb-0.5">
+              <div className="translate-y-2">
                 <p className="text-base font-black leading-tight tracking-[-0.02em] text-[#13232d]">{school.appName}</p>
                 <p className="line-clamp-2 text-xs leading-snug text-slate-500">{school.name}</p>
               </div>
