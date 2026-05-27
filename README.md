@@ -37,7 +37,7 @@ IsleLearn App adalah aplikasi pembelajaran digital untuk SMA Negeri 6 Pangkajene
 - Framer Motion
 - Supabase
 - Vercel Serverless Function
-- OpenRouter API untuk fitur AI
+- Groq API untuk fitur AI
 
 ## Menjalankan Project Lokal
 
@@ -65,14 +65,10 @@ Copy file `.env.example` menjadi `.env.local`, lalu isi value yang sesuai.
 ```bash
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-OPENROUTER_API_KEY=your-openrouter-api-key
-OPENROUTER_MODEL=openai/gpt-oss-120b:free
-OPENROUTER_FALLBACK_MODEL=openai/gpt-oss-20b:free
-OPENROUTER_SITE_URL=http://localhost:5173
-OPENROUTER_APP_NAME=IsleLearn App
-GROQ_API_KEY=your-optional-groq-api-key
-GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
-GROQ_FALLBACK_MODEL=openai/gpt-oss-120b
+GROQ_API_KEY=your-groq-api-key
+GROQ_MODEL=llama-3.1-8b-instant
+GROQ_FALLBACK_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+OPENROUTER_ENABLED=false
 ```
 
 ## Setup Supabase
@@ -107,9 +103,9 @@ AI Tutor dan AI Generator menggunakan endpoint server-side:
 /api/ai
 ```
 
-API key OpenRouter tidak disimpan di frontend. Key hanya digunakan di server melalui environment variable `OPENROUTER_API_KEY`.
+API key Groq tidak disimpan di frontend. Key hanya digunakan di server melalui environment variable `GROQ_API_KEY`.
 
-OpenRouter menjadi provider utama. Groq tetap bisa dipakai sebagai fallback opsional jika `GROQ_API_KEY` juga tersedia.
+Groq Llama menjadi provider utama. OpenRouter hanya dipakai jika `OPENROUTER_ENABLED=true`.
 
 Jika API AI belum dikonfigurasi, aplikasi tetap menggunakan mode fallback aman.
 
@@ -122,14 +118,15 @@ Pastikan environment variables berikut sudah ditambahkan di Vercel:
 ```bash
 VITE_SUPABASE_URL
 VITE_SUPABASE_ANON_KEY
+GROQ_API_KEY
+GROQ_MODEL
+GROQ_FALLBACK_MODEL
+OPENROUTER_ENABLED
 OPENROUTER_API_KEY
 OPENROUTER_MODEL
 OPENROUTER_FALLBACK_MODEL
 OPENROUTER_SITE_URL
 OPENROUTER_APP_NAME
-GROQ_API_KEY
-GROQ_MODEL
-GROQ_FALLBACK_MODEL
 ```
 
 Vercel akan otomatis deploy setiap kali branch `main` di-push ke GitHub.

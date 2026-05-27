@@ -3,8 +3,9 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 const OPENROUTER_DEFAULT_MODEL = process.env.OPENROUTER_MODEL || 'openai/gpt-oss-120b:free'
 const OPENROUTER_FALLBACK_MODEL = process.env.OPENROUTER_FALLBACK_MODEL || 'openai/gpt-oss-20b:free'
-const GROQ_DEFAULT_MODEL = process.env.GROQ_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct'
-const GROQ_FALLBACK_MODEL = process.env.GROQ_FALLBACK_MODEL || 'openai/gpt-oss-120b'
+const GROQ_DEFAULT_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
+const GROQ_FALLBACK_MODEL = process.env.GROQ_FALLBACK_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct'
+const OPENROUTER_ENABLED = process.env.OPENROUTER_ENABLED === 'true'
 
 export default async function handler(request, response) {
   if (request.method !== 'POST') {
@@ -15,7 +16,7 @@ export default async function handler(request, response) {
   const providers = getConfiguredProviders()
 
   if (providers.length === 0) {
-    return response.status(503).json({ error: 'OPENROUTER_API_KEY belum dikonfigurasi di server.' })
+    return response.status(503).json({ error: 'GROQ_API_KEY belum dikonfigurasi di server.' })
   }
 
   try {
@@ -88,16 +89,6 @@ function shouldRetryWithFallback(status) {
 function getConfiguredProviders() {
   const providers = []
 
-  if (process.env.OPENROUTER_API_KEY) {
-    providers.push({
-      name: 'OpenRouter',
-      apiUrl: OPENROUTER_API_URL,
-      model: OPENROUTER_DEFAULT_MODEL,
-      fallbackModel: OPENROUTER_FALLBACK_MODEL,
-      headers: getOpenRouterHeaders(),
-    })
-  }
-
   if (process.env.GROQ_API_KEY) {
     providers.push({
       name: 'Groq',
@@ -108,6 +99,16 @@ function getConfiguredProviders() {
         Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
+    })
+  }
+
+  if (OPENROUTER_ENABLED && process.env.OPENROUTER_API_KEY) {
+    providers.push({
+      name: 'OpenRouter',
+      apiUrl: OPENROUTER_API_URL,
+      model: OPENROUTER_DEFAULT_MODEL,
+      fallbackModel: OPENROUTER_FALLBACK_MODEL,
+      headers: getOpenRouterHeaders(),
     })
   }
 
