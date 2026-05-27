@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
-  Cloud,
   LogOut,
   Menu,
   Moon,
@@ -84,14 +83,6 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-[#e8f4ef] px-2.5 py-1 text-[11px] font-bold text-[#0f766e] ring-1 ring-[#0f766e]/10">
-              <Cloud size={12} /> Hemat Data
-            </div>
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 ring-1 ring-amber-100">
-              <ShieldCheck size={12} /> Role-based
-            </div>
-          </div>
         </div>
 
         <nav className="thin-scrollbar relative min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3" aria-label="Menu role">
