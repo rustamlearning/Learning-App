@@ -45,17 +45,17 @@ export default function Login() {
   }
 
   return (
-    <main className="grid min-h-dvh overflow-hidden bg-[#f7f4ee] lg:grid-cols-[0.96fr_1.04fr]">
-      <section className="relative order-2 flex min-h-[44dvh] items-center overflow-hidden sea-ink-panel px-6 py-8 text-white lg:order-1 lg:min-h-dvh lg:px-14">
-        <div className="absolute inset-0 opacity-[0.14] [background-image:linear-gradient(rgba(255,255,255,0.22)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:44px_44px]" />
-        <div className="absolute right-0 top-0 h-full w-2/3 bg-[radial-gradient(circle_at_82%_18%,rgba(216,166,66,0.18),transparent_27rem)]" />
+    <main className="grid min-h-dvh overflow-hidden bg-[#f8fafc] lg:grid-cols-[0.96fr_1.04fr]">
+      <section className="relative order-2 flex min-h-[44dvh] items-center overflow-hidden border-r border-slate-200/80 bg-[linear-gradient(135deg,#ffffff_0%,#eef7f4_54%,#f8fafc_100%)] px-6 py-8 text-[#13232d] lg:order-1 lg:min-h-dvh lg:px-14">
+        <div className="absolute inset-0 opacity-[0.36] [background-image:linear-gradient(rgba(15,31,42,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(15,31,42,0.035)_1px,transparent_1px)] [background-size:44px_44px]" />
+        <div className="absolute right-0 top-0 h-full w-2/3 bg-[radial-gradient(circle_at_82%_18%,rgba(216,166,66,0.16),transparent_27rem)]" />
 
         <div className="relative mx-auto w-full max-w-2xl">
           <div className="mb-5">
             <IsleLearnLogo />
           </div>
 
-          <div className="inline-flex items-center gap-2 border border-white/15 bg-white/[0.08] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[#b9e4dc] shadow-lg backdrop-blur-md">
+          <div className="inline-flex items-center gap-2 border border-[#0f766e]/15 bg-white/80 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[#0f766e] shadow-[0_12px_30px_rgba(15,31,42,0.06)] backdrop-blur-md">
             <Sparkles size={15} />
             Akses sekolah
           </div>
@@ -64,15 +64,15 @@ export default function Login() {
             IsleLearn
           </h1>
 
-          <p className="mt-5 max-w-lg text-sm font-extrabold uppercase tracking-[0.18em] text-[#b9e4dc]">
+          <p className="mt-5 max-w-lg text-sm font-extrabold uppercase tracking-[0.18em] text-[#0f766e]">
             {officialSchoolName}
           </p>
 
-          <p className="mt-5 max-w-xl text-balance text-3xl font-black leading-tight tracking-[-0.025em] text-white sm:text-4xl">
+          <p className="mt-5 max-w-xl text-balance text-3xl font-black leading-tight tracking-[-0.025em] text-[#13232d] sm:text-4xl">
             Masuk, lanjutkan belajar, dan lihat progres tanpa banyak langkah.
           </p>
 
-          <p className="mt-4 max-w-xl text-base leading-8 text-slate-200/76">
+          <p className="mt-4 max-w-xl text-base leading-8 text-slate-600">
             Platform sekolah yang cepat, stabil, dan terintegrasi untuk siswa, guru, admin, dan pimpinan.
           </p>
 
@@ -192,10 +192,10 @@ export default function Login() {
 
 function MiniInfo({ icon: Icon, title, text }) {
   return (
-    <div className="rounded-2xl border border-white/12 bg-white/[0.08] p-3 shadow-lg backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/[0.13]">
-      <Icon className="text-[#f1c36d]" size={22} />
-      <p className="mt-3 text-sm font-extrabold text-white">{title}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-300">{text}</p>
+    <div className="rounded-2xl border border-[#123c3b]/10 bg-white/82 p-3 shadow-[0_12px_30px_rgba(15,31,42,0.06)] backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white">
+      <Icon className="text-[#0f766e]" size={22} />
+      <p className="mt-3 text-sm font-extrabold text-[#13232d]">{title}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{text}</p>
     </div>
   )
 }

@@ -57,38 +57,38 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[18.5rem] max-w-[88vw] flex-col overflow-hidden sea-ink-panel text-white shadow-[0_24px_80px_rgba(15,31,42,0.32)] transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[18.5rem] max-w-[88vw] flex-col overflow-hidden border-r border-slate-200/80 bg-white text-slate-900 shadow-[0_24px_70px_rgba(15,31,42,0.10)] transition-transform duration-300 lg:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="absolute inset-0 opacity-[0.12] [background-image:linear-gradient(rgba(255,255,255,0.22)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:38px_38px]" />
+        <div className="absolute inset-0 opacity-[0.42] [background-image:linear-gradient(rgba(15,31,42,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(15,31,42,0.035)_1px,transparent_1px)] [background-size:38px_38px]" />
         <div className="absolute -right-24 bottom-10 h-80 w-80 rounded-full bg-[#d8a642]/10 blur-3xl" />
 
-        <div className="relative flex-shrink-0 border-b border-white/10 p-4">
+        <div className="relative flex-shrink-0 border-b border-slate-200 p-4">
           <div className="mb-4 flex items-start justify-between">
             <div className="flex items-center gap-3">
               <IsleLearnMiniLogo />
 
               <div>
-                <p className="text-base font-black leading-tight tracking-[-0.02em]">{school.appName}</p>
-              <p className="line-clamp-2 text-xs leading-snug text-[#b9e4dc]/80">{school.name}</p>
+                <p className="text-base font-black leading-tight tracking-[-0.02em] text-[#13232d]">{school.appName}</p>
+              <p className="line-clamp-2 text-xs leading-snug text-slate-500">{school.name}</p>
               </div>
             </div>
 
             <button
               aria-label="Tutup sidebar"
               onClick={() => setOpen(false)}
-              className="rounded-xl p-2 text-white/70 hover:bg-white/10 lg:hidden"
+              className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
             >
               <X size={18} />
             </button>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-[#b9e4dc] ring-1 ring-white/10">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-[#e8f4ef] px-2.5 py-1 text-[11px] font-bold text-[#0f766e] ring-1 ring-[#0f766e]/10">
               <Cloud size={12} /> Hemat Data
             </div>
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-[#f1c36d] ring-1 ring-white/10">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 ring-1 ring-amber-100">
               <ShieldCheck size={12} /> Role-based
             </div>
           </div>
@@ -97,7 +97,7 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
         <nav className="thin-scrollbar relative min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3" aria-label="Menu role">
           {groups.map((group) => (
             <div key={group.label}>
-              <p className="px-3 pb-1.5 pt-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#b9e4dc]/60">
+              <p className="px-3 pb-1.5 pt-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
                 {group.label}
               </p>
 
@@ -114,7 +114,7 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
                         `group flex items-center gap-2.5 rounded-2xl px-2.5 py-2.5 text-sm font-bold transition duration-200 ${
                           isActive
                             ? 'bg-[linear-gradient(135deg,#0F766E,#138177,#5DB8B0)] text-white shadow-[0_16px_34px_rgba(19,129,119,0.26)] ring-1 ring-white/10'
-                            : 'text-slate-200/78 hover:bg-white/10 hover:text-white'
+                            : 'text-slate-600 hover:bg-[#e8f4ef] hover:text-[#0f766e]'
                         }`
                       }
                     >
@@ -124,7 +124,7 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
                             className={`grid h-8 w-8 flex-shrink-0 place-items-center rounded-xl transition ${
                               isActive
                                 ? 'bg-white/15 text-white shadow-[0_10px_20px_rgba(255,255,255,0.10)]'
-                                : 'bg-white/10 text-[#b9e4dc] group-hover:bg-white/[0.14]'
+                                : 'bg-[#f7f4ee] text-[#0f766e] group-hover:bg-white'
                             }`}
                           >
                             <Icon size={17} />
@@ -140,22 +140,22 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
           ))}
         </nav>
 
-        <div className="relative flex-shrink-0 border-t border-white/10 p-3">
-          <div className="mb-2 rounded-3xl bg-white/10 p-3 ring-1 ring-white/10 backdrop-blur-md">
+        <div className="relative flex-shrink-0 border-t border-slate-200 p-3">
+          <div className="mb-2 rounded-3xl bg-[#f8fafc] p-3 ring-1 ring-slate-200/80">
             <div className="flex items-center gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-sm font-black text-slate-950">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#e8f4ef] text-sm font-black text-[#0f766e]">
                 {user.avatar}
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-black">{user.name}</p>
-                <p className="text-xs font-semibold text-[#b9e4dc]/75">{roleLabels[user.role]}</p>
+                <p className="truncate text-sm font-black text-[#13232d]">{user.name}</p>
+                <p className="text-xs font-semibold text-slate-500">{roleLabels[user.role]}</p>
               </div>
             </div>
 
             <button
               onClick={onLogout}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white hover:text-slate-950"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-[#0f766e]"
             >
               <LogOut size={16} /> Keluar
             </button>
@@ -252,7 +252,7 @@ function Topbar({ user, title, onMenu }) {
 
 function IsleLearnMiniLogo() {
   return (
-    <div className="inline-flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white/95 p-1.5 shadow-[0_14px_32px_rgba(0,0,0,0.22)] ring-1 ring-white/70">
+    <div className="inline-flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white p-1.5 shadow-[0_14px_32px_rgba(15,31,42,0.10)] ring-1 ring-slate-200/80">
       <img
         src="/brand/islelearn-logo.png"
         alt="Logo IsleLearn"

@@ -236,32 +236,32 @@ function SiswaDashboard({ user, notify }) {
 
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-[1.6rem] sea-ink-panel p-5 text-white shadow-[0_20px_54px_rgba(15,31,42,0.16)]">
+      <section className="overflow-hidden rounded-[1.6rem] border border-[#123c3b]/10 bg-[linear-gradient(135deg,#ffffff,#eef7f4)] p-5 text-[#13232d] shadow-[0_18px_48px_rgba(15,31,42,0.07)]">
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#b9e4dc]">Today view · {user?.className || 'Kelas aktif'}</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0f766e]">Today view · {user?.className || 'Kelas aktif'}</p>
             <h1 className="mt-3 text-balance text-3xl font-black leading-none tracking-[-0.02em] sm:text-4xl">
               Halo, {firstName}. Mulai dari yang paling penting dulu.
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-200/78">
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
               Buka materi lanjutan, cek tugas aktif, lalu kerjakan kuis yang sudah dibuka guru.
             </p>
           </div>
 
-          <div className="rounded-2xl bg-white/[0.08] p-4 ring-1 ring-white/10">
+          <div className="rounded-2xl bg-white/82 p-4 ring-1 ring-[#123c3b]/10">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#b9e4dc]">Fokus hari ini</p>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0f766e]">Fokus hari ini</p>
                 <p className="mt-1 text-lg font-black">Lanjutkan materi aktif</p>
               </div>
               <StatusBadge tone={learningProgress >= 70 ? 'green' : 'amber'}>{learningProgress}%</StatusBadge>
             </div>
-            <div className="mt-4 h-2 rounded-full bg-white/14">
-              <div className="h-2 rounded-full bg-[#f1c36d]" style={{ width: `${learningProgress}%` }} />
+            <div className="mt-4 h-2 rounded-full bg-[#e8f4ef]">
+              <div className="h-2 rounded-full bg-[#0f766e]" style={{ width: `${learningProgress}%` }} />
             </div>
             <button
               onClick={() => navigate('/siswa/materi')}
-              className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#f1c36d] px-4 text-sm font-black text-[#13232d] transition hover:-translate-y-0.5 hover:bg-[#ffd37f]"
+              className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0f766e] px-4 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#138177]"
             >
               <BookOpen size={17} /> Mulai belajar
             </button>
@@ -2171,24 +2171,24 @@ function GuruDashboard({ notify }) {
     <div className="space-y-4">
       <section className="overflow-hidden rounded-[1.35rem] bg-white shadow-[0_18px_60px_rgba(15,31,42,0.08)] ring-1 ring-[#123c3b]/10">
         <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="sea-ink-panel p-5 text-white sm:p-6">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#b9e4dc]">Ruang kerja guru</p>
+          <div className="bg-[linear-gradient(135deg,#ffffff,#eef7f4)] p-5 text-[#13232d] sm:p-6">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0f766e]">Ruang kerja guru</p>
             <h1 className="mt-3 text-balance text-3xl font-black leading-none tracking-[-0.02em] sm:text-4xl">
               {openWorkTotal > 0 ? `${openWorkTotal} pekerjaan terbuka.` : 'Mulai dari pertemuan berikutnya.'}
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-200/78">
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
               Dashboard ini membaca data nyata yang sudah dibuat guru. Tidak ada data contoh; kalau masih kosong, alurnya mulai dari menyiapkan pembelajaran.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <button
                 onClick={() => navigate('/guru/studio-konten')}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#f1c36d] px-4 text-sm font-black text-[#13232d] transition hover:-translate-y-0.5 hover:bg-[#ffd37f]"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0f766e] px-4 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#138177]"
               >
                 <Sparkles size={17} /> Siapkan Pembelajaran
               </button>
               <button
                 onClick={() => navigate('/guru/tugas')}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/15 transition hover:bg-white/15"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#0f766e] ring-1 ring-[#123c3b]/10 transition hover:bg-[#e8f4ef]"
               >
                 <ClipboardCheck size={17} /> Pantau Tugas
               </button>
@@ -4270,12 +4270,12 @@ function AdminDashboard() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[1.6rem] sea-ink-panel p-5 text-white shadow-[0_20px_54px_rgba(15,31,42,0.16)]">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#b9e4dc]">Admin · konsol data</p>
+      <section className="rounded-[1.6rem] border border-[#123c3b]/10 bg-[linear-gradient(135deg,#ffffff,#eef7f4)] p-5 text-[#13232d] shadow-[0_18px_48px_rgba(15,31,42,0.07)]">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0f766e]">Admin · konsol data</p>
         <h1 className="mt-3 text-balance text-3xl font-black leading-none tracking-[-0.02em] sm:text-4xl">
           Pusat data sekolah.
         </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-200/78">
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
           Kelola data utama aplikasi dengan ringkasan compact, daftar aksi, dan tabel yang mudah dipindai.
         </p>
       </section>

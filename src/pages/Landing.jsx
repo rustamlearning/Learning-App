@@ -97,9 +97,9 @@ const practiceCards = [
 
 export default function Landing() {
   return (
-    <main className="min-h-dvh bg-[#f7f4ee] text-slate-950">
-      <section className="relative overflow-hidden sea-ink-panel text-white">
-        <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_80%_24%,rgba(216,166,66,0.22),transparent_26rem)]" />
+    <main className="min-h-dvh bg-[#f8fafc] text-slate-950">
+      <section className="relative overflow-hidden border-b border-slate-200/80 bg-[linear-gradient(135deg,#ffffff_0%,#eef7f4_56%,#f8fafc_100%)] text-[#13232d]">
+        <div className="absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_80%_24%,rgba(216,166,66,0.16),transparent_26rem)]" />
 
         <div className="relative mx-auto grid min-h-[76dvh] max-w-7xl gap-8 px-5 py-7 sm:px-6 lg:grid-cols-[0.94fr_1.06fr] lg:px-8 lg:py-10">
           <motion.div
@@ -110,45 +110,45 @@ export default function Landing() {
           >
             <div className="mb-7 grid max-w-2xl gap-5 sm:grid-cols-[auto_1fr] sm:items-end">
               <div className="relative w-fit">
-                <div className="absolute -inset-7 rounded-full bg-[#f1c36d]/16 blur-3xl" />
+                <div className="absolute -inset-7 rounded-full bg-[#0f766e]/10 blur-3xl" />
                 <img
                   src="/brand/islelearn-logo.png"
                   alt="Logo IsleLearn"
-                  className="relative h-44 w-44 object-contain drop-shadow-[0_18px_42px_rgba(0,0,0,0.32)] sm:h-56 sm:w-56 lg:h-64 lg:w-64"
+                  className="relative h-44 w-44 object-contain drop-shadow-[0_18px_42px_rgba(15,31,42,0.14)] sm:h-56 sm:w-56 lg:h-64 lg:w-64"
                 />
               </div>
 
               <div>
-                <p className="mb-5 inline-flex w-fit items-center gap-2 border border-white/15 bg-white/[0.08] px-3 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-teal-50 backdrop-blur-md">
+                <p className="mb-5 inline-flex w-fit items-center gap-2 border border-[#0f766e]/15 bg-white/80 px-3 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-[#0f766e] shadow-[0_12px_30px_rgba(15,31,42,0.06)] backdrop-blur-md">
                   <Compass size={15} />
                   Platform belajar sekolah kepulauan
                 </p>
 
-                <h1 className="max-w-4xl text-balance text-5xl font-black leading-[0.95] text-white sm:text-6xl lg:text-7xl">
+                <h1 className="max-w-4xl text-balance text-5xl font-black leading-[0.95] text-[#13232d] sm:text-6xl lg:text-7xl">
                   {school.appName}
                 </h1>
               </div>
             </div>
 
-            <p className="mt-5 max-w-xl text-balance text-2xl font-extrabold leading-tight text-[#b9e4dc] sm:text-3xl">
+            <p className="mt-5 max-w-xl text-balance text-2xl font-extrabold leading-tight text-[#0f766e] sm:text-3xl">
               Pembelajaran digital yang tetap ringan saat jaringan tidak selalu ramah.
             </p>
 
-            <p className="mt-5 max-w-[62ch] text-base leading-8 text-slate-100/78">
+            <p className="mt-5 max-w-[62ch] text-base leading-8 text-slate-600">
               Dibangun untuk {school.name}: materi, kuis, AI tutor, progres siswa, dan monitoring sekolah dalam alur yang lebih tenang, jelas, dan siap dipakai dari perangkat apa pun.
             </p>
 
             <div className="mt-7 flex flex-wrap gap-3">
               <Link
                 to="/login"
-                className="inline-flex min-h-12 items-center gap-2 bg-[#f1c36d] px-5 text-sm font-black text-[#16232b] shadow-[0_18px_42px_rgba(0,0,0,0.22)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#ffd37f] active:translate-y-0"
+                className="inline-flex min-h-12 items-center gap-2 bg-[#0f766e] px-5 text-sm font-black text-white shadow-[0_18px_42px_rgba(15,118,110,0.18)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#138177] active:translate-y-0"
               >
                 Masuk ke aplikasi <ArrowRight size={17} />
               </Link>
 
               <a
                 href="#fitur"
-                className="inline-flex min-h-12 items-center border border-white/16 bg-white/[0.08] px-5 text-sm font-extrabold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-white/[0.13] active:translate-y-0"
+                className="inline-flex min-h-12 items-center border border-[#123c3b]/10 bg-white/80 px-5 text-sm font-extrabold text-[#0f766e] transition duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
               >
                 Lihat fitur
               </a>
@@ -156,10 +156,10 @@ export default function Landing() {
 
             <div className="mt-8 grid max-w-2xl gap-2 sm:grid-cols-3">
               {signalCards.map(([value, label, detail]) => (
-                <div key={label} className="border border-white/12 bg-white/[0.07] p-4 backdrop-blur-md">
-                  <p className="font-mono text-3xl font-black leading-none text-white">{value}</p>
-                  <p className="mt-2 text-sm font-black text-[#b9e4dc]">{label}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-200/62">{detail}</p>
+                <div key={label} className="border border-[#123c3b]/10 bg-white/78 p-4 shadow-[0_12px_32px_rgba(15,31,42,0.05)] backdrop-blur-md">
+                  <p className="font-mono text-3xl font-black leading-none text-[#13232d]">{value}</p>
+                  <p className="mt-2 text-sm font-black text-[#0f766e]">{label}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>
                 </div>
               ))}
             </div>
@@ -217,10 +217,10 @@ export default function Landing() {
                 [Wifi, 'Mode hemat data', 'Tampilan ringan untuk jaringan sekolah kepulauan.'],
                 [LineChart, 'Monitoring sekolah', 'Data belajar lebih mudah dibaca pimpinan.'],
               ].map(([Icon, title, description]) => (
-                <div key={title} className="border border-white/12 bg-white/[0.07] p-4 backdrop-blur-md">
-                  <Icon className="text-[#f1c36d]" size={22} />
+                <div key={title} className="border border-[#123c3b]/10 bg-white/78 p-4 text-[#13232d] shadow-[0_12px_32px_rgba(15,31,42,0.05)] backdrop-blur-md">
+                  <Icon className="text-[#0f766e]" size={22} />
                   <p className="mt-3 text-base font-black">{title}</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-200/68">{description}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
                 </div>
               ))}
             </div>
@@ -269,19 +269,19 @@ export default function Landing() {
           const Icon = section.icon
 
           return (
-            <article key={section.label} className="rounded-[1.5rem] bg-[#13232d] p-5 text-white shadow-[0_22px_58px_rgba(15,31,42,0.16)]">
+            <article key={section.label} className="rounded-[1.5rem] border border-[#123c3b]/10 bg-white p-5 text-[#13232d] shadow-[0_18px_48px_rgba(15,31,42,0.06)]">
               <div className="mb-5 flex items-center justify-between gap-4">
-                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10 text-[#f1c36d] ring-1 ring-white/12">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#e8f4ef] text-[#0f766e] ring-1 ring-[#0f766e]/10">
                   <Icon size={22} />
                 </div>
-                <span className="text-xs font-black uppercase tracking-[0.18em] text-[#b9e4dc]">{section.label}</span>
+                <span className="text-xs font-black uppercase tracking-[0.18em] text-[#0f766e]">{section.label}</span>
               </div>
               <h2 className="text-balance text-2xl font-black leading-tight">{section.title}</h2>
 
               <div className="mt-5 grid gap-2">
                 {section.points.map((point) => (
-                  <div key={point} className="flex items-center gap-2 rounded-2xl bg-white/[0.07] px-3 py-2.5 text-sm font-bold text-slate-100 ring-1 ring-white/10">
-                    <CheckCircle2 className="text-[#f1c36d]" size={16} />
+                  <div key={point} className="flex items-center gap-2 rounded-2xl bg-[#f7f4ee] px-3 py-2.5 text-sm font-bold text-slate-700 ring-1 ring-[#123c3b]/8">
+                    <CheckCircle2 className="text-[#0f766e]" size={16} />
                     {point}
                   </div>
                 ))}
@@ -319,17 +319,17 @@ export default function Landing() {
       </section>
 
       <section className="mx-auto max-w-7xl px-5 pb-12 sm:px-6 lg:px-8">
-        <div className="rounded-[2rem] sea-ink-panel p-5 text-white shadow-[0_28px_70px_rgba(15,31,42,0.18)] md:p-7">
+        <div className="rounded-[2rem] border border-[#123c3b]/10 bg-[linear-gradient(135deg,#ffffff,#eef7f4)] p-5 text-[#13232d] shadow-[0_22px_58px_rgba(15,31,42,0.08)] md:p-7">
           <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
             <div>
               <div className="mb-4 flex items-center gap-3">
-                <UsersRound className="text-[#f1c36d]" />
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#b9e4dc]">Role pengguna</p>
+                <UsersRound className="text-[#0f766e]" />
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0f766e]">Role pengguna</p>
               </div>
               <h2 className="max-w-2xl text-balance text-3xl font-black leading-none">Siap dipakai oleh semua peran sekolah.</h2>
               <div className="mt-5 flex flex-wrap gap-2">
                 {['Siswa', 'Guru', 'Admin', 'Pimpinan'].map((role) => (
-                  <span key={role} className="border border-white/12 bg-white/[0.08] px-4 py-2 text-sm font-extrabold text-white">
+                  <span key={role} className="border border-[#123c3b]/10 bg-white/78 px-4 py-2 text-sm font-extrabold text-slate-700">
                     {role}
                   </span>
                 ))}
@@ -337,7 +337,7 @@ export default function Landing() {
             </div>
             <Link
               to="/login"
-              className="inline-flex min-h-12 items-center justify-center gap-2 bg-[#f1c36d] px-5 text-sm font-black text-[#16232b] transition duration-200 hover:-translate-y-0.5 hover:bg-[#ffd37f] active:translate-y-0"
+              className="inline-flex min-h-12 items-center justify-center gap-2 bg-[#0f766e] px-5 text-sm font-black text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#138177] active:translate-y-0"
             >
               Masuk sekarang <ArrowRight size={17} />
             </Link>
