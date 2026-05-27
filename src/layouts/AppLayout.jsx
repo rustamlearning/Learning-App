@@ -252,7 +252,7 @@ function Topbar({ user, title, onMenu }) {
 
 function IsleLearnMiniLogo() {
   return (
-    <div className="inline-flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white p-1.5 shadow-[0_14px_32px_rgba(15,31,42,0.10)] ring-1 ring-slate-200/80">
+    <div className="inline-flex h-14 w-14 flex-shrink-0 items-center justify-center">
       <img
         src="/brand/islelearn-logo.png"
         alt="Logo IsleLearn"

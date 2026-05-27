@@ -110,11 +110,10 @@ export default function Landing() {
           >
             <div className="mb-7 grid max-w-2xl gap-5 sm:grid-cols-[auto_1fr] sm:items-end">
               <div className="relative w-fit">
-                <div className="absolute -inset-7 rounded-full bg-[#0f766e]/10 blur-3xl" />
                 <img
                   src="/brand/islelearn-logo.png"
                   alt="Logo IsleLearn"
-                  className="relative h-44 w-44 object-contain drop-shadow-[0_18px_42px_rgba(15,31,42,0.14)] sm:h-56 sm:w-56 lg:h-64 lg:w-64"
+                  className="relative h-44 w-44 object-contain sm:h-56 sm:w-56 lg:h-64 lg:w-64"
                 />
               </div>
 

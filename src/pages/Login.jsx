@@ -205,12 +205,12 @@ function IsleLearnLogo({ compact = false }) {
     <div className={`inline-flex items-center justify-center ${
       compact
         ? 'h-14 w-14'
-        : 'h-28 w-28 rounded-[1.4rem] bg-white/95 p-2.5 shadow-[0_18px_44px_rgba(0,0,0,0.22)] ring-1 ring-white/70 sm:h-32 sm:w-32'
+        : 'h-28 w-28 sm:h-32 sm:w-32'
     }`}>
       <img
         src="/brand/islelearn-logo.png"
         alt="Logo IsleLearn"
-        className="h-full w-full object-contain drop-shadow-[0_10px_24px_rgba(15,31,42,0.18)]"
+        className="h-full w-full object-contain"
       />
     </div>
   )
