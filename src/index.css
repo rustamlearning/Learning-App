@@ -35,7 +35,7 @@ body {
     radial-gradient(circle at 86% 12%, rgba(216, 166, 66, 0.14), transparent 24rem),
     linear-gradient(180deg, #fbfaf7 0%, #f3eee4 100%);
   color: #13232d;
-  font-family: "Outfit", "Plus Jakarta Sans", Inter, system-ui, sans-serif;
+  font-family: "Open Sans", system-ui, sans-serif;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
