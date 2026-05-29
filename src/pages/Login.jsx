@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
+  CheckCircle2,
   Eye,
   EyeOff,
   Loader2,
   ShieldCheck,
-  Sparkles,
   UserRound,
   Waves,
 } from 'lucide-react'
@@ -14,6 +14,12 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { roleHome, roleLabels, school } from '../data/dummyData.js'
 
 const officialSchoolName = school?.name || 'SMA Negeri 6 Pangkajene dan Kepulauan'
+
+const brandPoints = [
+  'Materi, latihan, dan progres dalam satu aplikasi',
+  'Akses ringan untuk siswa dan guru',
+  'Dashboard sekolah lebih mudah dipantau',
+]
 
 export default function Login() {
   const navigate = useNavigate()
@@ -45,144 +51,147 @@ export default function Login() {
   }
 
   return (
-    <main className="grid min-h-dvh overflow-hidden bg-[#041817] lg:grid-cols-[0.96fr_1.04fr]">
-      <section className="relative order-2 flex min-h-[44dvh] items-center overflow-hidden border-r border-white/10 bg-[linear-gradient(135deg,#062f2e_0%,#0f766e_52%,#123c3b_100%)] px-6 py-8 text-white lg:order-1 lg:min-h-dvh lg:px-14">
-        <div className="absolute inset-0 opacity-[0.22] [background-image:linear-gradient(rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.10)_1px,transparent_1px)] [background-size:44px_44px]" />
-        <div className="absolute inset-x-0 top-0 h-2 bg-[linear-gradient(90deg,#22d3ee,#facc15,#34d399)]" />
-        <div className="absolute inset-y-0 right-0 w-2/3 bg-[linear-gradient(135deg,rgba(34,211,238,0.12),rgba(250,204,21,0.12),transparent)]" />
+    <main className="grid min-h-dvh bg-white lg:grid-cols-[0.98fr_1.02fr]">
+      <section className="relative flex min-h-[42dvh] items-center overflow-hidden bg-[linear-gradient(135deg,#063332_0%,#0f766e_54%,#0e7490_100%)] px-6 py-8 text-white lg:min-h-dvh lg:px-14">
+        <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(255,255,255,0.18)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:52px_52px]" />
+        <div className="absolute inset-x-0 top-0 h-1.5 bg-[linear-gradient(90deg,#22d3ee,#facc15,#99f6e4)]" />
+        <div className="absolute bottom-0 left-0 h-28 w-full bg-[linear-gradient(180deg,transparent,rgba(6,51,50,0.34))]" />
 
         <div className="relative mx-auto w-full max-w-2xl">
-          <div className="mb-5">
-            <IsleLearnLogo />
+          <IsleLearnLogo />
+
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-extrabold text-cyan-50 backdrop-blur-md">
+            <ShieldCheck size={15} />
+            Akses sekolah resmi
           </div>
 
-          <div className="inline-flex items-center gap-2 border border-cyan-100/20 bg-white/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-cyan-100 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-md">
-            <Sparkles size={15} />
-            Akses sekolah
-          </div>
-
-          <h1 className="mt-5 text-balance text-5xl font-black leading-none tracking-[-0.02em] sm:text-6xl">
+          <h1 className="mt-6 text-balance text-5xl font-black leading-none sm:text-6xl">
             IsleLearn
           </h1>
 
-          <p className="mt-5 max-w-lg text-sm font-extrabold uppercase tracking-[0.18em] text-amber-100">
+          <p className="mt-5 max-w-lg text-sm font-extrabold text-amber-100">
             {officialSchoolName}
           </p>
 
-          <p className="mt-5 max-w-xl text-balance text-3xl font-black leading-tight tracking-[-0.025em] text-white sm:text-4xl">
-            Masuk, lanjutkan belajar, dan lihat progres tanpa banyak langkah.
+          <p className="mt-5 max-w-xl text-balance text-3xl font-black leading-tight sm:text-4xl">
+            Masuk dan lanjutkan aktivitas belajar dengan lebih terarah.
           </p>
 
-          <p className="mt-4 max-w-xl text-base leading-8 text-teal-50/75">
-            Platform sekolah yang cepat, stabil, dan terintegrasi untuk siswa, guru, admin, dan pimpinan.
+          <p className="mt-4 max-w-xl text-base leading-8 text-teal-50/80">
+            Platform pembelajaran sekolah yang dirancang agar siswa, guru, admin, dan pimpinan bekerja dalam alur yang sama.
           </p>
 
-          <div className="mt-5 grid max-w-xl gap-2 sm:grid-cols-3">
-            <MiniInfo icon={Waves} title="Cepat" text="Akses stabil di semua jaringan" />
-            <MiniInfo icon={UserRound} title="Multi User" text="Guru & siswa terintegrasi" />
-            <MiniInfo icon={ShieldCheck} title="Aman" text="Data terlindungi & terpercaya" />
+          <div className="mt-6 grid max-w-xl gap-3 sm:grid-cols-3">
+            <MiniInfo icon={Waves} title="Ringan" text="Nyaman dibuka di berbagai jaringan" />
+            <MiniInfo icon={UserRound} title="Terhubung" text="Peran sekolah ada dalam satu sistem" />
+            <MiniInfo icon={ShieldCheck} title="Tertata" text="Data belajar lebih mudah dipantau" />
+          </div>
+
+          <div className="mt-7 grid gap-2">
+            {brandPoints.map((point) => (
+              <div key={point} className="flex items-center gap-3 text-sm font-semibold text-teal-50/90">
+                <CheckCircle2 className="text-[#facc15]" size={17} />
+                {point}
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="order-1 flex min-h-dvh items-center justify-center bg-[linear-gradient(135deg,#041817_0%,#062f2e_58%,#031312_100%)] px-5 py-6 lg:order-2 lg:min-h-dvh lg:px-8">
+      <section className="flex min-h-dvh items-center justify-center bg-white px-5 py-8 lg:px-8">
         <div className="w-full max-w-md">
-          <div className="rounded-[1.75rem] border border-white/10 bg-white/10 p-5 shadow-[0_28px_70px_rgba(0,0,0,0.30)] ring-1 ring-white/10 backdrop-blur-xl sm:p-6">
-            <header className="mb-5">
-              <div className="mb-4 flex items-center gap-3 lg:hidden">
-                <IsleLearnLogo compact />
-                <div className="min-w-0">
-                  <p className="text-base font-black leading-tight tracking-[-0.02em] text-white">IsleLearn</p>
-                  <p className="truncate text-xs font-bold text-cyan-100">{officialSchoolName}</p>
-                </div>
+          <header className="mb-7">
+            <div className="mb-5 flex items-center gap-3 lg:hidden">
+              <IsleLearnLogo compact />
+              <div className="min-w-0">
+                <p className="text-base font-black leading-tight text-[#10201f]">IsleLearn</p>
+                <p className="truncate text-xs font-bold text-[#0f766e]">{officialSchoolName}</p>
               </div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Masuk ke aplikasi</p>
-              <h2 className="mt-2 text-3xl font-black leading-none tracking-[-0.02em] text-white">
-                Selamat datang di IsleLearn.
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-teal-50/70">
-                Gunakan akun sekolah yang sudah terdaftar.
-              </p>
-            </header>
+            </div>
+            <p className="text-xs font-black text-[#0f766e]">Masuk ke aplikasi</p>
+            <h2 className="mt-2 text-3xl font-black leading-none text-[#10201f]">
+              Selamat datang kembali.
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Gunakan akun sekolah yang sudah terdaftar.
+            </p>
+          </header>
 
-            <form onSubmit={submit} className="space-y-4">
-              <label className="grid gap-2 text-sm font-bold text-teal-50/80">
-                Username atau Email
+          <form onSubmit={submit} className="space-y-4">
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Username atau Email
+              <input
+                value={identifier}
+                onChange={(event) => setIdentifier(event.target.value)}
+                placeholder="Username atau email sekolah"
+                className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#0f766e] focus:ring-4 focus:ring-[#0f766e]/10"
+              />
+            </label>
+
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Password
+              <span className="relative">
                 <input
-                  value={identifier}
-                  onChange={(event) => setIdentifier(event.target.value)}
-                  placeholder="Username atau email sekolah"
-                  className="h-12 rounded-2xl border border-white/10 bg-[#041817]/60 px-4 text-white outline-none transition placeholder:text-teal-100/40 focus:border-cyan-200/40 focus:bg-[#062f2e] focus:ring-4 focus:ring-cyan-200/10"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Masukkan password"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#0f766e] focus:ring-4 focus:ring-[#0f766e]/10"
                 />
-              </label>
+                <button
+                  type="button"
+                  aria-label="Tampilkan password"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </span>
+            </label>
 
-              <label className="grid gap-2 text-sm font-bold text-teal-50/80">
-                Password
-                <span className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Masukkan password"
-                    className="h-12 w-full rounded-2xl border border-white/10 bg-[#041817]/60 px-4 pr-12 text-white outline-none transition placeholder:text-teal-100/40 focus:border-cyan-200/40 focus:bg-[#062f2e] focus:ring-4 focus:ring-cyan-200/10"
-                  />
-                  <button
-                    type="button"
-                    aria-label="Tampilkan password"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-xl text-teal-50/60 transition hover:bg-white/10 hover:text-white"
-                  >
-                    {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                  </button>
-                </span>
-              </label>
-
-              <button
-                disabled={loading}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#facc15] text-sm font-extrabold text-[#063332] shadow-[0_18px_36px_rgba(250,204,21,0.22)] transition hover:-translate-y-0.5 hover:bg-[#fde047] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-              >
-                {loading ? (
-                  <Loader2 className="animate-spin" size={18} />
-                ) : (
-                  <>
-                    Masuk <ArrowRight size={17} />
-                  </>
-                )}
-              </button>
-
-              {error && (
-                <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 ring-1 ring-rose-100">
-                  {error}
-                </p>
+            <button
+              disabled={loading}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#0f766e] text-sm font-extrabold text-white shadow-[0_18px_36px_rgba(15,118,110,0.20)] transition hover:-translate-y-0.5 hover:bg-[#115e59] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+            >
+              {loading ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : (
+                <>
+                  Masuk <ArrowRight size={17} />
+                </>
               )}
-            </form>
+            </button>
 
-            {showPreviewAccess && (
-              <>
-                <div className="my-7 flex items-center gap-3">
-                  <div className="h-px flex-1 bg-white/10" />
-                  <span className="text-xs font-extrabold uppercase tracking-[0.18em] text-teal-50/40">
-                    preview lokal
-                  </span>
-                  <div className="h-px flex-1 bg-white/10" />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.keys(roleLabels).map((role) => (
-                    <button
-                      key={role}
-                      onClick={() => finish(loginAs(role))}
-                      className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-extrabold text-teal-50/80 transition hover:-translate-y-0.5 hover:border-cyan-200/30 hover:bg-white/10 hover:text-white"
-                    >
-                      {roleLabels[role]}
-                    </button>
-                  ))}
-                </div>
-              </>
+            {error && (
+              <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 ring-1 ring-rose-100">
+                {error}
+              </p>
             )}
-          </div>
+          </form>
 
-          <p className="mt-6 text-center text-xs font-semibold leading-6 text-teal-50/40">
+          {showPreviewAccess && (
+            <>
+              <div className="my-7 flex items-center gap-3">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span className="text-xs font-extrabold text-slate-400">preview lokal</span>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {Object.keys(roleLabels).map((role) => (
+                  <button
+                    key={role}
+                    onClick={() => finish(loginAs(role))}
+                    className="rounded-2xl border border-slate-200 bg-[#f8fafc] px-4 py-3 text-sm font-extrabold text-slate-700 transition hover:-translate-y-0.5 hover:border-[#0f766e]/25 hover:bg-[#e6f5f1] hover:text-[#0f766e]"
+                  >
+                    {roleLabels[role]}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <p className="mt-7 text-center text-xs font-semibold leading-6 text-slate-400">
             IsleLearn · {officialSchoolName}
           </p>
         </div>
@@ -193,7 +202,7 @@ export default function Login() {
 
 function MiniInfo({ icon: Icon, title, text }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/10 p-3 shadow-[0_18px_45px_rgba(0,0,0,0.16)] backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/10">
+    <div className="rounded-2xl border border-white/20 bg-white/10 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.12)] backdrop-blur-md">
       <Icon className="text-[#facc15]" size={22} />
       <p className="mt-3 text-sm font-extrabold text-white">{title}</p>
       <p className="mt-1 text-xs leading-5 text-teal-50/70">{text}</p>
