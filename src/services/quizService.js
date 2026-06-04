@@ -50,12 +50,16 @@ export async function removeQuiz({ accessToken, id }) {
 }
 
 export async function submitQuizAttempt({ accessToken, quiz, questions, answers, studentId }) {
+  if (!studentId) {
+    throw new Error('Data siswa belum lengkap untuk mengirim kuis.')
+  }
+
   const total = questions.length || 1
   const correct = questions.filter((question) => answers[question.id] === question.correctAnswer).length
   const score = Math.round((correct / total) * 100)
   const rows = await createRow('quiz_attempts', {
     quiz_id: quiz.id,
-    student_id: studentId || null,
+    student_id: studentId,
     answers,
     score,
     submitted_at: new Date().toISOString(),

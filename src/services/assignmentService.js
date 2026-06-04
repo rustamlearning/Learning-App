@@ -38,9 +38,13 @@ export async function removeAssignment({ accessToken, id }) {
 }
 
 export async function createAssignmentSubmission({ accessToken, assignmentId, studentId, answerText }) {
+  if (!studentId) {
+    throw new Error('Data siswa belum lengkap untuk mengirim tugas.')
+  }
+
   const rows = await createRow('submissions', {
     assignment_id: assignmentId,
-    student_id: studentId || null,
+    student_id: studentId,
     answer_text: answerText,
     submitted_at: new Date().toISOString(),
   }, accessToken)

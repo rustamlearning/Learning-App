@@ -6,6 +6,16 @@ const OPENROUTER_FALLBACK_MODEL = process.env.OPENROUTER_FALLBACK_MODEL || 'open
 const GROQ_DEFAULT_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
 const GROQ_FALLBACK_MODEL = process.env.GROQ_FALLBACK_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct'
 const OPENROUTER_ENABLED = process.env.OPENROUTER_ENABLED === 'true'
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+const SUPABASE_CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY)
+const REQUIRE_AUTH = process.env.AI_REQUIRE_AUTH === 'true' || (SUPABASE_CONFIGURED && process.env.AI_REQUIRE_AUTH !== 'false')
+const MAX_PROMPT_CHARS = Number(process.env.AI_MAX_PROMPT_CHARS || 6000)
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 22000)
+const RATE_LIMIT_MAX = Number(process.env.AI_RATE_LIMIT_MAX || 24)
+const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_RATE_LIMIT_WINDOW_MS || 60_000)
+const rateLimitStore = new Map()
+const allowedActions = new Set(['askTutor', 'generateQuestions', 'summarizeMaterial', 'generateFlashcards'])
 
 export default async function handler(request, response) {
   if (request.method !== 'POST') {
@@ -20,8 +30,28 @@ export default async function handler(request, response) {
   }
 
   try {
+    const auth = await authenticateRequest(request)
+
+    if (REQUIRE_AUTH && !auth.user) {
+      return response.status(401).json({ error: 'Login diperlukan untuk menggunakan AI.' })
+    }
+
+    const rateKey = auth.user?.id || getClientIp(request)
+    if (!checkRateLimit(rateKey)) {
+      return response.status(429).json({ error: 'Terlalu banyak permintaan AI. Coba lagi sebentar.' })
+    }
+
     const body = normalizeBody(request.body)
     const action = body.action || 'askTutor'
+
+    if (!allowedActions.has(action)) {
+      return response.status(400).json({ error: 'Action AI tidak dikenal.' })
+    }
+
+    if (auth.profile && action === 'generateQuestions' && !['guru', 'admin'].includes(auth.profile.role)) {
+      return response.status(403).json({ error: 'Hanya guru dan admin yang dapat memakai AI Generator.' })
+    }
+
     const messages = buildMessages(action, body)
     const lastError = { status: 502, message: 'AI service request failed.' }
 
@@ -55,16 +85,20 @@ export default async function handler(request, response) {
 }
 
 async function requestAIProvider({ provider, model, messages, action }) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+
   const aiResponse = await fetch(provider.apiUrl, {
     method: 'POST',
     headers: provider.headers,
+    signal: controller.signal,
     body: JSON.stringify({
       model,
       messages,
       temperature: action === 'generateQuestions' ? 0.35 : 0.45,
       max_tokens: action === 'generateQuestions' ? 1200 : 700,
     }),
-  })
+  }).finally(() => clearTimeout(timeout))
 
   return {
     aiResponse,
@@ -155,6 +189,85 @@ function normalizeBody(body) {
   return body
 }
 
+async function authenticateRequest(request) {
+  const token = getBearerToken(request)
+  if (!token || !SUPABASE_CONFIGURED) return { user: null, profile: null }
+
+  try {
+    const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (!userResponse.ok) return { user: null, profile: null }
+
+    const user = await userResponse.json()
+    const profile = await fetchProfileForAuthUser(user.id, token)
+    return { user, profile }
+  } catch (error) {
+    return { user: null, profile: null }
+  }
+}
+
+async function fetchProfileForAuthUser(authUserId, token) {
+  const query = new URLSearchParams({
+    auth_user_id: `eq.${authUserId}`,
+    select: 'id,role,status',
+    limit: '1',
+  })
+  const profileResponse = await fetch(`${SUPABASE_URL}/rest/v1/users_profile?${query.toString()}`, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!profileResponse.ok) return null
+  const rows = await profileResponse.json()
+  return rows?.[0] || null
+}
+
+function getBearerToken(request) {
+  const header = request.headers.authorization || request.headers.Authorization || ''
+  const match = String(header).match(/^Bearer\s+(.+)$/i)
+  return match?.[1]?.trim() || ''
+}
+
+function checkRateLimit(key) {
+  const now = Date.now()
+  const current = rateLimitStore.get(key)
+
+  cleanupRateLimits(now)
+
+  if (!current || current.resetAt <= now) {
+    rateLimitStore.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    return true
+  }
+
+  if (current.count >= RATE_LIMIT_MAX) return false
+
+  current.count += 1
+  return true
+}
+
+function cleanupRateLimits(now) {
+  if (rateLimitStore.size < 500) return
+  for (const [key, value] of rateLimitStore.entries()) {
+    if (value.resetAt <= now) rateLimitStore.delete(key)
+  }
+}
+
+function getClientIp(request) {
+  const forwarded = request.headers['x-forwarded-for'] || request.headers['X-Forwarded-For']
+  return String(forwarded || request.socket?.remoteAddress || 'anonymous').split(',')[0].trim()
+}
+
+function limitText(value, fallback = '') {
+  return String(value || fallback).slice(0, MAX_PROMPT_CHARS)
+}
+
 function buildMessages(action, body) {
   if (action === 'generateQuestions') {
     const options = body.options || {}
@@ -165,7 +278,7 @@ function buildMessages(action, body) {
       },
       {
         role: 'user',
-        content: `Buat ${options.total || 3} soal ${options.type || 'pilihan ganda'} untuk ${options.subject || 'Bahasa Inggris'}, kelas ${options.className || 'X.1'}, topik ${options.topic || 'Descriptive Text'}, level ${options.level || 'Sedang'}. Formatkan dengan nomor, opsi, kunci jawaban, dan pembahasan singkat.`,
+        content: limitText(`Buat ${options.total || 3} soal ${options.type || 'pilihan ganda'} untuk ${options.subject || 'Bahasa Inggris'}, kelas ${options.className || 'X.1'}, topik ${options.topic || 'Descriptive Text'}, level ${options.level || 'Sedang'}. Formatkan dengan nomor, opsi, kunci jawaban, dan pembahasan singkat.`),
       },
     ]
   }
@@ -176,7 +289,7 @@ function buildMessages(action, body) {
         role: 'system',
         content: 'Anda adalah AI Tutor IsleLearn. Ringkas materi untuk siswa SMA dengan bahasa sederhana, bertahap, dan mudah dibaca di HP.',
       },
-      { role: 'user', content: body.text || 'Ringkas materi ini.' },
+      { role: 'user', content: limitText(body.text, 'Ringkas materi ini.') },
     ]
   }
 
@@ -186,7 +299,7 @@ function buildMessages(action, body) {
         role: 'system',
         content: 'Anda adalah pembuat flashcard belajar. Buat flashcard ringkas dengan format Front: ... Back: ...',
       },
-      { role: 'user', content: body.text || 'Buat flashcard dari materi ini.' },
+      { role: 'user', content: limitText(body.text, 'Buat flashcard dari materi ini.') },
     ]
   }
 
@@ -195,6 +308,6 @@ function buildMessages(action, body) {
       role: 'system',
       content: 'Anda adalah AI Tutor IsleLearn untuk siswa SMA. Jelaskan konsep bertahap, edukatif, dan aman. Jangan memberi jawaban langsung untuk ujian aktif; bantu siswa memahami cara berpikirnya.',
     },
-    { role: 'user', content: body.prompt || 'Jelaskan materi ini.' },
+    { role: 'user', content: limitText(body.prompt, 'Jelaskan materi ini.') },
   ]
 }

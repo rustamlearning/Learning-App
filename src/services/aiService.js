@@ -1,5 +1,5 @@
-export async function askTutor(prompt) {
-  const live = await callAiEndpoint('askTutor', { prompt })
+export async function askTutor(prompt, requestOptions = {}) {
+  const live = await callAiEndpoint('askTutor', { prompt }, requestOptions)
   if (live) return { role: 'assistant', content: live.content }
 
   await wait(280)
@@ -13,8 +13,8 @@ export async function askTutor(prompt) {
   }
 }
 
-export async function generateQuestions(options = {}) {
-  const live = await callAiEndpoint('generateQuestions', { options })
+export async function generateQuestions(options = {}, requestOptions = {}) {
+  const live = await callAiEndpoint('generateQuestions', { options }, requestOptions)
   if (live) return parseGeneratedQuestions(live.content)
 
   await wait(320)
@@ -29,16 +29,16 @@ export async function generateQuestions(options = {}) {
   }))
 }
 
-export async function summarizeMaterial(text) {
-  const live = await callAiEndpoint('summarizeMaterial', { text })
+export async function summarizeMaterial(text, requestOptions = {}) {
+  const live = await callAiEndpoint('summarizeMaterial', { text }, requestOptions)
   if (live) return live.content
 
   await wait(240)
   return `Ringkasan: ${text?.slice(0, 120) || 'materi ini'}... Intinya, pahami konsep utama, catat kata kunci, lalu kerjakan latihan singkat.`
 }
 
-export async function generateFlashcards(text) {
-  const live = await callAiEndpoint('generateFlashcards', { text })
+export async function generateFlashcards(text, requestOptions = {}) {
+  const live = await callAiEndpoint('generateFlashcards', { text }, requestOptions)
   if (live) return parseFlashcards(live.content)
 
   await wait(240)
@@ -53,11 +53,14 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function callAiEndpoint(action, payload) {
+async function callAiEndpoint(action, payload, { accessToken } = {}) {
   try {
+    const headers = { 'Content-Type': 'application/json' }
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`
+
     const response = await fetch('/api/ai', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ action, ...payload }),
     })
 

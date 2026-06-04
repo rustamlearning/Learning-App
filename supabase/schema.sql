@@ -240,6 +240,9 @@ drop policy if exists "Admins can manage subjects" on subjects;
 drop policy if exists "Admins can manage students" on students;
 drop policy if exists "Admins can manage teachers" on teachers;
 drop policy if exists "Admins can read submissions" on submissions;
+drop policy if exists "Students can insert own submissions" on submissions;
+drop policy if exists "Students and owners can read submissions" on submissions;
+drop policy if exists "Teachers and admins can grade submissions" on submissions;
 drop policy if exists "Admins can read progress" on progress;
 drop policy if exists "Admins can read student badges" on student_badges;
 drop policy if exists "Admins can read announcements" on announcements;
@@ -250,19 +253,91 @@ drop policy if exists "Students can read own progress" on progress;
 drop policy if exists "Anyone can resolve login aliases" on login_aliases;
 drop policy if exists "Admins can manage login aliases" on login_aliases;
 
-create policy "Authenticated users can read profiles" on users_profile for select to authenticated using (true);
+create or replace function resolve_login_email(login_identifier text)
+returns table(email text)
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select aliases.email
+  from login_aliases aliases
+  where aliases.username = lower(trim(regexp_replace(coalesce(login_identifier, ''), '\s+', ' ', 'g')))
+  limit 1;
+$$;
+
+grant execute on function resolve_login_email(text) to anon, authenticated;
+
+create policy "Authenticated users can read profiles" on users_profile for select to authenticated using (
+  auth_user_id = auth.uid()
+  or role = 'guru'
+  or current_user_role() in ('admin', 'pimpinan')
+);
 create policy "Authenticated users can read classes" on classes for select to authenticated using (true);
 create policy "Authenticated users can read subjects" on subjects for select to authenticated using (true);
-create policy "Authenticated users can read materials" on materials for select to authenticated using (true);
-create policy "Authenticated users can read questions" on questions for select to authenticated using (true);
-create policy "Authenticated users can read quizzes" on quizzes for select to authenticated using (true);
-create policy "Authenticated users can read quiz questions" on quiz_questions for select to authenticated using (true);
-create policy "Authenticated users can read assignments" on assignments for select to authenticated using (true);
+create policy "Authenticated users can read materials" on materials for select to authenticated using (
+  status = 'Publish'
+  or current_user_role() in ('admin', 'pimpinan')
+  or exists (
+    select 1 from users_profile profile
+    where profile.auth_user_id = auth.uid()
+      and profile.role = 'guru'
+      and profile.id = materials.teacher_id
+  )
+);
+create policy "Authenticated users can read questions" on questions for select to authenticated using (
+  current_user_role() in ('admin', 'pimpinan')
+  or exists (
+    select 1 from users_profile profile
+    where profile.auth_user_id = auth.uid()
+      and profile.role = 'guru'
+      and profile.id = questions.created_by
+  )
+  or exists (
+    select 1
+    from quiz_questions qq
+    join quizzes quiz on quiz.id = qq.quiz_id
+    where qq.question_id = questions.id
+      and quiz.status = 'Publish'
+  )
+);
+create policy "Authenticated users can read quizzes" on quizzes for select to authenticated using (
+  status = 'Publish'
+  or current_user_role() in ('admin', 'pimpinan')
+  or exists (
+    select 1 from users_profile profile
+    where profile.auth_user_id = auth.uid()
+      and profile.role = 'guru'
+      and profile.id = quizzes.teacher_id
+  )
+);
+create policy "Authenticated users can read quiz questions" on quiz_questions for select to authenticated using (
+  exists (
+    select 1 from quizzes quiz
+    where quiz.id = quiz_questions.quiz_id
+      and (
+        quiz.status = 'Publish'
+        or current_user_role() in ('admin', 'pimpinan')
+        or exists (
+          select 1 from users_profile profile
+          where profile.auth_user_id = auth.uid()
+            and profile.role = 'guru'
+            and profile.id = quiz.teacher_id
+        )
+      )
+  )
+);
+create policy "Authenticated users can read assignments" on assignments for select to authenticated using (
+  status = 'Aktif'
+  or current_user_role() in ('admin', 'pimpinan')
+  or exists (
+    select 1 from users_profile profile
+    where profile.auth_user_id = auth.uid()
+      and profile.role = 'guru'
+      and profile.id = assignments.teacher_id
+  )
+);
 create policy "Authenticated users can read badges" on badges for select to authenticated using (true);
-
-create policy "Anyone can resolve login aliases" on login_aliases
-  for select to anon, authenticated
-  using (true);
 
 create policy "Students can read own student row" on students
   for select to authenticated
@@ -307,6 +382,66 @@ create policy "Admins can manage login aliases" on login_aliases
 create policy "Admins can read submissions" on submissions
   for select to authenticated
   using (current_user_role() in ('admin', 'pimpinan'));
+
+create policy "Students can insert own submissions" on submissions
+  for insert to authenticated
+  with check (
+    exists (
+      select 1
+      from students student
+      join users_profile profile on profile.id = student.user_id
+      where student.id = submissions.student_id
+        and profile.auth_user_id = auth.uid()
+        and profile.role = 'siswa'
+    )
+  );
+
+create policy "Students and owners can read submissions" on submissions
+  for select to authenticated
+  using (
+    current_user_role() in ('admin', 'pimpinan')
+    or exists (
+      select 1
+      from assignments assignment
+      join users_profile profile on profile.id = assignment.teacher_id
+      where assignment.id = submissions.assignment_id
+        and profile.auth_user_id = auth.uid()
+        and profile.role = 'guru'
+    )
+    or exists (
+      select 1
+      from students student
+      join users_profile profile on profile.id = student.user_id
+      where student.id = submissions.student_id
+        and profile.auth_user_id = auth.uid()
+        and profile.role = 'siswa'
+    )
+  );
+
+create policy "Teachers and admins can grade submissions" on submissions
+  for update to authenticated
+  using (
+    current_user_role() = 'admin'
+    or exists (
+      select 1
+      from assignments assignment
+      join users_profile profile on profile.id = assignment.teacher_id
+      where assignment.id = submissions.assignment_id
+        and profile.auth_user_id = auth.uid()
+        and profile.role = 'guru'
+    )
+  )
+  with check (
+    current_user_role() = 'admin'
+    or exists (
+      select 1
+      from assignments assignment
+      join users_profile profile on profile.id = assignment.teacher_id
+      where assignment.id = submissions.assignment_id
+        and profile.auth_user_id = auth.uid()
+        and profile.role = 'guru'
+    )
+  );
 
 create policy "Admins can read progress" on progress
   for select to authenticated
@@ -514,8 +649,7 @@ create policy "Teachers and admins can manage quiz questions" on quiz_questions
 create policy "Students can insert quiz attempts" on quiz_attempts
   for insert to authenticated
   with check (
-    student_id is null
-    or exists (
+    exists (
       select 1
       from students student
       join users_profile profile on profile.id = student.user_id
@@ -533,7 +667,6 @@ create policy "Students and teachers can read quiz attempts" on quiz_attempts
       where profile.auth_user_id = auth.uid()
         and profile.role in ('guru', 'admin', 'pimpinan')
     )
-    or student_id is null
     or exists (
       select 1
       from students student

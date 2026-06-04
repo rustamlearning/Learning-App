@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowRight, Bot, Check, Circle, Copy, RotateCcw, Send, Sparkles, Trophy } from 'lucide-react'
 import { askTutor, generateQuestions } from '../services/aiService.js'
+import { useAuth } from '../context/AuthContext.jsx'
 import { badges, isleclub } from '../data/dummyData.js'
 import { EmptyState, QuickActionButton, SectionCard, StatusBadge } from './ui.jsx'
 
@@ -151,6 +152,7 @@ function renderInlineMarkdown(line) {
 }
 
 export function AIChatPanel() {
+  const { accessToken } = useAuth()
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Halo, saya AI Tutor IsleLearn. Mau belajar apa hari ini?' },
   ])
@@ -160,7 +162,7 @@ export function AIChatPanel() {
     if (!prompt.trim()) return
     setMessages((current) => [...current, { role: 'user', content: prompt }])
     setInput('')
-    const response = await askTutor(prompt)
+    const response = await askTutor(prompt, { accessToken })
     setMessages((current) => [...current, response])
   }
 
@@ -196,12 +198,13 @@ export function AIChatPanel() {
 }
 
 export function AIGeneratorPanel() {
+  const { accessToken } = useAuth()
   const [options, setOptions] = useState({ subject: '', className: '', topic: '', type: '', level: '', total: 3 })
   const [output, setOutput] = useState([])
 
   async function generate() {
     if (!options.topic.trim()) return
-    const result = await generateQuestions({ subject: options.subject, topic: options.topic, total: options.total })
+    const result = await generateQuestions({ subject: options.subject, topic: options.topic, total: options.total }, { accessToken })
     setOutput(result)
   }
 

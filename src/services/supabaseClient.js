@@ -71,6 +71,9 @@ export async function getLoginEmailByIdentifier(identifier) {
   const normalized = normalizeLoginIdentifier(identifier)
   if (!normalized || normalized.includes('@')) return normalized
 
+  const resolvedEmail = await resolveLoginEmailAlias(normalized)
+  if (resolvedEmail) return resolvedEmail
+
   const query = new URLSearchParams({
     username: `eq.${normalized}`,
     select: 'email',
@@ -78,6 +81,19 @@ export async function getLoginEmailByIdentifier(identifier) {
   })
   const rows = await request(`/rest/v1/login_aliases?${query.toString()}`)
   return rows?.[0]?.email || normalized
+}
+
+async function resolveLoginEmailAlias(identifier) {
+  try {
+    const rows = await request('/rest/v1/rpc/resolve_login_email', {
+      method: 'POST',
+      body: { login_identifier: identifier },
+    })
+
+    return rows?.[0]?.email || null
+  } catch (error) {
+    return null
+  }
 }
 
 export async function listRows(tableName, { select = '*', filters = {}, accessToken } = {}) {

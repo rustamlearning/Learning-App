@@ -78,6 +78,13 @@ import { fetchQuestions, removeQuestion, saveQuestion } from '../services/questi
 import { fetchQuizAttempts, fetchQuizQuestions, fetchQuizzes, fetchStudentRecord, removeQuiz, saveQuiz, submitQuizAttempt } from '../services/quizService.js'
 import { exportBackupData, fetchAdminStudents, fetchAdminTeachers, fetchClasses, fetchSubjects, removeAdminStudent, removeAdminTeacher, removeClass, removeSubject, saveAdminStudent, saveAdminTeacher, saveClass, saveSubject } from '../services/adminService.js'
 import { createAssignmentSubmission, fetchAssignmentSubmissions, fetchAssignments, removeAssignment, saveAssignment } from '../services/assignmentService.js'
+import {
+  isExternalMaterialType,
+  isHtmlMaterialType,
+  isLinkedMaterialType,
+  isValidLinkedMaterial,
+  isValidMaterialUrl,
+} from '../utils/materialSecurity.js'
 
 const ContentStudio = lazy(() => import('./ContentStudio.jsx'))
 
@@ -927,37 +934,6 @@ function buildMaterialLearningSections(item) {
   ]
 }
 
-function isExternalMaterialType(type) {
-  return ['Link', 'Video', 'PDF'].includes(type)
-}
-
-function isHtmlMaterialType(type) {
-  return type === 'HTML'
-}
-
-function isLinkedMaterialType(type) {
-  return isExternalMaterialType(type) || isHtmlMaterialType(type)
-}
-
-function isValidMaterialUrl(value) {
-  try {
-    const url = new URL(value)
-    return ['http:', 'https:'].includes(url.protocol)
-  } catch (error) {
-    return false
-  }
-}
-
-function isValidMaterialPath(value) {
-  return /^\/materials\/.+\.html(?:[?#].*)?$/i.test(String(value || '').trim())
-}
-
-function isValidLinkedMaterial(value, type) {
-  if (isHtmlMaterialType(type)) return isValidMaterialUrl(value) || isValidMaterialPath(value)
-  if (isExternalMaterialType(type)) return isValidMaterialUrl(value)
-  return true
-}
-
 function MaterialDetail({ item, onBack, onComplete, notify }) {
   const navigate = useNavigate()
   const sections = buildMaterialLearningSections(item)
@@ -1011,7 +987,9 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
                 title={item.title}
                 src={item.content}
                 className="h-[78vh] w-full bg-[#f7f4ee]"
-                sandbox="allow-scripts allow-same-origin"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                sandbox="allow-scripts allow-forms allow-popups"
               />
             </div>
           )}
@@ -1167,6 +1145,10 @@ function SiswaTugas({ user, notify, appContext }) {
     if (appContext?.accessToken && selected.source === 'supabase' && isUuid(user?.id)) {
       try {
         const student = await fetchStudentRecord({ accessToken: appContext.accessToken, profileId: user.id })
+        if (!student?.id) {
+          notify('Profil siswa belum terhubung ke data kelas. Hubungi admin sekolah.')
+          return
+        }
         await createAssignmentSubmission({ accessToken: appContext.accessToken, assignmentId: selected.id, studentId: student?.id, answerText: answer.trim() })
         notify('Jawaban tugas dikirim ke Supabase.')
       } catch (submitError) {
@@ -1570,6 +1552,10 @@ function KuisPage({ user, notify, appContext }) {
 
     try {
       const student = isUuid(user?.id) ? await fetchStudentRecord({ accessToken: appContext.accessToken, profileId: user.id }) : null
+      if (!student?.id) {
+        notify('Profil siswa belum terhubung ke data kelas. Hubungi admin sekolah.')
+        return
+      }
       const attempt = await submitQuizAttempt({ accessToken: appContext.accessToken, quiz: selected, questions: quizQuestions, answers, studentId: student?.id })
       const savedResult = {
         ...localResult,
@@ -2734,7 +2720,7 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
 
           {invalidLinkedMaterial && (
             <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
-              Untuk HTML, gunakan path /materials/...html atau URL lengkap. Untuk PDF, Video, dan Link, gunakan URL lengkap yang diawali http atau https.
+              Untuk HTML, gunakan path internal /materials/...html. Untuk PDF, Video, dan Link, gunakan URL lengkap yang diawali http atau https.
             </div>
           )}
           {publishNeedsContent && (

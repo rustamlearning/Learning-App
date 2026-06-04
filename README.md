@@ -69,6 +69,10 @@ GROQ_API_KEY=your-groq-api-key
 GROQ_MODEL=llama-3.1-8b-instant
 GROQ_FALLBACK_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
 OPENROUTER_ENABLED=false
+AI_REQUIRE_AUTH=true
+AI_RATE_LIMIT_MAX=24
+AI_TIMEOUT_MS=22000
+AI_MAX_PROMPT_CHARS=6000
 ```
 
 ## Setup Supabase
@@ -109,6 +113,8 @@ Groq Llama menjadi provider utama. OpenRouter hanya dipakai jika `OPENROUTER_ENA
 
 Jika API AI belum dikonfigurasi, aplikasi tetap menggunakan mode fallback aman.
 
+Untuk production, gunakan `AI_REQUIRE_AUTH=true` agar endpoint AI hanya bisa dipakai pengguna yang sudah login. Saat development tanpa Supabase, set `AI_REQUIRE_AUTH=false` jika ingin menguji AI live memakai akun demo lokal.
+
 ## Deploy ke Vercel
 
 Project ini siap dideploy ke Vercel.
@@ -127,6 +133,10 @@ OPENROUTER_MODEL
 OPENROUTER_FALLBACK_MODEL
 OPENROUTER_SITE_URL
 OPENROUTER_APP_NAME
+AI_REQUIRE_AUTH
+AI_RATE_LIMIT_MAX
+AI_TIMEOUT_MS
+AI_MAX_PROMPT_CHARS
 ```
 
 Vercel akan otomatis deploy setiap kali branch `main` di-push ke GitHub.
