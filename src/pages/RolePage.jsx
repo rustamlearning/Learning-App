@@ -85,6 +85,30 @@ import {
   isValidLinkedMaterial,
   isValidMaterialUrl,
 } from '../utils/materialSecurity.js'
+import {
+  getCompletedMaterials,
+  getLocalAdminCollection,
+  getLocalAdminProfiles,
+  getLocalAssignmentSubmission,
+  getLocalAssignmentSubmissions,
+  getLocalTeacherAssignments,
+  getLocalTeacherQuestions,
+  getLocalTeacherQuizzes,
+  getQuizResult,
+  getStoredResultsByPrefix,
+  isLegacyDemoRow,
+  readLocalRowsByPrefix,
+  safeReadLocalJson,
+  safeWriteLocalJson,
+  saveLocalAssignmentSubmission,
+  saveQuizResult,
+  setCompletedMaterials,
+  setLocalAdminCollection,
+  setLocalAdminProfiles,
+  setLocalTeacherAssignments,
+  setLocalTeacherQuestions,
+  setLocalTeacherQuizzes,
+} from '../utils/localLearningStore.js'
 
 const ContentStudio = lazy(() => import('./ContentStudio.jsx'))
 
@@ -329,61 +353,6 @@ function KelasSaya() {
       </div>
     </div>
   )
-}
-
-
-function readLocalRowsByPrefix(prefix) {
-  if (typeof localStorage === 'undefined') return []
-
-  try {
-    return Object.keys(localStorage)
-      .filter((key) => key.startsWith(prefix))
-      .flatMap((key) => {
-        const rows = safeReadLocalJson(key, [])
-        return Array.isArray(rows) ? rows : []
-      })
-      .filter((row) => !isLegacyDemoRow(row))
-  } catch (error) {
-    return []
-  }
-}
-
-function isLegacyDemoRow(row) {
-  return /^(material|question|assignment|quiz)-\d+$/.test(row?.id || '')
-}
-
-function safeReadLocalJson(key, fallback = null) {
-  if (typeof localStorage === 'undefined') return fallback
-
-  try {
-    const raw = localStorage.getItem(key)
-    if (!raw) return fallback
-
-    const parsed = JSON.parse(raw)
-
-    if (Array.isArray(fallback)) {
-      return Array.isArray(parsed) ? parsed : fallback
-    }
-
-    if (fallback && typeof fallback === 'object') {
-      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback
-    }
-
-    return parsed ?? fallback
-  } catch (error) {
-    return fallback
-  }
-}
-
-function safeWriteLocalJson(key, value) {
-  if (typeof localStorage === 'undefined') return false
-
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-    return true
-  } catch (error) {
-    return false
-  }
 }
 
 
@@ -1050,36 +1019,6 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
   )
 }
 
-function getCompletedMaterials(userId) {
-  return safeReadLocalJson(`islelearn-material-progress-${userId || 'demo'}`, [])
-}
-
-function setCompletedMaterials(userId, ids) {
-  safeWriteLocalJson(`islelearn-material-progress-${userId || 'demo'}`, Array.isArray(ids) ? ids : [])
-}
-
-function assignmentSubmissionStorageKey(assignmentId) {
-  return `islelearn-assignment-submissions-${assignmentId || 'unknown'}`
-}
-
-function getLocalAssignmentSubmissions(assignmentId) {
-  return safeReadLocalJson(assignmentSubmissionStorageKey(assignmentId), [])
-}
-
-function getLocalAssignmentSubmission(assignmentId, userId) {
-  return getLocalAssignmentSubmissions(assignmentId).find((item) => item.userId === (userId || 'demo')) || null
-}
-
-function saveLocalAssignmentSubmission(assignmentId, submission) {
-  const rows = getLocalAssignmentSubmissions(assignmentId)
-  const nextRows = rows.some((item) => item.userId === submission.userId)
-    ? rows.map((item) => item.userId === submission.userId ? submission : item)
-    : [submission, ...rows]
-
-  safeWriteLocalJson(assignmentSubmissionStorageKey(assignmentId), nextRows)
-  return nextRows
-}
-
 function SiswaTugas({ user, notify, appContext }) {
   const [rows, setRows] = useState([])
   const [selected, setSelected] = useState(null)
@@ -1426,14 +1365,6 @@ function PracticeDetail({ practice, onBack, notify }) {
       )}
     </div>
   )
-}
-
-function getQuizResult(quizId, userId) {
-  return safeReadLocalJson(`islelearn-quiz-result-${userId || 'demo'}-${quizId}`, null)
-}
-
-function saveQuizResult(quizId, userId, result) {
-  safeWriteLocalJson(`islelearn-quiz-result-${userId || 'demo'}-${quizId}`, result || {})
 }
 
 function getQuizQuestionSet(quiz) {
@@ -1846,22 +1777,6 @@ function LearningPackDetail({ pack, onBack }) {
 
 function AIPage() {
   return <><PageHeader eyebrow="AI Tutor" title="AI Tutor siap membantu kamu memahami materi." description="Terhubung ke AI server saat tersedia, dengan mode fallback aman jika API belum dikonfigurasi." /><AIChatPanel /></>
-}
-
-function getStoredResultsByPrefix(prefix) {
-  if (typeof localStorage === 'undefined') return []
-
-  try {
-    return Object.keys(localStorage)
-      .filter((key) => key.startsWith(prefix))
-      .map((key) => {
-        const item = safeReadLocalJson(key, null)
-        return item && typeof item === 'object' ? item : null
-      })
-      .filter((item) => item && typeof item.score === 'number')
-  } catch (error) {
-    return []
-  }
 }
 
 function averageScore(rows) {
@@ -2832,25 +2747,6 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '')
 }
 
-function teacherQuestionStorageKey(user, teacherSubject) {
-  return `islelearn-teacher-questions-${user?.id || teacherSubject || 'demo'}`
-}
-
-function getLocalTeacherQuestions(user, teacherSubject) {
-  const key = teacherQuestionStorageKey(user, teacherSubject)
-  const storedRows = safeReadLocalJson(key, null)
-
-  if (Array.isArray(storedRows)) {
-    return storedRows.filter((row) => !isLegacyDemoRow(row))
-  }
-
-  return []
-}
-
-function setLocalTeacherQuestions(user, teacherSubject, rows) {
-  safeWriteLocalJson(teacherQuestionStorageKey(user, teacherSubject), Array.isArray(rows) ? rows : [])
-}
-
 function BankSoal({ user, notify, appContext }) {
   const hasTeacherSubject = Boolean(user?.subject?.trim())
   const teacherSubject = hasTeacherSubject ? user.subject.trim() : ''
@@ -3368,25 +3264,6 @@ function emptyQuestion(lookups, teacherSubject) {
   }
 }
 
-function teacherAssignmentStorageKey(user, teacherSubject) {
-  return `islelearn-teacher-assignments-${user?.id || teacherSubject || 'demo'}`
-}
-
-function getLocalTeacherAssignments(user, teacherSubject) {
-  const key = teacherAssignmentStorageKey(user, teacherSubject)
-  const storedRows = safeReadLocalJson(key, null)
-
-  if (Array.isArray(storedRows)) {
-    return storedRows.filter((row) => !isLegacyDemoRow(row))
-  }
-
-  return []
-}
-
-function setLocalTeacherAssignments(user, teacherSubject, rows) {
-  safeWriteLocalJson(teacherAssignmentStorageKey(user, teacherSubject), Array.isArray(rows) ? rows : [])
-}
-
 function GuruTugas({ user, notify, appContext }) {
   const teacherSubject = user?.subject?.trim() || ''
   const [rows, setRows] = useState([])
@@ -3750,25 +3627,6 @@ function emptyAssignment(lookups, teacherSubject) {
     status: 'Draft',
     rubric: '',
   }
-}
-
-function teacherQuizStorageKey(user, teacherSubject) {
-  return `islelearn-teacher-quizzes-${user?.id || teacherSubject || 'demo'}`
-}
-
-function getLocalTeacherQuizzes(user, teacherSubject) {
-  const key = teacherQuizStorageKey(user, teacherSubject)
-  const storedRows = safeReadLocalJson(key, null)
-
-  if (Array.isArray(storedRows)) {
-    return storedRows.filter((row) => !isLegacyDemoRow(row))
-  }
-
-  return []
-}
-
-function setLocalTeacherQuizzes(user, teacherSubject, rows) {
-  safeWriteLocalJson(teacherQuizStorageKey(user, teacherSubject), Array.isArray(rows) ? rows : [])
 }
 
 function KuisLive({ user, notify, appContext }) {
@@ -4274,27 +4132,6 @@ function AdminDashboard() {
 }
 
 
-function adminProfileStorageKey(role) {
-  return `islelearn-admin-profiles-${role}`
-}
-
-function getLocalAdminProfiles(role, fallbackRows) {
-  const safeFallbackRows = Array.isArray(fallbackRows) ? fallbackRows : []
-  const key = adminProfileStorageKey(role)
-  const storedRows = safeReadLocalJson(key, null)
-
-  if (Array.isArray(storedRows)) {
-    return storedRows
-  }
-
-  safeWriteLocalJson(key, safeFallbackRows)
-  return safeFallbackRows
-}
-
-function setLocalAdminProfiles(role, rows) {
-  safeWriteLocalJson(adminProfileStorageKey(role), Array.isArray(rows) ? rows : [])
-}
-
 function AdminProfiles({ role, title, notify, appContext }) {
   const fallbackRows = role === 'guru' ? teachers.map((teacher) => ({ ...teacher, role: 'guru' })) : students.map((student) => ({ ...student, role: 'siswa' }))
   const [rows, setRows] = useState([])
@@ -4503,27 +4340,6 @@ function ProfileForm({ title, role, profile, lookups, onCancel, onSave }) {
       </div>
     </SectionCard>
   )
-}
-
-function adminCollectionStorageKey(collection) {
-  return `islelearn-admin-${collection}`
-}
-
-function getLocalAdminCollection(collection, fallbackRows) {
-  const safeFallbackRows = Array.isArray(fallbackRows) ? fallbackRows : []
-  const key = adminCollectionStorageKey(collection)
-  const storedRows = safeReadLocalJson(key, null)
-
-  if (Array.isArray(storedRows)) {
-    return storedRows
-  }
-
-  safeWriteLocalJson(key, safeFallbackRows)
-  return safeFallbackRows
-}
-
-function setLocalAdminCollection(collection, rows) {
-  safeWriteLocalJson(adminCollectionStorageKey(collection), Array.isArray(rows) ? rows : [])
 }
 
 function AdminKelas({ notify, appContext }) {

@@ -58,6 +58,16 @@ npm run build
 npm run preview
 ```
 
+## Quality Checks
+
+```bash
+npm run check
+npm run audit:production
+npm run audit:live -- https://learning-sman6pangkep.vercel.app
+```
+
+`audit:production` mengecek konfigurasi lokal, schema, headers, dan inventaris materi. `audit:live` mengecek halaman utama, login, dan `/api/health` setelah deploy.
+
 ## Environment Variables
 
 Copy file `.env.example` menjadi `.env.local`, lalu isi value yang sesuai.
@@ -73,6 +83,8 @@ AI_REQUIRE_AUTH=true
 AI_RATE_LIMIT_MAX=24
 AI_TIMEOUT_MS=22000
 AI_MAX_PROMPT_CHARS=6000
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
 ```
 
 ## Setup Supabase
@@ -115,6 +127,8 @@ Jika API AI belum dikonfigurasi, aplikasi tetap menggunakan mode fallback aman.
 
 Untuk production, gunakan `AI_REQUIRE_AUTH=true` agar endpoint AI hanya bisa dipakai pengguna yang sudah login. Saat development tanpa Supabase, set `AI_REQUIRE_AUTH=false` jika ingin menguji AI live memakai akun demo lokal.
 
+Untuk rate limit production yang stabil antar serverless instance, isi `UPSTASH_REDIS_REST_URL` dan `UPSTASH_REDIS_REST_TOKEN`. Jika kosong, aplikasi tetap memakai rate limit in-memory.
+
 ## Deploy ke Vercel
 
 Project ini siap dideploy ke Vercel.
@@ -137,9 +151,13 @@ AI_REQUIRE_AUTH
 AI_RATE_LIMIT_MAX
 AI_TIMEOUT_MS
 AI_MAX_PROMPT_CHARS
+UPSTASH_REDIS_REST_URL
+UPSTASH_REDIS_REST_TOKEN
 ```
 
 Vercel akan otomatis deploy setiap kali branch `main` di-push ke GitHub.
+
+Setelah deploy, buka `/api/health` atau jalankan `npm run audit:live -- <url-production>` untuk memastikan Supabase, AI provider, dan `AI_REQUIRE_AUTH` aktif di environment live.
 
 ## Struktur Folder
 

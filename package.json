@@ -8,7 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node scripts/check-app.mjs",
-    "check": "npm run test && npm run build"
+    "check": "npm run test && npm run build",
+    "audit:production": "node scripts/check-production.mjs",
+    "audit:production:strict": "node scripts/check-production.mjs --strict",
+    "audit:live": "node scripts/check-live.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",

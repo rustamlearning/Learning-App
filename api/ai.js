@@ -14,6 +14,9 @@ const MAX_PROMPT_CHARS = Number(process.env.AI_MAX_PROMPT_CHARS || 6000)
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 22000)
 const RATE_LIMIT_MAX = Number(process.env.AI_RATE_LIMIT_MAX || 24)
 const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_RATE_LIMIT_WINDOW_MS || 60_000)
+const UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL
+const UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN
+const REMOTE_RATE_LIMIT_CONFIGURED = Boolean(UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN)
 const rateLimitStore = new Map()
 const allowedActions = new Set(['askTutor', 'generateQuestions', 'summarizeMaterial', 'generateFlashcards'])
 
@@ -37,7 +40,7 @@ export default async function handler(request, response) {
     }
 
     const rateKey = auth.user?.id || getClientIp(request)
-    if (!checkRateLimit(rateKey)) {
+    if (!(await checkRateLimit(rateKey))) {
       return response.status(429).json({ error: 'Terlalu banyak permintaan AI. Coba lagi sebentar.' })
     }
 
@@ -235,7 +238,54 @@ function getBearerToken(request) {
   return match?.[1]?.trim() || ''
 }
 
-function checkRateLimit(key) {
+async function checkRateLimit(key) {
+  if (REMOTE_RATE_LIMIT_CONFIGURED) {
+    try {
+      return await checkRemoteRateLimit(key)
+    } catch (error) {
+      return checkMemoryRateLimit(key)
+    }
+  }
+
+  return checkMemoryRateLimit(key)
+}
+
+async function checkRemoteRateLimit(key) {
+  const redisKey = `islelearn:ai-rate:${sanitizeRateLimitKey(key)}`
+  const initialized = await redisCommand(['SET', redisKey, '1', 'PX', RATE_LIMIT_WINDOW_MS, 'NX'])
+
+  if (initialized === 'OK') return true
+
+  const count = Number(await redisCommand(['INCR', redisKey]))
+  if (count === 1) await redisCommand(['PEXPIRE', redisKey, RATE_LIMIT_WINDOW_MS])
+
+  return count <= RATE_LIMIT_MAX
+}
+
+async function redisCommand(command) {
+  const redisUrl = UPSTASH_REDIS_REST_URL.replace(/\/$/, '')
+  const redisResponse = await fetch(redisUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${UPSTASH_REDIS_REST_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(command),
+  })
+  const data = await parseJsonResponse(redisResponse)
+
+  if (!redisResponse.ok || data?.error) {
+    throw new Error(data?.error || 'Redis rate limit request failed.')
+  }
+
+  return data?.result
+}
+
+function sanitizeRateLimitKey(key) {
+  return String(key || 'anonymous').replace(/[^\w:.-]/g, '_').slice(0, 120)
+}
+
+function checkMemoryRateLimit(key) {
   const now = Date.now()
   const current = rateLimitStore.get(key)
 
