@@ -2853,7 +2853,7 @@ function StudioWorkflowGuide({ activeTab }) {
   }
 
   return (
-    <SectionCard className="mb-5 bg-gradient-to-br from-white via-violet-50/70 to-cyan-50/80">
+    <SectionCard className="mb-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-galaxy-purple">Alur Kerja Guru</p>
@@ -2867,7 +2867,7 @@ function StudioWorkflowGuide({ activeTab }) {
 
       <div className="mt-5 grid gap-3 md:grid-cols-5">
         {contentStudioWorkflowSteps.map((step, index) => (
-          <div key={step.title} className="rounded-2xl bg-white p-4 ring-1 ring-purple-100">
+          <div key={step.title} className="glass-inset rounded-2xl p-4">
             <span className="grid h-9 w-9 place-items-center rounded-2xl bg-galaxy-action text-sm font-black text-white">
               {index + 1}
             </span>
@@ -2886,7 +2886,7 @@ function StudioMiniNumberInput({ label, value, onChange, min = 0, suffix = '' })
   return (
     <label className="grid gap-1 text-[11px] font-black text-slate-500">
       <span className="truncate">{label}</span>
-      <div className="flex min-h-12 items-center gap-1 rounded-2xl border border-slate-200 bg-white px-2 py-2">
+      <div className="glass-inset flex min-h-12 items-center gap-1 rounded-2xl px-2 py-2">
         <input
           type="number"
           min={min}
@@ -2981,17 +2981,17 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
   }
 
   return (
-    <section className="overflow-hidden rounded-[1.35rem] bg-white shadow-[0_18px_70px_rgba(18,60,59,0.10)] ring-1 ring-slate-200/70">
-      <div className="bg-[#123c3b] p-4 text-white sm:p-5">
+    <section className="glass-panel overflow-hidden rounded-[1.35rem]">
+      <div className="glass-dark rounded-b-none rounded-t-[1.35rem] p-4 text-white sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-emerald-100">Siapkan Pembelajaran</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-sky-100">Siapkan Pembelajaran</p>
             <h2 className="mt-1 text-2xl font-black">Rancang pertemuan dari kebutuhan kelas</h2>
-            <p className="mt-1 max-w-2xl text-sm font-medium leading-6 text-emerald-50/80">
+            <p className="mt-1 max-w-2xl text-sm font-medium leading-6 text-sky-50/80">
               Konteks mengajar menjadi dasar sebelum memilih bahan ajar, tugas, kuis, atau soal.
             </p>
           </div>
-          <span className="rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-emerald-50 ring-1 ring-white/15">
+          <span className="rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-sky-50 ring-1 ring-white/15">
             {form.subject || 'Pilih mapel'} · {form.className ? `Kelas ${form.className}` : 'Kelas belum dipilih'}
           </span>
         </div>
@@ -2999,7 +2999,7 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
         <div className="mt-5 grid gap-2 sm:grid-cols-4">
           {summaryItems.map(([Icon, value, label]) => (
             <div key={label} className="rounded-[0.95rem] bg-white/8 px-3 py-3 ring-1 ring-white/12">
-              <div className="flex items-center gap-2 text-emerald-50">
+              <div className="flex items-center gap-2 text-sky-50">
                 <Icon size={15} />
                 <span className="text-[0.68rem] font-black uppercase tracking-[0.12em] opacity-75">{label}</span>
               </div>
@@ -3012,7 +3012,7 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
       <div className="grid gap-0 lg:grid-cols-[1.08fr_0.92fr]">
         <div className="p-4 sm:p-5">
           <div className="mb-4 flex items-start gap-3">
-            <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#e8f4ef] text-[#0f766e] ring-1 ring-[#123c3b]/10">
+            <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[0.9rem] bg-white/44 text-[#0284c7] ring-1 ring-white/60">
               <Users size={18} />
             </span>
             <div>
@@ -3039,7 +3039,7 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
               onChange={(event) => updateForm('learningObjective', event.target.value)}
               rows={3}
               placeholder="Tulis kemampuan yang ingin dicapai siswa pada pertemuan ini."
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#2f7d74] focus:ring-4 focus:ring-emerald-900/10"
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#0284C7] focus:ring-4 focus:ring-sky-900/10"
             />
           </label>
 
@@ -3050,7 +3050,7 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
               onChange={(event) => updateForm('studentNeed', event.target.value)}
               rows={3}
               placeholder="Contoh: siswa masih lemah di konsep dasar, perlu contoh lokal, atau perlu latihan bertahap."
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#2f7d74] focus:ring-4 focus:ring-emerald-900/10"
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#0284C7] focus:ring-4 focus:ring-sky-900/10"
             />
           </label>
 
@@ -3066,13 +3066,13 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
                   onClick={() => updateForm('referenceMode', id)}
                   className={`min-h-28 rounded-2xl p-3 text-left transition ${
                     activeSourceMode === id
-                      ? 'bg-[#123c3b] text-white shadow-lg shadow-emerald-950/10'
+                      ? 'bg-[#0B3A5B] text-white shadow-lg shadow-sky-950/10'
                       : 'bg-slate-50 text-slate-700 ring-1 ring-slate-200 hover:bg-white'
                   }`}
                 >
                   <Icon size={18} />
                   <span className="mt-3 block text-sm font-black">{label}</span>
-                  <span className={`mt-1 block text-xs font-semibold leading-5 ${activeSourceMode === id ? 'text-emerald-50/80' : 'text-slate-500'}`}>
+                  <span className={`mt-1 block text-xs font-semibold leading-5 ${activeSourceMode === id ? 'text-sky-50/80' : 'text-slate-500'}`}>
                     {description}
                   </span>
                 </button>
@@ -3080,15 +3080,15 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
             </div>
 
             {activeSourceMode === 'Tempel materi' && (
-              <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+              <div className="glass-inset mt-3 rounded-2xl p-3">
                 <textarea
                   value={form.sourceText || ''}
                   onChange={(event) => updateForm('sourceText', event.target.value)}
                   rows={5}
-                  className="w-full resize-y rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#2f7d74] focus:ring-4 focus:ring-emerald-900/10"
+                  className="w-full resize-y rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#0284C7] focus:ring-4 focus:ring-sky-900/10"
                   placeholder="Tempel modul, ringkasan buku, catatan guru, atau teks yang ingin diubah menjadi draft."
                 />
-                <button onClick={createFromText} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#123c3b] px-4 py-2.5 text-xs font-black text-white">
+                <button onClick={createFromText} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#0B3A5B] px-4 py-2.5 text-xs font-black text-white">
                   <Wand2 size={14} />
                   Olah teks
                 </button>
@@ -3096,10 +3096,10 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
             )}
 
             {activeSourceMode === 'Pakai video' && (
-              <div className="mt-3 grid gap-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+              <div className="glass-inset mt-3 grid gap-3 rounded-2xl p-3">
                 <TextField label="Link video / artikel" value={form.videoUrl || ''} onChange={(value) => updateForm('videoUrl', value)} placeholder="https://..." />
                 <TextField label="Judul sumber" value={form.videoTitle || ''} onChange={(value) => updateForm('videoTitle', value)} placeholder={`Video ${form.topic || template.sampleTopic}`} />
-                <button onClick={createVideoInteractive} className="w-fit rounded-xl bg-[#123c3b] px-4 py-2.5 text-xs font-black text-white">
+                <button onClick={createVideoInteractive} className="w-fit rounded-xl bg-[#0B3A5B] px-4 py-2.5 text-xs font-black text-white">
                   Buat dari link
                 </button>
               </div>
@@ -3107,7 +3107,7 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
           </div>
         </div>
 
-        <div className="border-t border-slate-200 bg-slate-50/80 p-4 sm:p-5 lg:border-l lg:border-t-0">
+        <div className="border-t border-white/60 bg-white/26 p-4 backdrop-blur-xl sm:p-5 lg:border-l lg:border-t-0">
           <div>
             <p className="text-sm font-black text-slate-950">Hasil yang disiapkan</p>
             <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
@@ -3122,7 +3122,7 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
                 onClick={() => updateForm('outputType', id)}
                 className={`min-h-20 rounded-[1rem] p-3 text-left ring-1 transition ${
                   form.outputType === id
-                    ? 'bg-[#123c3b] text-white shadow-lg shadow-emerald-950/10 ring-[#123c3b]'
+                    ? 'bg-[#0B3A5B] text-white shadow-lg shadow-sky-950/10 ring-[#0B3A5B]'
                     : 'bg-white text-slate-700 ring-slate-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,31,42,0.07)]'
                 }`}
               >
@@ -3130,7 +3130,7 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
                   <Icon size={17} />
                   <span className="text-sm font-black">{label}</span>
                 </div>
-                <span className={`mt-2 block text-xs font-semibold leading-5 ${form.outputType === id ? 'text-emerald-50/80' : 'text-slate-500'}`}>
+                <span className={`mt-2 block text-xs font-semibold leading-5 ${form.outputType === id ? 'text-sky-50/80' : 'text-slate-500'}`}>
                   {description}
                 </span>
               </button>
@@ -3193,8 +3193,8 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
                     onClick={() => toggleLevel(level)}
                     className={`grid h-9 min-w-9 place-items-center rounded-xl px-2 text-xs font-black ring-1 transition ${
                       selectedLevels.includes(level)
-                        ? 'bg-[#123c3b] text-white ring-[#123c3b]'
-                        : 'bg-white text-slate-500 ring-slate-200 hover:text-[#123c3b]'
+                        ? 'bg-[#0B3A5B] text-white ring-[#0B3A5B]'
+                        : 'bg-white text-slate-500 ring-slate-200 hover:text-[#0B3A5B]'
                     }`}
                   >
                     {level}
@@ -3211,19 +3211,19 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
               onChange={(event) => updateForm('customInstruction', event.target.value)}
               rows={4}
               placeholder="Tambahkan arahan khusus, gaya bahasa, konteks lokal, atau batasan yang perlu dijaga."
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#2f7d74] focus:ring-4 focus:ring-emerald-900/10"
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#0284C7] focus:ring-4 focus:ring-sky-900/10"
             />
           </label>
 
           <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
-            <button onClick={generateDraft} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#123c3b] px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-950/15 transition hover:-translate-y-0.5">
+            <button onClick={generateDraft} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0B3A5B] px-5 py-3 text-sm font-black text-white shadow-lg shadow-sky-950/15 transition hover:-translate-y-0.5">
               <Sparkles size={17} />
               {primaryActionLabel}
             </button>
             <button
               onClick={saveContent}
               disabled={!canSave}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-extrabold text-[#123c3b] ring-1 ring-slate-200 transition disabled:cursor-not-allowed disabled:text-slate-400 disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-extrabold text-[#0B3A5B] ring-1 ring-slate-200 transition disabled:cursor-not-allowed disabled:text-slate-400 disabled:opacity-60"
             >
               <Save size={16} />
               Simpan arsip
@@ -3271,10 +3271,10 @@ function StudioOutputWorkspace({
   const editingQuestion = editingQuestionIndex !== null ? questions[editingQuestionIndex] : null
 
   return (
-    <section className="overflow-hidden rounded-[1.15rem] border border-[#123c3b]/10 bg-white/90 shadow-[0_16px_52px_rgba(15,31,42,0.075)]">
-      <div className="grid gap-3 border-b border-[#123c3b]/10 bg-[#f7f4ee]/72 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+    <section className="glass-panel overflow-hidden rounded-[1.15rem]">
+      <div className="grid gap-3 border-b border-white/60 bg-white/28 p-4 backdrop-blur-xl sm:grid-cols-[1fr_auto] sm:items-center">
         <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#0f766e]">Hasil kerja guru</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#0284c7]">Hasil kerja guru</p>
           <h2 className="mt-1 truncate text-2xl font-black text-slate-950">{getOutputLabel(form)}</h2>
           <p className="mt-1 text-sm font-semibold text-slate-500">
             {getOutputMeta(form, total)}
@@ -3287,15 +3287,15 @@ function StudioOutputWorkspace({
         </div>
       </div>
 
-      <div className="flex gap-1 overflow-x-auto border-b border-[#123c3b]/10 px-4 py-2">
+      <div className="flex gap-1 overflow-x-auto border-b border-[#0B3A5B]/10 px-4 py-2">
         {tabs.map(([id, label, Icon]) => (
           <button
             key={id}
             onClick={() => setResultTab(id)}
             className={`inline-flex min-h-10 flex-shrink-0 items-center gap-2 rounded-[0.85rem] px-3 text-xs font-black transition ${
               safeResultTab === id
-                ? 'bg-[#123c3b] text-white shadow-[0_10px_24px_rgba(15,31,42,0.14)]'
-                : 'text-slate-600 hover:bg-[#e8f4ef]'
+                ? 'bg-[#0B3A5B] text-white shadow-[0_10px_24px_rgba(15,31,42,0.14)]'
+                : 'text-slate-600 hover:bg-[#E0F2FE]'
             }`}
           >
             <Icon size={15} />
@@ -3326,7 +3326,7 @@ function StudioOutputWorkspace({
           {safeResultTab === 'materi' && <StudioMaterialDocument preview={preview} />}
         </div>
 
-        <div className="mt-4 border-t border-[#123c3b]/10 pt-4">
+        <div className="mt-4 border-t border-[#0B3A5B]/10 pt-4">
           <StudioPublishPanel
             outputType={form.outputType}
             publishToFeature={publishToFeature}
@@ -3340,7 +3340,7 @@ function StudioOutputWorkspace({
               <button
                 key={item}
                 disabled={!hasGenerated}
-                className="rounded-[0.8rem] bg-[#f7f4ee] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-[0.8rem] bg-[#F1F7FF] px-3 py-2 text-xs font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/10 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {item}
               </button>
@@ -3376,12 +3376,12 @@ function StudioQuestionDocument({ questions, form, preview, onEditQuestion }) {
 
   if (!questions.length) {
     return (
-      <div className="grid min-h-[13rem] place-items-center rounded-[1rem] bg-[#f7f4ee]/70 p-5 text-center ring-1 ring-[#123c3b]/10">
+      <div className="grid min-h-[13rem] place-items-center rounded-[1rem] bg-[#F1F7FF]/70 p-5 text-center ring-1 ring-[#0B3A5B]/10">
         <div>
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-[0.9rem] bg-white text-[#0f766e] ring-1 ring-[#123c3b]/10">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-[0.9rem] bg-white text-[#0284c7] ring-1 ring-[#0B3A5B]/10">
             <FileQuestion size={20} />
           </span>
-          <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-[#0f766e]">Belum ada soal</p>
+          <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-[#0284c7]">Belum ada soal</p>
           <h3 className="mt-2 text-2xl font-black text-slate-950">Draft masih kosong.</h3>
           <p className="mx-auto mt-2 max-w-xl text-sm font-medium leading-6 text-slate-500">
             Lengkapi topik dan komposisi soal, lalu klik tombol buat soal di panel atas.
@@ -3395,24 +3395,24 @@ function StudioQuestionDocument({ questions, form, preview, onEditQuestion }) {
     <div>
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <CheckCircle2 className="text-[#0f766e]" size={19} />
+          <CheckCircle2 className="text-[#0284c7]" size={19} />
           <h3 className="text-lg font-black text-slate-950">Daftar soal</h3>
         </div>
-        <span className="rounded-[0.75rem] bg-[#e8f4ef] px-3 py-1 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/10">{questions.length} soal</span>
+        <span className="rounded-[0.75rem] bg-[#E0F2FE] px-3 py-1 text-xs font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/10">{questions.length} soal</span>
       </div>
 
       <div className="grid gap-3">
         {questions.map((question, index) => (
-          <article key={question.id || index} className="rounded-[1rem] bg-white p-4 ring-1 ring-[#123c3b]/10">
+          <article key={question.id || index} className="rounded-[1rem] bg-white p-4 ring-1 ring-[#0B3A5B]/10">
             <div className="grid gap-3 sm:grid-cols-[auto_1fr_auto]">
-              <span className="grid h-9 w-9 place-items-center rounded-[0.75rem] bg-[#123c3b] text-sm font-black text-white">
+              <span className="grid h-9 w-9 place-items-center rounded-[0.75rem] bg-[#0B3A5B] text-sm font-black text-white">
                 {index + 1}
               </span>
               <div className="min-w-0">
                 <p className="whitespace-pre-line text-sm font-semibold leading-7 text-slate-800">{question.questionText}</p>
                 <div className="mt-3 grid gap-2">
                   {(question.options || []).slice(0, 5).map((option, optionIndex) => (
-                    <p key={`${question.id}-${optionIndex}`} className="rounded-[0.8rem] bg-[#f7f4ee] px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-[#123c3b]/8">
+                    <p key={`${question.id}-${optionIndex}`} className="rounded-[0.8rem] bg-[#F1F7FF] px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-[#0B3A5B]/8">
                       {String.fromCharCode(65 + optionIndex)}. {option}
                     </p>
                   ))}
@@ -3425,19 +3425,19 @@ function StudioQuestionDocument({ questions, form, preview, onEditQuestion }) {
               </div>
               <button
                 onClick={() => onEditQuestion(index)}
-                className="h-fit rounded-[0.8rem] bg-[#e8f4ef] px-3 py-2 text-xs font-black text-[#0f766e] ring-1 ring-[#123c3b]/10"
+                className="h-fit rounded-[0.8rem] bg-[#E0F2FE] px-3 py-2 text-xs font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/10"
               >
                 Edit
               </button>
             </div>
 
             {index < illustrationCount && (
-              <div className="mt-4 rounded-[0.95rem] bg-[#e8f4ef] p-4 ring-1 ring-[#123c3b]/10">
+              <div className="mt-4 rounded-[0.95rem] bg-[#E0F2FE] p-4 ring-1 ring-[#0B3A5B]/10">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-black text-[#0f766e]">Ilustrasi</p>
+                  <p className="text-sm font-black text-[#0284c7]">Ilustrasi</p>
                   <StatusBadge tone="green">Selesai</StatusBadge>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-[#0f766e]">
+                <p className="mt-2 text-sm leading-6 text-[#0284c7]">
                   Ilustrasi kontekstual tentang {preview.topic || form.topic}, dibuat sebagai panduan visual untuk soal ini.
                 </p>
               </div>
@@ -3525,10 +3525,10 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-[0_24px_70px_rgba(15,31,42,0.18)] ring-1 ring-[#123c3b]/10">
+      <div className="glass-panel max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl p-5">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#0f766e]">Edit Soal</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#0284c7]">Edit Soal</p>
             <h2 className="mt-1 text-xl font-black text-slate-950">Soal nomor {questionNumber}</h2>
           </div>
           <button onClick={onClose} className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-black text-slate-600 ring-1 ring-slate-100">
@@ -3542,7 +3542,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
             value={draft.questionText}
             onChange={(event) => updateField('questionText', event.target.value)}
             rows={4}
-            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-7 outline-none focus:border-[#2f7d74]"
+            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-7 outline-none focus:border-[#0284C7]"
           />
         </label>
 
@@ -3553,7 +3553,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
               <input
                 value={option}
                 onChange={(event) => updateOption(index, event.target.value)}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#2f7d74]"
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#0284C7]"
               />
             </label>
           ))}
@@ -3565,7 +3565,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
             <select
               value={draft.correctAnswer}
               onChange={(event) => updateField('correctAnswer', event.target.value)}
-              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#2f7d74]"
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#0284C7]"
             >
               {draft.options.filter(Boolean).map((option) => <option key={option}>{option}</option>)}
             </select>
@@ -3576,7 +3576,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
             <select
               value={draft.type}
               onChange={(event) => updateField('type', event.target.value)}
-              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#2f7d74]"
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#0284C7]"
             >
               {['Pilihan Ganda', 'Isian Singkat', 'Essay/Uraian', 'Benar/Salah', 'Menjodohkan'].map((item) => <option key={item}>{item}</option>)}
             </select>
@@ -3587,7 +3587,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
             <select
               value={draft.cognitiveLevel}
               onChange={(event) => updateField('cognitiveLevel', event.target.value)}
-              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#2f7d74]"
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#0284C7]"
             >
               {['C1', 'C2', 'C3', 'C4', 'C5', 'C6'].map((item) => <option key={item}>{item}</option>)}
             </select>
@@ -3598,7 +3598,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
             <select
               value={draft.difficulty}
               onChange={(event) => updateField('difficulty', event.target.value)}
-              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#2f7d74]"
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#0284C7]"
             >
               {['Mudah', 'Sedang', 'Sulit'].map((item) => <option key={item}>{item}</option>)}
             </select>
@@ -3610,7 +3610,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
           <input
             value={draft.indicator}
             onChange={(event) => updateField('indicator', event.target.value)}
-            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#2f7d74]"
+            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-[#0284C7]"
           />
         </label>
 
@@ -3620,7 +3620,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
             value={draft.explanation}
             onChange={(event) => updateField('explanation', event.target.value)}
             rows={3}
-            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-7 outline-none focus:border-[#2f7d74]"
+            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-7 outline-none focus:border-[#0284C7]"
           />
         </label>
 
@@ -3628,7 +3628,7 @@ function StudioQuestionEditorModal({ question, questionNumber, onClose, onSave }
           <button onClick={onClose} className="rounded-xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-600 ring-1 ring-slate-100">
             Batal
           </button>
-          <button onClick={handleSave} className="rounded-xl bg-[#123c3b] px-4 py-3 text-sm font-black text-white shadow-[0_12px_28px_rgba(18,60,59,0.18)]">
+          <button onClick={handleSave} className="rounded-xl bg-[#0B3A5B] px-4 py-3 text-sm font-black text-white shadow-[0_12px_28px_rgba(11,58,91,0.18)]">
             Simpan Perubahan
           </button>
         </div>
@@ -3715,7 +3715,7 @@ function StudioPublishPanel({ outputType, publishToFeature, savingTarget, disabl
   const waitingLabel = isMaterialOutput(outputType) ? 'Menunggu materi' : 'Menunggu draft'
 
   return (
-    <div className="rounded-[1rem] bg-[#f7f4ee]/72 p-3 ring-1 ring-[#123c3b]/10">
+    <div className="rounded-[1rem] bg-[#F1F7FF]/72 p-3 ring-1 ring-[#0B3A5B]/10">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-black text-slate-950">{panelTitle}</p>
@@ -3738,8 +3738,8 @@ function StudioPublishPanel({ outputType, publishToFeature, savingTarget, disabl
                 disabled
                   ? 'cursor-not-allowed bg-white/58 text-slate-400 ring-slate-200'
                   : active
-                    ? 'bg-[#123c3b] text-white ring-[#123c3b]'
-                    : 'bg-white text-slate-700 ring-[#123c3b]/10 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(15,31,42,0.08)]'
+                    ? 'bg-[#0B3A5B] text-white ring-[#0B3A5B]'
+                    : 'bg-white text-slate-700 ring-[#0B3A5B]/10 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(15,31,42,0.08)]'
               }`}
             >
               <span className={`grid h-10 w-10 flex-shrink-0 place-items-center rounded-[0.85rem] ring-1 ${
@@ -3747,7 +3747,7 @@ function StudioPublishPanel({ outputType, publishToFeature, savingTarget, disabl
                   ? 'bg-white/12 text-white ring-white/15'
                   : disabled
                     ? 'bg-slate-100 text-slate-400 ring-slate-200'
-                    : 'bg-[#e8f4ef] text-[#0f766e] ring-[#123c3b]/10 group-hover:bg-[#123c3b] group-hover:text-white'
+                    : 'bg-[#E0F2FE] text-[#0284c7] ring-[#0B3A5B]/10 group-hover:bg-[#0B3A5B] group-hover:text-white'
               }`}>
                 <Icon size={17} />
               </span>
@@ -3798,7 +3798,7 @@ function StudioAnalysisPanel({ questions, form }) {
       </div>
 
       <SectionCard>
-        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#0f766e]">Level Kognitif</p>
+        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#0284c7]">Level Kognitif</p>
         <div className="mt-4 flex flex-wrap gap-2">
           {['C1', 'C2', 'C3', 'C4', 'C5', 'C6'].map((level) => (
             <StatusBadge key={level} tone={(cognitiveCounts[level] || 0) > 0 ? 'green' : 'gray'}>
@@ -3817,7 +3817,7 @@ function StudioMaterialDocument({ preview }) {
   if (!preview?.hasGenerated || sections.length === 0) {
     return (
       <div className="mt-4 rounded-2xl border border-dashed border-[#99c8bd] bg-slate-50 p-5 text-center">
-        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#0f766e]">Belum ada bahan ajar</p>
+        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#0284c7]">Belum ada bahan ajar</p>
         <h3 className="mt-2 text-2xl font-black text-slate-950">Hasil akan muncul setelah pembelajaran disiapkan.</h3>
         <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
           Isi konteks kelas, topik, tujuan, dan kebutuhan siswa. Setelah itu klik <b>Siapkan bahan ajar</b>.
@@ -3829,7 +3829,7 @@ function StudioMaterialDocument({ preview }) {
   return (
     <div className="mt-5">
       <div className="mb-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
-        <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#0f766e]">Bahan ajar siswa</p>
+        <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#0284c7]">Bahan ajar siswa</p>
         <h3 className="mt-1 text-2xl font-black text-slate-950">{preview.title || preview.topic || 'Materi Pembelajaran'}</h3>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
           {preview.subject || 'Mata pelajaran'} · {preview.className || 'Kelas'} · {preview.topic || 'Topik'}
@@ -3840,7 +3840,7 @@ function StudioMaterialDocument({ preview }) {
         {sections.map((section, index) => (
           <article key={`${section.title}-${index}`} className="rounded-2xl bg-white p-4 ring-1 ring-slate-100">
             <div className="flex gap-3">
-              <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl bg-[#e8f4ef] text-sm font-black text-[#0f766e]">
+              <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl bg-[#E0F2FE] text-sm font-black text-[#0284c7]">
                 {index + 1}
               </span>
               <div className="min-w-0">
@@ -4245,7 +4245,7 @@ function PreviewPanel({ preview, publishToFeature, deliveryStatus, savingTarget 
             <div className="mt-3 grid gap-2 md:grid-cols-2">
               {publishChecklistItems.map((item) => (
                 <div key={item} className="flex items-start gap-2 text-sm leading-6 text-slate-600">
-                  <CheckCircle2 className="mt-0.5 flex-shrink-0 text-emerald-500" size={16} />
+                  <CheckCircle2 className="mt-0.5 flex-shrink-0 text-sky-500" size={16} />
                   <span>{item}</span>
                 </div>
               ))}
@@ -4542,7 +4542,7 @@ function GraphingTool() {
               const y = 30 + index * 35
               return <line key={`hy-${index}`} x1="20" y1={y} x2="340" y2={y} stroke="#E2E8F0" strokeWidth="0.8" />
             })}
-            <polyline points={polyline} fill="none" stroke="#0F766E" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+            <polyline points={polyline} fill="none" stroke="#0284C7" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
 
@@ -5136,7 +5136,7 @@ function TextField({ label, value, onChange, placeholder }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="min-h-12 rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2f7d74] focus:ring-4 focus:ring-emerald-900/10"
+        className="min-h-12 rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0284C7] focus:ring-4 focus:ring-sky-900/10"
       />
     </label>
   )
@@ -5150,7 +5150,7 @@ function SelectField({ label, value, onChange, options, placeholder = '', disabl
         value={value}
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
-        className="min-h-12 rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 outline-none transition focus:border-[#2f7d74] focus:ring-4 focus:ring-emerald-900/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+        className="min-h-12 rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 outline-none transition focus:border-[#0284C7] focus:ring-4 focus:ring-sky-900/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
       >
         {placeholder && <option value="">{placeholder}</option>}
         {options.map((option) => <option key={option}>{option}</option>)}

@@ -13,9 +13,9 @@ import { EmptyState } from './components/ui.jsx'
 
 const rolePages = {
   siswa: ['dashboard', 'kelas', 'materi', 'tugas', 'latihan', 'kuis', 'flashcard', 'ai-tutor', 'progres', 'leaderboard', 'profil', 'isleclub'],
-  guru: ['dashboard', 'kelas', 'materi', 'bank-soal', 'tugas', 'kuis-live', 'studio-konten', 'analisis-nilai', 'remedial', 'ai-generator', 'laporan'],
-  admin: ['dashboard', 'guru', 'siswa', 'kelas', 'mapel', 'pengaturan', 'laporan', 'backup'],
-  pimpinan: ['dashboard', 'monitoring-kelas', 'monitoring-guru', 'monitoring-siswa', 'laporan-akademik', 'laporan-aktivitas'],
+  guru: ['dashboard', 'kelas', 'materi', 'bank-soal', 'tugas', 'kuis-live', 'daftar-hadir', 'studio-konten', 'daftar-nilai', 'e-rapor', 'analisis-nilai', 'remedial', 'ai-generator', 'laporan'],
+  admin: ['dashboard', 'guru', 'siswa', 'kelas', 'mapel', 'e-rapor', 'pengaturan', 'laporan', 'backup'],
+  pimpinan: ['dashboard', 'monitoring-kelas', 'monitoring-guru', 'monitoring-siswa', 'e-rapor', 'laporan-akademik', 'laporan-aktivitas'],
 }
 
 export default function App() {
@@ -45,8 +45,8 @@ export default function App() {
 
 function RouteLoading() {
   return (
-    <main className="grid min-h-dvh place-items-center bg-galaxy-surface p-4">
-      <div className="rounded-3xl border border-slate-200 bg-white px-6 py-4 text-sm font-bold text-slate-500 shadow-soft">
+    <main className="grid min-h-dvh place-items-center dashboard-mesh p-4">
+      <div className="rounded-2xl border border-[#D9E6F5] bg-white px-6 py-4 text-sm font-bold text-slate-500 shadow-[0_10px_28px_rgba(15,36,55,0.045)]">
         Memuat halaman...
       </div>
     </main>
@@ -55,7 +55,7 @@ function RouteLoading() {
 
 function Unauthorized() {
   return (
-    <main className="grid min-h-dvh place-items-center bg-galaxy-surface p-4">
+    <main className="grid min-h-dvh place-items-center dashboard-mesh p-4">
       <EmptyState title="Akses tidak sesuai role" description="Silakan kembali ke dashboard sesuai akun yang sedang aktif." />
     </main>
   )

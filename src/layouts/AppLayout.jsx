@@ -1,13 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
   LogOut,
   Menu,
-  Moon,
   Search,
-  ShieldCheck,
-  Sparkles,
   X,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -29,12 +26,15 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-dvh dashboard-mesh">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-xl focus:bg-[#17446E] focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white">
+        Lewati ke konten
+      </a>
       <Sidebar user={user} items={items} open={mobileOpen} setOpen={setMobileOpen} onLogout={handleLogout} />
 
-      <div className="lg:pl-[18.5rem]">
+      <div className="lg:pl-[17rem]">
         <Topbar user={user} title={title} onMenu={() => setMobileOpen(true)} />
 
-        <main className="mx-auto max-w-7xl px-4 py-5 pb-24 sm:px-6 lg:py-7">
+        <main id="main-content" className="mx-auto max-w-7xl px-4 py-6 pb-24 sm:px-6 lg:py-8">
           <Outlet />
         </main>
       </div>
@@ -56,28 +56,27 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[18.5rem] max-w-[88vw] flex-col overflow-hidden border-r border-slate-200/80 bg-white text-slate-900 shadow-[0_24px_70px_rgba(15,31,42,0.10)] transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[17rem] max-w-[88vw] flex-col overflow-hidden border-r border-[#0E355A] bg-[#123B63] text-white shadow-[18px_0_44px_rgba(11,37,64,0.20)] transition-transform duration-300 lg:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="absolute inset-0 opacity-[0.42] [background-image:linear-gradient(rgba(15,31,42,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(15,31,42,0.035)_1px,transparent_1px)] [background-size:38px_38px]" />
-        <div className="absolute -right-24 bottom-10 h-80 w-80 rounded-full bg-[#d8a642]/10 blur-3xl" />
-
-        <div className="relative flex-shrink-0 border-b border-slate-200 p-4">
+        <div className="relative flex-shrink-0 border-b border-white/10 p-4">
           <div className="mb-4 flex items-start justify-between">
             <div className="flex items-start gap-3">
-              <IsleLearnMiniLogo />
+              <div className="rounded-2xl bg-white p-1.5 shadow-[0_12px_28px_rgba(5,20,35,0.22)]">
+                <IsleLearnMiniLogo />
+              </div>
 
               <div className="translate-y-1">
-                <p className="text-base font-black leading-tight tracking-[-0.02em] text-[#13232d]">{school.appName}</p>
-                <p className="line-clamp-2 text-xs leading-snug text-slate-500">{school.name}</p>
+                <p className="text-base font-black leading-tight text-white">{school.appName}</p>
+                <p className="line-clamp-2 text-xs leading-snug text-sky-100/78">{school.name}</p>
               </div>
             </div>
 
             <button
               aria-label="Tutup sidebar"
               onClick={() => setOpen(false)}
-              className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
+              className="rounded-xl p-2 text-sky-100 transition hover:bg-white/10 lg:hidden"
             >
               <X size={18} />
             </button>
@@ -88,7 +87,7 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
         <nav className="thin-scrollbar relative min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3" aria-label="Menu role">
           {groups.map((group) => (
             <div key={group.label}>
-              <p className="px-3 pb-1.5 pt-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+              <p className="px-3 pb-1.5 pt-1 text-[10px] font-black uppercase tracking-[0.16em] text-sky-100/52">
                 {group.label}
               </p>
 
@@ -104,8 +103,8 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
                       className={({ isActive }) =>
                         `group flex items-center gap-2.5 rounded-2xl px-2.5 py-2.5 text-sm font-bold transition duration-200 ${
                           isActive
-                            ? 'bg-[linear-gradient(135deg,#0F766E,#138177,#5DB8B0)] text-white shadow-[0_16px_34px_rgba(19,129,119,0.26)] ring-1 ring-white/10'
-                            : 'text-slate-600 hover:bg-[#e8f4ef] hover:text-[#0f766e]'
+                            ? 'bg-white text-[#123B63] shadow-[0_12px_24px_rgba(5,20,35,0.14)]'
+                            : 'text-sky-100/82 hover:bg-white/10 hover:text-white'
                         }`
                       }
                     >
@@ -114,8 +113,8 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
                           <span
                             className={`grid h-8 w-8 flex-shrink-0 place-items-center rounded-xl transition ${
                               isActive
-                                ? 'bg-white/15 text-white shadow-[0_10px_20px_rgba(255,255,255,0.10)]'
-                                : 'bg-[#f7f4ee] text-[#0f766e] group-hover:bg-white'
+                                ? 'bg-[#EAF4FF] text-[#2F80D8]'
+                                : 'bg-white/10 text-sky-100 group-hover:bg-white/16 group-hover:text-white'
                             }`}
                           >
                             <Icon size={17} />
@@ -131,22 +130,22 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
           ))}
         </nav>
 
-        <div className="relative flex-shrink-0 border-t border-slate-200 p-3">
-          <div className="mb-2 rounded-3xl bg-[#f8fafc] p-3 ring-1 ring-slate-200/80">
+        <div className="relative flex-shrink-0 border-t border-white/10 p-3">
+          <div className="mb-2 rounded-2xl bg-white/10 p-3 ring-1 ring-white/10">
             <div className="flex items-center gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#e8f4ef] text-sm font-black text-[#0f766e]">
+              <div className="grid h-11 w-11 place-items-center rounded-xl bg-white text-sm font-black text-[#123B63]">
                 {user.avatar}
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-black text-[#13232d]">{user.name}</p>
-                <p className="text-xs font-semibold text-slate-500">{roleLabels[user.role]}</p>
+                <p className="truncate text-sm font-black text-white">{user.name}</p>
+                <p className="text-xs font-semibold text-sky-100/72">{roleLabels[user.role]}</p>
               </div>
             </div>
 
             <button
               onClick={onLogout}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-[#0f766e]"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-bold text-white ring-1 ring-white/10 transition hover:bg-white hover:text-[#123B63]"
             >
               <LogOut size={16} /> Keluar
             </button>
@@ -165,19 +164,19 @@ function groupNavItems(role, items) {
       ['Akun', ['/profil']],
     ],
     guru: [
-      ['Mengajar', ['/dashboard', '/kelas', '/studio-konten', '/materi', '/bank-soal', '/tugas', '/kuis-live']],
-      ['Evaluasi', ['/analisis-nilai', '/remedial']],
+      ['Mengajar', ['/dashboard', '/kelas', '/studio-konten', '/materi', '/bank-soal', '/tugas', '/kuis-live', '/daftar-hadir']],
+      ['Evaluasi', ['/daftar-nilai', '/e-rapor', '/analisis-nilai', '/remedial']],
       ['Asisten', ['/ai-generator']],
       ['Laporan', ['/laporan']],
     ],
     admin: [
       ['Konsol', ['/dashboard']],
       ['Data Sekolah', ['/guru', '/siswa', '/kelas', '/mapel']],
-      ['Sistem', ['/pengaturan', '/laporan', '/backup']],
+      ['Sistem', ['/e-rapor', '/pengaturan', '/laporan', '/backup']],
     ],
     pimpinan: [
       ['Monitoring', ['/dashboard', '/monitoring-kelas', '/monitoring-guru', '/monitoring-siswa']],
-      ['Laporan', ['/laporan-akademik', '/laporan-aktivitas']],
+      ['Laporan', ['/e-rapor', '/laporan-akademik', '/laporan-aktivitas']],
     ],
   }
 
@@ -190,50 +189,86 @@ function groupNavItems(role, items) {
 }
 
 function Topbar({ user, title, onMenu }) {
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+  const searchResults = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+    if (!normalizedQuery) return []
+    return (navItems[user.role] || [])
+      .filter((item) => item.label.toLowerCase().includes(normalizedQuery))
+      .slice(0, 5)
+  }, [query, user.role])
+
+  function submitSearch(event) {
+    event.preventDefault()
+    const firstResult = searchResults[0]
+    if (!firstResult) return
+    navigate(firstResult.path)
+    setQuery('')
+  }
+
   return (
-    <header className="sticky top-0 z-30 border-b border-[#123c3b]/10 bg-[#fbfaf7]/86 backdrop-blur-2xl">
+    <header className="sticky top-0 z-30 border-b border-[#D9E6F5] bg-white/95">
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
         <button
           aria-label="Buka menu"
           onClick={onMenu}
-          className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-[#0f766e] shadow-[0_12px_28px_rgba(15,31,42,0.08)] ring-1 ring-[#123c3b]/10 lg:hidden"
+          className="grid h-11 w-11 place-items-center rounded-xl bg-white text-[#2F80D8] ring-1 ring-[#D9E6F5] lg:hidden"
         >
           <Menu size={20} />
         </button>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-black uppercase tracking-[0.14em] text-[#0f766e]">{school.shortName}</p>
-          <h1 className="truncate text-lg font-black tracking-[-0.02em] text-[#13232d] sm:text-xl">{title}</h1>
+          <p className="truncate text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">{school.shortName}</p>
+          <h1 className="truncate text-lg font-black text-[#132437] sm:text-xl">{title}</h1>
         </div>
 
-        <label className="hidden min-w-[18rem] items-center gap-2 rounded-2xl bg-white/78 px-4 py-2.5 text-sm text-slate-500 ring-1 ring-[#123c3b]/10 md:flex">
-          <Search size={17} />
-          <input
-            placeholder="Cari materi, siswa, atau laporan"
-            className="w-full bg-transparent text-slate-900 outline-none placeholder:text-slate-400"
-          />
-        </label>
-
-        <div className="hidden items-center gap-2 rounded-2xl bg-[#e8f4ef] px-3 py-2 text-xs font-bold text-[#0f766e] ring-1 ring-[#0f766e]/10 sm:flex">
-          <ShieldCheck size={15} /> Hemat Data
-        </div>
-
-        <button
-          aria-label="Ubah tema"
-          className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-[0_12px_28px_rgba(15,31,42,0.08)] ring-1 ring-[#123c3b]/10 transition hover:-translate-y-0.5 hover:text-[#0f766e]"
-        >
-          <Moon size={18} />
-        </button>
+        <form onSubmit={submitSearch} className="relative hidden min-w-[18rem] md:block">
+          <label className="flex h-11 items-center gap-2 rounded-xl bg-[#F8FBFF] px-4 text-sm text-[#64748B] ring-1 ring-[#D9E6F5]">
+            <Search size={17} />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Cari menu"
+              className="w-full bg-transparent text-[#132437] outline-none placeholder:text-slate-400"
+            />
+          </label>
+          {query.trim() && (
+            <div className="absolute right-0 top-12 z-40 w-full overflow-hidden rounded-xl border border-[#D9E6F5] bg-white shadow-[0_14px_34px_rgba(15,36,55,0.10)]">
+              {searchResults.length ? (
+                searchResults.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <button
+                      key={item.path}
+                      type="button"
+                      onClick={() => {
+                        navigate(item.path)
+                        setQuery('')
+                      }}
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-[#F5F9FF] hover:text-[#2F80D8]"
+                    >
+                      <Icon size={16} />
+                      {item.label}
+                    </button>
+                  )
+                })
+              ) : (
+                <p className="px-3 py-3 text-sm font-semibold text-[#64748B]">Menu tidak ditemukan.</p>
+              )}
+            </div>
+          )}
+        </form>
 
         <button
           aria-label="Notifikasi"
-          className="relative grid h-11 w-11 place-items-center rounded-2xl bg-white text-[#0f766e] shadow-[0_12px_28px_rgba(15,31,42,0.08)] ring-1 ring-[#123c3b]/10 transition hover:-translate-y-0.5"
+          disabled
+          className="grid h-11 w-11 place-items-center rounded-xl bg-[#F8FBFF] text-[#64748B] ring-1 ring-[#D9E6F5]"
         >
           <Bell size={18} />
-          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
         </button>
 
-        <div className="hidden h-11 w-11 place-items-center rounded-2xl bg-[#123c3b] text-sm font-black text-white shadow-[0_12px_28px_rgba(15,31,42,0.12)] sm:grid">
+        <div className="hidden h-11 w-11 place-items-center rounded-xl bg-[#17446E] text-sm font-black text-white sm:grid">
           {user.avatar}
         </div>
       </div>

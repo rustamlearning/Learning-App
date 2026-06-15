@@ -134,7 +134,22 @@ export function getLocalAdminProfiles(role, fallbackRows) {
   const key = `islelearn-admin-profiles-${role}`
   const storedRows = safeReadLocalJson(key, null)
 
-  if (Array.isArray(storedRows)) return storedRows
+  if (Array.isArray(storedRows)) {
+    if (!storedRows.length && safeFallbackRows.length) {
+      safeWriteLocalJson(key, safeFallbackRows)
+      return safeFallbackRows
+    }
+
+    const storedIds = new Set(storedRows.map((row) => row?.id).filter(Boolean))
+    const missingFallbackRows = safeFallbackRows.filter((row) => row?.id && !storedIds.has(row.id))
+    if (missingFallbackRows.length) {
+      const mergedRows = [...storedRows, ...missingFallbackRows]
+      safeWriteLocalJson(key, mergedRows)
+      return mergedRows
+    }
+
+    return storedRows
+  }
 
   safeWriteLocalJson(key, safeFallbackRows)
   return safeFallbackRows
@@ -149,7 +164,22 @@ export function getLocalAdminCollection(collection, fallbackRows) {
   const key = `islelearn-admin-${collection}`
   const storedRows = safeReadLocalJson(key, null)
 
-  if (Array.isArray(storedRows)) return storedRows
+  if (Array.isArray(storedRows)) {
+    if (!storedRows.length && safeFallbackRows.length) {
+      safeWriteLocalJson(key, safeFallbackRows)
+      return safeFallbackRows
+    }
+
+    const storedIds = new Set(storedRows.map((row) => row?.id).filter(Boolean))
+    const missingFallbackRows = safeFallbackRows.filter((row) => row?.id && !storedIds.has(row.id))
+    if (missingFallbackRows.length) {
+      const mergedRows = [...storedRows, ...missingFallbackRows]
+      safeWriteLocalJson(key, mergedRows)
+      return mergedRows
+    }
+
+    return storedRows
+  }
 
   safeWriteLocalJson(key, safeFallbackRows)
   return safeFallbackRows

@@ -2,362 +2,366 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   ArrowRight,
-  BarChart3,
   BookOpen,
-  Bot,
   CheckCircle2,
-  Cloud,
-  Compass,
-  FileQuestion,
-  Layers3,
-  LineChart,
-  PenLine,
-  Route,
-  School,
-  Trophy,
+  GraduationCap,
+  LibraryBig,
+  MapPin,
+  Sparkles,
   UsersRound,
   Waves,
-  Wifi,
 } from 'lucide-react'
-import { school } from '../data/dummyData.js'
+import { classes, school, students, teachers } from '../data/dummyData.js'
 
-const features = [
+const images = {
+  hero: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1800&q=86',
+  campus: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=1400&q=86',
+  library: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=1400&q=86',
+  coast: 'https://images.unsplash.com/photo-1520942702018-0862200e6873?auto=format&fit=crop&w=1400&q=86',
+}
+
+const navLinks = [
+  ['Profil', '#profil'],
+  ['Akademik', '#akademik'],
+  ['Kehidupan', '#kehidupan'],
+  ['Agenda', '#agenda'],
+]
+
+const stats = [
+  { value: classes.length, label: 'Rombel aktif' },
+  { value: students.length, label: 'Siswa terdata' },
+  { value: teachers.length, label: 'Guru & mapel' },
+  { value: '4', label: 'Portal peran' },
+]
+
+const pillars = [
   {
-    title: 'AI Tutor',
-    icon: Bot,
-    label: 'Bimbingan',
-    description: 'Bantuan belajar bertahap saat siswa membutuhkan penjelasan ulang.',
-  },
-  {
-    title: 'Materi Belajar',
+    title: 'Belajar bermakna',
+    description: 'Materi, tugas, latihan, dan asesmen disusun agar siswa punya arah belajar yang jelas setiap hari.',
     icon: BookOpen,
-    label: 'Konten',
-    description: 'Materi tersusun per kelas, ringan dibuka, dan mudah dilanjutkan.',
   },
   {
-    title: 'Latihan & Ujian',
-    icon: FileQuestion,
-    label: 'Evaluasi',
-    description: 'Kuis, tugas, dan asesmen berada dalam alur yang rapi.',
+    title: 'Karakter lulusan',
+    description: 'Sekolah menumbuhkan nalar kritis, kemandirian, disiplin, kepedulian, dan kesiapan hidup bermasyarakat.',
+    icon: GraduationCap,
   },
   {
-    title: 'Flashcard',
-    icon: Layers3,
-    label: 'Review',
-    description: 'Penguatan konsep penting sebelum siswa masuk ke latihan.',
-  },
-  {
-    title: 'Analisis Nilai',
-    icon: BarChart3,
-    label: 'Monitoring',
-    description: 'Guru dan pimpinan lebih mudah membaca perkembangan kelas.',
-  },
-  {
-    title: 'Mode Hemat Data',
-    icon: Cloud,
-    label: 'Akses',
-    description: 'Tampilan tetap nyaman untuk jaringan sekolah kepulauan.',
+    title: 'Digital sekolah',
+    description: 'IsleLearn menghubungkan daftar hadir, daftar nilai, e-Rapor, dan monitoring akademik dalam satu sistem.',
+    icon: Sparkles,
   },
 ]
 
-const audienceSections = [
-  {
-    label: 'Siswa',
-    title: 'Belajar harian dengan alur yang jelas.',
-    icon: Trophy,
-    points: ['Daily Mission', 'Learning Path', 'XP & Badge', 'AI Tutor'],
-  },
-  {
-    label: 'Guru',
-    title: 'Mengajar dan membaca progres dari satu tempat.',
-    icon: PenLine,
-    points: ['Kelola materi', 'Bank soal', 'Tugas & kuis', 'Analisis nilai'],
-  },
-  {
-    label: 'Sekolah',
-    title: 'Monitoring akademik lebih terstruktur.',
-    icon: School,
-    points: ['Dashboard admin', 'Monitoring pimpinan', 'Laporan sekolah', 'Role-based access'],
-  },
+const programs = [
+  ['Akademik', 'Pembelajaran kelas XI dan XII berbasis mapel, asesmen, dan perkembangan siswa.'],
+  ['Kesiswaan', 'Aktivitas sekolah, pembinaan karakter, dan ruang berkembang sesuai minat siswa.'],
+  ['Administrasi', 'Data guru, siswa, kelas, kehadiran, nilai, dan rapor dikelola lebih tertata.'],
 ]
 
-const signalCards = [
-  ['4', 'role pengguna', 'Siswa, guru, admin, pimpinan'],
-  ['6+', 'fitur inti', 'Materi, kuis, progres, AI'],
-  ['24/7', 'akses ringan', 'Nyaman dibuka dari perangkat sekolah'],
-]
-
-const featureStyles = [
-  'bg-[#ecfeff] text-[#0e7490] ring-[#67e8f9]/40',
-  'bg-[#f0fdfa] text-[#0f766e] ring-[#5eead4]/40',
-  'bg-[#fff7ed] text-[#c2410c] ring-[#fed7aa]/70',
-  'bg-[#f8fafc] text-[#334155] ring-slate-200',
-  'bg-[#f0fdf4] text-[#15803d] ring-[#bbf7d0]/70',
-  'bg-[#eef2ff] text-[#4338ca] ring-[#c7d2fe]/70',
-]
-
-const practiceCards = [
-  ['Word of the Day', 'Harbor = pelabuhan'],
-  ['Speaking Challenge', 'Describe your island in five sentences.'],
-  ['Writing Prompt', 'Write about your school morning.'],
-  ['AI English Feedback', 'Grammar dan vocabulary diperiksa otomatis.'],
+const agenda = [
+  ['Hari ini', 'Absensi harian dan pembelajaran kelas berjalan melalui dashboard guru.'],
+  ['Mingguan', 'Rekap kehadiran, latihan, kuis, dan progres belajar dibaca secara ringkas.'],
+  ['Semester', 'Daftar nilai tersambung ke e-Rapor untuk pelaporan hasil belajar.'],
 ]
 
 export default function Landing() {
   return (
-    <main className="min-h-dvh bg-[#f7fbfa] text-[#10201f]">
-      <section className="relative overflow-hidden border-b border-[#d7e7e3] bg-[linear-gradient(135deg,#ffffff_0%,#f0fdfa_48%,#eef7f4_100%)]">
-        <div className="absolute inset-0 opacity-[0.34] [background-image:linear-gradient(rgba(15,118,110,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(15,118,110,0.06)_1px,transparent_1px)] [background-size:56px_56px]" />
-        <div className="absolute inset-x-0 top-0 h-1.5 bg-[linear-gradient(90deg,#0f766e,#22d3ee,#facc15)]" />
+    <main className="school-landing min-h-dvh bg-[#F6F7F3] text-[#102033]">
+      <Header />
+      <Hero />
+      <AtAGlance />
+      <Profile />
+      <Academics />
+      <LifeAtSchool />
+      <Agenda />
+      <Portal />
+      <Footer />
+    </main>
+  )
+}
 
-        <div className="relative mx-auto grid min-h-[76dvh] max-w-7xl gap-9 px-5 py-8 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:py-12">
-          <motion.div
-            className="flex flex-col justify-center"
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45 }}
-          >
-            <div className="mb-7 flex flex-wrap items-end gap-5">
-              <img
-                src="/brand/islelearn-logo.png"
-                alt="Logo IsleLearn"
-                className="h-36 w-36 object-contain sm:h-44 sm:w-44 lg:h-52 lg:w-52"
-              />
+function Header() {
+  return (
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/20 bg-[#071827]/70 backdrop-blur-xl">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8" aria-label="Navigasi utama">
+        <a href="/" className="flex min-w-0 items-center gap-3 text-white">
+          <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-lg bg-white shadow-[0_12px_28px_rgba(0,0,0,0.12)]">
+            <img src="/brand/islelearn-logo.png" alt="Logo IsleLearn" className="h-9 w-9 object-contain" />
+          </span>
+          <span className="hidden leading-tight sm:block">
+            <span className="block text-sm font-black">SMAN 6 Pangkep</span>
+            <span className="block text-xs font-semibold text-sky-100/75">Pangkajene dan Kepulauan</span>
+          </span>
+        </a>
 
-              <div className="max-w-xl">
-                <p className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-[#0f766e]/20 bg-white/80 px-3 py-2 text-xs font-extrabold text-[#0f766e] shadow-[0_14px_36px_rgba(15,31,42,0.06)] backdrop-blur-md">
-                  <Compass size={15} />
-                  Platform belajar sekolah kepulauan
-                </p>
-
-                <h1 className="max-w-4xl text-balance text-5xl font-black leading-none text-[#10201f] sm:text-6xl lg:text-7xl">
-                  {school.appName}
-                </h1>
-              </div>
-            </div>
-
-            <p className="max-w-xl text-balance text-2xl font-extrabold leading-tight text-[#0f766e] sm:text-3xl">
-              Aplikasi pembelajaran yang rapi, ringan, dan siap dipakai sekolah.
-            </p>
-
-            <p className="mt-5 max-w-[64ch] text-base leading-8 text-slate-600">
-              Dibangun untuk {school.name}: materi, kuis, AI tutor, progres siswa, dan monitoring sekolah dalam pengalaman yang bersih dan mudah digunakan.
-            </p>
-
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link
-                to="/login"
-                className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-[#0f766e] px-5 text-sm font-black text-white shadow-[0_18px_42px_rgba(15,118,110,0.22)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#115e59] active:translate-y-0"
-              >
-                Masuk ke aplikasi <ArrowRight size={17} />
-              </Link>
-
-              <a
-                href="#fitur"
-                className="inline-flex min-h-12 items-center rounded-2xl border border-[#0f766e]/20 bg-white px-5 text-sm font-extrabold text-[#0f766e] shadow-[0_12px_30px_rgba(15,31,42,0.05)] transition duration-200 hover:-translate-y-0.5 hover:border-[#0f766e]/40 active:translate-y-0"
-              >
-                Lihat fitur
-              </a>
-            </div>
-
-            <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
-              {signalCards.map(([value, label, detail]) => (
-                <div key={label} className="rounded-2xl border border-[#d7e7e3] bg-white/90 p-4 shadow-[0_12px_34px_rgba(15,31,42,0.06)] backdrop-blur-md">
-                  <p className="font-mono text-3xl font-black leading-none text-[#10201f]">{value}</p>
-                  <p className="mt-2 text-sm font-black text-[#0f766e]">{label}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          <motion.div
-            className="relative grid content-center gap-4"
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, delay: 0.1 }}
-          >
-            <div className="relative overflow-hidden rounded-[2rem] border border-[#d7e7e3] bg-white p-5 shadow-[0_30px_80px_rgba(15,31,42,0.12)] sm:p-6">
-              <div className="absolute inset-x-0 top-0 h-1.5 bg-[linear-gradient(90deg,#0f766e,#22d3ee,#facc15)]" />
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-black text-[#0f766e]">Learning cockpit</p>
-                  <h2 className="mt-3 max-w-sm text-balance text-3xl font-black leading-none text-[#10201f]">
-                    Hari belajar terlihat dalam satu layar.
-                  </h2>
-                </div>
-                <div className="hidden h-16 w-16 place-items-center rounded-2xl bg-[#e6f5f1] text-[#0f766e] ring-1 ring-[#0f766e]/10 sm:grid">
-                  <Route size={30} />
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-3 sm:grid-cols-[0.9fr_1.1fr]">
-                <div className="rounded-2xl bg-[linear-gradient(135deg,#0f766e,#0e7490)] p-4 text-white shadow-[0_18px_36px_rgba(15,118,110,0.22)]">
-                  <p className="text-xs font-bold text-cyan-50">Progress siswa</p>
-                  <div className="mt-5 flex items-end gap-2">
-                    <span className="font-mono text-5xl font-black leading-none">72</span>
-                    <span className="pb-1 text-lg font-black">%</span>
-                  </div>
-                  <div className="mt-4 h-2 rounded-full bg-white/20">
-                    <div className="h-2 w-[72%] rounded-full bg-[#facc15]" />
-                  </div>
-                </div>
-
-                <div className="grid gap-3">
-                  {[
-                    ['Materi baru', 'Bahasa Inggris - descriptive text'],
-                    ['Kuis aktif', 'Matematika dasar, 15 soal'],
-                    ['AI Tutor', 'Siap bantu jelaskan ulang materi'],
-                  ].map(([label, value]) => (
-                    <div key={label} className="rounded-2xl bg-[#f8fafc] p-4 ring-1 ring-slate-200">
-                      <p className="text-xs font-black text-[#0f766e]">{label}</p>
-                      <p className="mt-1 text-sm font-extrabold leading-5 text-[#10201f]">{value}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                [Wifi, 'Mode hemat data', 'Tampilan ringan untuk jaringan sekolah kepulauan.'],
-                [LineChart, 'Monitoring sekolah', 'Data belajar lebih mudah dibaca pimpinan.'],
-              ].map(([Icon, title, description]) => (
-                <div key={title} className="rounded-2xl border border-[#d7e7e3] bg-white/90 p-4 text-[#10201f] shadow-[0_12px_34px_rgba(15,31,42,0.06)] backdrop-blur-md">
-                  <Icon className="text-[#0f766e]" size={22} />
-                  <p className="mt-3 text-base font-black">{title}</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
+        <div className="hidden items-center gap-7 lg:flex">
+          {navLinks.map(([label, href]) => (
+            <a key={label} href={href} className="text-sm font-bold text-white/80 transition hover:text-white">
+              {label}
+            </a>
+          ))}
         </div>
-      </section>
 
-      <section id="fitur" className="mx-auto max-w-7xl px-5 py-12 sm:px-6 lg:px-8">
-        <div className="mb-7 grid gap-5 md:grid-cols-[0.82fr_1fr] md:items-end">
-          <div>
-            <p className="text-xs font-black text-[#0f766e]">Fitur utama</p>
-            <h2 className="mt-3 max-w-2xl text-balance text-4xl font-black leading-none text-[#10201f]">
-              Satu alur belajar dari kelas sampai laporan.
-            </h2>
-          </div>
-          <p className="max-w-xl text-base leading-8 text-slate-600">
-            Fokusnya membuat pekerjaan harian siswa, guru, admin, dan pimpinan terasa singkat, tenang, dan terbaca.
+        <Link
+          to="/login"
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-black text-[#0F3E66] shadow-[0_12px_30px_rgba(0,0,0,0.12)] transition hover:-translate-y-0.5 hover:bg-[#DDF1FF] active:translate-y-0"
+        >
+          Masuk <ArrowRight size={16} />
+        </Link>
+      </nav>
+    </header>
+  )
+}
+
+function Hero() {
+  return (
+    <section className="relative isolate min-h-[92dvh] overflow-hidden">
+      <img
+        src={images.hero}
+        alt="Siswa belajar di ruang kelas modern"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(6,22,38,0.90)_0%,rgba(6,22,38,0.68)_42%,rgba(6,22,38,0.22)_100%)]" />
+      <div className="absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(180deg,rgba(246,247,243,0)_0%,#F6F7F3_100%)]" />
+
+      <div className="relative z-10 mx-auto flex min-h-[92dvh] max-w-7xl items-end px-4 pb-16 pt-28 sm:px-6 lg:px-8 lg:pb-20">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="max-w-4xl"
+        >
+          <p className="mb-5 inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-sky-100 backdrop-blur-md">
+            <MapPin size={15} />
+            Website sekolah resmi
           </p>
-        </div>
+          <h1 className="school-serif max-w-5xl text-balance text-[clamp(2.9rem,7.2vw,6.9rem)] font-black leading-[0.94] tracking-[-0.04em] text-white">
+            <span className="block">SMA Negeri 6 </span>
+            <span className="block">Pangkajene dan </span>
+            <span className="block">Kepulauan</span>
+          </h1>
+          <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-white/80 sm:text-xl">
+            Sekolah pesisir yang menyiapkan pembelajar berkarakter, cakap digital, dan siap berkontribusi untuk masa depan.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <a href="#profil" className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-[#F5C84C] px-5 text-sm font-black text-[#102033] shadow-[0_18px_44px_rgba(245,200,76,0.20)] transition hover:-translate-y-0.5 hover:bg-[#FFDA72] active:translate-y-0">
+              Jelajahi sekolah <ArrowRight size={17} />
+            </a>
+            <Link to="/login" className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-white px-5 text-sm font-black text-[#102033] shadow-[0_18px_44px_rgba(0,0,0,0.12)] transition hover:-translate-y-0.5 hover:bg-[#DDF1FF] active:translate-y-0">
+              Buka IsleLearn <Sparkles size={17} />
+            </Link>
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
 
-        <div className="grid gap-4 lg:grid-cols-6">
-          {features.map(({ title, icon: Icon, label, description }, index) => (
-            <article
-              key={title}
-              className={`group rounded-[1.5rem] border border-[#d7e7e3] bg-white p-5 shadow-[0_18px_48px_rgba(15,31,42,0.06)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_22px_58px_rgba(15,31,42,0.10)] ${
-                index < 2 ? 'lg:col-span-3' : 'lg:col-span-2'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className={`grid h-11 w-11 place-items-center rounded-2xl ring-1 ${featureStyles[index]}`}>
-                  <Icon size={21} />
-                </div>
-                <span className="rounded-full border border-[#d7e7e3] bg-[#f8fafc] px-3 py-1 text-[11px] font-black text-slate-500">
-                  {label}
-                </span>
-              </div>
-              <h3 className="mt-5 text-xl font-black text-[#10201f]">{title}</h3>
-              <p className="mt-2 text-sm leading-7 text-slate-600">{description}</p>
+function AtAGlance() {
+  return (
+    <section className="relative z-20 mx-auto -mt-8 max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="grid overflow-hidden rounded-lg bg-white shadow-[0_24px_70px_rgba(16,32,51,0.11)] ring-1 ring-slate-200/70 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map((item) => (
+          <div key={item.label} className="border-b border-slate-200 p-5 last:border-b-0 sm:border-r sm:last:border-r-0 lg:border-b-0">
+            <p className="font-mono text-4xl font-black tracking-[-0.04em] text-[#0F6FAE]">{item.value}</p>
+            <p className="mt-2 text-sm font-black uppercase tracking-[0.08em] text-slate-500">{item.label}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function Profile() {
+  return (
+    <section id="profil" className="mx-auto grid max-w-7xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8 lg:py-24">
+      <div>
+        <p className="text-sm font-black uppercase tracking-[0.16em] text-[#0F6FAE]">Profil</p>
+        <h2 className="school-serif mt-4 max-w-2xl text-balance text-[clamp(2.4rem,5vw,5.25rem)] font-black leading-[0.95] tracking-[-0.035em] text-[#102033]">
+          Sekolah yang tumbuh dari identitas pesisir.
+        </h2>
+      </div>
+      <div className="space-y-7">
+        <p className="max-w-3xl text-lg font-semibold leading-9 text-slate-700">
+          {school.name} menghadirkan ruang belajar yang dekat dengan konteks daerah, tertata secara akademik, dan diperkuat layanan digital melalui IsleLearn.
+        </p>
+        <div className="grid gap-4 md:grid-cols-3">
+          {pillars.map(({ title, description, icon: Icon }) => (
+            <article key={title} className="rounded-lg bg-white p-5 shadow-[0_16px_42px_rgba(16,32,51,0.07)] ring-1 ring-slate-200">
+              <Icon className="text-[#0F6FAE]" size={24} />
+              <h3 className="mt-4 text-lg font-black text-[#102033]">{title}</h3>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{description}</p>
             </article>
           ))}
         </div>
-      </section>
+      </div>
+    </section>
+  )
+}
 
-      <section className="mx-auto grid max-w-7xl gap-4 px-5 pb-12 sm:px-6 lg:grid-cols-3 lg:px-8">
-        {audienceSections.map((section) => {
-          const Icon = section.icon
-
-          return (
-            <article key={section.label} className="rounded-[1.5rem] border border-[#d7e7e3] bg-white p-5 text-[#10201f] shadow-[0_18px_48px_rgba(15,31,42,0.06)]">
-              <div className="mb-5 flex items-center justify-between gap-4">
-                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#e6f5f1] text-[#0f766e] ring-1 ring-[#0f766e]/10">
-                  <Icon size={22} />
-                </div>
-                <span className="text-xs font-black text-[#0f766e]">{section.label}</span>
+function Academics() {
+  return (
+    <section id="akademik" className="bg-[#E9F2F8] py-20 lg:py-24">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:items-center">
+        <div className="overflow-hidden rounded-lg shadow-[0_24px_70px_rgba(16,32,51,0.14)]">
+          <img src={images.campus} alt="Suasana koridor sekolah" className="aspect-[4/3] w-full object-cover" />
+        </div>
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.16em] text-[#0F6FAE]">Akademik</p>
+          <h2 className="school-serif mt-4 max-w-2xl text-balance text-[clamp(2.3rem,5vw,4.8rem)] font-black leading-[0.95] tracking-[-0.035em]">
+            Pembelajaran yang rapi dari kelas sampai rapor.
+          </h2>
+          <p className="mt-5 max-w-xl text-base font-semibold leading-8 text-slate-700">
+            Guru dapat mengelola materi, tugas, kehadiran, nilai, dan e-Rapor. Siswa mendapatkan jalur belajar yang lebih mudah diikuti.
+          </p>
+          <div className="mt-8 divide-y divide-slate-300 border-y border-slate-300">
+            {programs.map(([title, description]) => (
+              <div key={title} className="grid gap-2 py-5 sm:grid-cols-[9rem_1fr]">
+                <h3 className="text-base font-black text-[#102033]">{title}</h3>
+                <p className="text-sm font-semibold leading-7 text-slate-600">{description}</p>
               </div>
-              <h2 className="text-balance text-2xl font-black leading-tight">{section.title}</h2>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
 
-              <div className="mt-5 grid gap-2">
-                {section.points.map((point) => (
-                  <div key={point} className="flex items-center gap-2 rounded-2xl bg-[#f8fafc] px-3 py-2.5 text-sm font-bold text-slate-700 ring-1 ring-slate-200">
-                    <CheckCircle2 className="text-[#0f766e]" size={16} />
-                    {point}
-                  </div>
-                ))}
-              </div>
+function LifeAtSchool() {
+  return (
+    <section id="kehidupan" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+      <div className="mb-10 grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.16em] text-[#0F6FAE]">Kehidupan sekolah</p>
+          <h2 className="school-serif mt-4 max-w-2xl text-balance text-[clamp(2.3rem,5vw,4.8rem)] font-black leading-[0.95] tracking-[-0.035em]">
+            Belajar di kelas, bertumbuh di komunitas.
+          </h2>
+        </div>
+        <p className="max-w-2xl text-base font-semibold leading-8 text-slate-700">
+          Website sekolah perlu terasa hidup: menampilkan kegiatan, kabar, layanan akademik, dan nilai sekolah dengan visual yang tenang.
+        </p>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+        <article className="relative min-h-[26rem] overflow-hidden rounded-lg bg-[#102033]">
+          <img src={images.library} alt="Perpustakaan dan aktivitas literasi" className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(16,32,51,0.08)_0%,rgba(16,32,51,0.78)_100%)]" />
+          <div className="absolute inset-x-0 bottom-0 p-6 text-white">
+            <p className="mb-3 flex items-center gap-2 text-sm font-black text-sky-100"><LibraryBig size={18} /> Literasi & nalar</p>
+            <h3 className="school-serif max-w-2xl text-4xl font-black leading-none tracking-[-0.03em]">
+              Ruang belajar yang mendorong rasa ingin tahu.
+            </h3>
+          </div>
+        </article>
+
+        <article className="relative min-h-[26rem] overflow-hidden rounded-lg bg-[#102033]">
+          <img src={images.coast} alt="Lingkungan pesisir sebagai konteks sekolah" className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(16,32,51,0.08)_0%,rgba(16,32,51,0.72)_100%)]" />
+          <div className="absolute inset-x-0 bottom-0 p-6 text-white">
+            <p className="mb-3 flex items-center gap-2 text-sm font-black text-sky-100"><Waves size={18} /> Identitas pesisir</p>
+            <h3 className="school-serif text-4xl font-black leading-none tracking-[-0.03em]">
+              Belajar dari lingkungan sendiri.
+            </h3>
+          </div>
+        </article>
+      </div>
+    </section>
+  )
+}
+
+function Agenda() {
+  return (
+    <section id="agenda" className="bg-white py-20 lg:py-24">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.82fr_1.18fr] lg:px-8">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.16em] text-[#0F6FAE]">Agenda layanan</p>
+          <h2 className="school-serif mt-4 max-w-xl text-balance text-[clamp(2.3rem,5vw,4.6rem)] font-black leading-[0.95] tracking-[-0.035em]">
+            Informasi penting mudah ditemukan.
+          </h2>
+        </div>
+        <div className="divide-y divide-slate-200 border-y border-slate-200">
+          {agenda.map(([time, description], index) => (
+            <article key={time} className="grid gap-4 py-6 sm:grid-cols-[4rem_8rem_1fr] sm:items-start">
+              <span className="font-mono text-2xl font-black text-[#0F6FAE]">{String(index + 1).padStart(2, '0')}</span>
+              <h3 className="text-lg font-black text-[#102033]">{time}</h3>
+              <p className="text-base font-semibold leading-8 text-slate-600">{description}</p>
             </article>
-          )
-        })}
-      </section>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
 
-      <section className="mx-auto max-w-7xl px-5 pb-12 sm:px-6 lg:px-8">
-        <div className="overflow-hidden rounded-[2rem] border border-[#d7e7e3] bg-[linear-gradient(135deg,#ffffff_0%,#ecfeff_55%,#f0fdfa_100%)] p-5 shadow-[0_22px_58px_rgba(15,31,42,0.08)] md:p-7">
-          <div className="grid gap-6 lg:grid-cols-[0.86fr_1.14fr] lg:items-center">
-            <div>
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#0f766e]/20 bg-white px-3 py-1.5 text-xs font-black text-[#0f766e]">
-                <Waves size={15} /> IsleClub English Corner
-              </div>
-              <h2 className="text-balance text-4xl font-black leading-none text-[#10201f]">
-                English practice yang dekat dengan hidup siswa.
-              </h2>
-              <p className="mt-4 max-w-xl text-base leading-8 text-slate-600">
-                Latihan harian tentang pulau, sekolah, laut, keluarga, dan masa depan. Singkat untuk dimulai, jelas untuk membangun keberanian speaking.
-              </p>
+function Portal() {
+  return (
+    <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+      <div className="grid overflow-hidden rounded-lg bg-[#0B2338] text-white shadow-[0_24px_70px_rgba(16,32,51,0.18)] lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="p-6 sm:p-8 lg:p-10">
+          <p className="text-sm font-black uppercase tracking-[0.16em] text-[#F5C84C]">Portal IsleLearn</p>
+          <h2 className="school-serif mt-4 max-w-3xl text-balance text-[clamp(2.25rem,5vw,4.8rem)] font-black leading-[0.95] tracking-[-0.035em]">
+            Aplikasi belajar tetap menjadi pintu kerja harian.
+          </h2>
+          <p className="mt-5 max-w-2xl text-base font-semibold leading-8 text-white/75">
+            Masuk sebagai siswa, guru, admin, atau pimpinan untuk membuka dashboard, daftar hadir, daftar nilai, dan e-Rapor.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            {['Siswa', 'Guru', 'Admin', 'Pimpinan'].map((role) => (
+              <span key={role} className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-black ring-1 ring-white/10">
+                <CheckCircle2 size={16} /> {role}
+              </span>
+            ))}
+          </div>
+          <Link to="/login" className="mt-8 inline-flex min-h-12 items-center gap-2 rounded-lg bg-[#F5C84C] px-5 text-sm font-black text-[#102033] transition hover:bg-[#FFDA72]">
+            Masuk ke IsleLearn <ArrowRight size={17} />
+          </Link>
+        </div>
+        <div className="relative min-h-[24rem] bg-[#123B63]">
+          <div className="absolute inset-6 rounded-lg bg-white p-5 text-[#102033] shadow-[0_18px_54px_rgba(0,0,0,0.18)]">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-xs font-black uppercase tracking-[0.14em] text-[#0F6FAE]">Ringkasan sekolah</span>
+              <UsersRound size={22} className="text-[#0F6FAE]" />
             </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {practiceCards.map(([label, value], index) => (
-                <div key={label} className={`rounded-2xl p-5 ring-1 ${featureStyles[index]}`}>
-                  <p className="text-xs font-black">{label}</p>
-                  <p className="mt-2 text-sm font-extrabold leading-6 text-[#10201f]">{value}</p>
+            <div className="mt-8 grid gap-3">
+              {[
+                ['Kehadiran', 'Rekap harian, bulanan, semester'],
+                ['Nilai', 'Format daftar nilai Kurikulum Merdeka'],
+                ['Rapor', 'Cetak rapor formal dari data nilai'],
+              ].map(([title, detail]) => (
+                <div key={title} className="rounded-lg bg-[#F3F7FB] p-4">
+                  <p className="font-black">{title}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">{detail}</p>
                 </div>
               ))}
             </div>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
+  )
+}
 
-      <section className="mx-auto max-w-7xl px-5 pb-12 sm:px-6 lg:px-8">
-        <div className="rounded-[2rem] border border-[#0f766e]/20 bg-[#0f766e] p-5 text-white shadow-[0_22px_58px_rgba(15,118,110,0.18)] md:p-7">
-          <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
-            <div>
-              <div className="mb-4 flex items-center gap-3">
-                <UsersRound className="text-[#facc15]" />
-                <p className="text-xs font-black text-teal-50">Role pengguna</p>
-              </div>
-              <h2 className="max-w-2xl text-balance text-3xl font-black leading-none">Siap dipakai oleh semua peran sekolah.</h2>
-              <div className="mt-5 flex flex-wrap gap-2">
-                {['Siswa', 'Guru', 'Admin', 'Pimpinan'].map((role) => (
-                  <span key={role} className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-extrabold text-white">
-                    {role}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <Link
-              to="/login"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-black text-[#0f766e] transition duration-200 hover:-translate-y-0.5 hover:bg-[#f0fdfa] active:translate-y-0"
-            >
-              Masuk sekarang <ArrowRight size={17} />
-            </Link>
+function Footer() {
+  return (
+    <footer className="border-t border-slate-200 bg-[#F6F7F3] px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col justify-between gap-6 md:flex-row md:items-center">
+        <div className="flex items-center gap-3">
+          <img src="/brand/islelearn-logo.png" alt="Logo IsleLearn" className="h-12 w-12 object-contain" />
+          <div>
+            <p className="font-black text-[#102033]">{school.name}</p>
+            <p className="text-sm font-semibold text-slate-500">Website sekolah dan portal pembelajaran digital</p>
           </div>
         </div>
-      </section>
-
-      <footer className="border-t border-[#d7e7e3] bg-white px-5 py-8 text-center text-sm text-slate-500">
-        <b className="text-[#10201f]">IsleLearn</b>
-        <br />
-        {school.name}
-        <br />
-        Platform pembelajaran digital sekolah
-      </footer>
-    </main>
+        <div className="flex flex-wrap items-center gap-3 text-sm font-bold text-slate-500">
+          <a href="#profil" className="hover:text-[#0F6FAE]">Profil</a>
+          <a href="#akademik" className="hover:text-[#0F6FAE]">Akademik</a>
+          <a href="#agenda" className="hover:text-[#0F6FAE]">Agenda</a>
+          <Link to="/login" className="rounded-lg bg-[#102033] px-4 py-2.5 text-white hover:bg-[#0F6FAE]">
+            IsleLearn
+          </Link>
+        </div>
+      </div>
+    </footer>
   )
 }
