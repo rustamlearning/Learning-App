@@ -47,7 +47,7 @@ const pillars = [
   },
   {
     title: 'Digital sekolah',
-    description: 'IsleLearn menghubungkan daftar hadir, daftar nilai, e-Rapor, dan monitoring akademik dalam satu sistem.',
+    description: 'IsleLearn menghubungkan daftar hadir, daftar nilai, materi, dan monitoring akademik dalam satu sistem.',
     icon: Sparkles,
   },
 ]
@@ -55,13 +55,13 @@ const pillars = [
 const programs = [
   ['Akademik', 'Pembelajaran kelas XI dan XII berbasis mapel, asesmen, dan perkembangan siswa.'],
   ['Kesiswaan', 'Aktivitas sekolah, pembinaan karakter, dan ruang berkembang sesuai minat siswa.'],
-  ['Administrasi', 'Data guru, siswa, kelas, kehadiran, nilai, dan rapor dikelola lebih tertata.'],
+  ['Administrasi', 'Data guru, siswa, kelas, kehadiran, dan nilai dikelola lebih tertata.'],
 ]
 
 const agenda = [
   ['Hari ini', 'Absensi harian dan pembelajaran kelas berjalan melalui dashboard guru.'],
   ['Mingguan', 'Rekap kehadiran, latihan, kuis, dan progres belajar dibaca secara ringkas.'],
-  ['Semester', 'Daftar nilai tersambung ke e-Rapor untuk pelaporan hasil belajar.'],
+  ['Semester', 'Daftar nilai menjadi dasar monitoring hasil belajar siswa.'],
 ]
 
 export default function Landing() {
@@ -209,10 +209,10 @@ function Academics() {
         <div>
           <p className="text-sm font-black uppercase tracking-[0.16em] text-[#0F6FAE]">Akademik</p>
           <h2 className="school-serif mt-4 max-w-2xl text-balance text-[clamp(2.3rem,5vw,4.8rem)] font-black leading-[0.95] tracking-[-0.035em]">
-            Pembelajaran yang rapi dari kelas sampai rapor.
+            Pembelajaran yang rapi dari kelas sampai evaluasi.
           </h2>
           <p className="mt-5 max-w-xl text-base font-semibold leading-8 text-slate-700">
-            Guru dapat mengelola materi, tugas, kehadiran, nilai, dan e-Rapor. Siswa mendapatkan jalur belajar yang lebih mudah diikuti.
+            Guru dapat mengelola materi, tugas, kehadiran, dan nilai. Siswa mendapatkan jalur belajar yang lebih mudah diikuti.
           </p>
           <div className="mt-8 divide-y divide-slate-300 border-y border-slate-300">
             {programs.map(([title, description]) => (
@@ -304,7 +304,7 @@ function Portal() {
             Aplikasi belajar tetap menjadi pintu kerja harian.
           </h2>
           <p className="mt-5 max-w-2xl text-base font-semibold leading-8 text-white/75">
-            Masuk sebagai siswa, guru, admin, atau pimpinan untuk membuka dashboard, daftar hadir, daftar nilai, dan e-Rapor.
+            Masuk sebagai siswa, guru, admin, atau pimpinan untuk membuka dashboard, daftar hadir, daftar nilai, dan laporan.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             {['Siswa', 'Guru', 'Admin', 'Pimpinan'].map((role) => (
@@ -327,7 +327,7 @@ function Portal() {
               {[
                 ['Kehadiran', 'Rekap harian, bulanan, semester'],
                 ['Nilai', 'Format daftar nilai Kurikulum Merdeka'],
-                ['Rapor', 'Cetak rapor formal dari data nilai'],
+                ['Laporan', 'Ringkasan akademik dari data sekolah'],
               ].map(([title, detail]) => (
                 <div key={title} className="rounded-lg bg-[#F3F7FB] p-4">
                   <p className="font-black">{title}</p>

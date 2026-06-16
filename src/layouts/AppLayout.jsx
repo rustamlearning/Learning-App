@@ -165,18 +165,18 @@ function groupNavItems(role, items) {
     ],
     guru: [
       ['Mengajar', ['/dashboard', '/kelas', '/studio-konten', '/materi', '/bank-soal', '/tugas', '/kuis-live', '/daftar-hadir']],
-      ['Evaluasi', ['/daftar-nilai', '/e-rapor', '/analisis-nilai', '/remedial']],
+      ['Evaluasi', ['/daftar-nilai', '/rapor', '/analisis-nilai', '/remedial']],
       ['Asisten', ['/ai-generator']],
       ['Laporan', ['/laporan']],
     ],
     admin: [
       ['Konsol', ['/dashboard']],
       ['Data Sekolah', ['/guru', '/siswa', '/kelas', '/mapel']],
-      ['Sistem', ['/e-rapor', '/pengaturan', '/laporan', '/backup']],
+      ['Sistem', ['/pengaturan', '/laporan', '/backup']],
     ],
     pimpinan: [
       ['Monitoring', ['/dashboard', '/monitoring-kelas', '/monitoring-guru', '/monitoring-siswa']],
-      ['Laporan', ['/e-rapor', '/laporan-akademik', '/laporan-aktivitas']],
+      ['Laporan', ['/laporan-akademik', '/laporan-aktivitas']],
     ],
   }
 

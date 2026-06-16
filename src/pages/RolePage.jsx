@@ -20,6 +20,7 @@ import {
   PencilLine,
   PlayCircle,
   Plus,
+  Printer,
   Radio,
   Save,
   School,
@@ -165,7 +166,7 @@ function renderGuru(page, user, notify, setConfirmOpen, appContext) {
     )
   }
   if (page === 'daftar-nilai') return <GuruDaftarNilai user={user} notify={notify} />
-  if (page === 'e-rapor') return <GuruERapor user={user} notify={notify} />
+  if (page === 'rapor') return <GuruRapor user={user} notify={notify} />
   if (page === 'analisis-nilai') return <AnalisisNilai />
   if (page === 'remedial') return <RemedialPage notify={notify} />
   if (page === 'ai-generator') return <AIGeneratorPage />
@@ -179,7 +180,6 @@ function renderAdmin(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'siswa') return <AdminProfiles role="siswa" title="Data Siswa" notify={notify} appContext={appContext} />
   if (page === 'kelas') return <AdminKelas notify={notify} appContext={appContext} />
   if (page === 'mapel') return <AdminMapel notify={notify} appContext={appContext} />
-  if (page === 'e-rapor') return <GuruERapor user={user} notify={notify} allRows canEdit={false} />
   if (page === 'pengaturan') return <Pengaturan notify={notify} />
   if (page === 'laporan') return <LaporanSekolah notify={notify} />
   if (page === 'backup') return <BackupPage notify={notify} setConfirmOpen={setConfirmOpen} appContext={appContext} />
@@ -191,7 +191,6 @@ function renderPimpinan(page, user, notify) {
   if (page === 'monitoring-kelas') return <MonitoringKelas />
   if (page === 'monitoring-guru') return <MonitoringGuru />
   if (page === 'monitoring-siswa') return <MonitoringSiswa />
-  if (page === 'e-rapor') return <GuruERapor user={user} notify={notify} allRows canEdit={false} />
   if (page === 'laporan-akademik') return <LaporanAkademik notify={notify} />
   if (page === 'laporan-aktivitas') return <LaporanAktivitas notify={notify} />
   return <EmptyState />
@@ -766,25 +765,67 @@ function normalizeLookupText(value) {
 }
 
 const highSchoolSubjectFolders = [
-  'Pendidikan Agama dan Budi Pekerti',
+  'Pendidikan Agama Islam dan Budi Pekerti',
   'Pendidikan Pancasila',
   'Bahasa Indonesia',
   'Matematika Umum',
   'Bahasa Inggris',
-  'Informatika',
+  'Pendidikan Jasmani, Olahraga, dan Kesehatan',
   'Sejarah',
-  'PJOK',
   'Seni Budaya',
   'Prakarya dan Kewirausahaan',
-  'Biologi',
+  'Muatan Lokal',
+  'Informatika',
   'Fisika',
   'Kimia',
-  'Geografi',
+  'Biologi',
   'Ekonomi',
+  'Geografi',
   'Sosiologi',
   'Antropologi',
-  'Muatan Lokal',
+  'Matematika Tingkat Lanjut',
+  'Bahasa Indonesia Tingkat Lanjut',
+  'Bahasa Inggris Tingkat Lanjut',
 ]
+
+const subjectAliasMap = {
+  [normalizeLookupText('Pendidikan Agama dan Budi Pekerti')]: 'Pendidikan Agama Islam dan Budi Pekerti',
+  [normalizeLookupText('Pendidikan Agama Islam')]: 'Pendidikan Agama Islam dan Budi Pekerti',
+  [normalizeLookupText('PJOK')]: 'Pendidikan Jasmani, Olahraga, dan Kesehatan',
+  [normalizeLookupText('Pendidikan Jasmani Olahraga dan Kesehatan')]: 'Pendidikan Jasmani, Olahraga, dan Kesehatan',
+  [normalizeLookupText('Matematika')]: 'Matematika Umum',
+  [normalizeLookupText('Matematika Peminatan')]: 'Matematika Tingkat Lanjut',
+  [normalizeLookupText('Sejarah Indonesia')]: 'Sejarah',
+  [normalizeLookupText('Mulok')]: 'Muatan Lokal',
+}
+
+function canonicalSubjectName(value) {
+  const trimmed = String(value || '').trim()
+  if (!trimmed) return ''
+  return subjectAliasMap[normalizeLookupText(trimmed)] || trimmed
+}
+
+function splitSubjectNames(value) {
+  return String(value || '')
+    .split(/[;\n]+/)
+    .map(canonicalSubjectName)
+    .filter(Boolean)
+}
+
+function sameSubjectName(left, right) {
+  return normalizeLookupText(canonicalSubjectName(left)) === normalizeLookupText(canonicalSubjectName(right))
+}
+
+function isGradeSubjectOption(value) {
+  const key = normalizeLookupText(canonicalSubjectName(value))
+  return !['bpbk', 'bk', 'bimbingankonseling'].includes(key)
+}
+
+function preferredSubjectOption(userSubject, subjectOptions = []) {
+  const candidates = splitSubjectNames(userSubject)
+  const matched = subjectOptions.find((option) => candidates.some((candidate) => sameSubjectName(option, candidate)))
+  return matched || subjectOptions[0] || 'Mata pelajaran'
+}
 
 const highSchoolGradeFolders = [
   { key: 'kelas-x', name: 'Kelas X', grade: 10 },
@@ -798,7 +839,7 @@ function uniqueSubjectNames(...collections) {
 
   collections.flat().forEach((item) => {
     const name = typeof item === 'string' ? item : item?.name || item?.subject
-    const trimmed = String(name || '').trim()
+    const trimmed = canonicalSubjectName(name)
     const key = normalizeLookupText(trimmed)
     if (!key || seen.has(key)) return
     seen.add(key)
@@ -811,8 +852,8 @@ function uniqueSubjectNames(...collections) {
 function getMaterialSubjectFolders(rows = [], lookupSubjects = []) {
   const subjectNames = uniqueSubjectNames(highSchoolSubjectFolders, lookupSubjects, rows)
   return subjectNames.map((name) => {
-    const key = normalizeLookupText(name)
-    const subjectRows = rows.filter((row) => normalizeLookupText(row.subject || 'Mapel belum dipilih') === key)
+    const key = normalizeLookupText(canonicalSubjectName(name))
+    const subjectRows = rows.filter((row) => normalizeLookupText(canonicalSubjectName(row.subject || 'Mapel belum dipilih')) === key)
     const gradeFolders = getMaterialGradeFolders(subjectRows)
     return {
       key,
@@ -860,7 +901,7 @@ function getMaterialGradeFolders(rows = []) {
 function getMaterialSubjectOptions(lookupSubjects = [], materialsForContext = []) {
   const names = uniqueSubjectNames(highSchoolSubjectFolders, lookupSubjects, materialsForContext)
   return names.map((name) => {
-    const lookup = lookupSubjects.find((item) => normalizeLookupText(item.name) === normalizeLookupText(name))
+    const lookup = lookupSubjects.find((item) => sameSubjectName(item.name, name))
     return {
       id: lookup?.id || '',
       name,
@@ -2648,7 +2689,7 @@ function GuruDashboard({ user, notify }) {
 
   const metricItems = [
     { label: 'Kehadiran', value: `${todayAttendance.rate}%`, caption: `${todayAttendance.hadir}/${todayAttendance.total} hadir hari ini`, icon: CalendarClock },
-    { label: 'E-Rapor', value: `${gradeSummary.readyRate}%`, caption: `${gradeSummary.completed} nilai tersimpan`, icon: FileText },
+    { label: 'Nilai', value: `${gradeSummary.readyRate}%`, caption: `${gradeSummary.completed} nilai tersimpan`, icon: BarChart3 },
     { label: 'Draft', value: draftTotal, caption: 'perlu review', icon: Send },
     { label: 'Tugas', value: activeAssignments.length, caption: 'sedang aktif', icon: ClipboardCheck },
     { label: 'Submission', value: assignmentSubmissions.length, caption: `${ungradedSubmissions.length} belum dinilai`, icon: FileText },
@@ -2659,7 +2700,7 @@ function GuruDashboard({ user, notify }) {
   const quickActions = [
     { label: 'Daftar Hadir', icon: CalendarClock, onClick: () => navigate('/guru/daftar-hadir') },
     { label: 'Daftar Nilai', icon: BarChart3, onClick: () => navigate('/guru/daftar-nilai') },
-    { label: 'E-Rapor', icon: FileText, onClick: () => navigate('/guru/e-rapor') },
+    { label: 'Rapor', icon: FileText, onClick: () => navigate('/guru/rapor') },
     { label: 'Siapkan', icon: Sparkles, onClick: () => navigate('/guru/studio-konten') },
     { label: 'Materi', icon: BookOpen, onClick: () => navigate('/guru/materi') },
     { label: 'Tugas', icon: ClipboardList, onClick: () => navigate('/guru/tugas') },
@@ -3069,71 +3110,10 @@ const gradeFormatWeights = [
   { label: 'Formatif', value: 'Catatan proses' },
   { label: 'Sumatif LM', value: `${Math.round(gradeWeights.summative * 100)}%` },
   { label: 'SAS', value: `${Math.round(gradeWeights.finalAssessment * 100)}%` },
-  { label: 'Rapor', value: 'NA + capaian' },
+  { label: 'Nilai Akhir', value: 'NA + capaian' },
 ]
 
-const reportSubjectFallbacks = [
-  'Bahasa Indonesia',
-  'Matematika',
-  'Bahasa Inggris',
-  'Biologi',
-  'Pendidikan Agama Islam',
-  'Pendidikan Pancasila',
-]
-
-const reportSchoolProfile = {
-  name: school.name,
-  npsn: '-',
-  address: 'Belum diatur',
-  district: 'Pangkajene dan Kepulauan',
-  province: 'Sulawesi Selatan',
-}
-
-const reportPrintProfile = {
-  ministry: 'Kementerian Pendidikan Dasar dan Menengah',
-  directorate: 'Direktorat Jenderal Pendidikan Anak Usia Dini, Pendidikan Dasar, dan Pendidikan Menengah',
-  title: 'Laporan Hasil Belajar Peserta Didik',
-  subtitle: 'Rapor Kurikulum Merdeka',
-  application: 'IsleLearn E-Rapor',
-}
-
-const graduateProfileDimensions = [
-  'Keimanan dan ketakwaan terhadap Tuhan YME',
-  'Kewargaan',
-  'Penalaran kritis',
-  'Kreativitas',
-  'Kolaborasi',
-  'Kemandirian',
-  'Kesehatan',
-  'Komunikasi',
-]
-
-const reportMandatorySubjectKeywords = [
-  'pendidikan agama',
-  'pendidikan pancasila',
-  'bahasa indonesia',
-  'matematika',
-  'bahasa inggris',
-  'sejarah',
-  'pjok',
-  'seni',
-  'informatika',
-]
-
-const reportMonths = [
-  'Januari',
-  'Februari',
-  'Maret',
-  'April',
-  'Mei',
-  'Juni',
-  'Juli',
-  'Agustus',
-  'September',
-  'Oktober',
-  'November',
-  'Desember',
-]
+const gradeSubjectFallbacks = highSchoolSubjectFolders
 
 function gradebookStorageKey(user) {
   return `islelearn-gradebook-${user?.id || 'demo'}`
@@ -3149,21 +3129,14 @@ function setGradebookRows(user, rows) {
   safeWriteLocalJson(gradebookStorageKey(user), Array.isArray(rows) ? rows : [])
 }
 
-function getAllGradebookRows() {
-  return readLocalRowsByPrefix('islelearn-gradebook-')
-    .map(normalizeGradebookRow)
-    .filter((row) => !isLegacyPreviewClassName(row.className) && !isLegacyPreviewStudentRow(row))
-}
-
-function getAllAttendanceSessions() {
-  return readLocalRowsByPrefix('islelearn-attendance-')
-}
-
 function getGradeSubjectOptions() {
   const localSubjects = getLocalAdminCollection('subjects', subjects)
-    .map((item) => item?.name || item?.subject)
-    .filter(Boolean)
-  return Array.from(new Set([...localSubjects, ...reportSubjectFallbacks]))
+    .flatMap((item) => splitSubjectNames(item?.name || item?.subject))
+    .filter(isGradeSubjectOption)
+  const teacherSubjects = teachers
+    .flatMap((teacher) => splitSubjectNames(teacher.subject))
+    .filter(isGradeSubjectOption)
+  return uniqueSubjectNames(gradeSubjectFallbacks, localSubjects, teacherSubjects)
 }
 
 function buildGradebookRows(roster, savedRows, context) {
@@ -3204,7 +3177,7 @@ function buildGradebookRows(roster, savedRows, context) {
 
 function sameGradeContext(row, context) {
   return promoteClassName(row.className) === promoteClassName(context.className)
-    && row.subject === context.subject
+    && sameSubjectName(row.subject, context.subject)
     && row.semester === context.semester
     && row.academicYear === context.academicYear
 }
@@ -3316,10 +3289,11 @@ function defaultCompetencyDescription(subject, score) {
 
 function normalizeGradebookRow(row = {}) {
   const breakdown = calculateGradeBreakdown(row.scores)
-  const subject = row.subject || 'Mata pelajaran'
+  const subject = canonicalSubjectName(row.subject || 'Mata pelajaran')
   const finalScore = breakdown.finalScore
   return {
     ...row,
+    subject,
     className: promoteClassName(row.className),
     scores: breakdown.scores,
     averageFormative: breakdown.averageFormative,
@@ -3368,196 +3342,13 @@ function buildSampleGradeRows(rows) {
   })
 }
 
-function getReportStudentOptions(rows, roster = getGradebookRoster()) {
-  const fromRows = rows.map((row) => ({
-    id: row.studentId,
-    name: row.name,
-    nis: row.nis || '',
-    className: promoteClassName(row.className),
-    gender: row.gender || '',
-  })).filter((student) => !isLegacyPreviewStudentRow(student))
-  const merged = [...fromRows, ...roster]
-  const seen = new Set()
-  return merged.filter((student) => {
-    const key = `${normalizeLookupText(student.name)}-${normalizeLookupText(promoteClassName(student.className))}`
-    if (!student.name || seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
-
-function getReportRowsForStudent(rows, student, semester, academicYear) {
-  if (!student) return []
-  return rows
-    .filter((row) => (row.studentId === student.id || row.name === student.name)
-      && row.semester === semester
-      && row.academicYear === academicYear)
-    .sort((a, b) => a.subject.localeCompare(b.subject, 'id-ID'))
-}
-
-function getReportAttendanceSummary(student, className) {
-  const relevantRows = getAllAttendanceSessions()
-    .filter((session) => !className || session.className === className)
-    .flatMap((session) => Array.isArray(session.rows) ? session.rows : [])
-    .filter((row) => row.studentId === student?.id || row.name === student?.name)
-  return summarizeAttendanceRows(relevantRows)
-}
-
-function getClassLevel(className = '') {
-  const normalizedClass = String(className).toUpperCase()
-  if (normalizedClass.includes('XII')) return 'XII'
-  if (normalizedClass.includes('XI')) return 'XI'
-  if (normalizedClass.includes('X')) return 'X'
-  return '-'
-}
-
-function getReportPhase(className = '') {
-  const level = getClassLevel(className)
-  if (level === 'X') return 'E'
-  if (level === 'XI' || level === 'XII') return 'F'
-  return '-'
-}
-
-function getSemesterNumber(semester) {
-  return semester === 'Genap' ? '2 (Dua)' : '1 (Satu)'
-}
-
-function formatLongIndonesianDate(date = new Date()) {
-  return `${date.getDate()} ${reportMonths[date.getMonth()]} ${date.getFullYear()}`
-}
-
-function isMandatoryReportSubject(subject = '') {
-  const normalizedSubject = normalizeLookupText(subject)
-  return reportMandatorySubjectKeywords.some((keyword) => normalizedSubject.includes(normalizeLookupText(keyword)))
-}
-
-function groupReportRows(rows = []) {
-  const mandatoryRows = rows.filter((row) => isMandatoryReportSubject(row.subject))
-  const electiveRows = rows.filter((row) => !isMandatoryReportSubject(row.subject))
-
-  return [
-    { label: 'A. Kelompok Mata Pelajaran Umum', rows: mandatoryRows },
-    { label: 'B. Kelompok Mata Pelajaran Pilihan / Muatan Sekolah', rows: electiveRows },
-  ].filter((group) => group.rows.length)
-}
-
-function getReportDocumentNumber({ student, semester, academicYear, className }) {
-  const cleanYear = String(academicYear || '').replace(/\D/g, '') || '0000'
-  const semesterCode = semester === 'Genap' ? '02' : '01'
-  const classCode = normalizeLookupText(className || 'kelas').replace(/\s+/g, '-').toUpperCase().slice(0, 12)
-  const studentCode = normalizeLookupText(student?.name || student?.id || 'siswa').replace(/\s+/g, '-').toUpperCase().slice(0, 12)
-  return `ER-${cleanYear}-${semesterCode}-${classCode}-${studentCode}`
-}
-
-function getReportDecision(summary, semester, level) {
-  if (!summary.completed) return 'Belum dapat ditetapkan'
-  if (semester === 'Genap' && level === 'XII') return summary.average >= gradeKktp ? 'Lulus' : 'Perlu rapat dewan guru'
-  if (semester === 'Genap') return summary.average >= gradeKktp ? 'Naik kelas' : 'Perlu rapat dewan guru'
-  return summary.average >= gradeKktp ? 'Melanjutkan pembelajaran' : 'Perlu bimbingan lanjutan'
-}
-
-function getReportValidationItems(report) {
-  const rows = report?.rows || []
-  const attendance = report?.attendance || {}
-  const hasCompetencyDescriptions = rows.length > 0 && rows.every((row) => row.competency && !row.competency.includes('belum diisi'))
-  const hasAllScores = rows.length > 0 && rows.every((row) => row.finalScore > 0)
-  const hasIdentity = Boolean(report?.student?.name && report?.className && report?.academicYear && report?.semester)
-  const hasAttendance = ['hadir', 'izin', 'sakit', 'alpa'].some((key) => Number(attendance[key] || 0) > 0)
-  const hasProfile = (report?.graduateProfileRows || []).some((row) => row.description && !row.description.includes('belum diisi'))
-
-  return [
-    { label: 'Identitas peserta didik', done: hasIdentity, detail: hasIdentity ? 'Nama, kelas, semester, dan tahun ajaran tersedia.' : 'Lengkapi identitas rapor.' },
-    { label: 'Nilai akhir mata pelajaran', done: hasAllScores, detail: hasAllScores ? `${rows.length} nilai siap dicetak.` : 'Simpan nilai akhir pada daftar nilai.' },
-    { label: 'Capaian kompetensi', done: hasCompetencyDescriptions, detail: hasCompetencyDescriptions ? 'Deskripsi capaian terisi.' : 'Lengkapi deskripsi capaian tiap mapel.' },
-    { label: 'Profil lulusan', done: hasProfile, detail: hasProfile ? 'Deskripsi profil lulusan tersedia.' : 'Profil lulusan belum siap.' },
-    { label: 'Rekap kehadiran', done: hasAttendance, detail: hasAttendance ? 'Rekap hadir/izin/sakit/alpa terbaca.' : 'Belum ada data daftar hadir.' },
-  ]
-}
-
-function getReportReadiness(report) {
-  const items = getReportValidationItems(report)
-  const completed = items.filter((item) => item.done).length
-  return {
-    items,
-    completed,
-    total: items.length,
-    percent: items.length ? Math.round((completed / items.length) * 100) : 0,
-    status: completed === items.length ? 'Siap cetak' : 'Perlu dilengkapi',
-  }
-}
-
-function buildGraduateProfileRows(summary) {
-  const achievement = summary.average >= 85
-    ? 'Menunjukkan perkembangan sangat baik pada dimensi profil lulusan, terutama kolaborasi, kemandirian, penalaran kritis, dan tanggung jawab.'
-    : summary.average >= gradeKktp
-      ? 'Berkembang sesuai harapan pada dimensi profil lulusan; perlu menjaga konsistensi refleksi, komunikasi, dan penyelesaian tugas.'
-      : 'Perlu pendampingan untuk menguatkan kemandirian, kolaborasi, komunikasi, dan refleksi belajar.'
-
-  return [
-    {
-      aspect: 'Profil Lulusan',
-      dimension: graduateProfileDimensions.join('; '),
-      description: summary.completed ? achievement : 'Data profil lulusan belum diisi.',
-    },
-  ]
-}
-
-function getExtracurricularRows(student) {
-  const storedRows = safeReadLocalJson(`islelearn-extracurricular-${student?.id || 'demo'}`, [])
-  if (Array.isArray(storedRows) && storedRows.length) return storedRows
-  return [
-    {
-      activity: 'Belum diisi',
-      predicate: '-',
-      description: 'Data ekstrakurikuler belum tersedia.',
-    },
-  ]
-}
-
-function buildReportData({ rows, student, semester, academicYear }) {
-  const reportRows = getReportRowsForStudent(rows, student, semester, academicYear)
-  const summary = summarizeGradebook(reportRows)
-  const attendance = getReportAttendanceSummary(student, student?.className)
-  const className = promoteClassName(student?.className || reportRows[0]?.className || 'Kelas')
-  const level = getClassLevel(className)
-  return {
-    student,
-    semester,
-    semesterNumber: getSemesterNumber(semester),
-    academicYear,
-    className,
-    phase: getReportPhase(className),
-    level,
-    school: reportSchoolProfile,
-    printProfile: reportPrintProfile,
-    documentNumber: getReportDocumentNumber({ student, semester, academicYear, className }),
-    rows: reportRows,
-    groupedRows: groupReportRows(reportRows),
-    summary,
-    attendance,
-    graduateProfileRows: buildGraduateProfileRows(summary),
-    extracurricularRows: getExtracurricularRows(student),
-    waliNote: summary.average >= 85
-      ? 'Pertahankan kebiasaan belajar dan bantu teman saat diskusi kelas.'
-      : summary.average >= 75
-        ? 'Tingkatkan konsistensi belajar dan selesaikan latihan tepat waktu.'
-        : 'Perlu pendampingan belajar lebih teratur bersama guru dan orang tua.',
-    parentResponse: '................................................................................................................................................................',
-    decision: getReportDecision(summary, semester, level),
-    issuePlace: 'Pangkajene dan Kepulauan',
-    issueDate: formatLongIndonesianDate(),
-    homeroomName: 'Wali Kelas',
-    principalName: 'Kepala Sekolah',
-  }
-}
-
 function GuruDaftarNilai({ user, notify }) {
   const navigate = useNavigate()
   const roster = useMemo(() => getGradebookRoster(), [])
   const classOptions = useMemo(() => getGradebookClassOptions(roster), [roster])
   const subjectOptions = useMemo(() => getGradeSubjectOptions(), [])
   const [selectedClass, setSelectedClass] = useState(classOptions[0] || 'Kelas umum')
-  const [selectedSubject, setSelectedSubject] = useState(user?.subject || subjectOptions[0] || 'Mata pelajaran')
+  const [selectedSubject, setSelectedSubject] = useState(() => preferredSubjectOption(user?.subject, subjectOptions))
   const [semester, setSemester] = useState('Genap')
   const [academicYear, setAcademicYear] = useState('2026/2027')
   const [savedRows, setSavedRows] = useState(() => getGradebookRows(user))
@@ -3569,6 +3360,12 @@ function GuruDaftarNilai({ user, notify }) {
   useEffect(() => {
     if (!classOptions.includes(selectedClass) && classOptions[0]) setSelectedClass(classOptions[0])
   }, [classOptions, selectedClass])
+
+  useEffect(() => {
+    if (!subjectOptions.some((subject) => sameSubjectName(subject, selectedSubject))) {
+      setSelectedSubject(preferredSubjectOption(user?.subject, subjectOptions))
+    }
+  }, [selectedSubject, subjectOptions, user?.subject])
 
   useEffect(() => {
     setRows(buildGradebookRows(rosterForClass, savedRows, context))
@@ -3602,7 +3399,7 @@ function GuruDaftarNilai({ user, notify }) {
     const mergedRows = mergeGradebookRows(savedRows, context, nextRows)
     setGradebookRows(user, mergedRows)
     setSavedRows(mergedRows)
-    notify('Daftar nilai tersimpan dan e-rapor diperbarui.')
+    notify('Daftar nilai tersimpan.')
   }
 
   function fillSampleRows() {
@@ -3616,11 +3413,11 @@ function GuruDaftarNilai({ user, notify }) {
       <PageHeader
         eyebrow="Daftar Nilai"
         title="Format nilai Kurikulum Merdeka."
-        description="Formatif dipakai sebagai umpan balik belajar. Nilai akhir rapor dihitung dari Sumatif Lingkup Materi dan Sumatif Akhir Semester, lalu menghasilkan capaian kompetensi."
+        description="Formatif dipakai sebagai umpan balik belajar. Nilai akhir dihitung dari Sumatif Lingkup Materi dan Sumatif Akhir Semester, lalu menghasilkan capaian kompetensi."
         action={
           <div className="flex flex-wrap gap-2">
+            <QuickActionButton icon={FileText} label="Buka Rapor" onClick={() => navigate('/guru/rapor')} />
             <QuickActionButton icon={Save} label="Simpan nilai" onClick={() => saveRows()} />
-            <QuickActionButton icon={FileText} label="Buka E-Rapor" onClick={() => navigate('/guru/e-rapor')} />
           </div>
         }
       />
@@ -3661,16 +3458,13 @@ function GuruDaftarNilai({ user, notify }) {
         { label: 'Rata-rata', value: summary.average || '-', caption: `${summary.completed}/${summary.total} siswa sudah bernilai`, icon: BarChart3 },
         { label: 'Tercapai', value: summary.tuntas, caption: `KKTP ${gradeKktp}`, icon: Trophy },
         { label: 'Perlu penguatan', value: summary.remedial, caption: 'butuh tindak lanjut', icon: Target },
-        { label: 'Siap rapor', value: `${summary.readyRate}%`, caption: 'terhubung ke e-rapor', icon: FileText },
+        { label: 'Lengkap', value: `${summary.readyRate}%`, caption: 'nilai akhir terisi', icon: ClipboardCheck },
       ]} />
 
       <DashboardPanel title={`Daftar nilai ${selectedClass}`} description={`${selectedSubject} · Semester ${semester} · ${academicYear}`}>
         <div className="mb-3 flex flex-wrap gap-2">
           <button onClick={fillSampleRows} className="rounded-xl bg-[#EAF4FF] px-3 py-2 text-xs font-black text-[#2F80D8] ring-1 ring-[#D9E6F5] transition hover:bg-white">
             Isi nilai awal
-          </button>
-          <button onClick={() => navigate('/guru/e-rapor')} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-[#64748B] ring-1 ring-[#D9E6F5] transition hover:bg-[#F8FBFF]">
-            Lihat E-Rapor
           </button>
         </div>
 
@@ -3684,7 +3478,7 @@ function GuruDaftarNilai({ user, notify }) {
                 <th colSpan={6} className="bg-[#EEF7FF] px-3 py-2 font-black">Sumatif lingkup materi</th>
                 <th className="bg-[#F8FBFF] px-3 py-2 font-black">Rata sumatif</th>
                 <th className="bg-[#EEF7FF] px-3 py-2 font-black">Sumatif akhir semester</th>
-                <th colSpan={3} className="bg-[#F8FBFF] px-3 py-2 font-black">Rapor</th>
+                <th colSpan={3} className="bg-[#F8FBFF] px-3 py-2 font-black">Nilai akhir</th>
               </tr>
               <tr className="border-b border-[#D9E6F5] text-xs uppercase tracking-[0.12em] text-[#64748B]">
                 <th className="py-3 pr-3 font-black">No</th>
@@ -3784,81 +3578,173 @@ function GuruDaftarNilai({ user, notify }) {
   )
 }
 
-function GuruERapor({ user, notify, allRows = false, canEdit = true }) {
+const raporStorageVersion = 1
+const raporExtraCount = 5
+const raporSubjectSlotCount = 15
+const raporPaperOptions = [
+  { key: 'f4', label: 'F4', size: '215 x 330 mm' },
+  { key: 'a4', label: 'A4', size: '210 x 297 mm' },
+]
+const raporTabs = [
+  { key: 'data', label: 'Data rapor' },
+  { key: 'nilai', label: 'Nilai & leger' },
+  { key: 'cetak', label: 'Preview cetak' },
+]
+
+function GuruRapor({ user, notify }) {
   const navigate = useNavigate()
-  const rows = allRows ? getAllGradebookRows() : getGradebookRows(user)
-  const [semester, setSemester] = useState('Genap')
+  const roster = useMemo(() => getGradebookRoster(), [])
+  const classOptions = useMemo(() => getGradebookClassOptions(roster), [roster])
+  const subjectOptions = useMemo(() => getGradeSubjectOptions(), [])
+  const [selectedClass, setSelectedClass] = useState(classOptions[0] || 'Kelas umum')
+  const rosterForClass = useMemo(() => getGradeRosterForClass(roster, selectedClass), [roster, selectedClass])
+  const [selectedStudentId, setSelectedStudentId] = useState(rosterForClass[0]?.id || '')
+  const [semester, setSemester] = useState('Ganjil')
   const [academicYear, setAcademicYear] = useState('2026/2027')
-  const currentRows = rows.filter((row) => row.semester === semester && row.academicYear === academicYear)
-  const roster = getReportStudentOptions(rows)
-  const classOptions = Array.from(new Set([
-    ...currentRows.map((row) => row.className),
-    ...roster.map((student) => student.className),
-  ].filter(Boolean)))
-  const defaultClass = currentRows[0]?.className || classOptions[0] || 'Kelas umum'
-  const [selectedClass, setSelectedClass] = useState(defaultClass)
-  const currentRowsForClass = currentRows.filter((row) => row.className === selectedClass)
-  const studentsForClass = roster.filter((student) => student.className === selectedClass)
-  const defaultStudentId = currentRowsForClass[0]?.studentId || studentsForClass[0]?.id || roster[0]?.id || ''
-  const [selectedStudentId, setSelectedStudentId] = useState(defaultStudentId)
-  const selectedStudent = studentsForClass.find((student) => student.id === selectedStudentId)
-    || roster.find((student) => student.id === selectedStudentId)
-    || studentsForClass[0]
-    || roster[0]
-  const report = buildReportData({ rows, student: selectedStudent, semester, academicYear })
-  const readiness = getReportReadiness(report)
+  const [activeTab, setActiveTab] = useState('data')
+  const [raporState, setRaporStateValue] = useState(() => getRaporState(user))
+  const gradeRows = useMemo(() => getReportGradebookRows(user), [user])
+  const attendanceSessions = useMemo(() => getReportAttendanceSessions(user), [user])
+  const selectedStudent = rosterForClass.find((student) => student.id === selectedStudentId) || rosterForClass[0] || roster[0] || null
+  const reportKey = getRaporContextKey(selectedStudent?.id, selectedClass, semester, academicYear)
+  const reportData = buildRaporDocument({
+    user,
+    student: selectedStudent,
+    className: selectedClass,
+    semester,
+    academicYear,
+    subjectOptions,
+    gradeRows,
+    attendanceSessions,
+    raporState,
+    reportKey,
+  })
 
   useEffect(() => {
-    if (!classOptions.includes(selectedClass) && defaultClass) {
-      setSelectedClass(defaultClass)
-    }
-  }, [classOptions, defaultClass, selectedClass])
+    if (!classOptions.includes(selectedClass) && classOptions[0]) setSelectedClass(classOptions[0])
+  }, [classOptions, selectedClass])
 
   useEffect(() => {
-    const nextStudents = roster.filter((student) => student.className === selectedClass)
-    const preferredStudentId = currentRowsForClass[0]?.studentId || nextStudents[0]?.id || roster[0]?.id || ''
-    if (!nextStudents.some((student) => student.id === selectedStudentId) && preferredStudentId) {
-      setSelectedStudentId(preferredStudentId)
+    if (!rosterForClass.length) return
+    if (!rosterForClass.some((student) => student.id === selectedStudentId)) {
+      setSelectedStudentId(rosterForClass[0].id)
     }
-  }, [currentRowsForClass, roster, selectedClass, selectedStudentId])
+  }, [rosterForClass, selectedStudentId])
 
-  function printReport() {
-    if (!report.rows.length) {
-      notify('Simpan daftar nilai terlebih dahulu sebelum mencetak rapor.')
-      return
-    }
+  function patchRaporState(patcher) {
+    setRaporStateValue((current) => {
+      const nextState = patcher(current)
+      setRaporState(user, nextState)
+      return nextState
+    })
+  }
+
+  function updateSchoolProfile(field, value) {
+    patchRaporState((current) => ({
+      ...current,
+      schoolProfile: {
+        ...getDefaultRaporSchoolProfile(user),
+        ...(current.schoolProfile || {}),
+        [field]: value,
+      },
+    }))
+  }
+
+  function updateStudentIdentity(field, value) {
+    if (!selectedStudent) return
+    patchRaporState((current) => ({
+      ...current,
+      studentProfiles: {
+        ...(current.studentProfiles || {}),
+        [selectedStudent.id]: {
+          ...getDefaultRaporStudentProfile(selectedStudent),
+          ...(current.studentProfiles?.[selectedStudent.id] || {}),
+          [field]: value,
+        },
+      },
+    }))
+  }
+
+  function updateReportOverride(field, value) {
+    patchRaporState((current) => ({
+      ...current,
+      reports: {
+        ...(current.reports || {}),
+        [reportKey]: {
+          ...getDefaultRaporOverride(user),
+          ...(current.reports?.[reportKey] || {}),
+          [field]: value,
+        },
+      },
+    }))
+  }
+
+  function updateExtracurricular(index, field, value) {
+    patchRaporState((current) => {
+      const currentReport = {
+        ...getDefaultRaporOverride(user),
+        ...(current.reports?.[reportKey] || {}),
+      }
+      const extracurriculars = normalizeRaporExtracurriculars(currentReport.extracurriculars)
+      extracurriculars[index] = {
+        ...extracurriculars[index],
+        [field]: value,
+      }
+
+      return {
+        ...current,
+        reports: {
+          ...(current.reports || {}),
+          [reportKey]: {
+            ...currentReport,
+            extracurriculars,
+          },
+        },
+      }
+    })
+  }
+
+  function saveRapor() {
+    setRaporState(user, raporState)
+    notify('Rapor tersimpan dan siap dicetak.')
+  }
+
+  function printRapor() {
+    setRaporState(user, raporState)
+    if (typeof window === 'undefined') return
+
+    const cleanup = () => document.body.classList.remove('is-printing-rapor')
     document.body.classList.add('is-printing-rapor')
-    window.addEventListener('afterprint', () => {
-      document.body.classList.remove('is-printing-rapor')
-    }, { once: true })
-    window.print()
-    notify('Dialog cetak dibuka. Pilih Save as PDF untuk menyimpan e-rapor.')
+    window.addEventListener('afterprint', cleanup, { once: true })
+    window.setTimeout(() => window.print(), 50)
+    window.setTimeout(cleanup, 1600)
   }
 
   return (
     <div className="space-y-4">
       <PageHeader
-        eyebrow="E-Rapor"
-        title="E-Rapor siswa."
-        description="Ruang finalisasi rapor: validasi data, cek kelengkapan, preview dokumen, lalu cetak format A4 resmi."
+        eyebrow="Rapor"
+        title="Rapor Kurikulum Merdeka siap cetak."
+        description="Layout dibuat mengikuti struktur file rapor: sampul, identitas, nilai intrakurikuler, ekstrakurikuler, ketidakhadiran, catatan wali kelas, dan tanda tangan."
         action={
           <div className="flex flex-wrap gap-2">
-            {canEdit && <QuickActionButton icon={BarChart3} label="Edit nilai" onClick={() => navigate('/guru/daftar-nilai')} />}
-            <QuickActionButton icon={Download} label="Cetak / PDF" onClick={printReport} />
+            <QuickActionButton icon={BarChart3} label="Daftar Nilai" onClick={() => navigate('/guru/daftar-nilai')} />
+            <QuickActionButton icon={Save} label="Simpan" onClick={saveRapor} />
+            <QuickActionButton icon={Printer} label="Cetak Rapor" onClick={printRapor} />
           </div>
         }
       />
 
-      <section className="rounded-2xl border border-[#D9E6F5] bg-white p-4 shadow-[0_10px_28px_rgba(15,36,55,0.045)] print:hidden">
-        <div className="grid gap-3 md:grid-cols-4">
+      <section className="rounded-2xl border border-[#D9E6F5] bg-white p-4 shadow-[0_10px_28px_rgba(15,36,55,0.045)]">
+        <div className="grid gap-3 md:grid-cols-5">
           <label className={materialLabelClass}>Kelas
             <select value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)} className={materialInputClass}>
               {classOptions.map((className) => <option key={className} value={className}>{className}</option>)}
             </select>
           </label>
-          <label className={materialLabelClass}>Siswa
-            <select value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)} className={materialInputClass}>
-              {(studentsForClass.length ? studentsForClass : roster).map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}
+          <label className={materialLabelClass}>Peserta didik
+            <select value={selectedStudent?.id || ''} onChange={(event) => setSelectedStudentId(event.target.value)} className={materialInputClass}>
+              {rosterForClass.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}
             </select>
           </label>
           <label className={materialLabelClass}>Semester
@@ -3867,368 +3753,843 @@ function GuruERapor({ user, notify, allRows = false, canEdit = true }) {
               <option>Genap</option>
             </select>
           </label>
-          <label className={materialLabelClass}>Tahun ajaran
+          <label className={materialLabelClass}>Tahun pelajaran
             <input value={academicYear} onChange={(event) => setAcademicYear(event.target.value)} className={materialInputClass} />
           </label>
+          <label className={materialLabelClass}>Ukuran cetak
+            <select value={reportData.reportOverride.paperSize} onChange={(event) => updateReportOverride('paperSize', event.target.value)} className={materialInputClass}>
+              {raporPaperOptions.map((paper) => <option key={paper.key} value={paper.key}>{paper.label} · {paper.size}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-4 grid gap-2 md:grid-cols-5">
+          {[
+            ['Nilai terhubung', reportData.scoredSubjectCount],
+            ['Slot mapel', reportData.subjectRows.length],
+            ['Ekstrakurikuler', reportData.extracurriculars.filter((item) => item.name || item.description).length],
+            ['Kehadiran', `${reportData.attendance.hadir}/${reportData.attendance.total}`],
+            ['Kertas', `${reportData.paper.label} · ${reportData.paper.size}`],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-xl bg-[#F8FBFF] px-3 py-2 ring-1 ring-[#D9E6F5]">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]">{label}</p>
+              <p className="mt-1 text-lg font-black text-[#17446E]">{value || 0}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {report.rows.length ? (
-        <>
-          <div className="grid gap-4 print:hidden xl:grid-cols-[1fr_0.82fr]">
-            <DashboardPanel title="Finalisasi e-rapor" description="Checklist ini membantu guru memastikan rapor siap dicetak seperti dokumen resmi.">
-              <div className="grid gap-4 lg:grid-cols-[14rem_1fr]">
-                <div className="rounded-2xl bg-[#123B63] p-4 text-white">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-100/75">Status dokumen</p>
-                  <p className="mt-3 text-4xl font-black leading-none">{readiness.percent}%</p>
-                  <p className="mt-2 text-sm font-bold text-sky-100">{readiness.status}</p>
-                  <div className="mt-4 h-2 rounded-full bg-white/18">
-                    <div className="h-2 rounded-full bg-[#8BD4FF]" style={{ width: `${readiness.percent}%` }} />
-                  </div>
-                  <p className="mt-3 text-xs font-semibold leading-5 text-sky-100/78">{readiness.completed} dari {readiness.total} komponen siap.</p>
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-[#D9E6F5] bg-white p-2 shadow-[0_10px_28px_rgba(15,36,55,0.035)]">
+        {raporTabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className={`rounded-xl px-4 py-2 text-sm font-black transition ${
+              activeTab === tab.key
+                ? 'bg-[#17446E] text-white shadow-[0_10px_24px_rgba(23,68,110,0.16)]'
+                : 'bg-[#F8FBFF] text-[#64748B] hover:bg-[#EAF4FF] hover:text-[#2F80D8]'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'data' && (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <DashboardPanel title="Data sekolah" description="Diisi dari profil sekolah IsleLearn. Kosongkan field yang belum tersedia, nanti bisa dilengkapi admin.">
+            <RaporFieldGrid
+              fields={[
+                ['Nama sekolah', 'schoolName'],
+                ['NPSN', 'npsn'],
+                ['Alamat sekolah', 'address'],
+                ['Kode pos', 'postalCode'],
+                ['Desa/Kelurahan', 'village'],
+                ['Kecamatan', 'district'],
+                ['Kabupaten/Kota', 'city'],
+                ['Provinsi', 'province'],
+                ['Website', 'website'],
+                ['Email', 'email'],
+                ['Nama kepala sekolah', 'principalName'],
+                ['NIP kepala sekolah', 'principalNip'],
+                ['Nama wali kelas', 'homeroomName'],
+                ['NIP wali kelas', 'homeroomNip'],
+              ]}
+              values={reportData.schoolProfile}
+              onChange={updateSchoolProfile}
+            />
+          </DashboardPanel>
+
+          <DashboardPanel title="Identitas peserta didik" description="Data siswa berasal dari IsleLearn, lalu bisa dilengkapi untuk kebutuhan sampul dan buku induk.">
+            {selectedStudent ? (
+              <RaporFieldGrid
+                fields={[
+                  ['Nama peserta didik', 'name'],
+                  ['NIS', 'nis'],
+                  ['NISN', 'nisn'],
+                  ['Tempat lahir', 'birthPlace'],
+                  ['Tanggal lahir', 'birthDate', 'date'],
+                  ['Jenis kelamin', 'gender'],
+                  ['Agama', 'religion'],
+                  ['Pendidikan sebelumnya', 'previousSchool'],
+                  ['Alamat peserta didik', 'address'],
+                  ['Nama ayah', 'fatherName'],
+                  ['Nama ibu', 'motherName'],
+                  ['Pekerjaan ayah', 'fatherJob'],
+                  ['Pekerjaan ibu', 'motherJob'],
+                  ['Alamat orang tua', 'parentAddress'],
+                  ['Nama wali', 'guardianName'],
+                  ['Pekerjaan wali', 'guardianJob'],
+                  ['Alamat wali', 'guardianAddress'],
+                ]}
+                values={reportData.studentProfile}
+                onChange={updateStudentIdentity}
+              />
+            ) : (
+              <EmptyState title="Belum ada siswa." description="Tambahkan siswa terlebih dahulu di data siswa admin." />
+            )}
+          </DashboardPanel>
+
+          <DashboardPanel title="Ekstrakurikuler" description="Mengikuti format file: maksimal 5 pilihan ekstrakurikuler beserta keterangannya.">
+            <div className="space-y-3">
+              {reportData.extracurriculars.map((item, index) => (
+                <div key={`extra-${index}`} className="grid gap-2 rounded-xl bg-[#F8FBFF] p-3 ring-1 ring-[#D9E6F5] md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+                  <input
+                    value={item.name}
+                    onChange={(event) => updateExtracurricular(index, 'name', event.target.value)}
+                    placeholder={`Ekstrakurikuler ${index + 1}`}
+                    className={materialInputClass}
+                  />
+                  <input
+                    value={item.description}
+                    onChange={(event) => updateExtracurricular(index, 'description', event.target.value)}
+                    placeholder="Keterangan atau deskripsi"
+                    className={materialInputClass}
+                  />
                 </div>
+              ))}
+            </div>
+          </DashboardPanel>
 
-                <ReportValidationList items={readiness.items} />
+          <DashboardPanel title="Catatan dan keputusan" description="Bagian akhir rapor: catatan wali kelas, status kenaikan, tempat/tanggal, dan tanda tangan.">
+            <div className="grid gap-3">
+              <label className={materialLabelClass}>Catatan wali kelas
+                <textarea value={reportData.reportOverride.homeroomNote} onChange={(event) => updateReportOverride('homeroomNote', event.target.value)} rows={4} className={`${materialInputClass} resize-y leading-6`} />
+              </label>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className={materialLabelClass}>Keputusan
+                  <select value={reportData.reportOverride.decision} onChange={(event) => updateReportOverride('decision', event.target.value)} className={materialInputClass}>
+                    <option>Naik kelas</option>
+                    <option>Tinggal di kelas</option>
+                    <option>Lulus</option>
+                    <option>Belum ditentukan</option>
+                  </select>
+                </label>
+                <label className={materialLabelClass}>Tempat rapor
+                  <input value={reportData.reportOverride.reportPlace} onChange={(event) => updateReportOverride('reportPlace', event.target.value)} className={materialInputClass} />
+                </label>
+                <label className={materialLabelClass}>Tanggal rapor
+                  <input type="date" value={reportData.reportOverride.reportDate} onChange={(event) => updateReportOverride('reportDate', event.target.value)} className={materialInputClass} />
+                </label>
+                <label className={materialLabelClass}>Catatan tambahan
+                  <input value={reportData.reportOverride.additionalNote} onChange={(event) => updateReportOverride('additionalNote', event.target.value)} className={materialInputClass} />
+                </label>
               </div>
-            </DashboardPanel>
-
-            <DashboardPanel title="Format cetak" description="Dokumen cetak dipisahkan dari halaman web agar hasil PDF bersih.">
-              <div className="space-y-3">
-                <ReportMetaRow label="Nomor dokumen" value={report.documentNumber} />
-                <ReportMetaRow label="Template" value="A4 portrait, margin 12 mm" />
-                <ReportMetaRow label="Kurikulum" value={report.printProfile.subtitle} />
-                <ReportMetaRow label="Jumlah mapel" value={`${report.rows.length} mata pelajaran`} />
-                <ReportMetaRow label="Kehadiran" value={`${report.attendance.hadir || 0} hadir · ${report.attendance.alpa || 0} alpa`} />
-              </div>
-            </DashboardPanel>
-          </div>
-
-          <div className="grid gap-4 print:hidden md:grid-cols-3">
-            <EReportFeatureCard icon={FileText} title="Dokumen formal" description="Header, identitas, nilai, deskripsi, kehadiran, catatan, keputusan, dan tanda tangan berada dalam satu template cetak." />
-            <EReportFeatureCard icon={ClipboardCheck} title="Validasi sebelum cetak" description="Guru melihat data mana yang sudah lengkap dan mana yang masih perlu diperbaiki sebelum PDF dibuat." />
-            <EReportFeatureCard icon={School} title="Siap dikembangkan" description="Struktur data sudah dipisah untuk integrasi Dapodik/e-Rapor resmi pada tahap berikutnya." />
-          </div>
-
-          <ReportCardView report={report} />
-        </>
-      ) : (
-        <EmptyState title="E-Rapor belum siap" description="Simpan daftar nilai terlebih dahulu agar e-rapor siswa otomatis terbentuk." />
+            </div>
+          </DashboardPanel>
+        </div>
       )}
+
+      {activeTab === 'nilai' && (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+          <DashboardPanel title="Leger nilai intrakurikuler" description="Nilai akhir dan capaian kompetensi diambil langsung dari Daftar Nilai.">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[56rem] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[#D9E6F5] text-xs uppercase tracking-[0.12em] text-[#2F80D8]">
+                    <th className="py-3 pr-3 font-black">No</th>
+                    <th className="py-3 pr-3 font-black">Muatan pelajaran</th>
+                    <th className="py-3 pr-3 text-center font-black">Nilai akhir</th>
+                    <th className="py-3 pr-3 font-black">Ketercapaian</th>
+                    <th className="py-3 pr-3 font-black">Capaian kompetensi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#D9E6F5]">
+                  {reportData.subjectRows.map((row, index) => (
+                    <tr key={row.subject}>
+                      <td className="py-3 pr-3 align-top font-mono font-black text-[#64748B]">{index + 1}</td>
+                      <td className="py-3 pr-3 align-top font-black text-[#132437]">{row.subject}</td>
+                      <td className="py-3 pr-3 align-top text-center font-mono text-lg font-black text-[#17446E]">{row.finalScore || '-'}</td>
+                      <td className="py-3 pr-3 align-top"><StatusBadge tone={gradeStatusTone(row.finalScore)}>{row.status}</StatusBadge></td>
+                      <td className="py-3 pr-3 align-top leading-6 text-[#475569]">{row.competency}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DashboardPanel>
+
+          <div className="space-y-4">
+            <DashboardPanel title="Ketidakhadiran" description={reportData.attendance.rangeLabel}>
+              <div className="grid gap-2">
+                {[
+                  ['Hadir', reportData.attendance.hadir],
+                  ['Sakit', reportData.attendance.sakit],
+                  ['Izin', reportData.attendance.izin],
+                  ['Tanpa keterangan', reportData.attendance.alpa],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between rounded-xl bg-[#F8FBFF] px-3 py-2 ring-1 ring-[#D9E6F5]">
+                    <span className="text-sm font-black text-[#132437]">{label}</span>
+                    <span className="font-mono text-lg font-black text-[#17446E]">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </DashboardPanel>
+
+            <DashboardPanel title="Kesiapan cetak" description="Data yang masih kosong akan tampil sebagai garis titik di dokumen cetak.">
+              <div className="space-y-2">
+                {reportData.readiness.map((item) => (
+                  <div key={item.label} className="flex items-center justify-between gap-3 rounded-xl bg-[#F8FBFF] px-3 py-2 ring-1 ring-[#D9E6F5]">
+                    <span className="text-sm font-black text-[#132437]">{item.label}</span>
+                    <StatusBadge tone={item.done ? 'green' : 'amber'}>{item.done ? 'Siap' : 'Lengkapi'}</StatusBadge>
+                  </div>
+                ))}
+              </div>
+            </DashboardPanel>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'cetak' && (
+        <DashboardPanel title="Preview dokumen cetak" description="Area putih di bawah ini yang akan keluar saat tombol Cetak Rapor ditekan.">
+          <RaporPrintDocument reportData={reportData} />
+        </DashboardPanel>
+      )}
+
+      <div className="rapor-print-only">
+        <RaporPrintDocument reportData={reportData} printOnly />
+      </div>
     </div>
   )
 }
 
-function ReportValidationList({ items = [] }) {
+function RaporFieldGrid({ fields, values, onChange }) {
   return (
-    <div className="space-y-2">
-      {items.map((item) => (
-        <div key={item.label} className="flex items-start gap-3 rounded-xl border border-[#D9E6F5] bg-[#F8FBFF] p-3">
-          <span className={`mt-0.5 grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg text-sm font-black ${
-            item.done ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-amber-50 text-amber-700 ring-1 ring-amber-100'
-          }`}>
-            {item.done ? 'OK' : '!'}
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-black text-[#132437]">{item.label}</span>
-            <span className="mt-0.5 block text-xs font-semibold leading-5 text-[#64748B]">{item.detail}</span>
-          </span>
-        </div>
+    <div className="grid gap-3 md:grid-cols-2">
+      {fields.map(([label, key, type = 'text']) => (
+        <label key={key} className={materialLabelClass}>{label}
+          <input
+            type={type}
+            value={values?.[key] || ''}
+            onChange={(event) => onChange(key, event.target.value)}
+            className={materialInputClass}
+          />
+        </label>
       ))}
     </div>
   )
 }
 
-function ReportMetaRow({ label, value }) {
+function RaporPrintDocument({ reportData, printOnly = false }) {
+  const paperClass = `rapor-paper-${reportData.paper.key}`
   return (
-    <div className="flex items-start justify-between gap-4 rounded-xl border border-[#D9E6F5] bg-[#F8FBFF] px-3 py-3">
-      <p className="text-xs font-black uppercase tracking-[0.12em] text-[#64748B]">{label}</p>
-      <p className="max-w-[12rem] text-right text-sm font-black text-[#132437]">{value}</p>
+    <div data-print-area="rapor" data-paper-size={reportData.paper.key} className={`${paperClass} ${printOnly ? 'rapor-print-host' : 'rounded-2xl bg-[#EEF4FA] p-3'}`}>
+      <RaporCoverPage reportData={reportData} />
+      <RaporIdentityPage reportData={reportData} />
+      <RaporResultPage reportData={reportData} />
+      <RaporLedgerPage reportData={reportData} />
+      <RaporMutationPage reportData={reportData} />
     </div>
   )
 }
 
-function EReportFeatureCard({ icon: Icon, title, description }) {
+function RaporCoverPage({ reportData }) {
+  const { schoolProfile, studentProfile } = reportData
   return (
-    <section className="rounded-2xl border border-[#D9E6F5] bg-white p-4 shadow-[0_10px_28px_rgba(15,36,55,0.045)]">
-      <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#EAF4FF] text-[#2F80D8] ring-1 ring-[#D9E6F5]">
-        <Icon size={18} />
-      </span>
-      <h3 className="mt-3 text-sm font-black text-[#132437]">{title}</h3>
-      <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">{description}</p>
-    </section>
-  )
-}
+    <section className="rapor-page rapor-cover-page">
+      <div className="rapor-cover-title">
+        <p>R A P O R</p>
+        <p>PESERTA DIDIK</p>
+        <p>{schoolProfile.schoolName || school.name}</p>
+      </div>
 
-function ReportCardView({ report }) {
-  const {
-    student,
-    groupedRows,
-    summary,
-    attendance,
-    semester,
-    semesterNumber,
-    academicYear,
-    waliNote,
-    decision,
-    school: reportSchool,
-    printProfile,
-    documentNumber,
-    className,
-    phase,
-    level,
-    graduateProfileRows,
-    extracurricularRows,
-    parentResponse,
-    issuePlace,
-    issueDate,
-    homeroomName,
-    principalName,
-  } = report
-  let subjectNumber = 0
-  const identityRows = [
-    ['Nama Peserta Didik', student?.name || '-'],
-    ['NISN/NIS', student?.nis || '-'],
-    ['Kelas', className || '-'],
-    ['Fase', phase || '-'],
-    ['Semester', `${semesterNumber} / ${semester}`],
-    ['Tahun Ajaran', academicYear],
-  ]
-  const schoolRows = [
-    ['Nama Sekolah', reportSchool.name],
-    ['NPSN', reportSchool.npsn],
-    ['Alamat', reportSchool.address],
-    ['Kabupaten/Kota', reportSchool.district],
-    ['Provinsi', reportSchool.province],
-  ]
+      <div className="rapor-cover-student">
+        <p>Nama Peserta Didik :</p>
+        <h2>{studentProfile.name || '........................................'}</h2>
+        <p>NISN</p>
+        <h3>{studentProfile.nisn || '........................................'}</h3>
+      </div>
 
-  return (
-    <section id="report-print-area" data-print-area="rapor" className="e-rapor-document overflow-hidden rounded-2xl border border-[#D9E6F5] bg-white shadow-[0_10px_28px_rgba(15,36,55,0.045)] print:rounded-none print:border-0 print:shadow-none">
-      <div className="bg-[#F8FBFF] px-5 py-5 print:bg-white print:px-0 print:py-0">
-        <article className="rapor-page mx-auto max-w-[62rem] rounded-2xl border border-[#D9E6F5] bg-white p-6 text-[#132437] print:max-w-none print:rounded-none print:border-0 print:p-0">
-          <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#2F80D8] print:hidden">Preview dokumen cetak</p>
-
-          <header className="rapor-letterhead border-b-2 border-[#111827] pb-4">
-            <div className="grid gap-4 sm:grid-cols-[5rem_1fr_5rem] sm:items-center">
-              <div className="grid h-20 w-20 place-items-center rounded-xl bg-white ring-1 ring-[#D9E6F5] print:h-16 print:w-16 print:ring-0">
-                <img src="/brand/islelearn-logo.png" alt="Logo IsleLearn" className="h-16 w-16 object-contain print:h-14 print:w-14" />
-              </div>
-              <div className="text-center">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#34465D] print:text-black">{printProfile.ministry}</p>
-                <p className="mt-1 text-[11px] font-bold uppercase leading-5 text-[#34465D] print:text-black">{printProfile.directorate}</p>
-                <h2 className="mt-2 text-xl font-black uppercase leading-tight text-[#111827] print:text-[15pt]">{reportSchool.name}</h2>
-                <p className="mt-1 text-xs font-semibold leading-5 text-[#34465D] print:text-black">{reportSchool.address} · {reportSchool.district} · {reportSchool.province}</p>
-              </div>
-              <div className="hidden sm:block" />
-            </div>
-          </header>
-
-          <div className="mt-4 text-center">
-            <p className="text-sm font-black uppercase tracking-[0.12em] text-[#111827]">{printProfile.title}</p>
-            <p className="mt-1 text-xs font-bold uppercase tracking-[0.08em] text-[#34465D] print:text-black">{printProfile.subtitle}</p>
-          </div>
-
-          <div className="mt-4 grid gap-2 border-y border-[#111827] py-2 text-xs font-bold text-[#111827] sm:grid-cols-3">
-            <p>No. Dokumen: <span className="font-black">{documentNumber}</span></p>
-            <p className="sm:text-center">Semester: <span className="font-black">{semesterNumber}</span></p>
-            <p className="sm:text-right">Tahun Ajaran: <span className="font-black">{academicYear}</span></p>
-          </div>
-
-          <div className="mt-5 grid gap-4 lg:grid-cols-2 print:grid-cols-2">
-            <ReportInfoTable title="Identitas Sekolah" rows={schoolRows} />
-            <ReportInfoTable title="Identitas Peserta Didik" rows={identityRows} />
-          </div>
-
-          <ReportSection title="A. Nilai Akhir dan Capaian Kompetensi">
-            <div className="overflow-x-auto">
-              <table className="rapor-table w-full min-w-[48rem] border-collapse text-sm print:min-w-0">
-                <thead>
-                  <tr className="bg-[#EAF4FF] text-[#132437] print:bg-white">
-                    <th className="w-12 border border-[#AFC9E8] px-3 py-2 text-center font-black">No</th>
-                    <th className="border border-[#AFC9E8] px-3 py-2 text-left font-black">Mata Pelajaran</th>
-                    <th className="w-24 border border-[#AFC9E8] px-3 py-2 text-center font-black">Nilai Akhir</th>
-                    <th className="border border-[#AFC9E8] px-3 py-2 text-left font-black">Capaian Kompetensi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {groupedRows.map((group) => (
-                    <Fragment key={group.label}>
-                      <tr>
-                        <td colSpan={4} className="border border-[#AFC9E8] bg-[#F8FBFF] px-3 py-2 text-xs font-black uppercase tracking-[0.08em] text-[#17446E] print:bg-white print:text-black">
-                          {group.label}
-                        </td>
-                      </tr>
-                      {group.rows.map((row) => {
-                        subjectNumber += 1
-                        return (
-                          <tr key={`${row.studentId}-${row.subject}`}>
-                            <td className="border border-[#AFC9E8] px-3 py-2 text-center font-semibold text-[#132437]">{subjectNumber}</td>
-                            <td className="border border-[#AFC9E8] px-3 py-2 font-black text-[#132437]">{row.subject}</td>
-                            <td className="border border-[#AFC9E8] px-3 py-2 text-center font-mono text-lg font-black text-[#132437]">{row.finalScore || '-'}</td>
-                            <td className="border border-[#AFC9E8] px-3 py-2 text-sm font-semibold leading-6 text-[#34465D] print:text-black">
-                              {row.competency}
-                              <span className="mt-1 block text-xs font-black text-[#64748B] print:text-black">Ketercapaian: {row.status}</span>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </ReportSection>
-
-          <ReportSection title="B. Ekstrakurikuler">
-            <table className="rapor-table w-full border-collapse text-sm">
-              <thead>
-                <tr className="bg-[#EAF4FF] print:bg-white">
-                  <th className="w-12 border border-[#AFC9E8] px-3 py-2 text-center font-black">No</th>
-                  <th className="border border-[#AFC9E8] px-3 py-2 text-left font-black">Kegiatan</th>
-                  <th className="w-24 border border-[#AFC9E8] px-3 py-2 text-center font-black">Predikat</th>
-                  <th className="border border-[#AFC9E8] px-3 py-2 text-left font-black">Keterangan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {extracurricularRows.map((row, index) => (
-                  <tr key={`${row.activity}-${index}`}>
-                    <td className="border border-[#AFC9E8] px-3 py-2 text-center font-semibold">{index + 1}</td>
-                    <td className="border border-[#AFC9E8] px-3 py-2 font-black text-[#132437]">{row.activity}</td>
-                    <td className="border border-[#AFC9E8] px-3 py-2 text-center font-black text-[#132437]">{row.predicate}</td>
-                    <td className="border border-[#AFC9E8] px-3 py-2 font-semibold leading-6 text-[#34465D] print:text-black">{row.description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </ReportSection>
-
-          <div className="grid gap-4 print:grid-cols-[1fr_18rem] xl:grid-cols-[1fr_20rem]">
-            <ReportSection title="C. Profil Lulusan">
-              <table className="rapor-table w-full border-collapse text-sm">
-                <thead>
-                  <tr className="bg-[#EAF4FF] print:bg-white">
-                    <th className="border border-[#AFC9E8] px-3 py-2 text-left font-black">Aspek</th>
-                    <th className="border border-[#AFC9E8] px-3 py-2 text-left font-black">Dimensi</th>
-                    <th className="border border-[#AFC9E8] px-3 py-2 text-left font-black">Deskripsi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {graduateProfileRows.map((row) => (
-                    <tr key={row.aspect}>
-                      <td className="border border-[#AFC9E8] px-3 py-2 font-black text-[#132437]">{row.aspect}</td>
-                      <td className="border border-[#AFC9E8] px-3 py-2 font-semibold leading-6 text-[#34465D] print:text-black">{row.dimension}</td>
-                      <td className="border border-[#AFC9E8] px-3 py-2 font-semibold leading-6 text-[#34465D] print:text-black">{row.description}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </ReportSection>
-
-            <ReportSection title="D. Ketidakhadiran">
-              <table className="rapor-table w-full border-collapse text-sm">
-                <tbody>
-                  {[
-                    ['Sakit', attendance.sakit],
-                    ['Izin', attendance.izin],
-                    ['Tanpa Keterangan', attendance.alpa],
-                  ].map(([label, value]) => (
-                    <tr key={label}>
-                      <td className="border border-[#AFC9E8] px-3 py-2 font-black text-[#132437]">{label}</td>
-                      <td className="w-20 border border-[#AFC9E8] px-3 py-2 text-center font-mono text-lg font-black text-[#132437]">{value}</td>
-                      <td className="w-14 border border-[#AFC9E8] px-3 py-2 text-center font-semibold text-[#64748B] print:text-black">hari</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </ReportSection>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <ReportSection title="E. Catatan Wali Kelas">
-              <p className="min-h-24 rounded-xl border border-[#AFC9E8] bg-[#F8FBFF] p-3 text-sm font-semibold leading-7 text-[#34465D] print:rounded-none print:bg-white print:text-black">{waliNote}</p>
-            </ReportSection>
-
-            <ReportSection title="F. Tanggapan Orang Tua/Wali">
-              <p className="min-h-24 rounded-xl border border-[#AFC9E8] bg-white p-3 text-sm font-semibold leading-7 text-[#34465D] print:rounded-none print:text-black">{parentResponse}</p>
-            </ReportSection>
-          </div>
-
-          <ReportSection title="G. Keputusan">
-            <table className="rapor-table w-full border-collapse text-sm">
-              <tbody>
-                <tr>
-                  <td className="w-52 border border-[#AFC9E8] bg-[#F8FBFF] px-3 py-2 font-black text-[#132437] print:bg-white">Rata-rata Nilai Akhir</td>
-                  <td className="border border-[#AFC9E8] px-3 py-2 font-mono text-lg font-black text-[#132437]">{summary.average || '-'}</td>
-                </tr>
-                <tr>
-                  <td className="border border-[#AFC9E8] bg-[#F8FBFF] px-3 py-2 font-black text-[#132437] print:bg-white">Ketuntasan</td>
-                  <td className="border border-[#AFC9E8] px-3 py-2 font-semibold text-[#34465D] print:text-black">{summary.tuntas} mata pelajaran tuntas, {summary.remedial} perlu bimbingan.</td>
-                </tr>
-                <tr>
-                  <td className="border border-[#AFC9E8] bg-[#F8FBFF] px-3 py-2 font-black text-[#132437] print:bg-white">Keputusan</td>
-                  <td className="border border-[#AFC9E8] px-3 py-2 font-black text-[#132437]">{decision}</td>
-                </tr>
-                <tr>
-                  <td className="border border-[#AFC9E8] bg-[#F8FBFF] px-3 py-2 font-black text-[#132437] print:bg-white">Kelas/Fase</td>
-                  <td className="border border-[#AFC9E8] px-3 py-2 font-semibold text-[#34465D] print:text-black">{className} · Fase {phase} · Tingkat {level}</td>
-                </tr>
-              </tbody>
-            </table>
-          </ReportSection>
-
-          <div className="mt-8 grid gap-8 text-center text-sm font-semibold text-[#132437] sm:grid-cols-3">
-            <SignatureBlock title="Orang Tua/Wali" name="................................" />
-            <SignatureBlock title={`${issuePlace}, ${issueDate}\nWali Kelas`} name={homeroomName} />
-            <SignatureBlock title="Kepala Sekolah" name={principalName} />
-          </div>
-
-          <p className="mt-6 text-center text-[11px] font-semibold leading-5 text-[#64748B] print:hidden">
-            Preview modern dibuat oleh {printProfile.application}. Hasil cetak hanya memuat dokumen rapor.
-          </p>
-        </article>
+      <div className="rapor-cover-footer">
+        <p>KEMENTERIAN PENDIDIKAN DASAR DAN MENENGAH</p>
+        <p>REPUBLIK INDONESIA</p>
       </div>
     </section>
   )
 }
 
-function ReportInfoTable({ title, rows }) {
+function RaporIdentityPage({ reportData }) {
+  const { schoolProfile, studentProfile } = reportData
   return (
-    <div>
-      <h3 className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#17446E] print:text-black">{title}</h3>
-      <table className="rapor-table w-full border-collapse text-sm">
-        <tbody>
-          {rows.map(([label, value]) => (
-            <tr key={label}>
-              <td className="w-40 border border-[#AFC9E8] bg-[#F8FBFF] px-3 py-2 font-black text-[#132437] print:bg-white">{label}</td>
-              <td className="border border-[#AFC9E8] px-3 py-2 font-semibold text-[#34465D] print:text-black">{value}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
+    <section className="rapor-page rapor-identity-page">
+      <h2 className="rapor-page-title">R A P O R PESERTA DIDIK</h2>
+      <h3 className="rapor-section-title">Data Sekolah</h3>
+      <RaporInfoTable rows={[
+        ['Nama Sekolah', schoolProfile.schoolName],
+        ['NPSN', schoolProfile.npsn],
+        ['Alamat Sekolah', schoolProfile.address],
+        ['Kode Pos', schoolProfile.postalCode],
+        ['Desa / Kelurahan', schoolProfile.village],
+        ['Kecamatan', schoolProfile.district],
+        ['Kabupaten / Kota', schoolProfile.city],
+        ['Provinsi', schoolProfile.province],
+        ['Website', schoolProfile.website],
+        ['E-mail', schoolProfile.email],
+      ]} />
 
-function ReportSection({ title, children }) {
-  return (
-    <section className="mt-5">
-      <h3 className="mb-2 text-sm font-black uppercase tracking-[0.1em] text-[#132437]">{title}</h3>
-      {children}
+      <h3 className="rapor-section-title">Identitas Peserta Didik</h3>
+      <RaporInfoTable rows={[
+        ['Nama Peserta Didik', studentProfile.name],
+        ['NIS / NISN', compactJoin([studentProfile.nis, studentProfile.nisn], ' / ')],
+        ['Tempat, Tanggal Lahir', compactJoin([studentProfile.birthPlace, formatRaporDate(studentProfile.birthDate)], ', ')],
+        ['Jenis Kelamin', studentProfile.gender],
+        ['Agama', studentProfile.religion],
+        ['Pendidikan Sebelumnya', studentProfile.previousSchool],
+        ['Alamat Peserta Didik', studentProfile.address],
+        ['Nama Ayah', studentProfile.fatherName],
+        ['Nama Ibu', studentProfile.motherName],
+        ['Pekerjaan Ayah', studentProfile.fatherJob],
+        ['Pekerjaan Ibu', studentProfile.motherJob],
+        ['Alamat Orang Tua', studentProfile.parentAddress],
+        ['Nama Wali', studentProfile.guardianName],
+        ['Pekerjaan Wali', studentProfile.guardianJob],
+        ['Alamat Wali', studentProfile.guardianAddress],
+      ]} />
     </section>
   )
 }
 
-function SignatureBlock({ title, name }) {
-  const titleLines = String(title).split('\n')
+function RaporResultPage({ reportData }) {
+  const { schoolProfile, studentProfile, reportOverride, attendance } = reportData
   return (
-    <div className="min-h-36">
-      {titleLines.map((line) => <p key={line}>{line}</p>)}
-      <div className="h-20" />
-      <p className="font-black underline decoration-[#132437]/45 underline-offset-4">{name}</p>
-      <p>NIP. ................................</p>
+    <section className="rapor-page rapor-result-page">
+      <h2 className="rapor-page-title">LAPORAN HASIL BELAJAR</h2>
+      <p className="rapor-subtitle">(RAPOR)</p>
+      <RaporStudentHeader reportData={reportData} />
+
+      <table className="rapor-table rapor-score-table">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Muatan Pelajaran</th>
+            <th>Nilai Akhir</th>
+            <th>Capaian Kompetensi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {reportData.subjectRows.map((row, index) => (
+            <tr key={row.subject}>
+              <td>{index + 1}</td>
+              <td>{row.subject}</td>
+              <td className="rapor-score">{row.finalScore || ''}</td>
+              <td>{row.competency || dottedLine()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <table className="rapor-table rapor-extra-table">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Ekstrakurikuler</th>
+            <th>Keterangan</th>
+          </tr>
+        </thead>
+        <tbody>
+          {reportData.extracurriculars.map((item, index) => (
+            <tr key={`print-extra-${index}`}>
+              <td>{index + 1}</td>
+              <td>{item.name || ''}</td>
+              <td>{item.description || ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="rapor-bottom-grid">
+        <table className="rapor-table">
+          <thead>
+            <tr><th colSpan={3}>Ketidakhadiran</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Sakit</td><td>{attendance.sakit}</td><td>hari</td></tr>
+            <tr><td>Izin</td><td>{attendance.izin}</td><td>hari</td></tr>
+            <tr><td>Tanpa Keterangan</td><td>{attendance.alpa}</td><td>hari</td></tr>
+          </tbody>
+        </table>
+        <div className="rapor-note-box">
+          <h3>Catatan Wali Kelas</h3>
+          <p>{reportOverride.homeroomNote || dottedLine()}</p>
+          {reportOverride.additionalNote && <p>{reportOverride.additionalNote}</p>}
+        </div>
+      </div>
+
+      <p className="rapor-decision">Keputusan: {reportOverride.decision || 'Belum ditentukan'}</p>
+
+      <div className="rapor-signature-grid">
+        <RaporSignature title="Orang Tua/Wali" name="........................................" />
+        <RaporSignature title={`${reportOverride.reportPlace || ''}, ${formatRaporDate(reportOverride.reportDate)}`} subtitle="Wali Kelas" name={schoolProfile.homeroomName} nip={schoolProfile.homeroomNip} />
+      </div>
+      <div className="rapor-principal-signature">
+        <RaporSignature title="Mengetahui," subtitle="Kepala Sekolah" name={schoolProfile.principalName} nip={schoolProfile.principalNip} />
+      </div>
+    </section>
+  )
+}
+
+function RaporLedgerPage({ reportData }) {
+  return (
+    <section className="rapor-page rapor-ledger-page">
+      <h2 className="rapor-page-title">BUKU INDUK</h2>
+      <RaporStudentHeader reportData={reportData} compact />
+      <table className="rapor-table rapor-ledger-table">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Muatan Pelajaran</th>
+            <th>Nilai</th>
+          </tr>
+        </thead>
+        <tbody>
+          {reportData.subjectRows.map((row, index) => (
+            <tr key={`ledger-${row.subject}`}>
+              <td>{index + 1}</td>
+              <td>{row.subject}</td>
+              <td className="rapor-score">{row.finalScore || ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <table className="rapor-table rapor-extra-table">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Ekstrakurikuler</th>
+            <th>Keterangan</th>
+          </tr>
+        </thead>
+        <tbody>
+          {reportData.extracurriculars.map((item, index) => (
+            <tr key={`ledger-extra-${index}`}>
+              <td>{index + 1}</td>
+              <td>{item.name || ''}</td>
+              <td>{item.description || ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <table className="rapor-table rapor-attendance-table">
+        <thead>
+          <tr><th colSpan={3}>Ketidakhadiran</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Sakit</td><td>{reportData.attendance.sakit} hari</td></tr>
+          <tr><td>2</td><td>Izin</td><td>{reportData.attendance.izin} hari</td></tr>
+          <tr><td>3</td><td>Tanpa Keterangan</td><td>{reportData.attendance.alpa} hari</td></tr>
+        </tbody>
+      </table>
+    </section>
+  )
+}
+
+function RaporMutationPage({ reportData }) {
+  const { studentProfile, schoolProfile } = reportData
+  return (
+    <section className="rapor-page rapor-mutation-page">
+      <h2 className="rapor-page-title">KETERANGAN PINDAH SEKOLAH</h2>
+      <p className="rapor-muted">Nama Peserta Didik : {studentProfile.name || dottedLine()}</p>
+      <table className="rapor-table rapor-mutation-table">
+        <thead>
+          <tr>
+            <th>Tanggal</th>
+            <th>Kelas yang Ditinggalkan</th>
+            <th>Sebab-sebab Keluar atau Atas Permintaan Tertulis</th>
+            <th>Tanda Tangan Kepala Sekolah, Stempel Sekolah, dan Tanda Tangan Orang Tua/Wali</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[0, 1, 2].map((item) => (
+            <tr key={`mutation-row-${item}`}>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td>
+                <p>Kepala Sekolah</p>
+                <br />
+                <br />
+                <p>{schoolProfile.principalName || '........................................'}</p>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <h3 className="rapor-section-title">Keterangan Masuk Sekolah</h3>
+      <RaporInfoTable rows={[
+        ['Nama Peserta Didik', studentProfile.name],
+        ['NISN', studentProfile.nisn],
+        ['Nama Sekolah', schoolProfile.schoolName],
+        ['Masuk di sekolah ini', ''],
+        ['a. Tanggal', ''],
+        ['b. Di kelas', reportData.className],
+        ['c. Tahun Pelajaran', reportData.academicYear],
+      ]} />
+    </section>
+  )
+}
+
+function RaporStudentHeader({ reportData, compact = false }) {
+  const { schoolProfile, studentProfile } = reportData
+  return (
+    <table className={`rapor-info-table ${compact ? 'rapor-info-compact' : ''}`}>
+      <tbody>
+        <tr>
+          <td>Nama Peserta Didik</td>
+          <td>{withColon(studentProfile.name)}</td>
+          <td>Kelas</td>
+          <td>{withColon(reportData.className)}</td>
+        </tr>
+        <tr>
+          <td>NISN</td>
+          <td>{withColon(studentProfile.nisn || studentProfile.nis)}</td>
+          <td>Fase</td>
+          <td>{withColon(reportData.phase)}</td>
+        </tr>
+        <tr>
+          <td>Sekolah</td>
+          <td>{withColon(schoolProfile.schoolName)}</td>
+          <td>Semester</td>
+          <td>{withColon(reportData.semesterLabel)}</td>
+        </tr>
+        <tr>
+          <td>Alamat</td>
+          <td>{withColon(schoolProfile.address)}</td>
+          <td>Tahun Pelajaran</td>
+          <td>{withColon(reportData.academicYear)}</td>
+        </tr>
+      </tbody>
+    </table>
+  )
+}
+
+function RaporInfoTable({ rows }) {
+  return (
+    <table className="rapor-info-table">
+      <tbody>
+        {rows.map(([label, value]) => (
+          <tr key={label}>
+            <td>{label}</td>
+            <td>{withColon(value)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function RaporSignature({ title, subtitle, name, nip }) {
+  return (
+    <div className="rapor-signature">
+      <p>{title}</p>
+      {subtitle && <p>{subtitle}</p>}
+      <div className="rapor-signature-space" />
+      <p className="rapor-signature-name">{name || '........................................'}</p>
+      {nip && <p>NIP. {nip}</p>}
     </div>
   )
 }
 
+function getRaporStorageKey(user) {
+  return `islelearn-rapor-${user?.id || 'demo'}`
+}
+
+function getRaporState(user) {
+  const stored = safeReadLocalJson(getRaporStorageKey(user), null)
+  if (!stored || typeof stored !== 'object') {
+    return {
+      version: raporStorageVersion,
+      schoolProfile: getDefaultRaporSchoolProfile(user),
+      studentProfiles: {},
+      reports: {},
+    }
+  }
+
+  return {
+    version: raporStorageVersion,
+    schoolProfile: {
+      ...getDefaultRaporSchoolProfile(user),
+      ...(stored.schoolProfile || {}),
+    },
+    studentProfiles: stored.studentProfiles && typeof stored.studentProfiles === 'object' ? stored.studentProfiles : {},
+    reports: stored.reports && typeof stored.reports === 'object' ? stored.reports : {},
+  }
+}
+
+function setRaporState(user, value) {
+  safeWriteLocalJson(getRaporStorageKey(user), {
+    version: raporStorageVersion,
+    schoolProfile: value?.schoolProfile || getDefaultRaporSchoolProfile(user),
+    studentProfiles: value?.studentProfiles || {},
+    reports: value?.reports || {},
+  })
+}
+
+function getDefaultRaporSchoolProfile(user) {
+  const teacherProfile = getTeacherProfileForUser(user)
+  return {
+    schoolName: school.name,
+    npsn: '',
+    address: '',
+    postalCode: '',
+    village: '',
+    district: '',
+    city: '',
+    province: '',
+    website: '',
+    email: '',
+    principalName: '',
+    principalNip: '',
+    homeroomName: teacherProfile?.name || user?.name || '',
+    homeroomNip: teacherProfile?.nip || user?.nip || '',
+  }
+}
+
+function getTeacherProfileForUser(user) {
+  if (!user) return null
+  const normalizedName = normalizeLookupText(user.name)
+  const normalizedSubject = normalizeLookupText(user.subject)
+  return teachers.find((teacher) => normalizeLookupText(teacher.name) === normalizedName)
+    || teachers.find((teacher) => normalizedSubject && splitSubjectNames(teacher.subject).some((subject) => normalizeLookupText(subject) === normalizedSubject))
+    || null
+}
+
+function getDefaultRaporStudentProfile(student = {}) {
+  return {
+    name: student.name || student.fullName || '',
+    nis: student.nis || student.studentNumber || '',
+    nisn: student.nisn || '',
+    birthPlace: student.birthPlace || '',
+    birthDate: student.birthDate || '',
+    gender: student.gender || student.sex || student.jk || '',
+    religion: student.religion || '',
+    previousSchool: student.previousSchool || '',
+    address: student.address || '',
+    fatherName: student.fatherName || '',
+    motherName: student.motherName || '',
+    fatherJob: student.fatherJob || '',
+    motherJob: student.motherJob || '',
+    parentAddress: student.parentAddress || '',
+    guardianName: student.guardianName || '',
+    guardianJob: student.guardianJob || '',
+    guardianAddress: student.guardianAddress || '',
+  }
+}
+
+function getDefaultRaporOverride(user) {
+  return {
+    extracurriculars: normalizeRaporExtracurriculars([]),
+    homeroomNote: 'Terus pertahankan semangat belajar dan kembangkan kebiasaan baik di sekolah maupun di rumah.',
+    decision: 'Naik kelas',
+    reportPlace: '',
+    reportDate: toLocalIsoDate(),
+    paperSize: 'f4',
+    additionalNote: '',
+    updatedBy: user?.name || '',
+  }
+}
+
+function normalizeRaporExtracurriculars(rows = []) {
+  return Array.from({ length: raporExtraCount }, (_, index) => ({
+    name: rows[index]?.name || '',
+    description: rows[index]?.description || '',
+  }))
+}
+
+function getRaporContextKey(studentId, className, semester, academicYear) {
+  return [studentId || 'student', promoteClassName(className), semester, academicYear]
+    .map((item) => String(item || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'))
+    .join('|')
+}
+
+function getReportGradebookRows(user) {
+  return uniqueRowsById([
+    ...getGradebookRows(user),
+    ...readLocalRowsByPrefix('islelearn-gradebook-').map(normalizeGradebookRow),
+  ]).filter((row) => !isLegacyPreviewClassName(row.className) && !isLegacyPreviewStudentRow(row))
+}
+
+function getReportAttendanceSessions(user) {
+  return uniqueRowsById([
+    ...getAttendanceSessions(user),
+    ...readLocalRowsByPrefix('islelearn-attendance-').map(normalizeAttendanceSession),
+  ]).filter((session) => !isLegacyPreviewClassName(session.className))
+}
+
+function buildRaporDocument({ user, student, className, semester, academicYear, subjectOptions, gradeRows, attendanceSessions, raporState, reportKey }) {
+  const safeStudent = student || {}
+  const reportOverride = {
+    ...getDefaultRaporOverride(user),
+    ...(raporState.reports?.[reportKey] || {}),
+  }
+  const studentProfile = {
+    ...getDefaultRaporStudentProfile(safeStudent),
+    ...(raporState.studentProfiles?.[safeStudent.id] || {}),
+  }
+  const schoolProfile = {
+    ...getDefaultRaporSchoolProfile(user),
+    ...(raporState.schoolProfile || {}),
+  }
+  const subjectRows = buildRaporSubjectRows({
+    student: safeStudent,
+    className,
+    semester,
+    academicYear,
+    subjectOptions,
+    gradeRows,
+  })
+  const attendance = buildRaporAttendanceSummary({
+    student: safeStudent,
+    className,
+    semester,
+    academicYear,
+    attendanceSessions,
+  })
+
+  return {
+    schoolProfile,
+    studentProfile,
+    reportOverride: {
+      ...reportOverride,
+      paperSize: getRaporPaper(reportOverride.paperSize).key,
+      extracurriculars: normalizeRaporExtracurriculars(reportOverride.extracurriculars),
+    },
+    extracurriculars: normalizeRaporExtracurriculars(reportOverride.extracurriculars),
+    paper: getRaporPaper(reportOverride.paperSize),
+    subjectRows,
+    attendance,
+    className: promoteClassName(className),
+    semester,
+    semesterLabel: semester === 'Ganjil' ? '1 (Satu)' : '2 (Dua)',
+    academicYear,
+    phase: getRaporPhase(className),
+    scoredSubjectCount: subjectRows.filter((row) => row.finalScore > 0).length,
+    readiness: buildRaporReadiness({ schoolProfile, studentProfile, subjectRows, reportOverride }),
+  }
+}
+
+function getRaporPaper(value) {
+  return raporPaperOptions.find((paper) => paper.key === value) || raporPaperOptions[0]
+}
+
+function buildRaporSubjectRows({ student, className, semester, academicYear, subjectOptions, gradeRows }) {
+  const contextRows = gradeRows.filter((row) => {
+    const sameStudent = row.studentId === student.id || normalizeLookupText(row.name) === normalizeLookupText(student.name)
+    return sameStudent
+      && promoteClassName(row.className) === promoteClassName(className)
+      && row.semester === semester
+      && row.academicYear === academicYear
+  })
+  const subjectsWithGrades = contextRows.map((row) => row.subject)
+  const orderedSubjects = uniqueSubjectNames(subjectOptions, subjectsWithGrades).slice(0, Math.max(raporSubjectSlotCount, subjectsWithGrades.length))
+
+  return orderedSubjects.map((subject) => {
+    const saved = contextRows.find((row) => sameSubjectName(row.subject, subject))
+    const normalized = saved ? normalizeGradebookRow(saved) : null
+    return {
+      subject,
+      finalScore: normalized?.finalScore || 0,
+      status: normalized?.status || 'Belum Diisi',
+      competency: normalized?.competency || defaultCompetencyDescription(subject, normalized?.finalScore || 0),
+    }
+  })
+}
+
+function buildRaporAttendanceSummary({ student, className, semester, academicYear, attendanceSessions }) {
+  const range = getRaporSemesterRange(semester, academicYear)
+  const sessions = attendanceSessions.filter((session) => (
+    promoteClassName(session.className) === promoteClassName(className)
+    && isIsoDateInRange(session.date, range)
+  ))
+  const counts = attendanceStatuses.reduce((acc, status) => ({ ...acc, [status]: 0 }), {})
+
+  sessions.forEach((session) => {
+    const row = Array.isArray(session.rows)
+      ? session.rows.find((item) => item.studentId === student.id || normalizeLookupText(item.name) === normalizeLookupText(student.name))
+      : null
+    const status = attendanceStatuses.includes(row?.status) ? row.status : ''
+    if (status) counts[status] += 1
+  })
+
+  const total = attendanceStatuses.reduce((sum, status) => sum + counts[status], 0)
+  return {
+    total,
+    hadir: counts.Hadir,
+    izin: counts.Izin,
+    sakit: counts.Sakit,
+    alpa: counts.Alpa,
+    rangeLabel: range.label,
+  }
+}
+
+function getRaporSemesterRange(semester, academicYear) {
+  const [startYearRaw, endYearRaw] = String(academicYear || '').split(/[/-]/).map((item) => Number(item))
+  const startYear = Number.isFinite(startYearRaw) ? startYearRaw : new Date().getFullYear()
+  const endYear = Number.isFinite(endYearRaw) ? endYearRaw : startYear + 1
+  const isOdd = semester === 'Ganjil'
+  const startDate = isOdd ? new Date(startYear, 6, 1) : new Date(endYear, 0, 1)
+  const endDate = isOdd ? new Date(startYear, 11, 31) : new Date(endYear, 5, 30)
+  return {
+    startIso: toLocalIsoDate(startDate),
+    endIso: toLocalIsoDate(endDate),
+    label: `Semester ${semester} ${academicYear}`,
+  }
+}
+
+function getRaporPhase(className = '') {
+  const grade = gradeLevelFromClassName(className)
+  if (grade === 10) return 'E'
+  if (grade === 11 || grade === 12) return 'F'
+  return ''
+}
+
+function buildRaporReadiness({ schoolProfile, studentProfile, subjectRows, reportOverride }) {
+  return [
+    { label: 'Data sekolah', done: Boolean(schoolProfile.schoolName && schoolProfile.principalName) },
+    { label: 'Identitas siswa', done: Boolean(studentProfile.name && (studentProfile.nis || studentProfile.nisn)) },
+    { label: 'Nilai intrakurikuler', done: subjectRows.some((row) => row.finalScore > 0) },
+    { label: 'Catatan wali kelas', done: Boolean(reportOverride.homeroomNote) },
+  ]
+}
+
+function formatRaporDate(value) {
+  if (!value) return ''
+  return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }).format(parseIsoDate(value))
+}
+
+function compactJoin(values, separator = ', ') {
+  return values.filter(Boolean).join(separator)
+}
+
+function withColon(value) {
+  return `: ${value || dottedLine()}`
+}
+
+function dottedLine() {
+  return '........................................'
+}
 
 function GuruKelas() {
   return <CardsPage eyebrow="Kelas" title="Kelas yang diajar" items={classes.map((c) => ({ title: c.name, meta: `${c.students} siswa · rata-rata ${c.average}`, value: `${c.progress}% progress`, status: `${Math.max(1, 6 - c.grade + 10)} remedial` }))} />
@@ -4306,6 +4667,12 @@ function GuruMateri({ user, notify, appContext }) {
   const activeFolder = visibleSubjectFolders.find((folder) => folder.key === activeSubjectKey) || visibleSubjectFolders[0] || null
   const localMode = !appContext?.accessToken || !isUuid(user?.id)
   const sourceLabel = localMode ? 'Preview lokal' : 'Supabase'
+  const overviewStats = [
+    { label: 'Materi', value: rows.length, helper: `${publishedCount} publish` },
+    { label: 'Mapel', value: visibleSubjectFolders.length, helper: `${filledFolderCount} terisi` },
+    { label: 'Subfolder', value: `${filledGradeSubfolderCount}/${gradeSubfolderCount || 0}`, helper: 'kelas terisi' },
+    { label: 'Draft', value: draftCount, helper: 'belum publish' },
+  ]
 
   useEffect(() => {
     if (!visibleSubjectFolders.length) {
@@ -4422,19 +4789,20 @@ function GuruMateri({ user, notify, appContext }) {
         action={<QuickActionButton icon={Plus} label={editing ? 'Editor terbuka' : 'Tulis materi'} disabled={Boolean(editing)} onClick={() => setEditing(emptyMaterial(lookups, teacherSubject, highSchoolGradeFolders[0].name))} />}
       />
 
-      <section className="mb-4 flex flex-col gap-3 rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/80 px-4 py-3 shadow-[0_12px_36px_rgba(15,31,42,0.055)] sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2 text-xs font-black text-[#13232d]">
-          <span className="inline-flex items-center gap-1.5 rounded-[0.75rem] bg-[#E0F2FE] px-3 py-1.5 text-[#0284c7] ring-1 ring-[#0284c7]/10">
-            <BookOpen size={14} /> {rows.length} materi
-          </span>
-          <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{subjectFolders.length} folder mapel</span>
-          <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{filledGradeSubfolderCount}/{gradeSubfolderCount} subfolder kelas terisi</span>
-          <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{filledFolderCount} folder terisi</span>
-          <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{publishedCount} publish</span>
-          <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{draftCount} draft</span>
+      <section className="mb-4 rounded-[1rem] border border-sky-100 bg-white/82 p-3 shadow-[0_14px_38px_rgba(37,99,235,0.06)]">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {overviewStats.map((stat) => (
+            <div key={stat.label} className="min-w-0 rounded-[0.85rem] bg-[#F7FBFF] px-3 py-2.5 ring-1 ring-sky-100/80">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-sky-600">{stat.label}</p>
+              <div className="mt-1 flex items-end justify-between gap-2">
+                <strong className="text-xl font-black leading-none text-[#13232d]">{stat.value}</strong>
+                <span className="truncate text-xs font-bold text-slate-500">{stat.helper}</span>
+              </div>
+            </div>
+          ))}
         </div>
-        <p className="text-xs font-bold text-slate-500">
-          Sumber data: <span className="text-[#0284c7]">{sourceLabel}</span>
+        <p className="mt-2 text-right text-xs font-bold text-slate-500">
+          Sumber data: <span className="text-sky-600">{sourceLabel}</span>
         </p>
       </section>
 
@@ -4443,13 +4811,13 @@ function GuruMateri({ user, notify, appContext }) {
       {editing && <MaterialForm material={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat materi guru dari Supabase..." /> : (
         visibleSubjectFolders.length > 0 ? (
-          <section className="grid gap-3 xl:grid-cols-[18rem_1fr]">
-            <aside className="rounded-[1.05rem] border border-[#0B3A5B]/10 bg-white/88 p-2 shadow-[0_12px_34px_rgba(15,31,42,0.055)]">
+          <section className="grid min-w-0 gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
+            <aside className="min-w-0 rounded-[1rem] border border-sky-100 bg-white/86 p-3 shadow-[0_14px_38px_rgba(37,99,235,0.06)]">
               <div className="px-2 pb-2 pt-1">
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0284c7]">Daftar mapel</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-600">Daftar mapel</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Pilih mapel, lalu kelola chapter per kelas.</p>
               </div>
-              <div className="grid gap-1">
+              <div className="max-h-[33rem] space-y-1.5 overflow-y-auto pr-1">
                 {visibleSubjectFolders.map((folder) => {
                   const selectedFolder = activeFolder?.key === folder.key
                   const gradeSummary = folder.gradeFolders
@@ -4461,13 +4829,14 @@ function GuruMateri({ user, notify, appContext }) {
                     <button
                       key={folder.key}
                       onClick={() => setActiveSubjectKey(folder.key)}
-                      className={`group flex min-h-[4.25rem] items-center justify-between gap-3 rounded-[0.9rem] px-3 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284c7] ${selectedFolder ? 'bg-[#0B3A5B] text-white shadow-[0_10px_22px_rgba(15,31,42,0.13)]' : 'bg-transparent text-[#13232d] hover:bg-[#E0F2FE]'}`}
+                      className={`group flex w-full min-w-0 items-center gap-3 rounded-[0.85rem] border px-3 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 ${selectedFolder ? 'border-sky-200 bg-sky-50 text-[#13232d] shadow-[0_8px_22px_rgba(37,99,235,0.08)]' : 'border-transparent bg-transparent text-[#13232d] hover:border-sky-100 hover:bg-[#F7FBFF]'}`}
                     >
-                      <span className="min-w-0">
+                      <span className={`h-9 w-1 flex-shrink-0 rounded-full ${selectedFolder ? 'bg-sky-500' : 'bg-transparent'}`} />
+                      <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-black">{folder.name}</span>
-                        <span className={`mt-0.5 block truncate text-xs font-semibold ${selectedFolder ? 'text-white/68' : 'text-slate-500'}`}>{gradeSummary || 'Belum ada kelas terisi'}</span>
+                        <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">{gradeSummary || 'Belum ada kelas terisi'}</span>
                       </span>
-                      <span className={`flex-shrink-0 rounded-[0.7rem] px-2.5 py-1 text-xs font-black ring-1 ${selectedFolder ? 'bg-white/12 text-white ring-white/18' : 'bg-white text-[#0284c7] ring-[#0284c7]/10'}`}>
+                      <span className={`flex-shrink-0 rounded-[0.65rem] px-2.5 py-1 text-xs font-black ring-1 ${selectedFolder ? 'bg-white text-sky-700 ring-sky-200' : 'bg-white text-slate-500 ring-slate-200'}`}>
                         {folder.rows.length}
                       </span>
                     </button>
@@ -4476,11 +4845,11 @@ function GuruMateri({ user, notify, appContext }) {
               </div>
             </aside>
 
-            <section className="overflow-hidden rounded-[1.05rem] border border-[#0B3A5B]/10 bg-white/88 shadow-[0_12px_34px_rgba(15,31,42,0.055)]">
-              <header className="flex flex-col gap-2 border-b border-[#0B3A5B]/8 bg-[#F8FAFC]/82 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0284c7]">Folder mapel</p>
-                  <h2 className="text-xl font-black text-[#13232d]">{activeFolder?.name || 'Materi'}</h2>
+            <section className="min-w-0 overflow-hidden rounded-[1rem] border border-sky-100 bg-white/88 shadow-[0_14px_38px_rgba(37,99,235,0.06)]">
+              <header className="flex flex-col gap-3 border-b border-sky-100 bg-[#F8FBFF]/92 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-600">Folder kelas</p>
+                  <h2 className="truncate text-xl font-black text-[#13232d]">{activeFolder?.name || 'Materi'}</h2>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <StatusBadge tone={activeFolder?.rows.length ? 'green' : 'gray'}>{activeFolder?.rows.length || 0} materi</StatusBadge>
@@ -4489,7 +4858,7 @@ function GuruMateri({ user, notify, appContext }) {
                 </div>
               </header>
 
-              <div className="divide-y divide-[#0B3A5B]/8">
+              <div className="grid gap-3 p-3 xl:grid-cols-3">
                 {activeFolder?.gradeFolders.map((gradeFolder, index) => {
                   const firstFilledIndex = activeFolder.gradeFolders.findIndex((folder) => folder.rows.length > 0)
                   const defaultOpen = index === (firstFilledIndex >= 0 ? firstFilledIndex : 0)
@@ -4523,24 +4892,24 @@ function GuruMateri({ user, notify, appContext }) {
   )
 }
 
-function TeacherMaterialGradeFolder({ subjectName, gradeFolder, onAdd, onEdit, onToggleStatus, onDelete }) {
+function TeacherMaterialGradeFolder({ subjectName, gradeFolder, defaultOpen = false, onAdd, onEdit, onToggleStatus, onDelete }) {
   const hasRows = gradeFolder.rows.length > 0
 
   return (
-    <details open={hasRows} className="overflow-hidden rounded-[0.95rem] border border-[#0B3A5B]/10 bg-[#F8FAFC]/72">
-      <summary className="flex cursor-pointer list-none flex-col gap-2 px-3 py-2.5 transition hover:bg-[#F1F7FF] sm:flex-row sm:items-center sm:justify-between">
+    <details open={hasRows || defaultOpen} className="min-w-0 overflow-hidden rounded-[0.95rem] border border-sky-100 bg-white shadow-[0_10px_26px_rgba(37,99,235,0.045)]">
+      <summary className="flex cursor-pointer list-none flex-col gap-2 px-3 py-3 transition hover:bg-[#F7FBFF]">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Subfolder kelas</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-sky-500">Subfolder kelas</p>
           <h3 className="truncate text-base font-black text-[#13232d]">{gradeFolder.name}</h3>
         </div>
-        <div className="flex flex-wrap gap-2 sm:justify-end">
+        <div className="flex flex-wrap gap-1.5">
           <StatusBadge tone={hasRows ? 'green' : 'gray'}>{gradeFolder.rows.length} materi</StatusBadge>
           <StatusBadge tone="teal">{gradeFolder.publishedCount} publish</StatusBadge>
           {gradeFolder.draftCount > 0 && <StatusBadge tone="amber">{gradeFolder.draftCount} draft</StatusBadge>}
         </div>
       </summary>
 
-      <div className="border-t border-[#0B3A5B]/8">
+      <div className="border-t border-sky-100">
         {hasRows ? (
           gradeFolder.rows.map((row) => (
             <MaterialFolderRow
@@ -4552,12 +4921,12 @@ function TeacherMaterialGradeFolder({ subjectName, gradeFolder, onAdd, onEdit, o
             />
           ))
         ) : (
-          <div className="flex flex-col gap-3 bg-white/48 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+          <div className="grid gap-3 bg-[#F8FBFF] px-3 py-3">
+            <div className="min-w-0">
               <p className="text-sm font-black text-[#13232d]">Subfolder ini masih kosong.</p>
-              <p className="mt-1 text-sm leading-6 text-slate-500">Belum ada bahan belajar nyata untuk {subjectName} {gradeFolder.name}. Tambahkan hanya saat materinya siap.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">Belum ada bahan belajar untuk {subjectName} {gradeFolder.name}.</p>
             </div>
-            <button onClick={onAdd} className="inline-flex items-center justify-center gap-1.5 rounded-[0.85rem] bg-[#E0F2FE] px-3 py-2 text-xs font-black text-[#0284c7] ring-1 ring-[#0284c7]/10 transition hover:bg-[#BAE6FD]">
+            <button onClick={onAdd} className="inline-flex items-center justify-center gap-1.5 rounded-[0.75rem] bg-sky-50 px-3 py-2 text-xs font-black text-sky-700 ring-1 ring-sky-100 transition hover:bg-sky-100">
               <Plus size={14} /> Tambah materi
             </button>
           </div>
@@ -4569,29 +4938,29 @@ function TeacherMaterialGradeFolder({ subjectName, gradeFolder, onAdd, onEdit, o
 
 function MaterialFolderRow({ row, onEdit, onToggleStatus, onDelete }) {
   return (
-    <article className="grid gap-3 border-b border-[#0B3A5B]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+    <article className="grid min-w-0 gap-3 border-b border-sky-100 p-3 last:border-b-0">
       <div className="min-w-0">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
           <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>
           <StatusBadge tone="teal">{row.type || 'Teks'}</StatusBadge>
           <span className="text-xs font-bold text-slate-400">{materialSourceLabel(row.source)}</span>
         </div>
-        <h2 className="truncate text-lg font-black text-[#13232d]">{row.title || 'Tanpa judul'}</h2>
-        <p className="mt-1 line-clamp-2 max-w-3xl text-sm leading-6 text-slate-500">{row.description || 'Belum ada deskripsi.'}</p>
+        <h2 className="truncate text-base font-black text-[#13232d]">{row.title || 'Tanpa judul'}</h2>
+        <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">{row.description || 'Belum ada deskripsi.'}</p>
         <p className="mt-2 text-xs font-bold text-slate-500">
           {(row.className || 'Semua kelas')} · {(row.topic || 'Tanpa topik')}
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2 lg:justify-end">
-        <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-[#F1F7FF] px-3 py-2 text-xs font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/8 transition hover:bg-[#E0F2FE]">
+      <div className="flex flex-wrap gap-2">
+        <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-[0.7rem] bg-[#F1F7FF] px-3 py-2 text-xs font-black text-sky-700 ring-1 ring-sky-100 transition hover:bg-[#E0F2FE]">
           <PencilLine size={14} /> Edit
         </button>
-        <button onClick={onToggleStatus} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
+        <button onClick={onToggleStatus} className="inline-flex items-center gap-1.5 rounded-[0.7rem] bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
           <Send size={14} /> {row.status === 'Publish' ? 'Jadikan draft' : 'Publish'}
         </button>
         {row.source !== 'school-content' && (
-          <button onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
+          <button onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-[0.7rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
             <Trash2 size={14} /> Hapus
           </button>
         )}
@@ -6162,7 +6531,6 @@ function AdminDashboard() {
     { label: 'Siswa', icon: UsersRound, onClick: () => navigate('/admin/siswa') },
     { label: 'Kelas', icon: School, onClick: () => navigate('/admin/kelas') },
     { label: 'Mapel', icon: BookOpen, onClick: () => navigate('/admin/mapel') },
-    { label: 'E-Rapor', icon: FileText, onClick: () => navigate('/admin/e-rapor') },
     { label: 'Backup', icon: Download, onClick: () => navigate('/admin/backup') },
   ]
 
@@ -6765,7 +7133,6 @@ function PimpinanDashboard() {
     { label: 'Submission', value: assignmentSubmissions.length, caption: 'aktivitas masuk', icon: Target },
   ]
   const reportLinks = [
-    { label: 'E-Rapor', onClick: () => navigate('/pimpinan/e-rapor'), icon: FileText },
     { label: 'Akademik', onClick: () => navigate('/pimpinan/laporan-akademik'), icon: BarChart3 },
     { label: 'Guru', onClick: () => navigate('/pimpinan/monitoring-guru'), icon: UsersRound },
     { label: 'Kelas', onClick: () => navigate('/pimpinan/monitoring-kelas'), icon: School },

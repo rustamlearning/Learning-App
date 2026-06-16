@@ -13,9 +13,9 @@ import { EmptyState } from './components/ui.jsx'
 
 const rolePages = {
   siswa: ['dashboard', 'kelas', 'materi', 'tugas', 'latihan', 'kuis', 'flashcard', 'ai-tutor', 'progres', 'leaderboard', 'profil', 'isleclub'],
-  guru: ['dashboard', 'kelas', 'materi', 'bank-soal', 'tugas', 'kuis-live', 'daftar-hadir', 'studio-konten', 'daftar-nilai', 'e-rapor', 'analisis-nilai', 'remedial', 'ai-generator', 'laporan'],
-  admin: ['dashboard', 'guru', 'siswa', 'kelas', 'mapel', 'e-rapor', 'pengaturan', 'laporan', 'backup'],
-  pimpinan: ['dashboard', 'monitoring-kelas', 'monitoring-guru', 'monitoring-siswa', 'e-rapor', 'laporan-akademik', 'laporan-aktivitas'],
+  guru: ['dashboard', 'kelas', 'materi', 'bank-soal', 'tugas', 'kuis-live', 'daftar-hadir', 'studio-konten', 'daftar-nilai', 'rapor', 'analisis-nilai', 'remedial', 'ai-generator', 'laporan'],
+  admin: ['dashboard', 'guru', 'siswa', 'kelas', 'mapel', 'pengaturan', 'laporan', 'backup'],
+  pimpinan: ['dashboard', 'monitoring-kelas', 'monitoring-guru', 'monitoring-siswa', 'laporan-akademik', 'laporan-aktivitas'],
 }
 
 export default function App() {

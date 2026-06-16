@@ -19,6 +19,8 @@ import {
   migrateLegacyStorageKey,
   migrateLegacyStoragePrefixes,
 } from '../utils/storageKeys.js'
+import { teachers } from '../data/dummyData.js'
+import { getLocalAdminProfiles } from '../utils/localLearningStore.js'
 
 const AuthContext = createContext(null)
 const STORAGE_KEY = AUTH_STORAGE_KEY
@@ -159,7 +161,7 @@ export function AuthProvider({ children }) {
         return appUser
       } catch (error) {
         if (isDemoAuthEnabled()) {
-          const demo = findDemoUser(normalized)
+          const demo = findDemoUser(normalized, password)
           if (demo) {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(demo))
             localStorage.removeItem(SUPABASE_SESSION_KEY)
@@ -174,7 +176,7 @@ export function AuthProvider({ children }) {
     }
 
     if (isDemoAuthEnabled()) {
-      const demo = findDemoUser(normalized)
+      const demo = findDemoUser(normalized, password)
       if (!demo) {
         throw new Error('Akun tidak ditemukan. Gunakan akun sekolah yang terdaftar.')
       }
@@ -223,12 +225,49 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-function findDemoUser(identifier) {
+function findDemoUser(identifier, password = '') {
+  const teacherUser = findTeacherByNipCredentials(identifier, password)
+  if (teacherUser) return teacherUser
+
   return Object.values(LOCAL_PREVIEW_USERS).find((item) => (
     item.email.toLowerCase() === identifier
     || item.name.toLowerCase() === identifier
     || item.role.toLowerCase() === identifier
   ))
+}
+
+function findTeacherByNipCredentials(identifier, password) {
+  const username = normalizeTeacherCredential(identifier)
+  const passwordValue = normalizeTeacherCredential(password)
+  if (!username || username !== passwordValue) return null
+
+  const teacherRows = getLocalAdminProfiles('guru', teachers)
+  const teacher = teacherRows.find((item) => normalizeTeacherCredential(item.nip) === username)
+  if (!teacher) return null
+
+  const name = teacher.name || 'Guru'
+  return {
+    id: teacher.id || `teacher-${username}`,
+    name,
+    email: teacher.email || `${username}@guru.local.preview`,
+    role: 'guru',
+    avatar: getInitials(name),
+    nip: teacher.nip || username,
+    subject: teacher.subject || '',
+  }
+}
+
+function normalizeTeacherCredential(value) {
+  return String(value || '').trim()
+}
+
+function getInitials(name) {
+  return String(name || 'G')
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 }
 
 function purgeLegacyDemoStorage() {
@@ -273,6 +312,7 @@ function toAppUser(authUser, profile) {
     avatar: fallbackDemo?.avatar || name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase(),
     className: fallbackDemo?.className || profile?.className,
     nis: fallbackDemo?.nis || profile?.nis,
+    nip: fallbackDemo?.nip || profile?.nip,
     subject: fallbackDemo?.subject || profile?.subject,
   }
 }

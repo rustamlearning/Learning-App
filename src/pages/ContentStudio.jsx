@@ -52,7 +52,7 @@ const smaSubjectOptions = [
   'Bahasa Indonesia',
   'Matematika Umum',
   'Bahasa Inggris',
-  'PJOK',
+  'Pendidikan Jasmani, Olahraga, dan Kesehatan',
   'Sejarah',
   'Seni Budaya',
   'Informatika',

@@ -88,17 +88,17 @@ export default function Login() {
               Selamat datang kembali.
             </h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Gunakan akun sekolah yang sudah terdaftar.
+              Gunakan akun sekolah yang sudah terdaftar. Guru dapat memakai NIP sebagai username dan password.
             </p>
           </header>
 
           <form onSubmit={submit} className="space-y-4">
             <label className="grid gap-2 text-sm font-bold text-slate-700">
-              Username atau Email
+              Username / NIP atau Email
               <input
                 value={identifier}
                 onChange={(event) => setIdentifier(event.target.value)}
-                placeholder="Username atau email sekolah"
+                placeholder="Username, NIP, atau email sekolah"
                 className="h-12 rounded-xl border border-[#D9E6F5] bg-white px-4 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[#2F80D8] focus:ring-4 focus:ring-[#2F80D8]/10"
               />
             </label>
