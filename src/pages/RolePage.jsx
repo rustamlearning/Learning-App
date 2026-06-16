@@ -3105,6 +3105,7 @@ const gradeFormativeScoreFields = Array.from({ length: 6 }, (_, index) => ({ key
 const gradeSummativeScoreFields = Array.from({ length: 6 }, (_, index) => ({ key: `slm${index + 1}`, label: `SLM ${index + 1}` }))
 const gradeFinalScoreField = { key: 'sas', label: 'SAS' }
 const gradeScoreFields = [...gradeFormativeScoreFields, ...gradeSummativeScoreFields, gradeFinalScoreField]
+const gradeMaterialScopeCount = gradeSummativeScoreFields.length
 const gradeFormatWeights = [
   { label: 'KKTP', value: gradeKktp },
   { label: 'Formatif', value: 'Catatan proses' },
@@ -3119,6 +3120,10 @@ function gradebookStorageKey(user) {
   return `islelearn-gradebook-${user?.id || 'demo'}`
 }
 
+function gradeMaterialScopeStorageKey(user) {
+  return `islelearn-gradebook-scopes-${user?.id || 'demo'}`
+}
+
 function getGradebookRows(user) {
   return safeReadLocalJson(gradebookStorageKey(user), [])
     .map(normalizeGradebookRow)
@@ -3127,6 +3132,55 @@ function getGradebookRows(user) {
 
 function setGradebookRows(user, rows) {
   safeWriteLocalJson(gradebookStorageKey(user), Array.isArray(rows) ? rows : [])
+}
+
+function getGradeMaterialScopeState(user) {
+  const stored = safeReadLocalJson(gradeMaterialScopeStorageKey(user), {})
+  return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {}
+}
+
+function setGradeMaterialScopeState(user, value) {
+  safeWriteLocalJson(gradeMaterialScopeStorageKey(user), value && typeof value === 'object' ? value : {})
+}
+
+function getGradeContextStorageKey(context = {}) {
+  return [
+    promoteClassName(context.className),
+    canonicalSubjectName(context.subject || ''),
+    context.semester,
+    context.academicYear,
+  ]
+    .map((item) => String(item || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'))
+    .join('|')
+}
+
+function getDefaultGradeMaterialScopes(subject = '') {
+  return Array.from({ length: gradeMaterialScopeCount }, (_, index) => ({
+    key: gradeSummativeScoreFields[index]?.key || `slm${index + 1}`,
+    name: `Lingkup Materi ${index + 1}`,
+    competency: `Peserta didik mampu memahami dan menerapkan materi ${canonicalSubjectName(subject || 'pelajaran')} pada lingkup materi ${index + 1}.`,
+    enrichment: '',
+  }))
+}
+
+function normalizeGradeMaterialScopes(scopes = [], subject = '') {
+  const source = Array.isArray(scopes) ? scopes : []
+  const defaults = getDefaultGradeMaterialScopes(subject)
+  return defaults.map((fallback, index) => ({
+    ...fallback,
+    ...(source[index] || {}),
+    key: gradeSummativeScoreFields[index]?.key || fallback.key,
+    name: source[index]?.name ?? fallback.name,
+    competency: source[index]?.competency ?? fallback.competency,
+    enrichment: source[index]?.enrichment ?? '',
+  }))
+}
+
+function getSavedGradeMaterialScopes(scopeState, context, savedRows = []) {
+  const key = getGradeContextStorageKey(context)
+  if (Array.isArray(scopeState?.[key])) return normalizeGradeMaterialScopes(scopeState[key], context.subject)
+  const saved = savedRows.find((row) => sameGradeContext(row, context) && Array.isArray(row.materialScopes))
+  return normalizeGradeMaterialScopes(saved?.materialScopes, context.subject)
 }
 
 function getGradeSubjectOptions() {
@@ -3139,13 +3193,14 @@ function getGradeSubjectOptions() {
   return uniqueSubjectNames(gradeSubjectFallbacks, localSubjects, teacherSubjects)
 }
 
-function buildGradebookRows(roster, savedRows, context) {
+function buildGradebookRows(roster, savedRows, context, materialScopes = []) {
   const contextRows = savedRows.filter((row) => sameGradeContext(row, context))
   const savedByStudentId = new Map(contextRows.map((row) => [row.studentId, row]))
   const rows = roster.map((student, index) => {
     const saved = savedByStudentId.get(student.id) || contextRows.find((row) => row.name === student.name) || {}
     const scores = normalizeGradeScores(saved.scores)
     const breakdown = calculateGradeBreakdown(scores)
+    const rowMaterialScopes = normalizeGradeMaterialScopes(saved.materialScopes?.length ? saved.materialScopes : materialScopes, context.subject)
 
     return {
       id: saved.id || `grade-${student.id}-${context.subject}-${context.semester}-${context.academicYear}`.replace(/\s+/g, '-').toLowerCase(),
@@ -3163,7 +3218,8 @@ function buildGradebookRows(roster, savedRows, context) {
       finalScore: breakdown.finalScore,
       status: getGradeStatus(breakdown.finalScore),
       predicate: getGradePredicate(breakdown.finalScore),
-      competency: saved.competency || defaultCompetencyDescription(context.subject, breakdown.finalScore),
+      materialScopes: rowMaterialScopes,
+      competency: saved.competency || defaultCompetencyDescription(context.subject, breakdown.finalScore, scores, rowMaterialScopes),
       note: saved.note || '',
       order: saved.order ?? index,
     }
@@ -3192,6 +3248,7 @@ function mergeGradebookRows(savedRows, context, rows) {
       ...calculateGradeBreakdown(row.scores),
       status: getGradeStatus(calculateFinalScore(row.scores)),
       predicate: getGradePredicate(calculateFinalScore(row.scores)),
+      materialScopes: normalizeGradeMaterialScopes(row.materialScopes, context.subject),
       updatedAt: new Date().toISOString(),
     })),
   ]
@@ -3279,18 +3336,38 @@ function getGradePredicate(score) {
   return '-'
 }
 
-function defaultCompetencyDescription(subject, score) {
+function getMaterialScopeScoreEntries(scores = {}, materialScopes = []) {
+  return normalizeGradeMaterialScopes(materialScopes)
+    .map((scope) => ({
+      ...scope,
+      score: normalizeScoreValue(scores?.[scope.key]),
+    }))
+    .filter((scope) => scope.score !== '')
+}
+
+function getScopePrintLabel(scope = {}, fallback = 'materi') {
+  return scope.name || scope.competency || fallback
+}
+
+function defaultCompetencyDescription(subject, score, scores = {}, materialScopes = []) {
+  const scopeScores = getMaterialScopeScoreEntries(scores, materialScopes)
+  const strongest = scopeScores.length ? [...scopeScores].sort((a, b) => b.score - a.score)[0] : null
+  const weakest = scopeScores.length ? [...scopeScores].sort((a, b) => a.score - b.score)[0] : null
+  const strongestLabel = strongest ? getScopePrintLabel(strongest, subject) : subject
+  const weakestLabel = weakest ? getScopePrintLabel(weakest, subject) : subject
+
   if (!score) return `Capaian kompetensi ${subject} belum diisi.`
-  if (score >= 90) return `Sangat baik dalam memahami konsep ${subject}, mandiri, dan konsisten menyelesaikan tugas.`
-  if (score >= 80) return `Baik dalam memahami konsep ${subject} dan mampu menerapkan materi pada sebagian besar aktivitas.`
-  if (score >= gradeKktp) return `Cukup memahami konsep ${subject}; perlu latihan lanjutan pada beberapa bagian.`
-  return `Belum tuntas pada ${subject}; perlu pembimbingan, latihan bertahap, dan asesmen perbaikan.`
+  if (score >= 90) return `Sangat baik pada ${strongestLabel}; mampu menerapkan konsep ${subject} secara mandiri dan konsisten.`
+  if (score >= 80) return `Baik pada ${strongestLabel}; perlu latihan lanjutan agar penguasaan ${weakestLabel} makin kuat.`
+  if (score >= gradeKktp) return `Cukup pada ${strongestLabel}; perlu penguatan bertahap pada ${weakestLabel}.`
+  return `Perlu bimbingan pada ${weakestLabel}; lakukan latihan, umpan balik, dan asesmen perbaikan pada ${subject}.`
 }
 
 function normalizeGradebookRow(row = {}) {
   const breakdown = calculateGradeBreakdown(row.scores)
   const subject = canonicalSubjectName(row.subject || 'Mata pelajaran')
   const finalScore = breakdown.finalScore
+  const materialScopes = normalizeGradeMaterialScopes(row.materialScopes, subject)
   return {
     ...row,
     subject,
@@ -3303,7 +3380,8 @@ function normalizeGradebookRow(row = {}) {
     finalScore,
     status: getGradeStatus(finalScore),
     predicate: getGradePredicate(finalScore),
-    competency: row.competency || defaultCompetencyDescription(subject, finalScore),
+    materialScopes,
+    competency: row.competency || defaultCompetencyDescription(subject, finalScore, breakdown.scores, materialScopes),
   }
 }
 
@@ -3324,7 +3402,7 @@ function summarizeGradebook(rows = []) {
   }
 }
 
-function buildSampleGradeRows(rows) {
+function buildSampleGradeRows(rows, materialScopes = []) {
   return rows.map((row, index) => {
     const base = 78 + (index % 4) * 4
     const scores = Object.fromEntries(gradeScoreFields.map(({ key }, fieldIndex) => [
@@ -3332,12 +3410,14 @@ function buildSampleGradeRows(rows) {
       Math.min(98, base + ((fieldIndex + index) % 5)),
     ]))
     const breakdown = calculateGradeBreakdown(scores)
+    const rowMaterialScopes = normalizeGradeMaterialScopes(materialScopes?.length ? materialScopes : row.materialScopes, row.subject)
     return {
       ...row,
       ...breakdown,
+      materialScopes: rowMaterialScopes,
       status: getGradeStatus(breakdown.finalScore),
       predicate: getGradePredicate(breakdown.finalScore),
-      competency: defaultCompetencyDescription(row.subject, breakdown.finalScore),
+      competency: defaultCompetencyDescription(row.subject, breakdown.finalScore, scores, rowMaterialScopes),
     }
   })
 }
@@ -3352,9 +3432,11 @@ function GuruDaftarNilai({ user, notify }) {
   const [semester, setSemester] = useState('Genap')
   const [academicYear, setAcademicYear] = useState('2026/2027')
   const [savedRows, setSavedRows] = useState(() => getGradebookRows(user))
+  const [scopeState, setScopeState] = useState(() => getGradeMaterialScopeState(user))
   const context = { className: selectedClass, subject: selectedSubject, semester, academicYear }
   const rosterForClass = useMemo(() => getGradeRosterForClass(roster, selectedClass), [roster, selectedClass])
-  const [rows, setRows] = useState(() => buildGradebookRows(rosterForClass, savedRows, context))
+  const materialScopes = useMemo(() => getSavedGradeMaterialScopes(scopeState, context, savedRows), [scopeState, savedRows, selectedClass, selectedSubject, semester, academicYear])
+  const [rows, setRows] = useState(() => buildGradebookRows(rosterForClass, savedRows, context, materialScopes))
   const summary = summarizeGradebook(rows)
 
   useEffect(() => {
@@ -3368,22 +3450,48 @@ function GuruDaftarNilai({ user, notify }) {
   }, [selectedSubject, subjectOptions, user?.subject])
 
   useEffect(() => {
-    setRows(buildGradebookRows(rosterForClass, savedRows, context))
-  }, [rosterForClass, savedRows, selectedClass, selectedSubject, semester, academicYear])
+    setRows(buildGradebookRows(rosterForClass, savedRows, context, materialScopes))
+  }, [rosterForClass, savedRows, selectedClass, selectedSubject, semester, academicYear, materialScopes])
 
   function updateScore(studentId, key, value) {
     const cleanValue = value === '' ? '' : Math.max(0, Math.min(100, Number(value)))
     setRows((currentRows) => currentRows.map((row) => {
       if (row.studentId !== studentId) return row
       const scores = normalizeGradeScores({ ...row.scores, [key]: cleanValue })
-      const previousAutoDescription = defaultCompetencyDescription(row.subject, row.finalScore)
+      const previousAutoDescription = defaultCompetencyDescription(row.subject, row.finalScore, row.scores, row.materialScopes || materialScopes)
       const breakdown = calculateGradeBreakdown(scores)
-      const autoDescription = defaultCompetencyDescription(row.subject, breakdown.finalScore)
+      const autoDescription = defaultCompetencyDescription(row.subject, breakdown.finalScore, scores, row.materialScopes || materialScopes)
       return {
         ...row,
         ...breakdown,
         status: getGradeStatus(breakdown.finalScore),
         predicate: getGradePredicate(breakdown.finalScore),
+        competency: !row.competency || row.competency === previousAutoDescription ? autoDescription : row.competency,
+      }
+    }))
+  }
+
+  function updateMaterialScope(index, field, value) {
+    const nextScopes = normalizeGradeMaterialScopes(materialScopes, selectedSubject)
+    nextScopes[index] = { ...nextScopes[index], [field]: value }
+    const scopeKey = getGradeContextStorageKey(context)
+    const previousScopes = materialScopes
+
+    setScopeState((current) => {
+      const nextState = {
+        ...(current || {}),
+        [scopeKey]: nextScopes,
+      }
+      setGradeMaterialScopeState(user, nextState)
+      return nextState
+    })
+
+    setRows((currentRows) => currentRows.map((row) => {
+      const previousAutoDescription = defaultCompetencyDescription(row.subject, row.finalScore, row.scores, previousScopes)
+      const autoDescription = defaultCompetencyDescription(row.subject, row.finalScore, row.scores, nextScopes)
+      return {
+        ...row,
+        materialScopes: nextScopes,
         competency: !row.competency || row.competency === previousAutoDescription ? autoDescription : row.competency,
       }
     }))
@@ -3396,14 +3504,19 @@ function GuruDaftarNilai({ user, notify }) {
   }
 
   function saveRows(nextRows = rows) {
-    const mergedRows = mergeGradebookRows(savedRows, context, nextRows)
+    const rowsWithScopes = nextRows.map((row) => ({ ...row, materialScopes }))
+    const mergedRows = mergeGradebookRows(savedRows, context, rowsWithScopes)
+    setGradeMaterialScopeState(user, {
+      ...(scopeState || {}),
+      [getGradeContextStorageKey(context)]: materialScopes,
+    })
     setGradebookRows(user, mergedRows)
     setSavedRows(mergedRows)
     notify('Daftar nilai tersimpan.')
   }
 
   function fillSampleRows() {
-    const nextRows = buildSampleGradeRows(rows)
+    const nextRows = buildSampleGradeRows(rows, materialScopes)
     setRows(nextRows)
     saveRows(nextRows)
   }
@@ -3461,6 +3574,46 @@ function GuruDaftarNilai({ user, notify }) {
         { label: 'Lengkap', value: `${summary.readyRate}%`, caption: 'nilai akhir terisi', icon: ClipboardCheck },
       ]} />
 
+      <DashboardPanel title="Lingkup materi dan capaian kompetensi" description="Nama lingkup materi ini terhubung ke kolom SLM dan menjadi dasar kalimat capaian kompetensi pada rapor.">
+        <div className="grid gap-3 lg:grid-cols-2">
+          {materialScopes.map((scope, index) => (
+            <div key={scope.key} className="rounded-2xl border border-[#D9E6F5] bg-[#F8FBFF] p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F80D8]">{gradeSummativeScoreFields[index]?.label || `SLM ${index + 1}`}</p>
+                <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B] ring-1 ring-[#D9E6F5]">Nilai {scope.key.toUpperCase()}</span>
+              </div>
+              <div className="grid gap-2">
+                <label className={materialLabelClass}>Lingkup materi
+                  <input
+                    value={scope.name || ''}
+                    onChange={(event) => updateMaterialScope(index, 'name', event.target.value)}
+                    placeholder={`Lingkup Materi ${index + 1}`}
+                    className={materialInputClass}
+                  />
+                </label>
+                <label className={materialLabelClass}>Capaian kompetensi / tujuan pembelajaran
+                  <textarea
+                    value={scope.competency || ''}
+                    onChange={(event) => updateMaterialScope(index, 'competency', event.target.value)}
+                    rows={2}
+                    placeholder="Tuliskan kompetensi yang akan dirujuk pada deskripsi rapor."
+                    className={`${materialInputClass} resize-y leading-6`}
+                  />
+                </label>
+                <label className={materialLabelClass}>Catatan tindak lanjut
+                  <input
+                    value={scope.enrichment || ''}
+                    onChange={(event) => updateMaterialScope(index, 'enrichment', event.target.value)}
+                    placeholder="Opsional, misalnya remedial/pengayaan."
+                    className={materialInputClass}
+                  />
+                </label>
+              </div>
+            </div>
+          ))}
+        </div>
+      </DashboardPanel>
+
       <DashboardPanel title={`Daftar nilai ${selectedClass}`} description={`${selectedSubject} · Semester ${semester} · ${academicYear}`}>
         <div className="mb-3 flex flex-wrap gap-2">
           <button onClick={fillSampleRows} className="rounded-xl bg-[#EAF4FF] px-3 py-2 text-xs font-black text-[#2F80D8] ring-1 ring-[#D9E6F5] transition hover:bg-white">
@@ -3487,7 +3640,12 @@ function GuruDaftarNilai({ user, notify }) {
                 <th className="py-3 pr-3 font-black">L/P</th>
                 {gradeFormativeScoreFields.map((field) => <th key={field.key} className="py-3 pr-3 font-black">{field.label}</th>)}
                 <th className="py-3 pr-3 font-black">Rata F</th>
-                {gradeSummativeScoreFields.map((field) => <th key={field.key} className="py-3 pr-3 font-black">{field.label}</th>)}
+                {gradeSummativeScoreFields.map((field, fieldIndex) => (
+                  <th key={field.key} className="py-3 pr-3 font-black">
+                    <span className="block">{field.label}</span>
+                    <span className="block max-w-28 truncate text-[10px] normal-case tracking-normal text-[#64748B]">{materialScopes[fieldIndex]?.name || `Lingkup ${fieldIndex + 1}`}</span>
+                  </th>
+                ))}
                 <th className="py-3 pr-3 font-black">Rata SLM</th>
                 <th className="py-3 pr-3 font-black">SAS</th>
                 <th className="py-3 pr-3 font-black">Nilai Akhir</th>
@@ -3590,6 +3748,13 @@ const raporTabs = [
   { key: 'nilai', label: 'Nilai & leger' },
   { key: 'cetak', label: 'Preview cetak' },
 ]
+const raporPrintSections = [
+  { key: 'all', label: 'Semua bagian' },
+  { key: 'sampul', label: 'Sampul Rapor' },
+  { key: 'rapor', label: 'Rapor' },
+  { key: 'mutasi', label: 'Mutasi' },
+  { key: 'induk', label: 'Buku Induk' },
+]
 
 function GuruRapor({ user, notify }) {
   const navigate = useNavigate()
@@ -3602,6 +3767,7 @@ function GuruRapor({ user, notify }) {
   const [semester, setSemester] = useState('Ganjil')
   const [academicYear, setAcademicYear] = useState('2026/2027')
   const [activeTab, setActiveTab] = useState('data')
+  const [printPreviewMode, setPrintPreviewMode] = useState('all')
   const [raporState, setRaporStateValue] = useState(() => getRaporState(user))
   const gradeRows = useMemo(() => getReportGradebookRows(user), [user])
   const attendanceSessions = useMemo(() => getReportAttendanceSessions(user), [user])
@@ -3709,11 +3875,15 @@ function GuruRapor({ user, notify }) {
     notify('Rapor tersimpan dan siap dicetak.')
   }
 
-  function printRapor() {
+  function printRapor(mode = 'all') {
     setRaporState(user, raporState)
     if (typeof window === 'undefined') return
 
-    const cleanup = () => document.body.classList.remove('is-printing-rapor')
+    const cleanup = () => {
+      document.body.classList.remove('is-printing-rapor')
+      document.body.removeAttribute('data-rapor-print-mode')
+    }
+    document.body.setAttribute('data-rapor-print-mode', mode)
     document.body.classList.add('is-printing-rapor')
     window.addEventListener('afterprint', cleanup, { once: true })
     window.setTimeout(() => window.print(), 50)
@@ -3730,7 +3900,7 @@ function GuruRapor({ user, notify }) {
           <div className="flex flex-wrap gap-2">
             <QuickActionButton icon={BarChart3} label="Daftar Nilai" onClick={() => navigate('/guru/daftar-nilai')} />
             <QuickActionButton icon={Save} label="Simpan" onClick={saveRapor} />
-            <QuickActionButton icon={Printer} label="Cetak Rapor" onClick={printRapor} />
+            <QuickActionButton icon={Printer} label="Cetak Semua" onClick={() => printRapor('all')} />
           </div>
         }
       />
@@ -3963,7 +4133,36 @@ function GuruRapor({ user, notify }) {
 
       {activeTab === 'cetak' && (
         <DashboardPanel title="Preview dokumen cetak" description="Area putih di bawah ini yang akan keluar saat tombol Cetak Rapor ditekan.">
-          <RaporPrintDocument reportData={reportData} />
+          <div className="mb-4 flex flex-wrap gap-2">
+            {raporPrintSections.map((section) => (
+              <button
+                key={section.key}
+                type="button"
+                onClick={() => setPrintPreviewMode(section.key)}
+                className={`rounded-xl px-3 py-2 text-xs font-black transition ${
+                  printPreviewMode === section.key
+                    ? 'bg-[#17446E] text-white shadow-[0_10px_24px_rgba(23,68,110,0.16)]'
+                    : 'bg-[#F8FBFF] text-[#64748B] ring-1 ring-[#D9E6F5] hover:bg-white hover:text-[#2F80D8]'
+                }`}
+              >
+                {section.label}
+              </button>
+            ))}
+          </div>
+          <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {raporPrintSections.map((section) => (
+              <button
+                key={`print-${section.key}`}
+                type="button"
+                onClick={() => printRapor(section.key)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5] transition hover:bg-[#EAF4FF]"
+              >
+                <Printer className="h-4 w-4" />
+                Cetak {section.label}
+              </button>
+            ))}
+          </div>
+          <RaporPrintDocument reportData={reportData} mode={printPreviewMode} />
         </DashboardPanel>
       )}
 
@@ -3991,15 +4190,40 @@ function RaporFieldGrid({ fields, values, onChange }) {
   )
 }
 
-function RaporPrintDocument({ reportData, printOnly = false }) {
+function RaporPrintDocument({ reportData, printOnly = false, mode = 'all' }) {
   const paperClass = `rapor-paper-${reportData.paper.key}`
+  const showSection = (section) => mode === 'all' || mode === section
   return (
-    <div data-print-area="rapor" data-paper-size={reportData.paper.key} className={`${paperClass} ${printOnly ? 'rapor-print-host' : 'rounded-2xl bg-[#EEF4FA] p-3'}`}>
-      <RaporCoverPage reportData={reportData} />
-      <RaporIdentityPage reportData={reportData} />
-      <RaporResultPage reportData={reportData} />
-      <RaporLedgerPage reportData={reportData} />
-      <RaporMutationPage reportData={reportData} />
+    <div data-print-area="rapor" data-paper-size={reportData.paper.key} data-rapor-preview-mode={mode} className={`${paperClass} ${printOnly ? 'rapor-print-host' : 'rounded-2xl bg-[#EEF4FA] p-3'}`}>
+      {showSection('sampul') && (
+        <RaporPrintSection section="sampul">
+          <RaporCoverPage reportData={reportData} />
+          <RaporIdentityPage reportData={reportData} />
+        </RaporPrintSection>
+      )}
+      {showSection('rapor') && (
+        <RaporPrintSection section="rapor">
+          <RaporResultPages reportData={reportData} />
+        </RaporPrintSection>
+      )}
+      {showSection('mutasi') && (
+        <RaporPrintSection section="mutasi">
+          <RaporMutationPage reportData={reportData} />
+        </RaporPrintSection>
+      )}
+      {showSection('induk') && (
+        <RaporPrintSection section="induk">
+          <RaporIndukPage reportData={reportData} />
+        </RaporPrintSection>
+      )}
+    </div>
+  )
+}
+
+function RaporPrintSection({ section, children }) {
+  return (
+    <div data-rapor-section={section}>
+      {children}
     </div>
   )
 }
@@ -4007,7 +4231,7 @@ function RaporPrintDocument({ reportData, printOnly = false }) {
 function RaporCoverPage({ reportData }) {
   const { schoolProfile, studentProfile } = reportData
   return (
-    <section className="rapor-page rapor-cover-page">
+    <section className="rapor-page rapor-cover-page rapor-print-page" data-rapor-section="sampul">
       <div className="rapor-cover-title">
         <p>R A P O R</p>
         <p>PESERTA DIDIK</p>
@@ -4032,7 +4256,7 @@ function RaporCoverPage({ reportData }) {
 function RaporIdentityPage({ reportData }) {
   const { schoolProfile, studentProfile } = reportData
   return (
-    <section className="rapor-page rapor-identity-page">
+    <section className="rapor-page rapor-identity-page rapor-print-page" data-rapor-section="sampul">
       <h2 className="rapor-page-title">R A P O R PESERTA DIDIK</h2>
       <h3 className="rapor-section-title">Data Sekolah</h3>
       <RaporInfoTable rows={[
@@ -4070,34 +4294,60 @@ function RaporIdentityPage({ reportData }) {
   )
 }
 
-function RaporResultPage({ reportData }) {
-  const { schoolProfile, studentProfile, reportOverride, attendance } = reportData
+function RaporResultPages({ reportData }) {
+  const firstPageRows = reportData.subjectRows.slice(0, 9)
+  const secondPageRows = reportData.subjectRows.slice(9)
+
   return (
-    <section className="rapor-page rapor-result-page">
+    <>
+      <RaporResultAcademicPage reportData={reportData} rows={firstPageRows} startIndex={0} />
+      <RaporResultSummaryPage reportData={reportData} rows={secondPageRows} startIndex={9} />
+    </>
+  )
+}
+
+function RaporResultSubjectTable({ rows, startIndex = 0 }) {
+  return (
+    <table className="rapor-table rapor-score-table">
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Muatan Pelajaran</th>
+          <th>Nilai Akhir</th>
+          <th>Capaian Kompetensi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, index) => (
+          <tr key={`${startIndex}-${row.subject}`}>
+            <td>{startIndex + index + 1}</td>
+            <td>{row.subject}</td>
+            <td className="rapor-score">{row.finalScore || ''}</td>
+            <td>{row.competency || dottedLine()}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function RaporResultAcademicPage({ reportData, rows, startIndex }) {
+  return (
+    <section className="rapor-page rapor-result-page rapor-print-page" data-rapor-section="rapor">
       <h2 className="rapor-page-title">LAPORAN HASIL BELAJAR</h2>
       <p className="rapor-subtitle">(RAPOR)</p>
       <RaporStudentHeader reportData={reportData} />
+      <RaporResultSubjectTable rows={rows} startIndex={startIndex} />
+    </section>
+  )
+}
 
-      <table className="rapor-table rapor-score-table">
-        <thead>
-          <tr>
-            <th>No</th>
-            <th>Muatan Pelajaran</th>
-            <th>Nilai Akhir</th>
-            <th>Capaian Kompetensi</th>
-          </tr>
-        </thead>
-        <tbody>
-          {reportData.subjectRows.map((row, index) => (
-            <tr key={row.subject}>
-              <td>{index + 1}</td>
-              <td>{row.subject}</td>
-              <td className="rapor-score">{row.finalScore || ''}</td>
-              <td>{row.competency || dottedLine()}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+function RaporResultSummaryPage({ reportData, rows, startIndex }) {
+  const { schoolProfile, studentProfile, reportOverride, attendance } = reportData
+  return (
+    <section className="rapor-page rapor-result-page rapor-result-summary-page rapor-print-page" data-rapor-section="rapor">
+      <RaporStudentHeader reportData={reportData} />
+      <RaporResultSubjectTable rows={rows} startIndex={startIndex} />
 
       <table className="rapor-table rapor-extra-table">
         <thead>
@@ -4129,14 +4379,13 @@ function RaporResultPage({ reportData }) {
             <tr><td>Tanpa Keterangan</td><td>{attendance.alpa}</td><td>hari</td></tr>
           </tbody>
         </table>
-        <div className="rapor-note-box">
-          <h3>Catatan Wali Kelas</h3>
-          <p>{reportOverride.homeroomNote || dottedLine()}</p>
-          {reportOverride.additionalNote && <p>{reportOverride.additionalNote}</p>}
-        </div>
       </div>
 
-      <p className="rapor-decision">Keputusan: {reportOverride.decision || 'Belum ditentukan'}</p>
+      <div className="rapor-note-box">
+        <h3>Catatan Wali Kelas</h3>
+        <p>{reportOverride.homeroomNote || dottedLine()}</p>
+        {reportOverride.additionalNote && <p>{reportOverride.additionalNote}</p>}
+      </div>
 
       <div className="rapor-signature-grid">
         <RaporSignature title="Orang Tua/Wali" name="........................................" />
@@ -4149,9 +4398,9 @@ function RaporResultPage({ reportData }) {
   )
 }
 
-function RaporLedgerPage({ reportData }) {
+function RaporIndukPage({ reportData }) {
   return (
-    <section className="rapor-page rapor-ledger-page">
+    <section className="rapor-page rapor-ledger-page rapor-induk-page rapor-print-page" data-rapor-section="induk">
       <h2 className="rapor-page-title">BUKU INDUK</h2>
       <RaporStudentHeader reportData={reportData} compact />
       <table className="rapor-table rapor-ledger-table">
@@ -4209,7 +4458,7 @@ function RaporLedgerPage({ reportData }) {
 function RaporMutationPage({ reportData }) {
   const { studentProfile, schoolProfile } = reportData
   return (
-    <section className="rapor-page rapor-mutation-page">
+    <section className="rapor-page rapor-mutation-page rapor-print-page" data-rapor-section="mutasi">
       <h2 className="rapor-page-title">KETERANGAN PINDAH SEKOLAH</h2>
       <p className="rapor-muted">Nama Peserta Didik : {studentProfile.name || dottedLine()}</p>
       <table className="rapor-table rapor-mutation-table">
@@ -4217,7 +4466,7 @@ function RaporMutationPage({ reportData }) {
           <tr>
             <th>Tanggal</th>
             <th>Kelas yang Ditinggalkan</th>
-            <th>Sebab-sebab Keluar atau Atas Permintaan Tertulis</th>
+            <th>Alasan</th>
             <th>Tanda Tangan Kepala Sekolah, Stempel Sekolah, dan Tanda Tangan Orang Tua/Wali</th>
           </tr>
         </thead>
@@ -4232,21 +4481,59 @@ function RaporMutationPage({ reportData }) {
                 <br />
                 <br />
                 <p>{schoolProfile.principalName || '........................................'}</p>
+                {schoolProfile.principalNip && <p>NIP. {schoolProfile.principalNip}</p>}
+                <br />
+                <p>Orang Tua/Wali</p>
+                <br />
+                <p>........................................</p>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
       <h3 className="rapor-section-title">Keterangan Masuk Sekolah</h3>
-      <RaporInfoTable rows={[
-        ['Nama Peserta Didik', studentProfile.name],
-        ['NISN', studentProfile.nisn],
-        ['Nama Sekolah', schoolProfile.schoolName],
-        ['Masuk di sekolah ini', ''],
-        ['a. Tanggal', ''],
-        ['b. Di kelas', reportData.className],
-        ['c. Tahun Pelajaran', reportData.academicYear],
-      ]} />
+      <table className="rapor-table rapor-mutation-entry-table">
+        <tbody>
+          {[0, 1, 2].map((item) => (
+            <tr key={`entry-${item}`}>
+              <td>{item + 1}.</td>
+              <td>
+                <p>Nama Peserta Didik</p>
+                <p>Nomor Induk</p>
+                <p>NISN</p>
+                <p>Nama Sekolah</p>
+                <p>Masuk di Sekolah ini :</p>
+                <p>a. Tanggal</p>
+                <p>b. Di Kelas</p>
+                <p>c. Tahun Pelajaran</p>
+              </td>
+              <td>
+                <p>{item === 0 ? withColon(studentProfile.name) : dottedLine()}</p>
+                <p>{item === 0 ? withColon(studentProfile.nis) : dottedLine()}</p>
+                <p>{item === 0 ? withColon(studentProfile.nisn) : dottedLine()}</p>
+                <p>{item === 0 ? withColon(schoolProfile.schoolName) : dottedLine()}</p>
+                <p>&nbsp;</p>
+                <p>{dottedLine()}</p>
+                <p>{item === 0 ? withColon(reportData.className) : dottedLine()}</p>
+                <p>{item === 0 ? withColon(reportData.academicYear) : dottedLine()}</p>
+              </td>
+              <td>
+                <p>{reportData.reportOverride.reportPlace || '................'}, {formatRaporDate(reportData.reportOverride.reportDate) || '........................'}</p>
+                <p>Kepala Sekolah</p>
+                <br />
+                <br />
+                <p>{schoolProfile.principalName || '........................................'}</p>
+                {schoolProfile.principalNip && <p>NIP. {schoolProfile.principalNip}</p>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="rapor-mutation-signatures">
+        <RaporSignature title="Mengetahui" subtitle="Orang Tua/Wali" name="........................................" />
+        <RaporSignature title="Mengetahui" subtitle="Kepala Sekolah" name={schoolProfile.principalName} nip={schoolProfile.principalNip} />
+        <RaporSignature title={`${reportData.reportOverride.reportPlace || ''}, ${formatRaporDate(reportData.reportOverride.reportDate)}`} subtitle="Guru Kelas" name={schoolProfile.homeroomName} nip={schoolProfile.homeroomNip} />
+      </div>
     </section>
   )
 }
@@ -4263,8 +4550,8 @@ function RaporStudentHeader({ reportData, compact = false }) {
           <td>{withColon(reportData.className)}</td>
         </tr>
         <tr>
-          <td>NISN</td>
-          <td>{withColon(studentProfile.nisn || studentProfile.nis)}</td>
+          <td>{compact ? 'NIS / NISN' : 'NISN'}</td>
+          <td>{withColon(compact ? compactJoin([studentProfile.nis, studentProfile.nisn], ' / ') : (studentProfile.nisn || studentProfile.nis))}</td>
           <td>Fase</td>
           <td>{withColon(reportData.phase)}</td>
         </tr>
@@ -4276,7 +4563,7 @@ function RaporStudentHeader({ reportData, compact = false }) {
         </tr>
         <tr>
           <td>Alamat</td>
-          <td>{withColon(schoolProfile.address)}</td>
+          <td>{withColon(compact ? studentProfile.address : schoolProfile.address)}</td>
           <td>Tahun Pelajaran</td>
           <td>{withColon(reportData.academicYear)}</td>
         </tr>
@@ -4512,7 +4799,8 @@ function buildRaporSubjectRows({ student, className, semester, academicYear, sub
       subject,
       finalScore: normalized?.finalScore || 0,
       status: normalized?.status || 'Belum Diisi',
-      competency: normalized?.competency || defaultCompetencyDescription(subject, normalized?.finalScore || 0),
+      materialScopes: normalizeGradeMaterialScopes(normalized?.materialScopes, subject),
+      competency: normalized?.competency || defaultCompetencyDescription(subject, normalized?.finalScore || 0, normalized?.scores, normalized?.materialScopes),
     }
   })
 }

@@ -14,10 +14,11 @@ import {
 import { classes, school, students, teachers } from '../data/dummyData.js'
 
 const images = {
-  hero: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1800&q=86',
-  campus: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=1400&q=86',
-  library: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=1400&q=86',
-  coast: 'https://images.unsplash.com/photo-1520942702018-0862200e6873?auto=format&fit=crop&w=1400&q=86',
+  hero: '/landing/school-community.jpg',
+  academics: '/landing/digital-lab.jpg',
+  culture: '/landing/cultural-ensemble.jpg',
+  scout: '/landing/scout-leadership.jpg',
+  leaders: '/landing/student-leaders.jpg',
 }
 
 const navLinks = [
@@ -118,10 +119,10 @@ function Hero() {
     <section className="relative isolate min-h-[92dvh] overflow-hidden">
       <img
         src={images.hero}
-        alt="Siswa belajar di ruang kelas modern"
-        className="absolute inset-0 h-full w-full object-cover"
+        alt="Keluarga besar SMA Negeri 6 Pangkajene dan Kepulauan"
+        className="absolute inset-0 h-full w-full object-cover object-[center_54%]"
       />
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(6,22,38,0.90)_0%,rgba(6,22,38,0.68)_42%,rgba(6,22,38,0.22)_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(6,22,38,0.92)_0%,rgba(6,22,38,0.72)_42%,rgba(6,22,38,0.30)_100%)]" />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(180deg,rgba(246,247,243,0)_0%,#F6F7F3_100%)]" />
 
       <div className="relative z-10 mx-auto flex min-h-[92dvh] max-w-7xl items-end px-4 pb-16 pt-28 sm:px-6 lg:px-8 lg:pb-20">
@@ -204,7 +205,7 @@ function Academics() {
     <section id="akademik" className="bg-[#E9F2F8] py-20 lg:py-24">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:items-center">
         <div className="overflow-hidden rounded-lg shadow-[0_24px_70px_rgba(16,32,51,0.14)]">
-          <img src={images.campus} alt="Suasana koridor sekolah" className="aspect-[4/3] w-full object-cover" />
+          <img src={images.academics} alt="Siswa belajar menggunakan komputer di laboratorium" className="aspect-[4/3] w-full object-cover object-[center_50%]" />
         </div>
         <div>
           <p className="text-sm font-black uppercase tracking-[0.16em] text-[#0F6FAE]">Akademik</p>
@@ -245,23 +246,23 @@ function LifeAtSchool() {
 
       <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
         <article className="relative min-h-[26rem] overflow-hidden rounded-lg bg-[#102033]">
-          <img src={images.library} alt="Perpustakaan dan aktivitas literasi" className="absolute inset-0 h-full w-full object-cover" />
+          <img src={images.culture} alt="Siswa menampilkan busana budaya daerah" className="absolute inset-0 h-full w-full object-cover object-[center_44%]" />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(16,32,51,0.08)_0%,rgba(16,32,51,0.78)_100%)]" />
           <div className="absolute inset-x-0 bottom-0 p-6 text-white">
-            <p className="mb-3 flex items-center gap-2 text-sm font-black text-sky-100"><LibraryBig size={18} /> Literasi & nalar</p>
+            <p className="mb-3 flex items-center gap-2 text-sm font-black text-sky-100"><LibraryBig size={18} /> Budaya & karakter</p>
             <h3 className="school-serif max-w-2xl text-4xl font-black leading-none tracking-[-0.03em]">
-              Ruang belajar yang mendorong rasa ingin tahu.
+              Identitas lokal menjadi bagian dari pembelajaran.
             </h3>
           </div>
         </article>
 
         <article className="relative min-h-[26rem] overflow-hidden rounded-lg bg-[#102033]">
-          <img src={images.coast} alt="Lingkungan pesisir sebagai konteks sekolah" className="absolute inset-0 h-full w-full object-cover" />
+          <img src={images.scout} alt="Siswa pramuka SMA Negeri 6 Pangkajene dan Kepulauan" className="absolute inset-0 h-full w-full object-cover object-[center_40%]" />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(16,32,51,0.08)_0%,rgba(16,32,51,0.72)_100%)]" />
           <div className="absolute inset-x-0 bottom-0 p-6 text-white">
-            <p className="mb-3 flex items-center gap-2 text-sm font-black text-sky-100"><Waves size={18} /> Identitas pesisir</p>
+            <p className="mb-3 flex items-center gap-2 text-sm font-black text-sky-100"><Waves size={18} /> Kemandirian</p>
             <h3 className="school-serif text-4xl font-black leading-none tracking-[-0.03em]">
-              Belajar dari lingkungan sendiri.
+              Siswa bertumbuh lewat organisasi dan kegiatan.
             </h3>
           </div>
         </article>
@@ -317,23 +318,13 @@ function Portal() {
             Masuk ke IsleLearn <ArrowRight size={17} />
           </Link>
         </div>
-        <div className="relative min-h-[24rem] bg-[#123B63]">
-          <div className="absolute inset-6 rounded-lg bg-white p-5 text-[#102033] shadow-[0_18px_54px_rgba(0,0,0,0.18)]">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-xs font-black uppercase tracking-[0.14em] text-[#0F6FAE]">Ringkasan sekolah</span>
-              <UsersRound size={22} className="text-[#0F6FAE]" />
-            </div>
-            <div className="mt-8 grid gap-3">
-              {[
-                ['Kehadiran', 'Rekap harian, bulanan, semester'],
-                ['Nilai', 'Format daftar nilai Kurikulum Merdeka'],
-                ['Laporan', 'Ringkasan akademik dari data sekolah'],
-              ].map(([title, detail]) => (
-                <div key={title} className="rounded-lg bg-[#F3F7FB] p-4">
-                  <p className="font-black">{title}</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">{detail}</p>
-                </div>
-              ))}
+        <div className="relative min-h-[24rem] overflow-hidden bg-[#123B63]">
+          <img src={images.leaders} alt="Siswa pengurus organisasi sekolah" className="absolute inset-0 h-full w-full object-cover object-[center_45%]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(11,35,56,0.04)_0%,rgba(11,35,56,0.72)_100%)]" />
+          <div className="absolute inset-x-0 bottom-0 p-6">
+            <div className="inline-flex items-center gap-2 rounded-lg bg-white/12 px-3 py-2 text-sm font-black text-white ring-1 ring-white/20 backdrop-blur-md">
+              <UsersRound size={17} />
+              Data sekolah terhubung dalam IsleLearn
             </div>
           </div>
         </div>

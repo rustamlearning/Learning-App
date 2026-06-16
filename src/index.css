@@ -412,7 +412,7 @@ textarea:focus-visible {
 
 [data-print-area="rapor"] {
   color: #111827;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Book Antiqua", Georgia, "Times New Roman", serif;
 }
 
 .rapor-page {
@@ -420,7 +420,7 @@ textarea:focus-visible {
   width: 215mm;
   height: 330mm;
   margin: 0 auto 16px;
-  padding: 14mm 15mm;
+  padding: 13mm 14mm;
   overflow: hidden;
   background: #fff;
   box-shadow: 0 18px 50px rgba(15, 36, 55, 0.12);
@@ -438,7 +438,7 @@ textarea:focus-visible {
 .rapor-paper-a4 .rapor-page {
   width: 210mm;
   height: 297mm;
-  padding: 12mm 13mm;
+  padding: 11mm 12mm;
   page: rapor-a4;
 }
 
@@ -454,6 +454,7 @@ textarea:focus-visible {
 
 .rapor-page-title {
   margin: 0;
+  font-family: "Arial Black", Arial, Helvetica, sans-serif;
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -483,7 +484,8 @@ textarea:focus-visible {
 
 .rapor-cover-title {
   margin-top: 10mm;
-  font-size: 18px;
+  font-family: "Arial Black", Arial, Helvetica, sans-serif;
+  font-size: 19px;
   font-weight: 700;
   line-height: 1.75;
   text-transform: uppercase;
@@ -492,8 +494,8 @@ textarea:focus-visible {
 .rapor-cover-student {
   margin: 30mm auto 0;
   width: 78%;
-  border: 1.6px solid #111827;
-  padding: 18mm 10mm;
+  border: 0;
+  padding: 14mm 10mm;
 }
 
 .rapor-cover-student p {
@@ -507,6 +509,7 @@ textarea:focus-visible {
   margin: 0 0 16px;
   font-size: 17px;
   font-weight: 700;
+  text-decoration: underline;
   text-transform: uppercase;
 }
 
@@ -522,7 +525,7 @@ textarea:focus-visible {
 .rapor-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 10.4px;
+  font-size: 10.5px;
   line-height: 1.25;
 }
 
@@ -558,7 +561,7 @@ textarea:focus-visible {
 .rapor-table th,
 .rapor-table td {
   border: 1px solid #111827;
-  padding: 3px 5px;
+  padding: 2.5px 5px;
   vertical-align: top;
 }
 
@@ -577,14 +580,14 @@ textarea:focus-visible {
 
 .rapor-score-table th:nth-child(2),
 .rapor-score-table td:nth-child(2) {
-  width: 45mm;
+  width: 43mm;
 }
 
 .rapor-score-table th:nth-child(3),
 .rapor-score-table td:nth-child(3),
 .rapor-ledger-table th:nth-child(3),
 .rapor-ledger-table td:nth-child(3) {
-  width: 20mm;
+  width: 18mm;
   text-align: center;
 }
 
@@ -606,14 +609,14 @@ textarea:focus-visible {
 }
 
 .rapor-bottom-grid {
-  display: grid;
-  grid-template-columns: 56mm 1fr;
-  gap: 7mm;
+  display: block;
+  width: 58mm;
   margin-top: 7px;
 }
 
 .rapor-note-box {
-  min-height: 25mm;
+  margin-top: 7px;
+  min-height: 19mm;
   border: 1px solid #111827;
   padding: 5px;
   font-size: 10.4px;
@@ -675,11 +678,11 @@ textarea:focus-visible {
 }
 
 .rapor-mutation-table td {
-  height: 20mm;
+  height: 24mm;
 }
 
 .rapor-result-page .rapor-score-table td {
-  font-size: 9.8px;
+  font-size: 9.6px;
   line-height: 1.2;
 }
 
@@ -699,6 +702,43 @@ textarea:focus-visible {
 
 .rapor-ledger-page .rapor-table {
   font-size: 10px;
+}
+
+.rapor-result-page .rapor-score-table tbody tr {
+  min-height: 16mm;
+}
+
+.rapor-result-summary-page .rapor-score-table tbody tr {
+  height: 16mm;
+}
+
+.rapor-induk-page .rapor-ledger-table td {
+  height: 7mm;
+}
+
+.rapor-mutation-entry-table td:nth-child(1) {
+  width: 8mm;
+  text-align: center;
+}
+
+.rapor-mutation-entry-table td:nth-child(2) {
+  width: 39mm;
+}
+
+.rapor-mutation-entry-table td:nth-child(4) {
+  width: 55mm;
+  text-align: center;
+}
+
+.rapor-mutation-entry-table p {
+  margin: 0 0 2px;
+}
+
+.rapor-mutation-signatures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8mm;
+  margin-top: 8mm;
 }
 
 .rapor-paper-a4 .rapor-page {
@@ -778,7 +818,7 @@ textarea:focus-visible {
 
   body.is-printing-rapor .rapor-page {
     margin: 0;
-    padding: 14mm 15mm;
+    padding: 13mm 14mm;
     box-shadow: none !important;
   }
 
@@ -790,12 +830,19 @@ textarea:focus-visible {
   body.is-printing-rapor .rapor-paper-a4 .rapor-page {
     width: 210mm;
     height: 297mm;
-    padding: 12mm 13mm;
+    padding: 11mm 12mm;
   }
 
   body.is-printing-rapor .rapor-page,
   body.is-printing-rapor .rapor-table,
   body.is-printing-rapor .rapor-info-table {
     color: #000 !important;
+  }
+
+  body.is-printing-rapor[data-rapor-print-mode="sampul"] .rapor-print-page:not([data-rapor-section="sampul"]),
+  body.is-printing-rapor[data-rapor-print-mode="rapor"] .rapor-print-page:not([data-rapor-section="rapor"]),
+  body.is-printing-rapor[data-rapor-print-mode="mutasi"] .rapor-print-page:not([data-rapor-section="mutasi"]),
+  body.is-printing-rapor[data-rapor-print-mode="induk"] .rapor-print-page:not([data-rapor-section="induk"]) {
+    display: none !important;
   }
 }
