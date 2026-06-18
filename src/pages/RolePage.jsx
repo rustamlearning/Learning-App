@@ -183,6 +183,7 @@ function renderGuru(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'remedial') return <RemedialPage notify={notify} />
   if (page === 'ai-generator') return <AIGeneratorPage />
   if (page === 'laporan') return <LaporanGuru notify={notify} />
+  if (page === 'profil') return <ProfilPage user={user} />
   return <EmptyState />
 }
 
@@ -2170,20 +2171,117 @@ function IsleClubPage() {
 }
 
 function ProfilPage({ user }) {
+  const { changeTeacherPassword } = useAuth()
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [nextPassword, setNextPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordMessage, setPasswordMessage] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const isTeacher = user.role === 'guru'
+  const profileDetails = [
+    user.nip ? `NIP ${user.nip}` : '',
+    user.nis ? `NIS ${user.nis}` : '',
+    user.className ? `Kelas ${user.className}` : '',
+    user.subject ? `Mapel ${user.subject}` : '',
+    user.email || '',
+  ].filter(Boolean)
+
+  function submitPasswordChange(event) {
+    event.preventDefault()
+    setPasswordMessage('')
+    setPasswordError('')
+
+    if (nextPassword !== confirmPassword) {
+      setPasswordError('Konfirmasi password belum sama.')
+      return
+    }
+
+    try {
+      changeTeacherPassword(currentPassword, nextPassword)
+      setCurrentPassword('')
+      setNextPassword('')
+      setConfirmPassword('')
+      setPasswordMessage('Password berhasil diganti. Login berikutnya tetap memakai NIP sebagai username.')
+    } catch (error) {
+      setPasswordError(error.message || 'Password belum bisa diganti.')
+    }
+  }
+
   return (
     <div>
-      <PageHeader eyebrow="Profil" title="Profil belajar" description="Identitas, badge, dan statistik belajar." />
+      <PageHeader eyebrow="Profil" title={isTeacher ? 'Profil guru' : 'Profil belajar'} description="Identitas akun dan pengaturan keamanan." />
       <SectionCard className="max-w-3xl">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="grid h-24 w-24 place-items-center rounded-2xl bg-galaxy-action text-3xl font-extrabold text-white shadow-glow">{user.avatar}</div>
           <div>
             <h2 className="text-3xl font-extrabold">{user.name}</h2>
-            <p className="mt-1 text-gray-500">NIS {user.nis} · Kelas {user.className} · {user.email}</p>
+            <p className="mt-1 text-gray-500">{profileDetails.join(' · ')}</p>
             <div className="mt-3 flex flex-wrap gap-2">{badges.slice(0, 3).map((badge) => <StatusBadge key={badge.id}>{badge.name}</StatusBadge>)}</div>
           </div>
         </div>
         <div className="mt-6 rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple ring-1 ring-purple-100">Profil aktif dan tersimpan di perangkat.</div>
       </SectionCard>
+
+      {isTeacher && (
+        <SectionCard className="mt-5 max-w-3xl">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-xl font-black text-gray-950">Keamanan akun</h2>
+              <p className="mt-1 text-sm leading-6 text-gray-500">
+                Username guru tetap memakai NIP. Password awal adalah NIP, lalu bisa diganti dari sini.
+              </p>
+            </div>
+            <StatusBadge tone="cyan">NIP login</StatusBadge>
+          </div>
+
+          <form onSubmit={submitPasswordChange} className="mt-5 grid gap-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="grid gap-2 text-sm font-bold text-gray-700">
+                Password saat ini
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  className="rounded-xl border border-blue-100 bg-white px-3 py-2.5 outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+                  placeholder="NIP atau password lama"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-gray-700">
+                Password baru
+                <input
+                  type="password"
+                  value={nextPassword}
+                  onChange={(event) => setNextPassword(event.target.value)}
+                  className="rounded-xl border border-blue-100 bg-white px-3 py-2.5 outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+                  placeholder="Minimal 6 karakter"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-gray-700">
+                Konfirmasi
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  className="rounded-xl border border-blue-100 bg-white px-3 py-2.5 outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+                  placeholder="Ulangi password"
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs font-semibold leading-5 text-gray-500">
+                Setelah diganti, guru login dengan NIP sebagai username dan password baru.
+              </p>
+              <button className="rounded-xl bg-galaxy-deep px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-blue-700">
+                Simpan password
+              </button>
+            </div>
+
+            {passwordMessage && <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 ring-1 ring-emerald-100">{passwordMessage}</p>}
+            {passwordError && <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 ring-1 ring-rose-100">{passwordError}</p>}
+          </form>
+        </SectionCard>
+      )}
     </div>
   )
 }

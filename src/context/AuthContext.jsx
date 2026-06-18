@@ -20,7 +20,7 @@ import {
   migrateLegacyStoragePrefixes,
 } from '../utils/storageKeys.js'
 import { teachers } from '../data/dummyData.js'
-import { getLocalAdminProfiles } from '../utils/localLearningStore.js'
+import { getLocalAdminProfiles, safeReadLocalJson, safeWriteLocalJson } from '../utils/localLearningStore.js'
 
 const AuthContext = createContext(null)
 const STORAGE_KEY = AUTH_STORAGE_KEY
@@ -28,6 +28,7 @@ const SUPABASE_SESSION_KEY = SUPABASE_SESSION_STORAGE_KEY
 const LEGACY_DEMO_PURGE_KEY = LEGACY_DEMO_PURGE_STORAGE_KEY
 const LEGACY_DEMO_KEYS = [LEGACY_AUTH_STORAGE_KEY, LEGACY_SUPABASE_SESSION_STORAGE_KEY]
 const LEGACY_DEMO_PREFIXES = Object.values(STORAGE_SUFFIX).map((suffix) => legacyStorageKey(suffix))
+const TEACHER_PASSWORD_STORAGE_KEY = 'islelearn-teacher-passwords-v1'
 const LOCAL_PREVIEW_USERS = {
   siswa: {
     id: 'local-preview-siswa',
@@ -140,8 +141,21 @@ export function AuthProvider({ children }) {
     return demo
   }
 
+  function loginLocalUser(appUser) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appUser))
+    localStorage.removeItem(SUPABASE_SESSION_KEY)
+    setSession(null)
+    setUser(appUser)
+    return appUser
+  }
+
   async function loginWithEmail(identifier, password) {
     const normalized = normalizeLoginIdentifier(identifier)
+    const teacherByNip = findTeacherByNipCredentials(identifier, password)
+
+    if (teacherByNip) {
+      return loginLocalUser(teacherByNip)
+    }
 
     if (isSupabaseConfigured()) {
       try {
@@ -163,11 +177,7 @@ export function AuthProvider({ children }) {
         if (isDemoAuthEnabled()) {
           const demo = findDemoUser(normalized, password)
           if (demo) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(demo))
-            localStorage.removeItem(SUPABASE_SESSION_KEY)
-            setSession(null)
-            setUser(demo)
-            return demo
+            return loginLocalUser(demo)
           }
         }
 
@@ -180,14 +190,44 @@ export function AuthProvider({ children }) {
       if (!demo) {
         throw new Error('Akun tidak ditemukan. Gunakan akun sekolah yang terdaftar.')
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(demo))
-      localStorage.removeItem(SUPABASE_SESSION_KEY)
-      setSession(null)
-      setUser(demo)
-      return demo
+      return loginLocalUser(demo)
     }
 
     throw new Error('Login production belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel.')
+  }
+
+  function changeTeacherPassword(currentPassword, nextPassword) {
+    if (!user || user.role !== 'guru') {
+      throw new Error('Perubahan password hanya tersedia untuk akun guru.')
+    }
+
+    const teacher = findTeacherByNip(user.nip)
+    const teacherNip = normalizeTeacherCredential(teacher?.nip || user.nip)
+    if (!teacherNip) {
+      throw new Error('NIP guru belum terdaftar. Hubungi admin untuk melengkapi data guru.')
+    }
+
+    if (!isTeacherPasswordValid(teacherNip, currentPassword)) {
+      throw new Error('Password saat ini belum sesuai.')
+    }
+
+    const cleanPassword = normalizeTeacherPassword(nextPassword)
+    if (cleanPassword.length < 6) {
+      throw new Error('Password baru minimal 6 karakter.')
+    }
+
+    setStoredTeacherPassword(teacherNip, cleanPassword)
+    const updatedUser = {
+      ...user,
+      passwordChangedAt: new Date().toISOString(),
+    }
+
+    if (!session) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedUser))
+    }
+
+    setUser(updatedUser)
+    return true
   }
 
   async function logout() {
@@ -217,6 +257,7 @@ export function AuthProvider({ children }) {
     accessToken: session?.access_token,
     loginAs,
     loginWithEmail,
+    changeTeacherPassword,
     logout,
     supabaseEnabled: isSupabaseConfigured(),
     demoAuthEnabled: isDemoAuthEnabled(),
@@ -238,12 +279,9 @@ function findDemoUser(identifier, password = '') {
 
 function findTeacherByNipCredentials(identifier, password) {
   const username = normalizeTeacherCredential(identifier)
-  const passwordValue = normalizeTeacherCredential(password)
-  if (!username || username !== passwordValue) return null
-
-  const teacherRows = getLocalAdminProfiles('guru', teachers)
-  const teacher = teacherRows.find((item) => normalizeTeacherCredential(item.nip) === username)
+  const teacher = findTeacherByNip(username)
   if (!teacher) return null
+  if (!isTeacherPasswordValid(teacher.nip || username, password)) return null
 
   const name = teacher.name || 'Guru'
   return {
@@ -258,7 +296,52 @@ function findTeacherByNipCredentials(identifier, password) {
 }
 
 function normalizeTeacherCredential(value) {
+  return String(value || '').trim().replace(/\s+/g, '')
+}
+
+function normalizeTeacherPassword(value) {
   return String(value || '').trim()
+}
+
+function getTeacherRows() {
+  return getLocalAdminProfiles('guru', teachers.map((teacher) => ({ ...teacher, role: 'guru' })))
+}
+
+function findTeacherByNip(nip) {
+  const normalizedNip = normalizeTeacherCredential(nip)
+  if (!normalizedNip) return null
+
+  return getTeacherRows().find((item) => (
+    normalizeTeacherCredential(item.nip || item.username || item.id) === normalizedNip
+  )) || null
+}
+
+function isTeacherPasswordValid(nip, password) {
+  const normalizedNip = normalizeTeacherCredential(nip)
+  const passwordValue = normalizeTeacherPassword(password)
+  if (!normalizedNip || !passwordValue) return false
+
+  const storedPassword = getStoredTeacherPassword(normalizedNip)
+  return storedPassword ? passwordValue === storedPassword : passwordValue === normalizedNip
+}
+
+function getTeacherPasswordMap() {
+  const rows = safeReadLocalJson(TEACHER_PASSWORD_STORAGE_KEY, {})
+  return rows && typeof rows === 'object' && !Array.isArray(rows) ? rows : {}
+}
+
+function getStoredTeacherPassword(nip) {
+  const normalizedNip = normalizeTeacherCredential(nip)
+  return getTeacherPasswordMap()[normalizedNip] || ''
+}
+
+function setStoredTeacherPassword(nip, password) {
+  const normalizedNip = normalizeTeacherCredential(nip)
+  if (!normalizedNip) return false
+
+  const rows = getTeacherPasswordMap()
+  rows[normalizedNip] = normalizeTeacherPassword(password)
+  return safeWriteLocalJson(TEACHER_PASSWORD_STORAGE_KEY, rows)
 }
 
 function getInitials(name) {

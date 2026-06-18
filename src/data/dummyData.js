@@ -76,6 +76,7 @@ export const navItems = {
     { label: 'Remedial', path: '/guru/remedial', icon: Brain },
     { label: 'AI Cepat', path: '/guru/ai-generator', icon: Sparkles },
     { label: 'Laporan', path: '/guru/laporan', icon: LineChart },
+    { label: 'Profil', path: '/guru/profil', icon: UserRound },
   ],
   admin: [
     { label: 'Dashboard', path: '/admin/dashboard', icon: Home },

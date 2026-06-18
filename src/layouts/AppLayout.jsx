@@ -169,6 +169,7 @@ function groupNavItems(role, items) {
       ['Evaluasi', ['/daftar-nilai', '/rapor', '/analisis-nilai', '/remedial']],
       ['Asisten', ['/ai-generator']],
       ['Laporan', ['/laporan']],
+      ['Akun', ['/profil']],
     ],
     admin: [
       ['Konsol', ['/dashboard']],
