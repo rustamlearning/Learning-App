@@ -239,9 +239,6 @@ function LifeAtSchool() {
             Belajar di kelas, bertumbuh di komunitas.
           </h2>
         </div>
-        <p className="max-w-2xl text-base font-semibold leading-8 text-slate-700">
-          Website sekolah perlu terasa hidup: menampilkan kegiatan, kabar, layanan akademik, dan nilai sekolah dengan visual yang tenang.
-        </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">

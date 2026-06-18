@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { navItems, roleLabels, school } from '../data/dummyData.js'
+import { isTeacherHomeroom } from '../utils/homeroomAccess.js'
 
 export default function AppLayout() {
   const { user, logout } = useAuth()
@@ -21,7 +22,7 @@ export default function AppLayout() {
     navigate('/login', { replace: true })
   }
 
-  const items = navItems[user.role] || []
+  const items = useMemo(() => getVisibleNavItems(user), [user])
   const title = items.find((item) => location.pathname === item.path)?.label || roleLabels[user.role]
 
   return (
@@ -171,7 +172,7 @@ function groupNavItems(role, items) {
     ],
     admin: [
       ['Konsol', ['/dashboard']],
-      ['Data Sekolah', ['/guru', '/siswa', '/kelas', '/mapel']],
+      ['Data Sekolah', ['/guru', '/siswa', '/kelas', '/wali-kelas', '/mapel']],
       ['Sistem', ['/pengaturan', '/laporan', '/backup']],
     ],
     pimpinan: [
@@ -188,16 +189,25 @@ function groupNavItems(role, items) {
     .filter((group) => group.items.length)
 }
 
+function getVisibleNavItems(user) {
+  const items = navItems[user.role] || []
+  if (user.role !== 'guru') return items
+
+  const hasHomeroomAccess = isTeacherHomeroom(user)
+  return items.filter((item) => item.path !== '/guru/rapor' || hasHomeroomAccess)
+}
+
 function Topbar({ user, title, onMenu }) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
+  const visibleItems = useMemo(() => getVisibleNavItems(user), [user])
   const searchResults = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
     if (!normalizedQuery) return []
-    return (navItems[user.role] || [])
+    return visibleItems
       .filter((item) => item.label.toLowerCase().includes(normalizedQuery))
       .slice(0, 5)
-  }, [query, user.role])
+  }, [query, visibleItems])
 
   function submitSearch(event) {
     event.preventDefault()

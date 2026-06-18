@@ -155,8 +155,48 @@ function uniqueTextOptions(items = []) {
   return Array.from(new Set(items.map((item) => String(item || '').trim()).filter(Boolean)))
 }
 
+function normalizeSubjectText(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+const studioSubjectAliasMap = {
+  [normalizeSubjectText('Pendidikan Agama dan Budi Pekerti')]: 'Pendidikan Agama Islam dan Budi Pekerti',
+  [normalizeSubjectText('Pendidikan Agama Islam')]: 'Pendidikan Agama Islam dan Budi Pekerti',
+  [normalizeSubjectText('PJOK')]: 'Pendidikan Jasmani, Olahraga, dan Kesehatan',
+  [normalizeSubjectText('Pendidikan Jasmani Olahraga dan Kesehatan')]: 'Pendidikan Jasmani, Olahraga, dan Kesehatan',
+  [normalizeSubjectText('Matematika')]: 'Matematika Umum',
+  [normalizeSubjectText('Matematika Peminatan')]: 'Matematika Tingkat Lanjut',
+  [normalizeSubjectText('Sejarah Indonesia')]: 'Sejarah',
+  [normalizeSubjectText('Mulok')]: 'Muatan Lokal',
+}
+
+function canonicalStudioSubjectName(value) {
+  const trimmed = String(value || '').trim()
+  if (!trimmed) return ''
+  return studioSubjectAliasMap[normalizeSubjectText(trimmed)] || trimmed
+}
+
+function splitStudioSubjectNames(value) {
+  return String(value || '')
+    .split(/[;\n]+/)
+    .map(canonicalStudioSubjectName)
+    .filter(Boolean)
+}
+
+function sameStudioSubjectName(left, right) {
+  return normalizeSubjectText(canonicalStudioSubjectName(left)) === normalizeSubjectText(canonicalStudioSubjectName(right))
+}
+
 function buildStudioSubjectOptions(lookupSubjects = [], userSubject = '') {
   const lookupNames = lookupSubjects.map((subject) => subject.name)
+  const teacherSubjects = uniqueTextOptions(splitStudioSubjectNames(userSubject))
+  if (teacherSubjects.length > 0) {
+    const allKnownOptions = uniqueTextOptions([...lookupNames, ...smaSubjectOptions])
+    const matchedOptions = allKnownOptions.filter((option) => teacherSubjects.some((subject) => sameStudioSubjectName(option, subject)))
+    const unmatchedOptions = teacherSubjects.filter((subject) => !matchedOptions.some((option) => sameStudioSubjectName(option, subject)))
+    return uniqueTextOptions([...matchedOptions, ...unmatchedOptions])
+  }
+
   return uniqueTextOptions([userSubject, ...lookupNames, ...smaSubjectOptions])
 }
 
@@ -2341,7 +2381,7 @@ export default function ContentStudio({ user: propUser }) {
   const [resultTab, setResultTab] = useState('soal')
   const [editingQuestionIndex, setEditingQuestionIndex] = useState(null)
   const [form, setForm] = useState({
-    subject: user?.subject || '',
+    subject: splitStudioSubjectNames(user?.subject)[0] || '',
     className: '',
     topic: '',
     contentType: '',
@@ -2436,6 +2476,23 @@ export default function ContentStudio({ user: propUser }) {
       active = false
     }
   }, [accessToken])
+
+  useEffect(() => {
+    if (!subjectOptions.length) return
+    if (form.subject && subjectOptions.some((subject) => sameStudioSubjectName(subject, form.subject))) return
+
+    setForm((current) => {
+      const nextSubject = subjectOptions[0]
+      const nextTemplate = getSubjectTemplate(nextSubject)
+      return {
+        ...current,
+        subject: nextSubject,
+        contentType: current.contentType && nextTemplate.contentTypes.includes(current.contentType)
+          ? current.contentType
+          : nextTemplate.contentTypes[0],
+      }
+    })
+  }, [form.subject, subjectOptions])
 
 
   function updateForm(field, value) {

@@ -109,6 +109,13 @@ import {
   setLocalTeacherQuestions,
   setLocalTeacherQuizzes,
 } from '../utils/localLearningStore.js'
+import {
+  getHomeroomAssignmentForUser,
+  getHomeroomAssignments,
+  getHomeroomClassesForUser,
+  isTeacherHomeroom,
+  setHomeroomAssignments,
+} from '../utils/homeroomAccess.js'
 
 const ContentStudio = lazy(() => import('./ContentStudio.jsx'))
 
@@ -166,7 +173,12 @@ function renderGuru(page, user, notify, setConfirmOpen, appContext) {
     )
   }
   if (page === 'daftar-nilai') return <GuruDaftarNilai user={user} notify={notify} />
-  if (page === 'rapor') return <GuruRapor user={user} notify={notify} />
+  if (page === 'rapor') {
+    if (!isTeacherHomeroom(user)) {
+      return <GuruRaporAccessDenied />
+    }
+    return <GuruRapor user={user} notify={notify} />
+  }
   if (page === 'analisis-nilai') return <AnalisisNilai />
   if (page === 'remedial') return <RemedialPage notify={notify} />
   if (page === 'ai-generator') return <AIGeneratorPage />
@@ -174,11 +186,23 @@ function renderGuru(page, user, notify, setConfirmOpen, appContext) {
   return <EmptyState />
 }
 
+function GuruRaporAccessDenied() {
+  const navigate = useNavigate()
+  return (
+    <EmptyState
+      title="Rapor hanya untuk wali kelas."
+      description="Guru mapel tetap menginput nilai melalui Daftar Nilai. Admin dapat menetapkan wali kelas agar guru tertentu bisa membuka Rapor."
+      action={<QuickActionButton icon={BarChart3} label="Buka Daftar Nilai" onClick={() => navigate('/guru/daftar-nilai')} />}
+    />
+  )
+}
+
 function renderAdmin(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'dashboard') return <AdminDashboard />
   if (page === 'guru') return <AdminProfiles role="guru" title="Data Guru" notify={notify} appContext={appContext} />
   if (page === 'siswa') return <AdminProfiles role="siswa" title="Data Siswa" notify={notify} appContext={appContext} />
   if (page === 'kelas') return <AdminKelas notify={notify} appContext={appContext} />
+  if (page === 'wali-kelas') return <AdminWaliKelas notify={notify} />
   if (page === 'mapel') return <AdminMapel notify={notify} appContext={appContext} />
   if (page === 'pengaturan') return <Pengaturan notify={notify} />
   if (page === 'laporan') return <LaporanSekolah notify={notify} />
@@ -898,8 +922,8 @@ function getMaterialGradeFolders(rows = []) {
   return gradeFolders
 }
 
-function getMaterialSubjectOptions(lookupSubjects = [], materialsForContext = []) {
-  const names = uniqueSubjectNames(highSchoolSubjectFolders, lookupSubjects, materialsForContext)
+function getMaterialSubjectOptions(lookupSubjects = [], materialsForContext = [], fallbackSubjects = highSchoolSubjectFolders) {
+  const names = uniqueSubjectNames(fallbackSubjects, lookupSubjects, materialsForContext)
   return names.map((name) => {
     const lookup = lookupSubjects.find((item) => sameSubjectName(item.name, name))
     return {
@@ -912,6 +936,15 @@ function getMaterialSubjectOptions(lookupSubjects = [], materialsForContext = []
 
 function subjectOptionValue(subject) {
   return subject?.id || `subject:${subject?.name || ''}`
+}
+
+function getScopedSubjectLookupRows(lookupSubjects = [], subjectOptions = []) {
+  if (!Array.isArray(subjectOptions) || subjectOptions.length === 0) return lookupSubjects
+
+  return subjectOptions.map((subjectName) => {
+    const matched = lookupSubjects.find((subject) => sameSubjectName(subject?.name, subjectName))
+    return matched || { id: '', name: subjectName, synthetic: true }
+  })
 }
 
 function getMaterialClassOptions(lookupClasses = [], selectedClassName = '') {
@@ -1096,6 +1129,14 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
   const completed = item.status === 'Selesai' || progress >= 100
   const htmlMaterial = isHtmlMaterialType(item.type) && isValidLinkedMaterial(item.content, item.type)
   const externalMaterial = !htmlMaterial && isExternalMaterialType(item.type) && isValidMaterialUrl(item.content)
+  const materialUrl = cleanMaterialUrl(item.content)
+  const videoEmbedUrl = externalMaterial && ['Video', 'Embed'].includes(item.type) ? getEmbeddableVideoUrl(materialUrl) : ''
+  const directVideoUrl = externalMaterial && item.type === 'Video' && !videoEmbedUrl ? materialUrl : ''
+  const documentPreviewUrl = externalMaterial ? getDocumentPreviewUrl(materialUrl, item.type) : ''
+  const genericEmbedUrl = externalMaterial && item.type === 'Embed' && !videoEmbedUrl ? materialUrl : ''
+  const framePreviewUrl = videoEmbedUrl || documentPreviewUrl || genericEmbedUrl
+  const linkOnlyMaterial = externalMaterial && !framePreviewUrl && !directVideoUrl
+  const showTextSections = !htmlMaterial && !framePreviewUrl && !directVideoUrl && !linkOnlyMaterial
 
   useEffect(() => {
     const resetScroll = () => {
@@ -1144,22 +1185,52 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
                 className="h-[78vh] w-full bg-[#F1F7FF]"
                 loading="lazy"
                 referrerPolicy="no-referrer"
-                sandbox="allow-scripts allow-forms allow-popups"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
               />
             </div>
           )}
-          {externalMaterial && (
+          {framePreviewUrl && (
+            <div className="mt-5 overflow-hidden rounded-[1rem] border border-[#0B3A5B]/10 bg-white shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#0B3A5B]/8 bg-[#F8FAFC] px-3 py-2">
+                <StatusBadge tone="cyan">{videoEmbedUrl ? 'Video tertanam' : item.type}</StatusBadge>
+                <a href={materialUrl} target="_blank" rel="noreferrer" className="rounded-[0.75rem] bg-[#E0F2FE] px-3 py-1.5 text-xs font-black text-[#0284c7] ring-1 ring-[#0284c7]/10">
+                  Buka di tab baru
+                </a>
+              </div>
+              <iframe
+                title={item.title}
+                src={framePreviewUrl}
+                className="h-[72vh] w-full bg-[#F1F7FF]"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+              />
+            </div>
+          )}
+          {directVideoUrl && (
+            <div className="mt-5 overflow-hidden rounded-[1rem] border border-[#0B3A5B]/10 bg-slate-950 shadow-[0_14px_44px_rgba(15,31,42,0.12)]">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-slate-900 px-3 py-2">
+                <StatusBadge tone="cyan">Video</StatusBadge>
+                <a href={directVideoUrl} target="_blank" rel="noreferrer" className="rounded-[0.75rem] bg-white/10 px-3 py-1.5 text-xs font-black text-white ring-1 ring-white/15">
+                  Buka di tab baru
+                </a>
+              </div>
+              <video controls src={directVideoUrl} className="aspect-video w-full bg-black" />
+            </div>
+          )}
+          {linkOnlyMaterial && (
             <div className="mt-5 rounded-2xl bg-cyan-50 p-3 ring-1 ring-cyan-100">
               <StatusBadge tone="cyan">{item.type}</StatusBadge>
               <p className="mt-2 text-sm leading-6 text-cyan-800">
-                Materi ini memakai URL agar database tetap ringan. Buka link untuk melihat file atau video.
+                Materi ini memakai URL eksternal. Buka link untuk melihat bahan belajar di sumber aslinya.
               </p>
               <a href={item.content} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-2xl bg-white px-4 py-3 text-sm font-extrabold text-cyan-700 ring-1 ring-cyan-100">
                 Buka materi
               </a>
             </div>
           )}
-          {!htmlMaterial && (
+          {showTextSections && (
             <div className="mt-5 grid gap-4">
               {sections.map((section) => (
                 <div key={section.title} className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
@@ -2665,13 +2736,17 @@ function SemesterMonthRecap({ rows }) {
 
 function GuruDashboard({ user, notify }) {
   const navigate = useNavigate()
-  const teacherMaterials = readLocalRowsByPrefix('islelearn-teacher-materials-')
-  const teacherAssignments = readLocalRowsByPrefix('islelearn-teacher-assignments-')
-  const teacherQuestions = readLocalRowsByPrefix('islelearn-teacher-questions-')
-  const teacherQuizzes = readLocalRowsByPrefix('islelearn-teacher-quizzes-')
-  const assignmentSubmissions = readLocalRowsByPrefix('islelearn-assignment-submissions-')
+  const allSubjectOptions = useMemo(() => getGradeSubjectOptions(), [])
+  const teacherSubjectOptions = useMemo(() => getTeacherSubjectOptions(user, allSubjectOptions), [allSubjectOptions, user?.subject])
+  const hasAssignedSubjects = getTeacherSubjectNames(user).length > 0
+  const teacherSubjectLabel = hasAssignedSubjects ? teacherSubjectOptions.join(', ') : 'Semua mapel'
+  const teacherMaterials = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-materials-'), user, teacherSubjectOptions)
+  const teacherAssignments = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-assignments-'), user, teacherSubjectOptions)
+  const teacherQuestions = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-questions-'), user, teacherSubjectOptions)
+  const teacherQuizzes = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-quizzes-'), user, teacherSubjectOptions)
+  const assignmentSubmissions = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-assignment-submissions-'), user, teacherSubjectOptions, { keepUnscoped: true })
   const attendanceSessions = getAttendanceSessions(user)
-  const gradebookRows = getGradebookRows(user)
+  const gradebookRows = filterRowsByTeacherSubjects(getGradebookRows(user), user, teacherSubjectOptions)
   const gradeSummary = summarizeGradebook(gradebookRows)
   const todayDate = toLocalIsoDate()
   const todayAttendance = summarizeAttendanceSessions(attendanceSessions.filter((item) => item.date === todayDate))
@@ -2686,6 +2761,7 @@ function GuruDashboard({ user, notify }) {
   const ungradedSubmissions = assignmentSubmissions.filter((item) => item.score === undefined || item.score === null || item.score === '')
   const draftTotal = draftMaterials.length + draftAssignments.length + draftQuizzes.length
   const hasTeacherData = teacherMaterials.length > 0 || teacherAssignments.length > 0 || teacherQuestions.length > 0 || teacherQuizzes.length > 0 || assignmentSubmissions.length > 0 || gradebookRows.length > 0
+  const hasRaporAccess = isTeacherHomeroom(user)
 
   const metricItems = [
     { label: 'Kehadiran', value: `${todayAttendance.rate}%`, caption: `${todayAttendance.hadir}/${todayAttendance.total} hadir hari ini`, icon: CalendarClock },
@@ -2700,7 +2776,7 @@ function GuruDashboard({ user, notify }) {
   const quickActions = [
     { label: 'Daftar Hadir', icon: CalendarClock, onClick: () => navigate('/guru/daftar-hadir') },
     { label: 'Daftar Nilai', icon: BarChart3, onClick: () => navigate('/guru/daftar-nilai') },
-    { label: 'Rapor', icon: FileText, onClick: () => navigate('/guru/rapor') },
+    ...(hasRaporAccess ? [{ label: 'Rapor', icon: FileText, onClick: () => navigate('/guru/rapor') }] : []),
     { label: 'Siapkan', icon: Sparkles, onClick: () => navigate('/guru/studio-konten') },
     { label: 'Materi', icon: BookOpen, onClick: () => navigate('/guru/materi') },
     { label: 'Tugas', icon: ClipboardList, onClick: () => navigate('/guru/tugas') },
@@ -2793,6 +2869,10 @@ function GuruDashboard({ user, notify }) {
             <p className="mt-3 max-w-2xl text-sm leading-6 text-sky-100/82">
               Mulai dari konten yang belum publish, submission yang perlu dinilai, lalu pantau aktivitas kelas.
             </p>
+            <div className="mt-3 inline-flex max-w-full items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-sky-50 ring-1 ring-white/14">
+              <BookOpen size={14} />
+              <span className="truncate">Mapel diampu: {teacherSubjectLabel}</span>
+            </div>
             <div className="mt-4">
               <DashboardActionGrid items={quickActions.slice(0, 3)} bare />
             </div>
@@ -3193,6 +3273,30 @@ function getGradeSubjectOptions() {
   return uniqueSubjectNames(gradeSubjectFallbacks, localSubjects, teacherSubjects)
 }
 
+function getTeacherSubjectNames(user) {
+  return uniqueSubjectNames(splitSubjectNames(user?.subject))
+}
+
+function getTeacherSubjectOptions(user, fallbackOptions = []) {
+  const teacherSubjects = getTeacherSubjectNames(user)
+  if (!teacherSubjects.length) return fallbackOptions
+
+  const matchedOptions = fallbackOptions.filter((option) => teacherSubjects.some((subject) => sameSubjectName(option, subject)))
+  const unmatchedOptions = teacherSubjects.filter((subject) => !matchedOptions.some((option) => sameSubjectName(option, subject)))
+  return uniqueSubjectNames(matchedOptions, unmatchedOptions)
+}
+
+function filterRowsByTeacherSubjects(rows = [], user, subjectOptions = [], { keepUnscoped = false } = {}) {
+  const teacherSubjects = getTeacherSubjectNames(user)
+  if (!teacherSubjects.length) return rows
+
+  return rows.filter((row) => {
+    const rowSubject = row?.subject || row?.mapel || row?.mataPelajaran
+    if (!String(rowSubject || '').trim()) return keepUnscoped
+    return subjectOptions.some((subject) => sameSubjectName(rowSubject, subject))
+  })
+}
+
 function buildGradebookRows(roster, savedRows, context, materialScopes = []) {
   const contextRows = savedRows.filter((row) => sameGradeContext(row, context))
   const savedByStudentId = new Map(contextRows.map((row) => [row.studentId, row]))
@@ -3426,7 +3530,11 @@ function GuruDaftarNilai({ user, notify }) {
   const navigate = useNavigate()
   const roster = useMemo(() => getGradebookRoster(), [])
   const classOptions = useMemo(() => getGradebookClassOptions(roster), [roster])
-  const subjectOptions = useMemo(() => getGradeSubjectOptions(), [])
+  const allSubjectOptions = useMemo(() => getGradeSubjectOptions(), [])
+  const subjectOptions = useMemo(() => getTeacherSubjectOptions(user, allSubjectOptions), [allSubjectOptions, user?.subject])
+  const teacherSubjectLabel = getTeacherSubjectNames(user).length > 0 ? subjectOptions.join(', ') : 'Semua mapel'
+  const homeroomClasses = getHomeroomClassesForUser(user)
+  const hasRaporAccess = homeroomClasses.length > 0
   const [selectedClass, setSelectedClass] = useState(classOptions[0] || 'Kelas umum')
   const [selectedSubject, setSelectedSubject] = useState(() => preferredSubjectOption(user?.subject, subjectOptions))
   const [semester, setSemester] = useState('Genap')
@@ -3529,11 +3637,23 @@ function GuruDaftarNilai({ user, notify }) {
         description="Formatif dipakai sebagai umpan balik belajar. Nilai akhir dihitung dari Sumatif Lingkup Materi dan Sumatif Akhir Semester, lalu menghasilkan capaian kompetensi."
         action={
           <div className="flex flex-wrap gap-2">
-            <QuickActionButton icon={FileText} label="Buka Rapor" onClick={() => navigate('/guru/rapor')} />
+            {hasRaporAccess && <QuickActionButton icon={FileText} label="Buka Rapor" onClick={() => navigate('/guru/rapor')} />}
             <QuickActionButton icon={Save} label="Simpan nilai" onClick={() => saveRows()} />
           </div>
         }
       />
+
+      <div className="rounded-2xl border border-[#D9E6F5] bg-white p-4 text-sm font-semibold leading-6 text-[#64748B] shadow-[0_10px_28px_rgba(15,36,55,0.035)]">
+        Guru mapel mengisi nilai di halaman ini. Nilai akhir dan capaian kompetensi otomatis menjadi sumber Rapor, sedangkan akses membuka dan mencetak Rapor hanya diberikan kepada wali kelas yang ditetapkan Admin.
+        <span className="mt-2 block font-black text-[#2F80D8]">
+          Mapel yang tersedia untuk akun ini: {teacherSubjectLabel}.
+        </span>
+        {hasRaporAccess && (
+          <span className="mt-2 block font-black text-[#17446E]">
+            Akses wali kelas aktif: {homeroomClasses.join(', ')}.
+          </span>
+        )}
+      </div>
 
       <section className="rounded-2xl border border-[#D9E6F5] bg-white p-4 shadow-[0_10px_28px_rgba(15,36,55,0.045)]">
         <div className="grid gap-3 md:grid-cols-4">
@@ -3760,8 +3880,13 @@ function GuruRapor({ user, notify }) {
   const navigate = useNavigate()
   const roster = useMemo(() => getGradebookRoster(), [])
   const classOptions = useMemo(() => getGradebookClassOptions(roster), [roster])
+  const homeroomClasses = useMemo(() => getHomeroomClassesForUser(user), [user])
+  const raporClassOptions = useMemo(() => {
+    const availableClasses = classOptions.filter((className) => homeroomClasses.includes(className))
+    return availableClasses.length ? availableClasses : homeroomClasses
+  }, [classOptions, homeroomClasses])
   const subjectOptions = useMemo(() => getGradeSubjectOptions(), [])
-  const [selectedClass, setSelectedClass] = useState(classOptions[0] || 'Kelas umum')
+  const [selectedClass, setSelectedClass] = useState(raporClassOptions[0] || 'Kelas umum')
   const rosterForClass = useMemo(() => getGradeRosterForClass(roster, selectedClass), [roster, selectedClass])
   const [selectedStudentId, setSelectedStudentId] = useState(rosterForClass[0]?.id || '')
   const [semester, setSemester] = useState('Ganjil')
@@ -3787,8 +3912,8 @@ function GuruRapor({ user, notify }) {
   })
 
   useEffect(() => {
-    if (!classOptions.includes(selectedClass) && classOptions[0]) setSelectedClass(classOptions[0])
-  }, [classOptions, selectedClass])
+    if (!raporClassOptions.includes(selectedClass) && raporClassOptions[0]) setSelectedClass(raporClassOptions[0])
+  }, [raporClassOptions, selectedClass])
 
   useEffect(() => {
     if (!rosterForClass.length) return
@@ -3909,7 +4034,7 @@ function GuruRapor({ user, notify }) {
         <div className="grid gap-3 md:grid-cols-5">
           <label className={materialLabelClass}>Kelas
             <select value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)} className={materialInputClass}>
-              {classOptions.map((className) => <option key={className} value={className}>{className}</option>)}
+              {raporClassOptions.map((className) => <option key={className} value={className}>{className}</option>)}
             </select>
           </label>
           <label className={materialLabelClass}>Peserta didik
@@ -4927,26 +5052,30 @@ function materialSourceLabel(source) {
 }
 
 function GuruMateri({ user, notify, appContext }) {
-  const hasTeacherSubject = Boolean(user?.subject?.trim())
-  const teacherSubject = hasTeacherSubject ? user.subject.trim() : ''
-  const pageTitle = hasTeacherSubject ? `Materi ${teacherSubject}` : 'Materi guru'
-  const materialScope = hasTeacherSubject ? teacherSubject : 'semua mapel'
+  const allSubjectOptions = useMemo(() => getGradeSubjectOptions(), [])
+  const teacherSubjectOptions = useMemo(() => getTeacherSubjectOptions(user, allSubjectOptions), [allSubjectOptions, user?.subject])
+  const hasTeacherSubject = getTeacherSubjectNames(user).length > 0
+  const teacherSubject = hasTeacherSubject ? teacherSubjectOptions[0] : ''
+  const teacherSubjectLabel = hasTeacherSubject ? teacherSubjectOptions.join(', ') : 'semua mapel'
+  const pageTitle = hasTeacherSubject ? `Materi ${teacherSubjectLabel}` : 'Materi guru'
+  const materialScope = teacherSubjectLabel
   const [rows, setRows] = useState([])
   const [lookups, setLookups] = useState({ subjects: [], classes: [] })
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)
-  const publishedCount = rows.filter((item) => item.status === 'Publish').length
-  const draftCount = rows.filter((item) => item.status !== 'Publish').length
-  const subjectFolders = getMaterialSubjectFolders(rows, lookups.subjects)
-  const teacherSubjectKey = normalizeLookupText(teacherSubject)
+  const scopedRows = filterRowsByTeacherSubjects(rows, user, teacherSubjectOptions)
+  const publishedCount = scopedRows.filter((item) => item.status === 'Publish').length
+  const draftCount = scopedRows.filter((item) => item.status !== 'Publish').length
+  const subjectFolders = getMaterialSubjectFolders(scopedRows, hasTeacherSubject ? teacherSubjectOptions : lookups.subjects)
+  const teacherSubjectKeys = teacherSubjectOptions.map((subject) => normalizeLookupText(subject))
   const teacherSubjectFolders = hasTeacherSubject
-    ? subjectFolders.filter((folder) => folder.key === teacherSubjectKey)
+    ? subjectFolders.filter((folder) => teacherSubjectKeys.includes(folder.key))
     : subjectFolders.filter((folder) => folder.rows.length > 0)
   const visibleSubjectFolders = teacherSubjectFolders.length > 0
     ? teacherSubjectFolders
-    : subjectFolders.filter((folder) => !hasTeacherSubject || folder.key === teacherSubjectKey)
+    : subjectFolders.filter((folder) => !hasTeacherSubject || teacherSubjectKeys.includes(folder.key))
   const filledFolderCount = visibleSubjectFolders.filter((folder) => folder.rows.length > 0).length
   const gradeSubfolderCount = visibleSubjectFolders.reduce((total, folder) => total + folder.gradeFolders.length, 0)
   const filledGradeSubfolderCount = visibleSubjectFolders.reduce((total, folder) => total + folder.gradeFolders.filter((gradeFolder) => gradeFolder.rows.length > 0).length, 0)
@@ -4956,7 +5085,7 @@ function GuruMateri({ user, notify, appContext }) {
   const localMode = !appContext?.accessToken || !isUuid(user?.id)
   const sourceLabel = localMode ? 'Preview lokal' : 'Supabase'
   const overviewStats = [
-    { label: 'Materi', value: rows.length, helper: `${publishedCount} publish` },
+    { label: 'Materi', value: scopedRows.length, helper: `${publishedCount} publish` },
     { label: 'Mapel', value: visibleSubjectFolders.length, helper: `${filledFolderCount} terisi` },
     { label: 'Subfolder', value: `${filledGradeSubfolderCount}/${gradeSubfolderCount || 0}`, helper: 'kelas terisi' },
     { label: 'Draft', value: draftCount, helper: 'belum publish' },
@@ -5073,7 +5202,7 @@ function GuruMateri({ user, notify, appContext }) {
       <PageHeader
         eyebrow="Materi"
         title={pageTitle}
-        description={`Tulis dan kelola bahan belajar siswa untuk ${materialScope}. Fokus pada bacaan, tautan, video, dan catatan ringkas yang mudah dibuka.`}
+        description={`Tulis dan kelola bahan belajar siswa untuk ${materialScope}. Materi bisa berupa teks, dokumen, PDF, HTML, video, embed, atau tautan belajar.`}
         action={<QuickActionButton icon={Plus} label={editing ? 'Editor terbuka' : 'Tulis materi'} disabled={Boolean(editing)} onClick={() => setEditing(emptyMaterial(lookups, teacherSubject, highSchoolGradeFolders[0].name))} />}
       />
 
@@ -5096,7 +5225,7 @@ function GuruMateri({ user, notify, appContext }) {
 
       {error && <div className="mb-4 rounded-[1rem] bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal mapel guru ditampilkan.</div>}
       
-      {editing && <MaterialForm material={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
+      {editing && <MaterialForm material={editing} lookups={lookups} subjectOptions={hasTeacherSubject ? teacherSubjectOptions : []} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat materi guru dari Supabase..." /> : (
         visibleSubjectFolders.length > 0 ? (
           <section className="grid min-w-0 gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
@@ -5259,20 +5388,141 @@ function MaterialFolderRow({ row, onEdit, onToggleStatus, onDelete }) {
 
 const materialInputClass = 'w-full rounded-[0.9rem] border border-[#0B3A5B]/10 bg-white/86 px-3 py-2.5 text-sm font-semibold text-[#13232d] outline-none transition placeholder:text-slate-400 focus:border-[#0284c7] focus:bg-white focus:ring-4 focus:ring-[#0284c7]/10'
 const materialLabelClass = 'grid gap-1.5 text-sm font-black text-[#13232d]'
-const materialTypeOptions = ['Teks', 'HTML', 'PDF', 'Video', 'Link']
+const materialTypeOptions = [
+  { value: 'Teks', label: 'Teks', helper: 'Tulis langsung di editor.' },
+  { value: 'Dokumen', label: 'Dokumen', helper: 'Word, Docs, atau file office via URL.' },
+  { value: 'PDF', label: 'PDF', helper: 'PDF online atau Google Drive.' },
+  { value: 'Presentasi', label: 'Presentasi', helper: 'Slides, PPT, atau presentasi online.' },
+  { value: 'Spreadsheet', label: 'Spreadsheet', helper: 'Sheet atau file nilai/latihan.' },
+  { value: 'HTML', label: 'HTML', helper: 'Path internal atau halaman web.' },
+  { value: 'Video', label: 'Video', helper: 'YouTube, Vimeo, atau video URL.' },
+  { value: 'Link', label: 'Link', helper: 'Tautan materi eksternal.' },
+  { value: 'Embed', label: 'Embed', helper: 'URL yang bisa tampil dalam frame.' },
+]
 
 function getMaterialTypeIcon(type) {
   if (type === 'HTML') return FileText
   if (type === 'PDF') return Download
   if (type === 'Video') return PlayCircle
+  if (['Dokumen', 'Document', 'Presentasi', 'Spreadsheet'].includes(type)) return FileText
+  if (type === 'Embed') return PlayCircle
   if (type === 'Link') return Link2
   return FileText
 }
 
-function MaterialForm({ material, lookups, onCancel, onSave }) {
+function getMaterialTypeDetails(type) {
+  return materialTypeOptions.find((option) => option.value === type) || materialTypeOptions[0]
+}
+
+function isDocumentMaterialType(type) {
+  return ['Dokumen', 'Document', 'Presentasi', 'Spreadsheet'].includes(type)
+}
+
+function isFrameMaterialType(type) {
+  return ['HTML', 'PDF', 'Video', 'Dokumen', 'Document', 'Presentasi', 'Spreadsheet', 'Embed'].includes(type)
+}
+
+function getMaterialContentLabel(type, linkedMaterial) {
+  if (!linkedMaterial) return 'Isi materi'
+  if (type === 'HTML') return 'Path atau URL HTML'
+  if (type === 'Video') return 'URL video'
+  if (type === 'PDF') return 'URL PDF'
+  if (type === 'Dokumen' || type === 'Document') return 'URL dokumen'
+  if (type === 'Presentasi') return 'URL presentasi'
+  if (type === 'Spreadsheet') return 'URL spreadsheet'
+  if (type === 'Embed') return 'URL embed'
+  return 'URL materi'
+}
+
+function getMaterialContentPlaceholder(type, linkedMaterial) {
+  if (!linkedMaterial) return 'Tulis isi materi, instruksi baca, contoh, atau catatan ringkas untuk siswa.'
+  if (type === 'HTML') return '/materials/mapel/nama-file.html atau https://contoh.sch.id/materi.html'
+  if (type === 'Video') return 'https://www.youtube.com/watch?v=... atau https://youtu.be/...'
+  if (type === 'PDF') return 'https://.../modul.pdf atau link Google Drive yang bisa diakses siswa'
+  if (type === 'Dokumen' || type === 'Document') return 'https://.../dokumen.docx atau link Google Docs'
+  if (type === 'Presentasi') return 'https://.../slide.pptx atau link Google Slides'
+  if (type === 'Spreadsheet') return 'https://.../lembar.xlsx atau link Google Sheets'
+  if (type === 'Embed') return 'https://... halaman yang mengizinkan embed iframe'
+  return 'https://...'
+}
+
+function getMaterialTypeHint(type) {
+  const details = getMaterialTypeDetails(type)
+  if (type === 'Teks') return 'Cocok untuk bacaan ringkas, LKPD pendek, atau instruksi belajar yang diketik langsung.'
+  if (type === 'HTML') return 'HTML bisa berupa file internal di folder /materials atau halaman web yang boleh ditampilkan dalam iframe.'
+  if (type === 'Video') return 'URL YouTube dan Vimeo akan diubah otomatis menjadi video tertanam di halaman siswa.'
+  if (type === 'PDF') return 'PDF ditampilkan sebagai preview dokumen agar siswa bisa membaca tanpa meninggalkan aplikasi.'
+  if (isDocumentMaterialType(type)) return 'Dokumen office ditampilkan lewat preview dokumen; pastikan link dapat diakses oleh siswa.'
+  if (type === 'Embed') return 'Gunakan untuk simulasi, peta, atau media web yang memang menyediakan URL embed.'
+  return details.helper
+}
+
+function cleanMaterialUrl(value) {
+  return String(value || '').trim()
+}
+
+function getYoutubeVideoId(url) {
+  const host = url.hostname.replace(/^www\./, '').toLowerCase()
+  if (host === 'youtu.be') return url.pathname.split('/').filter(Boolean)[0] || ''
+  if (host.endsWith('youtube.com') || host.endsWith('youtube-nocookie.com')) {
+    if (url.pathname.startsWith('/embed/')) return url.pathname.split('/').filter(Boolean)[1] || ''
+    if (url.pathname.startsWith('/shorts/')) return url.pathname.split('/').filter(Boolean)[1] || ''
+    return url.searchParams.get('v') || ''
+  }
+  return ''
+}
+
+function getEmbeddableVideoUrl(value) {
+  try {
+    const url = new URL(cleanMaterialUrl(value))
+    const host = url.hostname.replace(/^www\./, '').toLowerCase()
+    const youtubeId = getYoutubeVideoId(url)
+    if (youtubeId) return `https://www.youtube.com/embed/${youtubeId}`
+    if (host === 'player.vimeo.com' && url.pathname.startsWith('/video/')) return url.toString()
+    if (host === 'vimeo.com') {
+      const vimeoId = url.pathname.split('/').filter(Boolean)[0]
+      if (vimeoId) return `https://player.vimeo.com/video/${vimeoId}`
+    }
+  } catch (error) {
+    return ''
+  }
+  return ''
+}
+
+function getGoogleWorkspacePreviewUrl(value) {
+  try {
+    const url = new URL(cleanMaterialUrl(value))
+    const host = url.hostname.replace(/^www\./, '').toLowerCase()
+    if (host === 'drive.google.com') {
+      const fileId = url.pathname.match(/\/file\/d\/([^/]+)/)?.[1] || url.searchParams.get('id')
+      return fileId ? `https://drive.google.com/file/d/${fileId}/preview` : ''
+    }
+    if (host === 'docs.google.com') {
+      const match = url.pathname.match(/\/(document|presentation|spreadsheets)\/d\/([^/]+)/)
+      return match ? `https://docs.google.com/${match[1]}/d/${match[2]}/preview` : ''
+    }
+  } catch (error) {
+    return ''
+  }
+  return ''
+}
+
+function getDocumentPreviewUrl(value, type) {
+  const url = cleanMaterialUrl(value)
+  if (!url) return ''
+  const googlePreview = getGoogleWorkspacePreviewUrl(url)
+  if (googlePreview) return googlePreview
+  if (type === 'PDF') return url
+  if (isDocumentMaterialType(type)) return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(url)}`
+  return ''
+}
+
+function MaterialForm({ material, lookups, subjectOptions = [], onCancel, onSave }) {
   const [form, setForm] = useState(material)
-  const subjectsList = getMaterialSubjectOptions(lookups.subjects, [material])
+  const scopedSubjects = getScopedSubjectLookupRows(lookups.subjects, subjectOptions)
+  const subjectsList = getMaterialSubjectOptions(scopedSubjects, [material], subjectOptions.length ? subjectOptions : highSchoolSubjectFolders)
   const classesList = getMaterialClassOptions(lookups.classes, material.className)
+  const activeTypeDetails = getMaterialTypeDetails(form.type)
   const linkedMaterial = isLinkedMaterialType(form.type)
   const content = form.content || ''
   const hasContent = content.trim().length > 0
@@ -5318,7 +5568,7 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
           <div>
             <h2 className="text-xl font-black leading-tight text-[#13232d]">{form.id ? 'Edit bahan belajar' : 'Tulis bahan belajar'}</h2>
             <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-              Materi adalah bacaan, tautan, video, atau PDF untuk siswa. Gunakan bagian ini untuk penjelasan, contoh, dan arahan belajar yang ringan dibuka.
+              Materi dapat berupa teks, dokumen, PDF, HTML, video, embed interaktif, atau tautan eksternal yang ringan dibuka siswa.
             </p>
           </div>
         </div>
@@ -5340,19 +5590,19 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
             <textarea value={form.description || ''} onChange={(event) => updateField('description', event.target.value)} rows={2} placeholder="Ringkasan singkat untuk membantu siswa memilih materi." className={`${materialInputClass} resize-y leading-6`} />
           </label>
 
-          <label className={materialLabelClass}>{linkedMaterial ? (form.type === 'HTML' ? 'Path/URL HTML' : `URL ${form.type}`) : 'Isi materi'}
+          <label className={materialLabelClass}>{getMaterialContentLabel(form.type, linkedMaterial)}
             <textarea
               value={content}
               onChange={(event) => updateField('content', event.target.value)}
               rows={linkedMaterial ? 3 : 7}
-              placeholder={linkedMaterial ? (form.type === 'HTML' ? '/materials/english-x/nama-file.html' : 'https://...') : 'Tulis isi materi, instruksi baca, atau catatan ringkas untuk siswa.'}
+              placeholder={getMaterialContentPlaceholder(form.type, linkedMaterial)}
               className={`${materialInputClass} resize-y leading-7`}
             />
           </label>
 
           {invalidLinkedMaterial && (
             <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
-              Untuk HTML, gunakan path internal /materials/...html. Untuk PDF, Video, dan Link, gunakan URL lengkap yang diawali http atau https.
+              Untuk HTML, gunakan path internal /materials/...html atau URL lengkap. Untuk dokumen, PDF, video, embed, dan link, gunakan URL lengkap yang diawali http atau https.
             </div>
           )}
           {publishNeedsContent && (
@@ -5366,7 +5616,8 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
           <div>
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0284c7]">Jenis materi</p>
             <div className="mt-2 grid grid-cols-2 gap-2">
-              {materialTypeOptions.map((type) => {
+              {materialTypeOptions.map((option) => {
+                const type = option.value
                 const TypeIcon = getMaterialTypeIcon(type)
                 const active = form.type === type
                 return (
@@ -5381,11 +5632,25 @@ function MaterialForm({ material, lookups, onCancel, onSave }) {
                         : 'bg-white text-slate-600 ring-[#0B3A5B]/10 hover:bg-[#E0F2FE] hover:text-[#0284c7]'
                     }`}
                   >
-                    <TypeIcon size={14} /> {type}
+                    <TypeIcon size={14} /> {option.label}
                   </button>
                 )
               })}
             </div>
+            <section className="mt-3 rounded-[0.95rem] bg-white/76 p-3 ring-1 ring-[#0B3A5B]/8">
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 grid h-8 w-8 flex-shrink-0 place-items-center rounded-[0.7rem] bg-[#E0F2FE] text-[#0284c7] ring-1 ring-[#0284c7]/10">
+                  {(() => {
+                    const ActiveIcon = getMaterialTypeIcon(form.type)
+                    return <ActiveIcon size={15} />
+                  })()}
+                </span>
+                <div>
+                  <p className="text-sm font-black text-[#13232d]">{activeTypeDetails.label}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{getMaterialTypeHint(form.type)}</p>
+                </div>
+              </div>
+            </section>
           </div>
 
           <div>
@@ -5465,10 +5730,13 @@ function isUuid(value) {
 }
 
 function BankSoal({ user, notify, appContext }) {
-  const hasTeacherSubject = Boolean(user?.subject?.trim())
-  const teacherSubject = hasTeacherSubject ? user.subject.trim() : ''
-  const pageTitle = hasTeacherSubject ? `Bank soal ${teacherSubject}` : 'Bank soal'
-  const assessmentScope = hasTeacherSubject ? teacherSubject : 'semua mapel'
+  const allSubjectOptions = useMemo(() => getGradeSubjectOptions(), [])
+  const teacherSubjectOptions = useMemo(() => getTeacherSubjectOptions(user, allSubjectOptions), [allSubjectOptions, user?.subject])
+  const hasTeacherSubject = getTeacherSubjectNames(user).length > 0
+  const teacherSubject = hasTeacherSubject ? teacherSubjectOptions[0] : ''
+  const teacherSubjectLabel = hasTeacherSubject ? teacherSubjectOptions.join(', ') : 'semua mapel'
+  const pageTitle = hasTeacherSubject ? `Bank soal ${teacherSubjectLabel}` : 'Bank soal'
+  const assessmentScope = teacherSubjectLabel
   const [rows, setRows] = useState([])
   const [lookups, setLookups] = useState({ subjects: [], classes: [] })
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
@@ -5477,8 +5745,9 @@ function BankSoal({ user, notify, appContext }) {
   const [deleting, setDeleting] = useState(null)
   const localMode = !appContext?.accessToken || !isUuid(user?.id)
   const sourceLabel = localMode ? 'Preview lokal' : 'Supabase'
-  const multipleChoiceCount = rows.filter((item) => item.type === 'Pilihan ganda').length
-  const essayCount = rows.filter((item) => ['Essay', 'Isian'].includes(item.type)).length
+  const scopedRows = filterRowsByTeacherSubjects(rows, user, teacherSubjectOptions)
+  const multipleChoiceCount = scopedRows.filter((item) => item.type === 'Pilihan ganda').length
+  const essayCount = scopedRows.filter((item) => ['Essay', 'Isian'].includes(item.type)).length
 
   useEffect(() => {
     let active = true
@@ -5585,7 +5854,7 @@ function BankSoal({ user, notify, appContext }) {
       <section className="mb-4 flex flex-col gap-3 rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/80 px-4 py-3 shadow-[0_12px_36px_rgba(15,31,42,0.055)] sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2 text-xs font-black text-[#13232d]">
           <span className="inline-flex items-center gap-1.5 rounded-[0.75rem] bg-[#E0F2FE] px-3 py-1.5 text-[#0284c7] ring-1 ring-[#0284c7]/10">
-            <FileQuestion size={14} /> {rows.length} soal
+            <FileQuestion size={14} /> {scopedRows.length} soal
           </span>
           <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{multipleChoiceCount} pilihan ganda</span>
           <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{essayCount} uraian/isian</span>
@@ -5596,10 +5865,10 @@ function BankSoal({ user, notify, appContext }) {
       </section>
 
       {error && <div className="mb-4 rounded-[1rem] bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data soal: {error}. Data lokal mapel guru ditampilkan.</div>}
-      {editing && <QuestionForm question={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
-      {loading ? <LoadingState label="Memuat bank soal dari Supabase..." /> : rows.length > 0 ? (
+      {editing && <QuestionForm question={editing} lookups={lookups} subjectOptions={hasTeacherSubject ? teacherSubjectOptions : []} onCancel={() => setEditing(null)} onSave={handleSave} />}
+      {loading ? <LoadingState label="Memuat bank soal dari Supabase..." /> : scopedRows.length > 0 ? (
         <section className="overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
-          {rows.map((row) => (
+          {scopedRows.map((row) => (
             <article key={row.id} className="grid gap-3 border-b border-[#0B3A5B]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
               <div className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -5682,9 +5951,10 @@ function getQuestionSubmitOptions(form) {
   return []
 }
 
-function QuestionForm({ question, lookups, onCancel, onSave }) {
+function QuestionForm({ question, lookups, subjectOptions = [], onCancel, onSave }) {
   const [form, setForm] = useState(() => normalizeQuestionForm(question))
-  const subjectsList = getMaterialSubjectOptions(lookups.subjects, [question])
+  const scopedSubjects = getScopedSubjectLookupRows(lookups.subjects, subjectOptions)
+  const subjectsList = getMaterialSubjectOptions(scopedSubjects, [question], subjectOptions.length ? subjectOptions : highSchoolSubjectFolders)
   const classesList = getMaterialClassOptions(lookups.classes, question.className)
   const answer = String(form.correctAnswer || '').trim()
   const isMultipleChoice = form.type === 'Pilihan ganda'
@@ -5982,7 +6252,10 @@ function emptyQuestion(lookups, teacherSubject) {
 }
 
 function GuruTugas({ user, notify, appContext }) {
-  const teacherSubject = user?.subject?.trim() || ''
+  const allSubjectOptions = useMemo(() => getGradeSubjectOptions(), [])
+  const teacherSubjectOptions = useMemo(() => getTeacherSubjectOptions(user, allSubjectOptions), [allSubjectOptions, user?.subject])
+  const hasTeacherSubject = getTeacherSubjectNames(user).length > 0
+  const teacherSubject = hasTeacherSubject ? teacherSubjectOptions[0] : ''
   const [rows, setRows] = useState([])
   const [lookups, setLookups] = useState({ subjects: [], classes: [] })
   const [editing, setEditing] = useState(null)
@@ -5990,8 +6263,9 @@ function GuruTugas({ user, notify, appContext }) {
   const [viewingSubmissions, setViewingSubmissions] = useState(null)
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
-  const activeCount = rows.filter((item) => item.status === 'Aktif').length
-  const draftCount = rows.filter((item) => item.status !== 'Aktif').length
+  const scopedRows = filterRowsByTeacherSubjects(rows, user, teacherSubjectOptions)
+  const activeCount = scopedRows.filter((item) => item.status === 'Aktif').length
+  const draftCount = scopedRows.filter((item) => item.status !== 'Aktif').length
   const sourceLabel = (!appContext?.accessToken || !isUuid(user?.id)) ? 'Preview lokal' : 'Supabase'
 
   useEffect(() => {
@@ -6143,7 +6417,7 @@ function GuruTugas({ user, notify, appContext }) {
       <section className="mb-4 flex flex-col gap-3 rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/80 px-4 py-3 shadow-[0_12px_36px_rgba(15,31,42,0.055)] sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2 text-xs font-black text-[#13232d]">
           <span className="inline-flex items-center gap-1.5 rounded-[0.75rem] bg-[#E0F2FE] px-3 py-1.5 text-[#0284c7] ring-1 ring-[#0284c7]/10">
-            <ClipboardList size={14} /> {rows.length} tugas
+            <ClipboardList size={14} /> {scopedRows.length} tugas
           </span>
           <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{activeCount} aktif</span>
           <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{draftCount} draft/selesai</span>
@@ -6155,10 +6429,10 @@ function GuruTugas({ user, notify, appContext }) {
 
       {error && <div className="mb-4 rounded-[1rem] bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data tugas: {error}. Data lokal ditampilkan.</div>}
       
-      {editing && <AssignmentForm assignment={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
-      {loading ? <LoadingState label="Memuat tugas dari Supabase..." /> : rows.length > 0 ? (
+      {editing && <AssignmentForm assignment={editing} lookups={lookups} subjectOptions={hasTeacherSubject ? teacherSubjectOptions : []} onCancel={() => setEditing(null)} onSave={handleSave} />}
+      {loading ? <LoadingState label="Memuat tugas dari Supabase..." /> : scopedRows.length > 0 ? (
         <section className="overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
-          {rows.map((row) => (
+          {scopedRows.map((row) => (
             <article key={row.id} className="grid gap-3 border-b border-[#0B3A5B]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
               <div className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -6202,9 +6476,10 @@ function GuruTugas({ user, notify, appContext }) {
   )
 }
 
-function AssignmentForm({ assignment, lookups, onCancel, onSave }) {
+function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, onSave }) {
   const [form, setForm] = useState(assignment)
-  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: assignment.subject || 'Mapel belum dipilih' }]
+  const scopedSubjects = getScopedSubjectLookupRows(lookups.subjects, subjectOptions)
+  const subjectsList = scopedSubjects.length > 0 ? scopedSubjects : [{ id: '', name: assignment.subject || 'Mapel belum dipilih' }]
   const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: assignment.className || 'Semua kelas' }]
   const validAssignment = form.title.trim()
 
@@ -6217,10 +6492,10 @@ function AssignmentForm({ assignment, lookups, onCancel, onSave }) {
   }
 
   function updateSubject(value) {
-    const selected = subjectsList.find((subject) => String(subject.id || '') === value)
+    const selected = subjectsList.find((subject) => subjectOptionValue(subject) === value)
     setForm((current) => ({
       ...current,
-      subjectId: value,
+      subjectId: selected?.synthetic ? '' : selected?.id || '',
       subject: selected?.name || current.subject || 'Mapel belum dipilih',
     }))
   }
@@ -6305,8 +6580,8 @@ function AssignmentForm({ assignment, lookups, onCancel, onSave }) {
           </div>
 
           <label className={materialLabelClass}>Mata pelajaran
-            <select value={form.subjectId || ''} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
-              {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id || ''}>{subject.name}</option>)}
+            <select value={form.subjectId || `subject:${form.subject || subjectsList[0]?.name || ''}`} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
+              {subjectsList.map((subject) => <option key={subjectOptionValue(subject)} value={subjectOptionValue(subject)}>{subject.name}</option>)}
             </select>
           </label>
 
@@ -6331,7 +6606,7 @@ function AssignmentForm({ assignment, lookups, onCancel, onSave }) {
 }
 
 function emptyAssignment(lookups, teacherSubject) {
-  const subject = lookups.subjects.find((item) => item.name === teacherSubject) || lookups.subjects[0]
+  const subject = lookups.subjects.find((item) => sameSubjectName(item.name, teacherSubject)) || lookups.subjects[0]
   const classItem = lookups.classes[0]
   return {
     title: '',
@@ -6347,7 +6622,10 @@ function emptyAssignment(lookups, teacherSubject) {
 }
 
 function KuisLive({ user, notify, appContext }) {
-  const teacherSubject = user?.subject?.trim() || ''
+  const allSubjectOptions = useMemo(() => getGradeSubjectOptions(), [])
+  const teacherSubjectOptions = useMemo(() => getTeacherSubjectOptions(user, allSubjectOptions), [allSubjectOptions, user?.subject])
+  const hasTeacherSubject = getTeacherSubjectNames(user).length > 0
+  const teacherSubject = hasTeacherSubject ? teacherSubjectOptions[0] : ''
   const [quizRows, setQuizRows] = useState([])
   const [questionRows, setQuestionRows] = useState([])
   const [lookups, setLookups] = useState({ subjects: [], classes: [] })
@@ -6356,8 +6634,10 @@ function KuisLive({ user, notify, appContext }) {
   const [attempts, setAttempts] = useState([])
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
-  const publishedCount = quizRows.filter((item) => item.status === 'Publish').length
-  const draftCount = quizRows.filter((item) => item.status !== 'Publish').length
+  const scopedQuizRows = filterRowsByTeacherSubjects(quizRows, user, teacherSubjectOptions)
+  const scopedQuestionRows = filterRowsByTeacherSubjects(questionRows, user, teacherSubjectOptions)
+  const publishedCount = scopedQuizRows.filter((item) => item.status === 'Publish').length
+  const draftCount = scopedQuizRows.filter((item) => item.status !== 'Publish').length
   const sourceLabel = (!appContext?.accessToken || !isUuid(user?.id)) ? 'Preview lokal' : 'Supabase'
 
   useEffect(() => {
@@ -6468,17 +6748,17 @@ function KuisLive({ user, notify, appContext }) {
         eyebrow="Kuis Live"
         title="Kuis live"
         description="Rakit kuis dari Bank Soal, atur durasi, lalu publish saat siap dikerjakan siswa."
-        action={<QuickActionButton icon={FlaskConical} label={questionRows.length === 0 ? 'Butuh soal' : editing ? 'Editor terbuka' : 'Buat kuis'} disabled={Boolean(editing) || questionRows.length === 0} onClick={() => setEditing(emptyQuiz(lookups, teacherSubject))} />}
+        action={<QuickActionButton icon={FlaskConical} label={scopedQuestionRows.length === 0 ? 'Butuh soal' : editing ? 'Editor terbuka' : 'Buat kuis'} disabled={Boolean(editing) || scopedQuestionRows.length === 0} onClick={() => setEditing(emptyQuiz(lookups, teacherSubject))} />}
       />
 
       <section className="mb-4 flex flex-col gap-3 rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/80 px-4 py-3 shadow-[0_12px_36px_rgba(15,31,42,0.055)] sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2 text-xs font-black text-[#13232d]">
           <span className="inline-flex items-center gap-1.5 rounded-[0.75rem] bg-[#E0F2FE] px-3 py-1.5 text-[#0284c7] ring-1 ring-[#0284c7]/10">
-            <FlaskConical size={14} /> {quizRows.length} kuis
+            <FlaskConical size={14} /> {scopedQuizRows.length} kuis
           </span>
           <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{publishedCount} publish</span>
           <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{draftCount} draft</span>
-          <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{questionRows.length} soal tersedia</span>
+          <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{scopedQuestionRows.length} soal tersedia</span>
         </div>
         <p className="text-xs font-bold text-slate-500">
           Sumber data: <span className="text-[#0284c7]">{sourceLabel}</span>
@@ -6487,12 +6767,12 @@ function KuisLive({ user, notify, appContext }) {
 
       {error && <div className="mb-4 rounded-[1rem] bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kuis: {error}. Data lokal mapel guru ditampilkan.</div>}
       
-      {editing && <QuizForm quiz={editing} lookups={lookups} questions={questionRows} onCancel={() => setEditing(null)} onSave={handleSave} />}
+      {editing && <QuizForm quiz={editing} lookups={lookups} questions={scopedQuestionRows} subjectOptions={hasTeacherSubject ? teacherSubjectOptions : []} onCancel={() => setEditing(null)} onSave={handleSave} />}
       
       {loading ? <LoadingState label="Memuat kuis guru dari Supabase..." /> : (
-        quizRows.length > 0 ? (
+        scopedQuizRows.length > 0 ? (
           <section className="overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
-            {quizRows.map((quiz) => (
+            {scopedQuizRows.map((quiz) => (
               <article key={quiz.id} className="grid gap-3 border-b border-[#0B3A5B]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                 <div className="min-w-0">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -6524,8 +6804,8 @@ function KuisLive({ user, notify, appContext }) {
           !editing && (
             <EmptyState
               title="Belum ada kuis."
-              description={questionRows.length > 0 ? 'Buat kuis pertama dari soal yang sudah tersedia.' : 'Buat soal di Bank Soal dulu, lalu rakit kuis saat siap.'}
-              action={<QuickActionButton icon={FlaskConical} label="Buat kuis" disabled={questionRows.length === 0} onClick={() => setEditing(emptyQuiz(lookups, teacherSubject))} />}
+              description={scopedQuestionRows.length > 0 ? 'Buat kuis pertama dari soal yang sudah tersedia.' : 'Buat soal di Bank Soal dulu, lalu rakit kuis saat siap.'}
+              action={<QuickActionButton icon={FlaskConical} label="Buat kuis" disabled={scopedQuestionRows.length === 0} onClick={() => setEditing(emptyQuiz(lookups, teacherSubject))} />}
             />
           )
         )
@@ -6535,10 +6815,11 @@ function KuisLive({ user, notify, appContext }) {
   )
 }
 
-function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSave }) {
+function QuizForm({ quiz, lookups, questions: availableQuestions, subjectOptions = [], onCancel, onSave }) {
   const [form, setForm] = useState(quiz)
   const [selectedQuestionIds, setSelectedQuestionIds] = useState(quiz.questionIds || [])
-  const subjectsList = lookups.subjects.length > 0 ? lookups.subjects : [{ id: '', name: quiz.subject || 'Mapel belum dipilih' }]
+  const scopedSubjects = getScopedSubjectLookupRows(lookups.subjects, subjectOptions)
+  const subjectsList = scopedSubjects.length > 0 ? scopedSubjects : [{ id: '', name: quiz.subject || 'Mapel belum dipilih' }]
   const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: quiz.className || 'Semua kelas' }]
   const selectedCount = selectedQuestionIds.length
   const validQuiz = form.title.trim() && selectedCount > 0
@@ -6553,10 +6834,10 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSa
   }
 
   function updateSubject(value) {
-    const selected = subjectsList.find((subject) => String(subject.id || '') === value)
+    const selected = subjectsList.find((subject) => subjectOptionValue(subject) === value)
     setForm((current) => ({
       ...current,
-      subjectId: value,
+      subjectId: selected?.synthetic ? '' : selected?.id || '',
       subject: selected?.name || current.subject || 'Mapel belum dipilih',
     }))
   }
@@ -6667,8 +6948,8 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSa
           </div>
 
           <label className={materialLabelClass}>Mata pelajaran
-            <select value={form.subjectId || ''} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
-              {subjectsList.map((subject) => <option key={subject.id || subject.name} value={subject.id || ''}>{subject.name}</option>)}
+            <select value={form.subjectId || `subject:${form.subject || subjectsList[0]?.name || ''}`} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
+              {subjectsList.map((subject) => <option key={subjectOptionValue(subject)} value={subjectOptionValue(subject)}>{subject.name}</option>)}
             </select>
           </label>
 
@@ -6693,7 +6974,7 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, onCancel, onSa
 }
 
 function emptyQuiz(lookups, teacherSubject) {
-  const subject = lookups.subjects.find((item) => item.name === teacherSubject) || lookups.subjects[0]
+  const subject = lookups.subjects.find((item) => sameSubjectName(item.name, teacherSubject)) || lookups.subjects[0]
   const classItem = lookups.classes[0]
   return {
     title: '',
@@ -6813,11 +7094,13 @@ function AdminDashboard() {
   const localQuestions = readLocalRowsByPrefix('islelearn-teacher-questions-')
   const localQuizzes = readLocalRowsByPrefix('islelearn-teacher-quizzes-')
   const localContent = [...localMaterials, ...localAssignments, ...localQuestions, ...localQuizzes]
+  const homeroomAssignments = getHomeroomAssignments()
 
   const adminMenus = [
     { label: 'Guru', icon: UsersRound, onClick: () => navigate('/admin/guru') },
     { label: 'Siswa', icon: UsersRound, onClick: () => navigate('/admin/siswa') },
     { label: 'Kelas', icon: School, onClick: () => navigate('/admin/kelas') },
+    { label: 'Wali Kelas', icon: ClipboardList, onClick: () => navigate('/admin/wali-kelas') },
     { label: 'Mapel', icon: BookOpen, onClick: () => navigate('/admin/mapel') },
     { label: 'Backup', icon: Download, onClick: () => navigate('/admin/backup') },
   ]
@@ -6826,7 +7109,7 @@ function AdminDashboard() {
     { label: 'Guru', value: teachers.length, caption: 'profil terdaftar', icon: UsersRound },
     { label: 'Siswa', value: students.length, caption: 'akun siswa', icon: UsersRound },
     { label: 'Kelas', value: classes.length, caption: 'rombel aktif', icon: School },
-    { label: 'Konten', value: localContent.length, caption: 'item tersimpan', icon: BookOpen },
+    { label: 'Wali kelas', value: homeroomAssignments.filter((item) => item.teacherId || item.teacherNip || item.teacherName).length, caption: 'akses rapor', icon: ClipboardList },
   ]
 
   return (
@@ -6853,6 +7136,7 @@ function AdminDashboard() {
               { label: 'Data guru', description: 'Tambahkan akun guru dan mapel yang diampu.', icon: UsersRound, done: teachers.length > 0, actionLabel: 'Kelola', onClick: () => navigate('/admin/guru') },
               { label: 'Data siswa', description: 'Import atau tambahkan siswa per rombel.', icon: UsersRound, done: students.length > 0, actionLabel: 'Kelola', onClick: () => navigate('/admin/siswa') },
               { label: 'Kelas dan mapel', description: 'Pastikan rombel dan mata pelajaran tersedia.', icon: School, done: classes.length > 0 && subjects.length > 0, actionLabel: 'Cek', onClick: () => navigate('/admin/kelas') },
+              { label: 'Wali kelas', description: 'Tentukan guru yang boleh membuka dan mencetak Rapor per rombel.', icon: ClipboardList, done: homeroomAssignments.some((item) => item.teacherId || item.teacherNip), actionLabel: 'Atur', onClick: () => navigate('/admin/wali-kelas') },
               { label: 'Backup data', description: 'Simpan salinan data utama secara berkala.', icon: Download, done: false, actionLabel: 'Backup', onClick: () => navigate('/admin/backup') },
             ]}
           />
@@ -6863,6 +7147,7 @@ function AdminDashboard() {
             {[
               ['Profil sekolah', 'Siap dikonfigurasi', 'Pengaturan'],
               ['Konten pembelajaran', `${localContent.length} item lokal`, 'Guru'],
+              ['Akses rapor', `${homeroomAssignments.filter((item) => item.teacherId || item.teacherNip || item.teacherName).length} wali kelas`, 'Admin'],
               ['Database', 'Mode lokal/dev', 'Koneksi'],
             ].map(([label, value, tag]) => (
               <div key={label} className="flex items-center justify-between gap-3 rounded-xl border border-[#D9E6F5] bg-[#F8FBFF] px-3 py-3">
@@ -6878,6 +7163,170 @@ function AdminDashboard() {
       </div>
     </div>
   )
+}
+
+function AdminWaliKelas({ notify }) {
+  const classRows = useMemo(() => normalizeClassLookupRows(getLocalAdminCollection('classes', classes)), [])
+  const teacherRows = useMemo(() => normalizeTeacherProfileRows(getLocalAdminProfiles('guru', teachers.map((teacher) => ({ ...teacher, role: 'guru' })))), [])
+  const [rows, setRows] = useState(() => buildHomeroomAssignmentRows(classRows, teacherRows))
+  const assignedCount = rows.filter((row) => row.teacherId || row.teacherNip || row.teacherName).length
+
+  function updateTeacher(className, teacherId) {
+    const teacher = teacherRows.find((item) => item.id === teacherId) || null
+    setRows((current) => current.map((row) => (
+      row.className === className
+        ? {
+          ...row,
+          teacherId: teacher?.id || '',
+          teacherNip: teacher?.nip || '',
+          teacherName: teacher?.name || '',
+          subject: teacher?.subject || '',
+          updatedAt: new Date().toISOString(),
+        }
+        : row
+    )))
+  }
+
+  function saveAssignments() {
+    setHomeroomAssignments(rows)
+    notify('Penugasan wali kelas tersimpan. Guru wali kelas sekarang dapat membuka Rapor.')
+  }
+
+  function clearAssignment(className) {
+    setRows((current) => current.map((row) => (
+      row.className === className
+        ? { ...row, teacherId: '', teacherNip: '', teacherName: '', subject: '', updatedAt: new Date().toISOString() }
+        : row
+    )))
+  }
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        eyebrow="Admin"
+        title="Wali Kelas"
+        description="Tentukan guru yang bertanggung jawab atas Rapor setiap rombel. Guru lain tetap menginput nilai di Daftar Nilai."
+        action={<QuickActionButton icon={Save} label="Simpan wali kelas" onClick={saveAssignments} />}
+      />
+
+      <MetricStrip items={[
+        { label: 'Rombel', value: rows.length, caption: 'kelas tersedia', icon: School },
+        { label: 'Wali kelas', value: assignedCount, caption: 'sudah ditetapkan', icon: ClipboardList },
+        { label: 'Guru mapel', value: teacherRows.length, caption: 'bisa input nilai', icon: UsersRound },
+        { label: 'Akses Rapor', value: assignedCount, caption: 'akun wali kelas', icon: FileText },
+      ]} />
+
+      <DashboardPanel
+        title="Penugasan wali kelas per rombel"
+        description="Pilih satu wali kelas untuk tiap rombel. Hak akses Rapor mengikuti NIP/id guru yang dipilih di sini."
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[52rem] text-left text-sm">
+            <thead>
+              <tr className="border-b border-[#D9E6F5] text-xs uppercase tracking-[0.12em] text-[#64748B]">
+                <th className="py-3 pr-3 font-black">Kelas</th>
+                <th className="py-3 pr-3 font-black">Wali kelas</th>
+                <th className="py-3 pr-3 font-black">NIP</th>
+                <th className="py-3 pr-3 font-black">Mapel</th>
+                <th className="py-3 pr-3 font-black">Akses</th>
+                <th className="py-3 pr-3 font-black">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#D9E6F5]">
+              {rows.map((row) => (
+                <tr key={row.className}>
+                  <td className="py-3 pr-3 align-top">
+                    <p className="font-black text-[#132437]">{row.className}</p>
+                    <p className="text-xs font-semibold text-[#64748B]">{getClassStudentCount(row.className)} siswa</p>
+                  </td>
+                  <td className="py-3 pr-3 align-top">
+                    <select
+                      value={row.teacherId || ''}
+                      onChange={(event) => updateTeacher(row.className, event.target.value)}
+                      className={`${materialInputClass} min-w-[18rem]`}
+                    >
+                      <option value="">Belum ditetapkan</option>
+                      {teacherRows.map((teacher) => (
+                        <option key={teacher.id} value={teacher.id}>{teacher.name}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="py-3 pr-3 align-top font-mono text-sm font-black text-[#17446E]">{row.teacherNip || '-'}</td>
+                  <td className="py-3 pr-3 align-top text-sm font-semibold text-[#64748B]">{row.subject || '-'}</td>
+                  <td className="py-3 pr-3 align-top">
+                    <StatusBadge tone={row.teacherId || row.teacherNip ? 'green' : 'gray'}>
+                      {row.teacherId || row.teacherNip ? 'Rapor aktif' : 'Belum aktif'}
+                    </StatusBadge>
+                  </td>
+                  <td className="py-3 pr-3 align-top">
+                    <button
+                      type="button"
+                      onClick={() => clearAssignment(row.className)}
+                      className="rounded-xl bg-[#F8FBFF] px-3 py-2 text-xs font-black text-[#64748B] ring-1 ring-[#D9E6F5] transition hover:bg-rose-50 hover:text-rose-700"
+                    >
+                      Kosongkan
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-4 rounded-xl bg-[#F8FBFF] p-3 text-sm font-semibold leading-6 text-[#64748B] ring-1 ring-[#D9E6F5]">
+          Alur akses: Admin menetapkan wali kelas di halaman ini, guru mapel mengisi Daftar Nilai, lalu wali kelas membuka Rapor untuk melengkapi identitas, catatan wali kelas, dan cetak dokumen.
+        </div>
+      </DashboardPanel>
+    </div>
+  )
+}
+
+function normalizeTeacherProfileRows(rows = []) {
+  return (Array.isArray(rows) ? rows : [])
+    .filter((row) => row && (row.name || row.fullName))
+    .map((row, index) => {
+      const name = row.name || row.fullName || `Guru ${index + 1}`
+      const nip = String(row.nip || row.username || '').trim()
+      return {
+        ...row,
+        id: row.id || (nip ? `teacher-${nip}` : `teacher-${index + 1}`),
+        name,
+        nip,
+        subject: row.subject || row.mapel || '-',
+        role: 'guru',
+      }
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'id-ID'))
+}
+
+function buildHomeroomAssignmentRows(classRows = [], teacherRows = []) {
+  const existingRows = getHomeroomAssignments()
+  const existingByClass = new Map(existingRows.map((row) => [promoteClassName(row.className), row]))
+  const baseClassRows = classRows.length ? classRows : normalizeClassLookupRows(classes)
+
+  return baseClassRows.map((classItem) => {
+    const className = promoteClassName(classItem.name || classItem.className)
+    const existing = existingByClass.get(className) || {}
+    const teacher = teacherRows.find((item) => (
+      (existing.teacherId && item.id === existing.teacherId)
+      || (existing.teacherNip && item.nip === existing.teacherNip)
+      || (existing.teacherName && normalizeLookupText(item.name) === normalizeLookupText(existing.teacherName))
+    ))
+
+    return {
+      id: existing.id || `homeroom-${className.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      className,
+      teacherId: teacher?.id || existing.teacherId || '',
+      teacherNip: teacher?.nip || existing.teacherNip || '',
+      teacherName: teacher?.name || existing.teacherName || '',
+      subject: teacher?.subject || existing.subject || '',
+      updatedAt: existing.updatedAt || '',
+    }
+  })
+}
+
+function getClassStudentCount(className) {
+  return getGradeRosterForClass(getGradebookRoster(), className).filter((student) => student.className === className).length
 }
 
 

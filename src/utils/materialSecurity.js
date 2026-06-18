@@ -1,5 +1,5 @@
 export function isExternalMaterialType(type) {
-  return ['Link', 'Video', 'PDF'].includes(type)
+  return ['Link', 'Video', 'PDF', 'Dokumen', 'Document', 'Presentasi', 'Spreadsheet', 'Embed'].includes(type)
 }
 
 export function isHtmlMaterialType(type) {
@@ -25,7 +25,7 @@ export function isValidMaterialPath(value) {
 }
 
 export function isValidLinkedMaterial(value, type) {
-  if (isHtmlMaterialType(type)) return isValidMaterialPath(value)
+  if (isHtmlMaterialType(type)) return isValidMaterialPath(value) || isValidMaterialUrl(value)
   if (isExternalMaterialType(type)) return isValidMaterialUrl(value)
   return true
 }
