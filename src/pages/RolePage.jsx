@@ -921,7 +921,7 @@ function getMaterialSubjectFolders(rows = [], lookupSubjects = []) {
   const subjectNames = uniqueSubjectNames(highSchoolSubjectFolders, lookupSubjects, rows)
   return subjectNames.map((name) => {
     const key = normalizeLookupText(canonicalSubjectName(name))
-    const subjectRows = rows.filter((row) => normalizeLookupText(canonicalSubjectName(row.subject || 'Mapel belum dipilih')) === key)
+    const subjectRows = sortMaterialRowsByChapter(rows.filter((row) => normalizeLookupText(canonicalSubjectName(row.subject || 'Mapel belum dipilih')) === key))
     const gradeFolders = getMaterialGradeFolders(subjectRows)
     return {
       key,
@@ -937,11 +937,11 @@ function getMaterialSubjectFolders(rows = [], lookupSubjects = []) {
 function getMaterialGradeFolders(rows = []) {
   const matchedRows = new Set()
   const gradeFolders = highSchoolGradeFolders.map((gradeFolder) => {
-    const gradeRows = rows.filter((row) => {
+    const gradeRows = sortMaterialRowsByChapter(rows.filter((row) => {
       const sameGrade = extractGrade(row.className) === gradeFolder.grade
       if (sameGrade) matchedRows.add(row)
       return sameGrade
-    })
+    }))
 
     return {
       ...gradeFolder,
@@ -951,7 +951,7 @@ function getMaterialGradeFolders(rows = []) {
     }
   })
 
-  const unassignedRows = rows.filter((row) => !matchedRows.has(row))
+  const unassignedRows = sortMaterialRowsByChapter(rows.filter((row) => !matchedRows.has(row)))
   if (unassignedRows.length > 0) {
     gradeFolders.push({
       key: 'kelas-belum-dipilih',
@@ -1024,13 +1024,37 @@ function extractGrade(value) {
   return match ? Number(match[1]) : null
 }
 
+function getMaterialChapterNumber(row) {
+  const text = [
+    row?.title,
+    row?.topic,
+    row?.description,
+    row?.content,
+    row?.id,
+  ].filter(Boolean).join(' ')
+  const match = String(text).match(/\b(?:bab|chapter)\s*[-.:]?\s*(\d{1,2})\b/i)
+  return match ? Number(match[1]) : Number.POSITIVE_INFINITY
+}
+
+function sortMaterialRowsByChapter(rows = []) {
+  return [...rows].sort((left, right) => {
+    const leftChapter = getMaterialChapterNumber(left)
+    const rightChapter = getMaterialChapterNumber(right)
+    if (leftChapter !== rightChapter) return leftChapter - rightChapter
+
+    const leftTitle = String(left?.title || left?.topic || '').toLowerCase()
+    const rightTitle = String(right?.title || right?.topic || '').toLowerCase()
+    return leftTitle.localeCompare(rightTitle, 'id', { numeric: true, sensitivity: 'base' })
+  })
+}
+
 function getChapterLabel(title) {
-  const match = String(title || '').match(/chapter\s*(\d+)/i)
-  return match ? `Chapter ${match[1]}` : 'Materi'
+  const match = String(title || '').match(/\b(?:bab|chapter)\s*[-.:]?\s*(\d{1,2})\b/i)
+  return match ? `Bab ${match[1]}` : 'Materi'
 }
 
 function getChapterTitle(title) {
-  return String(title || '').replace(/^chapter\s*\d+\s*[—:-]\s*/i, '').trim() || title
+  return String(title || '').replace(/^(?:bab|chapter)\s*[-.:]?\s*\d+\s*[—:-]?\s*/i, '').trim() || title
 }
 
 function StudentMaterialRow({ item, onOpen }) {
@@ -5480,13 +5504,13 @@ function GuruMateri({ user, notify, appContext }) {
       {editing && <MaterialForm material={editing} lookups={lookups} subjectOptions={hasTeacherSubject ? teacherSubjectOptions : []} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat materi guru dari Supabase..." /> : (
         visibleSubjectFolders.length > 0 ? (
-          <section className="grid min-w-0 gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
-            <aside className="min-w-0 rounded-[1rem] border border-sky-100 bg-white/86 p-3 shadow-[0_14px_38px_rgba(37,99,235,0.06)]">
+          <section className="grid min-w-0 gap-3 lg:grid-cols-[16rem_minmax(0,1fr)]">
+            <aside className="min-w-0 rounded-[1rem] border border-sky-100 bg-white/86 p-2.5 shadow-[0_10px_28px_rgba(37,99,235,0.045)]">
               <div className="px-2 pb-2 pt-1">
                 <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-600">Daftar mapel</p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Pilih mapel, lalu kelola chapter per kelas.</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Pilih mapel untuk melihat folder kelas.</p>
               </div>
-              <div className="max-h-[33rem] space-y-1.5 overflow-y-auto pr-1">
+              <div className="max-h-[30rem] space-y-1 overflow-y-auto pr-1">
                 {visibleSubjectFolders.map((folder) => {
                   const selectedFolder = activeFolder?.key === folder.key
                   const gradeSummary = folder.gradeFolders
@@ -5498,9 +5522,9 @@ function GuruMateri({ user, notify, appContext }) {
                     <button
                       key={folder.key}
                       onClick={() => setActiveSubjectKey(folder.key)}
-                      className={`group flex w-full min-w-0 items-center gap-3 rounded-[0.85rem] border px-3 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 ${selectedFolder ? 'border-sky-200 bg-sky-50 text-[#13232d] shadow-[0_8px_22px_rgba(37,99,235,0.08)]' : 'border-transparent bg-transparent text-[#13232d] hover:border-sky-100 hover:bg-[#F7FBFF]'}`}
+                      className={`group flex w-full min-w-0 items-center gap-2.5 rounded-[0.8rem] border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 ${selectedFolder ? 'border-sky-200 bg-sky-50 text-[#13232d] shadow-[0_8px_22px_rgba(37,99,235,0.08)]' : 'border-transparent bg-transparent text-[#13232d] hover:border-sky-100 hover:bg-[#F7FBFF]'}`}
                     >
-                      <span className={`h-9 w-1 flex-shrink-0 rounded-full ${selectedFolder ? 'bg-sky-500' : 'bg-transparent'}`} />
+                      <span className={`h-8 w-1 flex-shrink-0 rounded-full ${selectedFolder ? 'bg-sky-500' : 'bg-transparent'}`} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-black">{folder.name}</span>
                         <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">{gradeSummary || 'Belum ada kelas terisi'}</span>
@@ -5514,8 +5538,8 @@ function GuruMateri({ user, notify, appContext }) {
               </div>
             </aside>
 
-            <section className="min-w-0 overflow-hidden rounded-[1rem] border border-sky-100 bg-white/88 shadow-[0_14px_38px_rgba(37,99,235,0.06)]">
-              <header className="flex flex-col gap-3 border-b border-sky-100 bg-[#F8FBFF]/92 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <section className="min-w-0 overflow-hidden rounded-[1rem] border border-sky-100 bg-white/88 shadow-[0_10px_28px_rgba(37,99,235,0.045)]">
+              <header className="flex flex-col gap-2 border-b border-sky-100 bg-[#F8FBFF]/92 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-600">Folder kelas</p>
                   <h2 className="truncate text-xl font-black text-[#13232d]">{activeFolder?.name || 'Materi'}</h2>
@@ -5527,7 +5551,7 @@ function GuruMateri({ user, notify, appContext }) {
                 </div>
               </header>
 
-              <div className="grid gap-3 p-3 xl:grid-cols-3">
+              <div className="grid gap-2.5 p-2.5 xl:grid-cols-3">
                 {activeFolder?.gradeFolders.map((gradeFolder, index) => {
                   const firstFilledIndex = activeFolder.gradeFolders.findIndex((folder) => folder.rows.length > 0)
                   const defaultOpen = index === (firstFilledIndex >= 0 ? firstFilledIndex : 0)
@@ -5565,16 +5589,19 @@ function TeacherMaterialGradeFolder({ subjectName, gradeFolder, defaultOpen = fa
   const hasRows = gradeFolder.rows.length > 0
 
   return (
-    <details open={hasRows || defaultOpen} className="min-w-0 overflow-hidden rounded-[0.95rem] border border-sky-100 bg-white shadow-[0_10px_26px_rgba(37,99,235,0.045)]">
-      <summary className="flex cursor-pointer list-none flex-col gap-2 px-3 py-3 transition hover:bg-[#F7FBFF]">
+    <details open={hasRows || defaultOpen} className="min-w-0 overflow-hidden rounded-[0.9rem] border border-sky-100 bg-white shadow-[0_8px_22px_rgba(37,99,235,0.035)]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 transition hover:bg-[#F7FBFF]">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-sky-500">Subfolder kelas</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-sky-500">Kelas</p>
           <h3 className="truncate text-base font-black text-[#13232d]">{gradeFolder.name}</h3>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          <StatusBadge tone={hasRows ? 'green' : 'gray'}>{gradeFolder.rows.length} materi</StatusBadge>
-          <StatusBadge tone="teal">{gradeFolder.publishedCount} publish</StatusBadge>
-          {gradeFolder.draftCount > 0 && <StatusBadge tone="amber">{gradeFolder.draftCount} draft</StatusBadge>}
+        <div className="flex flex-shrink-0 items-center gap-1.5">
+          <span className={`rounded-[0.65rem] px-2 py-1 text-xs font-black ring-1 ${hasRows ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-slate-50 text-slate-500 ring-slate-200'}`}>
+            {gradeFolder.rows.length}
+          </span>
+          <span className="rounded-[0.65rem] bg-sky-50 px-2 py-1 text-xs font-black text-sky-700 ring-1 ring-sky-100">
+            {gradeFolder.publishedCount} publish
+          </span>
         </div>
       </summary>
 
@@ -5607,29 +5634,33 @@ function TeacherMaterialGradeFolder({ subjectName, gradeFolder, defaultOpen = fa
 
 function MaterialFolderRow({ row, onEdit, onToggleStatus, onDelete }) {
   return (
-    <article className="grid min-w-0 gap-3 border-b border-sky-100 p-3 last:border-b-0">
-      <div className="min-w-0">
-        <div className="mb-2 flex flex-wrap items-center gap-1.5">
-          <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>
-          <StatusBadge tone="teal">{row.type || 'Teks'}</StatusBadge>
-          <span className="text-xs font-bold text-slate-400">{materialSourceLabel(row.source)}</span>
+    <article className="grid min-w-0 gap-2 border-b border-sky-100 px-3 py-2.5 last:border-b-0">
+      <div className="flex min-w-0 items-start gap-2.5">
+        <span className="mt-0.5 inline-flex min-w-[3.2rem] justify-center rounded-[0.7rem] bg-[#E0F2FE] px-2 py-1 font-mono text-[11px] font-black text-sky-700 ring-1 ring-sky-100">
+          {getChapterLabel([row.title, row.topic, row.content, row.id].filter(Boolean).join(' '))}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex min-w-0 flex-wrap items-center gap-1.5">
+            <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>
+            <StatusBadge tone="teal">{row.type || 'Teks'}</StatusBadge>
+            <span className="truncate text-[11px] font-bold text-slate-400">{materialSourceLabel(row.source)}</span>
+          </div>
+          <h2 className="truncate text-sm font-black leading-5 text-[#13232d]">{getChapterTitle(row.title || 'Tanpa judul')}</h2>
+          <p className="mt-0.5 line-clamp-1 text-xs font-semibold leading-5 text-slate-500">
+            {row.topic || row.description || 'Belum ada topik.'}
+          </p>
         </div>
-        <h2 className="truncate text-base font-black text-[#13232d]">{row.title || 'Tanpa judul'}</h2>
-        <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">{row.description || 'Belum ada deskripsi.'}</p>
-        <p className="mt-2 text-xs font-bold text-slate-500">
-          {(row.className || 'Semua kelas')} · {(row.topic || 'Tanpa topik')}
-        </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-[0.7rem] bg-[#F1F7FF] px-3 py-2 text-xs font-black text-sky-700 ring-1 ring-sky-100 transition hover:bg-[#E0F2FE]">
+      <div className="flex flex-wrap gap-1.5 pl-[3.7rem]">
+        <button onClick={onEdit} className="inline-flex min-h-8 items-center gap-1.5 rounded-[0.65rem] bg-[#F1F7FF] px-2.5 text-xs font-black text-sky-700 ring-1 ring-sky-100 transition hover:bg-[#E0F2FE]">
           <PencilLine size={14} /> Edit
         </button>
-        <button onClick={onToggleStatus} className="inline-flex items-center gap-1.5 rounded-[0.7rem] bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
+        <button onClick={onToggleStatus} className="inline-flex min-h-8 items-center gap-1.5 rounded-[0.65rem] bg-cyan-50 px-2.5 text-xs font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
           <Send size={14} /> {row.status === 'Publish' ? 'Jadikan draft' : 'Publish'}
         </button>
         {row.source !== 'school-content' && (
-          <button onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-[0.7rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
+          <button onClick={onDelete} className="inline-flex min-h-8 items-center gap-1.5 rounded-[0.65rem] bg-rose-50 px-2.5 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
             <Trash2 size={14} /> Hapus
           </button>
         )}
