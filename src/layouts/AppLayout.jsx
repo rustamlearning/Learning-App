@@ -23,7 +23,8 @@ export default function AppLayout() {
   }
 
   const items = useMemo(() => getVisibleNavItems(user), [user])
-  const title = items.find((item) => location.pathname === item.path)?.label || roleLabels[user.role]
+  const hasBottomNav = ['siswa', 'guru'].includes(user.role)
+  const title = getPageTitle(user.role, location.pathname, items)
 
   return (
     <div className="min-h-dvh dashboard-mesh">
@@ -33,12 +34,14 @@ export default function AppLayout() {
       <Sidebar user={user} items={items} open={mobileOpen} setOpen={setMobileOpen} onLogout={handleLogout} />
 
       <div className="lg:pl-[17rem]">
-        <Topbar user={user} title={title} onMenu={() => setMobileOpen(true)} />
+        <Topbar user={user} title={title} showMenuButton={!hasBottomNav} onMenu={() => setMobileOpen(true)} />
 
-        <main id="main-content" className="mx-auto max-w-7xl px-4 py-6 pb-24 sm:px-6 lg:py-8">
+        <main id="main-content" className={`mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8 ${hasBottomNav ? 'pb-28 lg:pb-8' : 'pb-24'}`}>
           <Outlet />
         </main>
       </div>
+
+      {hasBottomNav && <BottomNavigation items={items} role={user.role} />}
     </div>
   )
 }
@@ -160,16 +163,11 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
 function groupNavItems(role, items) {
   const labels = {
     siswa: [
-      ['Belajar', ['/dashboard', '/kelas', '/materi', '/latihan', '/kuis', '/flashcard', '/ai-tutor']],
-      ['Aktivitas', ['/progres', '/leaderboard', '/isleclub']],
-      ['Akun', ['/profil']],
+      ['Utama', ['/dashboard', '/materi', '/tugas', '/progres']],
     ],
     guru: [
-      ['Mengajar', ['/dashboard', '/kelas', '/studio-konten', '/materi', '/bank-soal', '/tugas', '/kuis-live', '/daftar-hadir']],
-      ['Evaluasi', ['/daftar-nilai', '/rapor', '/analisis-nilai', '/remedial']],
-      ['Asisten', ['/ai-generator']],
-      ['Laporan', ['/laporan']],
-      ['Akun', ['/profil']],
+      ['Mengajar', ['/dashboard', '/kelas', '/materi']],
+      ['Kelola', ['/daftar-nilai', '/daftar-hadir']],
     ],
     admin: [
       ['Konsol', ['/dashboard']],
@@ -190,6 +188,38 @@ function groupNavItems(role, items) {
     .filter((group) => group.items.length)
 }
 
+function getPageTitle(role, pathname, items) {
+  const directTitle = items.find((item) => pathname === item.path)?.label
+  if (directTitle) return directTitle
+
+  const hiddenTitles = {
+    siswa: {
+      '/siswa/kelas': 'Belajar',
+      '/siswa/latihan': 'Tugas & Kuis',
+      '/siswa/kuis': 'Tugas & Kuis',
+      '/siswa/flashcard': 'Belajar',
+      '/siswa/ai-tutor': 'Bantuan belajar',
+      '/siswa/leaderboard': 'Progres',
+      '/siswa/isleclub': 'Belajar',
+      '/siswa/profil': 'Profil',
+    },
+    guru: {
+      '/guru/bank-soal': 'Evaluasi',
+      '/guru/tugas': 'Evaluasi',
+      '/guru/kuis-live': 'Evaluasi',
+      '/guru/studio-konten': 'Siapkan Pembelajaran',
+      '/guru/rapor': 'Rapor',
+      '/guru/analisis-nilai': 'Analisis Nilai',
+      '/guru/remedial': 'Remedial',
+      '/guru/ai-generator': 'AI Cepat',
+      '/guru/laporan': 'Laporan',
+      '/guru/profil': 'Profil',
+    },
+  }
+
+  return hiddenTitles[role]?.[pathname] || roleLabels[role]
+}
+
 function getVisibleNavItems(user) {
   const items = navItems[user.role] || []
   if (user.role !== 'guru') return items
@@ -198,10 +228,11 @@ function getVisibleNavItems(user) {
   return items.filter((item) => item.path !== '/guru/rapor' || hasHomeroomAccess)
 }
 
-function Topbar({ user, title, onMenu }) {
+function Topbar({ user, title, showMenuButton = true, onMenu }) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const visibleItems = useMemo(() => getVisibleNavItems(user), [user])
+  const profilePath = user.role === 'siswa' || user.role === 'guru' ? `/${user.role}/profil` : null
   const searchResults = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
     if (!normalizedQuery) return []
@@ -224,7 +255,7 @@ function Topbar({ user, title, onMenu }) {
         <button
           aria-label="Buka menu"
           onClick={onMenu}
-          className="grid h-11 w-11 place-items-center rounded-xl bg-white text-[#2F80D8] ring-1 ring-[#D9E6F5] lg:hidden"
+          className={`h-11 w-11 place-items-center rounded-xl bg-white text-[#2F80D8] ring-1 ring-[#D9E6F5] lg:hidden ${showMenuButton ? 'grid' : 'hidden'}`}
         >
           <Menu size={20} />
         </button>
@@ -279,11 +310,47 @@ function Topbar({ user, title, onMenu }) {
           <Bell size={18} />
         </button>
 
-        <div className="hidden h-11 w-11 place-items-center rounded-xl bg-[#17446E] text-sm font-black text-white sm:grid">
+        <button
+          type="button"
+          aria-label="Buka profil"
+          onClick={() => profilePath && navigate(profilePath)}
+          disabled={!profilePath}
+          className="hidden h-11 w-11 place-items-center rounded-xl bg-[#17446E] text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#2F80D8] disabled:cursor-default disabled:hover:translate-y-0 sm:grid"
+        >
           {user.avatar}
-        </div>
+        </button>
       </div>
     </header>
+  )
+}
+
+function BottomNavigation({ items = [], role }) {
+  const mobileItems = items.slice(0, role === 'guru' ? 5 : 4)
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#D9E6F5] bg-white/94 px-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-16px_44px_rgba(15,36,55,0.10)] backdrop-blur-xl lg:hidden" aria-label="Navigasi utama">
+      <div className="mx-auto grid max-w-xl gap-1" style={{ gridTemplateColumns: `repeat(${mobileItems.length}, minmax(0, 1fr))` }}>
+        {mobileItems.map((item) => {
+          const Icon = item.icon
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) =>
+                `flex min-h-[3.75rem] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-black transition ${
+                  isActive
+                    ? 'bg-[#EAF4FF] text-[#17446E]'
+                    : 'text-[#64748B] hover:bg-[#F8FBFF] hover:text-[#2F80D8]'
+                }`
+              }
+            >
+              <Icon size={19} />
+              <span className="max-w-full truncate">{item.label.replace(' & ', ' ')}</span>
+            </NavLink>
+          )
+        })}
+      </div>
+    </nav>
   )
 }
 

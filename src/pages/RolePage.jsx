@@ -252,10 +252,10 @@ function SiswaDashboard({ user, notify }) {
   ]
 
   const quickLinks = [
-    { label: 'Materi', icon: BookOpen, onClick: () => navigate('/siswa/materi') },
-    { label: 'Tugas', icon: ClipboardCheck, onClick: () => navigate('/siswa/tugas') },
-    { label: 'Kuis', icon: FileQuestion, onClick: () => navigate('/siswa/kuis') },
     { label: 'AI Tutor', icon: Bot, onClick: () => navigate('/siswa/ai-tutor') },
+    { label: 'Flashcard', icon: Layers3, onClick: () => navigate('/siswa/flashcard') },
+    { label: 'Latihan', icon: Brain, onClick: () => navigate('/siswa/latihan') },
+    { label: 'Kuis', icon: FileQuestion, onClick: () => navigate('/siswa/kuis') },
   ]
 
   const priorityItems = [
@@ -292,74 +292,111 @@ function SiswaDashboard({ user, notify }) {
     onClick: () => navigate('/siswa/materi'),
   }))
 
+  const subjectCards = Object.values(availableMaterials.reduce((acc, item) => {
+    const key = item.subject || 'Mapel'
+    if (!acc[key]) acc[key] = { subject: key, total: 0, progress: 0, sample: item.topic || item.title }
+    acc[key].total += 1
+    acc[key].progress += Number(item.progress || 0)
+    return acc
+  }, {})).slice(0, 4).map((item) => ({
+    ...item,
+    progress: Math.round(item.progress / Math.max(1, item.total)),
+  }))
+
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-[1.35rem] border border-[#123B63] bg-[#123B63] p-5 text-white shadow-[0_20px_52px_rgba(11,37,64,0.22)] sm:p-6">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-center">
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-sky-200">Ruang belajar</p>
-            <h2 className="mt-2 text-3xl font-black leading-tight text-white">Pilih langkah berikutnya.</h2>
+      <section className="overflow-hidden rounded-[1.35rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_18px_52px_rgba(15,36,55,0.07)] sm:p-5">
+        <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr] lg:items-stretch">
+          <div className="rounded-[1.1rem] bg-[#123B63] p-5 text-white">
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-sky-200">Selamat belajar, {firstName}</p>
+            <h2 className="mt-2 text-balance text-3xl font-black leading-tight text-white sm:text-4xl">Lanjutkan materi yang terakhir kamu pelajari.</h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-sky-100/82">
-              Materi, tugas, dan kuis akan muncul saat guru mempublikasikan aktivitas kelas.
+              Beranda ini hanya menampilkan langkah yang perlu dilakukan sekarang: lanjut belajar, cek prioritas, lalu lihat progres.
             </p>
-            <div className="mt-5 flex flex-wrap gap-2" aria-label={`Aksi belajar ${firstName}`}>
+            <div className="mt-5 flex flex-wrap gap-2">
               <button
                 onClick={() => navigate('/siswa/materi')}
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#123B63] shadow-[0_12px_24px_rgba(5,20,35,0.18)] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF] active:translate-y-0"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#123B63] shadow-[0_12px_24px_rgba(5,20,35,0.18)] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF] active:translate-y-0"
               >
-                <PlayCircle size={16} /> Lanjut materi
+                <PlayCircle size={16} /> Lanjutkan
               </button>
               <button
-                onClick={() => navigate('/siswa/kuis')}
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/14 transition hover:-translate-y-0.5 hover:bg-white/16 active:translate-y-0"
+                onClick={() => navigate('/siswa/tugas')}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/14 transition hover:-translate-y-0.5 hover:bg-white/16 active:translate-y-0"
               >
-                <FileQuestion size={16} /> Kuis
+                <ClipboardCheck size={16} /> {todayWorkCount} prioritas
               </button>
-              <button
-                onClick={() => navigate('/siswa/ai-tutor')}
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/14 transition hover:-translate-y-0.5 hover:bg-white/16 active:translate-y-0"
-              >
-                <Bot size={16} /> AI Tutor
-              </button>
-              <span className="inline-flex min-h-10 items-center rounded-xl bg-sky-300/16 px-3 text-xs font-black text-sky-100 ring-1 ring-sky-100/18">
-                {todayWorkCount} aktif
-              </span>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/14 bg-white/10 p-4">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-xs font-black uppercase tracking-[0.12em] text-sky-100/72">Progres</span>
-              <span className="font-mono text-3xl font-black text-white">{dailyGoal}%</span>
+          <article className="flex min-h-full flex-col rounded-[1.1rem] border border-[#D9E6F5] bg-[#F8FBFF] p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <StatusBadge tone="teal">Lanjutkan Belajar</StatusBadge>
+              <span className="rounded-xl bg-white px-3 py-1 text-xs font-black text-[#64748B] ring-1 ring-[#D9E6F5]">Estimasi 20 menit</span>
             </div>
-            <div className="mt-3 h-2 rounded-full bg-white/14">
-              <div className="h-2 rounded-full bg-[#8BD4FF]" style={{ width: `${dailyGoal}%` }} />
+            <h3 className="mt-4 line-clamp-2 text-2xl font-black leading-tight text-[#132437]">{nextMaterial?.title || 'Materi belum tersedia'}</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">
+              {nextMaterial ? `${nextMaterial.subject} · ${nextMaterial.topic || nextMaterial.className || 'Materi kelas'}` : 'Cek kembali nanti atau tanya guru jika materi belum muncul.'}
+            </p>
+            <div className="mt-5">
+              <div className="flex items-center justify-between text-xs font-black text-[#64748B]">
+                <span>Progress</span>
+                <span>{nextMaterial?.progress || dailyGoal}%</span>
+              </div>
+              <div className="mt-2 h-3 rounded-full bg-white ring-1 ring-[#D9E6F5]">
+                <div className="h-3 rounded-full bg-[#2F80D8]" style={{ width: `${Math.min(100, nextMaterial?.progress || dailyGoal)}%` }} />
+              </div>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs font-black">
-              <span className="truncate rounded-lg bg-white/12 px-2.5 py-1 text-sky-50 ring-1 ring-white/12">{nextMaterial?.subject || 'Belum ada mapel'}</span>
-              <span className="rounded-lg bg-white/12 px-2.5 py-1 text-sky-50 ring-1 ring-white/12">Nilai {average || '-'}</span>
+            <div className="mt-auto flex flex-col gap-2 pt-5 sm:flex-row">
+              <button onClick={() => navigate('/siswa/materi')} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#17446E] px-4 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#2F80D8]">
+                <BookOpen size={16} /> Buka materi
+              </button>
+              <button onClick={() => navigate('/siswa/materi')} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#17446E] ring-1 ring-[#D9E6F5] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF]">
+                Lihat semua
+              </button>
             </div>
-          </div>
+          </article>
         </div>
       </section>
 
-      <MetricStrip items={metricItems} />
-
-      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+      <div className="grid gap-4 xl:grid-cols-[1fr_0.95fr]">
         <CompactList
-          title="Prioritas"
+          title="Prioritas hari ini"
+          description="Tugas dan kuis terdekat ditaruh paling atas."
           items={priorityItems}
-          emptyLabel="Belum ada tugas atau kuis aktif."
+          emptyLabel="Belum ada tugas aktif. Kamu bisa lanjut belajar materi terakhir."
         />
 
         <CompactList
           title="Lanjutkan materi"
           items={materialItems}
-          emptyLabel="Belum ada materi yang dipublish guru."
+          emptyLabel="Materi belum tersedia untuk kelas ini. Cek kembali nanti atau tanya guru."
         />
       </div>
 
-      <DashboardActionGrid items={quickLinks} title="Akses cepat" />
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <DashboardPanel title="Mapel saya" description="Ringkasan beberapa mapel dari materi yang tersedia.">
+          {subjectCards.length ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {subjectCards.map((subject) => (
+                <button key={subject.subject} onClick={() => navigate('/siswa/materi')} className="rounded-xl bg-[#F8FBFF] p-3 text-left ring-1 ring-[#D9E6F5] transition hover:-translate-y-0.5 hover:bg-white">
+                  <p className="line-clamp-1 text-sm font-black text-[#132437]">{subject.subject}</p>
+                  <p className="mt-1 line-clamp-1 text-xs font-semibold text-[#64748B]">{subject.total} materi · {subject.sample}</p>
+                  <div className="mt-3 h-2 rounded-full bg-white ring-1 ring-[#D9E6F5]">
+                    <div className="h-2 rounded-full bg-[#2F80D8]" style={{ width: `${subject.progress}%` }} />
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="Belum ada progres." description="Mulai satu materi untuk melihat progres belajarmu." action={<QuickActionButton icon={BookOpen} label="Buka Belajar" onClick={() => navigate('/siswa/materi')} />} />
+          )}
+        </DashboardPanel>
+
+        <DashboardActionGrid items={quickLinks} title="Bantuan cepat" />
+      </div>
+
+      <MetricStrip items={metricItems} />
     </div>
   )
 }
@@ -440,10 +477,16 @@ function LineChartIcon(props) {
 }
 
 function KelasSaya() {
+  const navigate = useNavigate()
   const visibleSubjects = subjects.slice(0, 5)
   return (
     <div>
-      <PageHeader eyebrow="Kelas Saya" title="Pilih kelas" description="Masuk ke kelas, lanjutkan materi, dan pantau progres tiap mata pelajaran." />
+      <PageHeader
+        eyebrow="Belajar"
+        title="Kelas dan materi sekarang digabung."
+        description="Agar siswa tidak masuk lewat dua jalur berbeda, semua mapel dan materi dibuka dari halaman Belajar."
+        action={<QuickActionButton icon={BookOpen} label="Buka Belajar" onClick={() => navigate('/siswa/materi')} />}
+      />
       {visibleSubjects.length ? (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {visibleSubjects.map((subject, index) => (
@@ -456,12 +499,12 @@ function KelasSaya() {
                 <span className="rounded-xl bg-[#F8FBFF] p-3 ring-1 ring-[#D9E6F5]">{2 + index} tugas</span>
                 <span className="rounded-xl bg-[#F8FBFF] p-3 ring-1 ring-[#D9E6F5]">{64 + index * 5}%</span>
               </div>
-              <button className="mt-5 w-full rounded-xl bg-[#17446E] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#2F80D8]">Masuk Kelas</button>
+              <button onClick={() => navigate('/siswa/materi')} className="mt-5 w-full rounded-xl bg-[#17446E] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#2F80D8]">Lihat materi</button>
             </SectionCard>
           ))}
         </div>
       ) : (
-        <EmptyState title="Belum ada kelas." description="Kelas dan mata pelajaran akan muncul setelah admin atau guru menyiapkan data sekolah." />
+        <EmptyState title="Belum ada kelas." description="Materi belum tersedia untuk kelas ini. Cek kembali nanti atau tanya guru." action={<QuickActionButton icon={BookOpen} label="Buka Belajar" onClick={() => navigate('/siswa/materi')} />} />
       )}
     </div>
   )
@@ -664,17 +707,17 @@ function MateriBelajar({ user, notify, appContext }) {
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="rounded-[0.75rem] bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#0284c7] ring-1 ring-[#0284c7]/10">
-                Course library
+                Belajar
               </span>
               <span className="rounded-[0.75rem] bg-[#fff7ed] px-3 py-1.5 text-[11px] font-black text-amber-700 ring-1 ring-amber-100">
                 {user?.className || 'Semua kelas'}
               </span>
             </div>
             <h1 className="max-w-3xl text-balance text-3xl font-black leading-[0.98] text-[#13232d] sm:text-5xl">
-              Pilih mapel, buka chapter, lanjutkan progres.
+              Satu tempat untuk kelas, mapel, dan materi.
             </h1>
             <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-slate-600 sm:text-base">
-              Struktur materi dibuat seperti aplikasi course modern: folder mapel, tingkat kelas, kartu chapter, dan progress yang langsung terbaca.
+              Tidak perlu bingung membedakan Kelas Saya dan Materi Belajar. Pilih mapel, lihat kelasnya, lalu lanjutkan chapter yang tersedia.
             </p>
           </div>
 
@@ -1278,9 +1321,11 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
 }
 
 function SiswaTugas({ user, notify, appContext }) {
+  const navigate = useNavigate()
   const [rows, setRows] = useState([])
   const [selected, setSelected] = useState(null)
   const [answer, setAnswer] = useState('')
+  const [tab, setTab] = useState('Aktif')
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
 
@@ -1359,6 +1404,22 @@ function SiswaTugas({ user, notify, appContext }) {
     setSelected((current) => current ? { ...current, submitted: getLocalAssignmentSubmissions(current.id).length } : current)
   }
 
+  const taskTabs = ['Aktif', 'Selesai', 'Riwayat']
+  const visibleRows = rows.filter((assignment) => {
+    const hasSubmission = Boolean(getLocalAssignmentSubmission(assignment.id, user?.id))
+    if (tab === 'Selesai') return hasSubmission
+    if (tab === 'Riwayat') return true
+    return !hasSubmission
+  })
+  const activeQuizRows = uniqueRowsById([...quizzes, ...getPublishedLocalTeacherQuizzes()])
+    .filter((item) => ['Berlangsung', 'Belum mulai', 'Publish'].includes(item.status))
+    .slice(0, 3)
+  const taskHubItems = [
+    { label: 'Latihan', icon: Brain, onClick: () => navigate('/siswa/latihan') },
+    { label: 'Kuis / Ujian', icon: FileQuestion, onClick: () => navigate('/siswa/kuis') },
+    { label: 'AI Tutor', icon: Bot, onClick: () => navigate('/siswa/ai-tutor') },
+  ]
+
   if (selected) {
     const submission = getLocalAssignmentSubmission(selected.id, user?.id)
     return (
@@ -1419,30 +1480,68 @@ function SiswaTugas({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Tugas" title="Tugas siswa" description="Baca instruksi dan kirim jawaban." />
+      <PageHeader eyebrow="Tugas & Kuis" title="Kerjakan prioritas belajar." description="Tugas, kuis, dan latihan dikumpulkan di satu halaman agar kamu tidak berpindah-pindah menu." />
       {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim tugas: {error}. Data lokal tetap ditampilkan.</div>}
-      {loading ? <LoadingState label="Memuat tugas siswa..." /> : rows.length > 0 ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {rows.map((assignment) => {
-            const submission = getLocalAssignmentSubmission(assignment.id, user?.id)
-            return (
-              <SectionCard key={assignment.id}>
-                <div className="mb-4 flex items-center justify-between gap-2">
-                  <StatusBadge tone={submission ? 'green' : statusTone(assignment.status)}>{submission ? 'Terkirim' : assignment.status}</StatusBadge>
-                  <StatusBadge tone="cyan">{assignment.subject}</StatusBadge>
-                </div>
-                <h2 className="text-lg font-extrabold">{assignment.title}</h2>
-                <p className="mt-2 text-sm leading-6 text-gray-500">{assignment.description}</p>
-                <p className="mt-3 text-xs font-bold text-slate-500">{assignment.subject} · Deadline {assignment.deadline || '-'}</p>
-                <button onClick={() => openAssignment(assignment)} className="mt-5 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">
-                  {submission ? 'Lihat / perbarui jawaban' : 'Kerjakan tugas'}
+      <div className="mb-4 grid gap-3 xl:grid-cols-[1fr_20rem]">
+        <DashboardPanel title="Kuis aktif" description="Kerjakan kuis yang sedang tersedia sebelum deadline.">
+          {activeQuizRows.length ? (
+            <div className="space-y-2">
+              {activeQuizRows.map((quiz) => (
+                <button key={quiz.id} onClick={() => navigate('/siswa/kuis')} className="flex w-full items-center gap-3 rounded-xl bg-[#F8FBFF] p-3 text-left ring-1 ring-[#D9E6F5] transition hover:bg-white">
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#EAF4FF] text-[#2F80D8]"><FileQuestion size={18} /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-black text-[#132437]">{quiz.title}</span>
+                    <span className="block truncate text-xs font-semibold text-[#64748B]">{quiz.subject} · {quiz.duration || 30} menit</span>
+                  </span>
+                  <StatusBadge tone="amber">{quiz.status}</StatusBadge>
                 </button>
-              </SectionCard>
-            )
-          })}
-        </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="Belum ada kuis aktif." description="Kamu bisa lanjut latihan atau buka materi terakhir." action={<QuickActionButton icon={BookOpen} label="Lanjutkan Belajar" onClick={() => navigate('/siswa/materi')} />} />
+          )}
+        </DashboardPanel>
+
+        <DashboardActionGrid items={taskHubItems} title="Aksi cepat" />
+      </div>
+
+      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+        {taskTabs.map((item) => (
+          <button key={item} onClick={() => setTab(item)} className={`min-h-10 flex-shrink-0 rounded-xl px-4 text-sm font-black ring-1 transition ${tab === item ? 'bg-[#17446E] text-white ring-[#17446E]' : 'bg-white text-[#64748B] ring-[#D9E6F5] hover:bg-[#EAF4FF] hover:text-[#2F80D8]'}`}>
+            {item}
+          </button>
+        ))}
+      </div>
+      {loading ? <LoadingState label="Memuat tugas siswa..." /> : rows.length > 0 ? (
+        visibleRows.length > 0 ? (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {visibleRows.map((assignment) => {
+              const submission = getLocalAssignmentSubmission(assignment.id, user?.id)
+              return (
+                <SectionCard key={assignment.id}>
+                  <div className="mb-4 flex items-center justify-between gap-2">
+                    <StatusBadge tone={submission ? 'green' : statusTone(assignment.status)}>{submission ? 'Terkirim' : assignment.status}</StatusBadge>
+                    <StatusBadge tone="cyan">{assignment.subject}</StatusBadge>
+                  </div>
+                  <h2 className="text-lg font-extrabold">{assignment.title}</h2>
+                  <p className="mt-2 text-sm leading-6 text-gray-500">{assignment.description}</p>
+                  <p className="mt-3 text-xs font-bold text-slate-500">{assignment.subject} · Deadline {assignment.deadline || '-'}</p>
+                  <button onClick={() => openAssignment(assignment)} className="mt-5 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">
+                    {submission ? 'Lihat / perbarui jawaban' : 'Kerjakan tugas'}
+                  </button>
+                </SectionCard>
+              )
+            })}
+          </div>
+        ) : (
+          <EmptyState
+            title={tab === 'Selesai' ? 'Belum ada tugas selesai.' : 'Tidak ada tugas pada tab ini.'}
+            description={tab === 'Selesai' ? 'Tugas yang sudah kamu kirim akan muncul di sini.' : 'Coba buka tab Riwayat atau lanjutkan materi sambil menunggu tugas baru.'}
+            action={<QuickActionButton icon={BookOpen} label="Lanjutkan Belajar" onClick={() => navigate('/siswa/materi')} />}
+          />
+        )
       ) : (
-        <EmptyState title="Belum ada tugas aktif." description="Tugas yang sudah dipublish guru akan muncul di sini." />
+        <EmptyState title="Belum ada tugas aktif." description="Belum ada tugas aktif. Kamu bisa lanjut belajar materi terakhir." action={<QuickActionButton icon={BookOpen} label="Lanjutkan Belajar" onClick={() => navigate('/siswa/materi')} />} />
       )}
     </div>
   )
@@ -2860,14 +2959,18 @@ function GuruDashboard({ user, notify }) {
   const draftTotal = draftMaterials.length + draftAssignments.length + draftQuizzes.length
   const hasTeacherData = teacherMaterials.length > 0 || teacherAssignments.length > 0 || teacherQuestions.length > 0 || teacherQuizzes.length > 0 || assignmentSubmissions.length > 0 || gradebookRows.length > 0
   const hasRaporAccess = isTeacherHomeroom(user)
+  const teacherFirstName = user?.name?.split(' ')[0] || 'Guru'
+  const nextMeeting = {
+    className: classes[0]?.name || 'Kelas belum dipilih',
+    subject: teacherSubjectOptions[0] || teacherSubjectLabel,
+    time: '07.30 - 09.00',
+    material: teacherMaterials.find((item) => isStatus(item, 'Publish'))?.title || teacherMaterials[0]?.title || 'Materi hari ini belum dipilih',
+  }
 
   const metricItems = [
     { label: 'Kehadiran', value: `${todayAttendance.rate}%`, caption: `${todayAttendance.hadir}/${todayAttendance.total} hadir hari ini`, icon: CalendarClock },
-    { label: 'Nilai', value: `${gradeSummary.readyRate}%`, caption: `${gradeSummary.completed} nilai tersimpan`, icon: BarChart3 },
-    { label: 'Draft', value: draftTotal, caption: 'perlu review', icon: Send },
     { label: 'Tugas', value: activeAssignments.length, caption: 'sedang aktif', icon: ClipboardCheck },
-    { label: 'Submission', value: assignmentSubmissions.length, caption: `${ungradedSubmissions.length} belum dinilai`, icon: FileText },
-    { label: 'Bank soal', value: teacherQuestions.length, caption: 'soal tersimpan', icon: FileQuestion },
+    { label: 'Perlu dinilai', value: ungradedSubmissions.length, caption: `${assignmentSubmissions.length} submission`, icon: FileText },
     { label: 'Kuis', value: publishedQuizzes.length, caption: 'dipublish', icon: PlayCircle },
   ]
 
@@ -2959,31 +3062,51 @@ function GuruDashboard({ user, notify }) {
 
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-[1.35rem] border border-[#123B63] bg-[#123B63] p-5 text-white shadow-[0_20px_52px_rgba(11,37,64,0.22)]">
-        <div className="grid gap-4 xl:grid-cols-[1fr_21rem] xl:items-center">
+      <section className="overflow-hidden rounded-[1.35rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_18px_52px_rgba(15,36,55,0.07)] sm:p-5">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-sky-200">Ruang mengajar</p>
-            <h2 className="mt-2 text-3xl font-black leading-tight text-white">Kelola kelas dari antrean kerja.</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-sky-100/82">
-              Mulai dari konten yang belum publish, submission yang perlu dinilai, lalu pantau aktivitas kelas.
-            </p>
-            <div className="mt-3 inline-flex max-w-full items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-sky-50 ring-1 ring-white/14">
-              <BookOpen size={14} />
-              <span className="truncate">Mapel diampu: {teacherSubjectLabel}</span>
-            </div>
-            <div className="mt-4">
-              <DashboardActionGrid items={quickActions.slice(0, 3)} bare />
-            </div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">Selamat mengajar, {teacherFirstName}</p>
+            <h2 className="mt-1 text-balance text-3xl font-black leading-tight text-[#132437]">Mulai dari pertemuan sekarang.</h2>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <span className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#EAF4FF] px-3 py-2 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5]">
+            <BookOpen size={14} /> {teacherSubjectLabel}
+          </span>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+          <article className="rounded-[1.1rem] bg-[#123B63] p-5 text-white">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <StatusBadge tone="cyan">Pertemuan Sekarang</StatusBadge>
+              <span className="rounded-xl bg-white/10 px-3 py-1 text-xs font-black text-sky-50 ring-1 ring-white/14">{nextMeeting.time}</span>
+            </div>
+            <h3 className="mt-4 text-3xl font-black leading-tight text-white">{nextMeeting.className}</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-sky-100/82">{nextMeeting.subject} · {nextMeeting.material}</p>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button onClick={() => navigate('/guru/daftar-hadir')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#123B63] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF]">
+                <CalendarClock size={16} /> Absen
+              </button>
+              <button onClick={() => navigate('/guru/materi')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/14 transition hover:-translate-y-0.5 hover:bg-white/16">
+                <BookOpen size={16} /> Buka Materi
+              </button>
+              <button onClick={() => navigate('/guru/kuis-live')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/14 transition hover:-translate-y-0.5 hover:bg-white/16">
+                <PlayCircle size={16} /> Mulai Kuis
+              </button>
+              <button onClick={() => navigate('/guru/tugas')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/14 transition hover:-translate-y-0.5 hover:bg-white/16">
+                <ClipboardList size={16} /> Buat Tugas
+              </button>
+            </div>
+          </article>
+
+          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
             {[
-              ['Hadir', `${todayAttendance.rate}%`],
-              ['Aktif', activeAssignments.length + publishedQuizzes.length],
-              ['Nilai', ungradedSubmissions.length],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-2xl bg-white/10 px-3 py-4 text-center ring-1 ring-white/14">
-                <p className="font-mono text-2xl font-black text-white">{value}</p>
-                <p className="text-[11px] font-black text-sky-100/72">{label}</p>
+              ['Kehadiran hari ini', `${todayAttendance.rate}%`, `${todayAttendance.hadir}/${todayAttendance.total} hadir`],
+              ['Perlu dinilai', ungradedSubmissions.length, 'submission menunggu'],
+              ['Draft konten', draftTotal, 'materi/tugas/kuis'],
+            ].map(([label, value, caption]) => (
+              <div key={label} className="rounded-[1.1rem] bg-[#F8FBFF] p-4 ring-1 ring-[#D9E6F5]">
+                <p className="text-xs font-black text-[#64748B]">{label}</p>
+                <p className="mt-2 font-mono text-3xl font-black text-[#132437]">{value}</p>
+                <p className="mt-1 text-xs font-semibold text-[#64748B]">{caption}</p>
               </div>
             ))}
           </div>
@@ -3175,7 +3298,38 @@ function GuruDaftarHadir({ user, notify }) {
           </button>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="space-y-2 md:hidden">
+          {rows.map((row) => (
+            <article key={row.studentId} className="rounded-xl bg-[#F8FBFF] p-3 ring-1 ring-[#D9E6F5]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="line-clamp-1 font-black text-[#132437]">{row.name}</p>
+                  <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{row.nis || row.className}</p>
+                </div>
+                <StatusBadge tone={row.status === 'Hadir' ? 'green' : row.status === 'Alpa' ? 'red' : 'amber'}>{row.status}</StatusBadge>
+              </div>
+              <div className="mt-3 grid grid-cols-4 gap-1.5">
+                {attendanceStatuses.map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => updateRow(row.studentId, { status })}
+                    className={`min-h-10 rounded-lg px-2 text-xs font-black ring-1 transition ${statusButtonClass(status, row.status === status)}`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={row.note}
+                onChange={(event) => updateRow(row.studentId, { note: event.target.value })}
+                placeholder="Catatan opsional"
+                className="mt-3 w-full rounded-xl border border-[#D9E6F5] bg-white px-3 py-2.5 text-sm font-semibold text-[#132437] outline-none focus:border-[#2F80D8]"
+              />
+            </article>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[48rem] text-left text-sm">
             <thead>
               <tr className="border-b border-[#D9E6F5] text-xs uppercase tracking-[0.12em] text-[#64748B]">

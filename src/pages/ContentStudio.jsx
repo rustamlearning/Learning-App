@@ -2958,6 +2958,7 @@ function StudioMiniNumberInput({ label, value, onChange, min = 0, suffix = '' })
 }
 
 function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOptions, availableContentTypes, updateForm, generateDraft, saveContent, canSave = false, createFromText, createVideoInteractive }) {
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const outputModes = [
     {
       id: 'Materi',
@@ -3023,6 +3024,52 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
   }
   const activeSourceMode = legacySourceModes[form.referenceMode] || form.referenceMode || 'Topik saja'
   const selectedSource = sourceModes.find((mode) => mode.id === activeSourceMode) || sourceModes[0]
+  const quickModes = [
+    {
+      id: 'quick',
+      label: 'Buat cepat',
+      description: 'Isi kelas dan topik, sisanya memakai setelan aman.',
+      icon: Wand2,
+      patch: {
+        outputType: 'Materi',
+        referenceMode: 'Topik saja',
+        lessonPurpose: 'Pertemuan baru',
+        studentReadiness: 'Belum dipetakan',
+        teachingApproach: 'Diskusi kelas',
+        level: 'Standar',
+        duration: '2 JP',
+      },
+    },
+    {
+      id: 'reuse',
+      label: 'Dari materi yang ada',
+      description: 'Tempel catatan, modul, artikel, atau link sumber.',
+      icon: ClipboardList,
+      patch: {
+        outputType: 'Materi',
+        referenceMode: 'Tempel materi',
+        lessonPurpose: 'Melanjutkan materi',
+        duration: '2 JP',
+      },
+    },
+    {
+      id: 'assessment',
+      label: 'Cek pemahaman',
+      description: 'Langsung buat kuis formatif singkat.',
+      icon: FileQuestion,
+      patch: {
+        outputType: 'Kuis',
+        referenceMode: 'Topik saja',
+        assessmentType: 'Formatif',
+        answerOptionCount: '4 Opsi (A-D)',
+        mcCount: 5,
+        shortAnswerCount: 0,
+        essayCount: 0,
+        trueFalseCount: 0,
+        matchingCount: 0,
+      },
+    },
+  ]
   const summaryItems = [
     [GraduationCap, form.subject || 'Mapel belum dipilih', 'Mapel'],
     [Users, form.className ? `Kelas ${form.className}` : 'Kelas belum dipilih', 'Kelas'],
@@ -3035,6 +3082,11 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
       ? selectedLevels.filter((item) => item !== level)
       : [...selectedLevels, level]
     updateForm('cognitiveLevels', next.length > 0 ? next : ['C2'])
+  }
+
+  function applyQuickMode(mode) {
+    Object.entries(mode.patch).forEach(([field, value]) => updateForm(field, value))
+    setShowAdvanced(false)
   }
 
   return (
@@ -3068,6 +3120,44 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
 
       <div className="grid gap-0 lg:grid-cols-[1.08fr_0.92fr]">
         <div className="p-4 sm:p-5">
+          <div className="mb-5">
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-sm font-black text-slate-950">Mulai dari alur cepat</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                  Pilih pola kerja, lalu guru cukup melengkapi kelas dan topik.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((current) => !current)}
+                className="rounded-xl bg-white px-3 py-2 text-xs font-black text-[#0B3A5B] ring-1 ring-slate-200 transition hover:bg-[#F1F7FF]"
+              >
+                {showAdvanced ? 'Sembunyikan detail' : 'Detail opsional'}
+              </button>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3">
+              {quickModes.map((mode) => {
+                const Icon = mode.icon
+                return (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => applyQuickMode(mode)}
+                    className="rounded-2xl bg-white p-3 text-left ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:bg-[#F1F7FF] hover:shadow-[0_12px_28px_rgba(15,31,42,0.07)]"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#E0F2FE] text-[#0284c7]">
+                      <Icon size={17} />
+                    </span>
+                    <span className="mt-3 block text-sm font-black text-slate-950">{mode.label}</span>
+                    <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{mode.description}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <div className="mb-4 flex items-start gap-3">
             <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[0.9rem] bg-white/44 text-[#0284c7] ring-1 ring-white/60">
               <Users size={18} />
@@ -3075,7 +3165,7 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
             <div>
               <p className="text-sm font-black text-slate-950">Konteks mengajar</p>
               <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-                Isi bagian yang guru pakai untuk mengambil keputusan di kelas.
+                Field wajib dibuat pendek: kelas, mapel, topik, dan kondisi umum siswa.
               </p>
             </div>
           </div>
@@ -3089,27 +3179,31 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
             <SelectField label="Kesiapan siswa" value={form.studentReadiness || 'Belum dipetakan'} onChange={(value) => updateForm('studentReadiness', value)} options={readinessOptions} />
           </div>
 
-          <label className="mt-3 grid gap-2 text-sm font-bold text-slate-700">
-            Tujuan pembelajaran
-            <textarea
-              value={form.learningObjective || ''}
-              onChange={(event) => updateForm('learningObjective', event.target.value)}
-              rows={3}
-              placeholder="Tulis kemampuan yang ingin dicapai siswa pada pertemuan ini."
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#0284C7] focus:ring-4 focus:ring-sky-900/10"
-            />
-          </label>
+          {showAdvanced && (
+            <div className="mt-3 grid gap-3">
+              <label className="grid gap-2 text-sm font-bold text-slate-700">
+                Tujuan pembelajaran
+                <textarea
+                  value={form.learningObjective || ''}
+                  onChange={(event) => updateForm('learningObjective', event.target.value)}
+                  rows={3}
+                  placeholder="Tulis kemampuan yang ingin dicapai siswa pada pertemuan ini."
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#0284C7] focus:ring-4 focus:ring-sky-900/10"
+                />
+              </label>
 
-          <label className="mt-3 grid gap-2 text-sm font-bold text-slate-700">
-            Kebutuhan atau kondisi siswa
-            <textarea
-              value={form.studentNeed || ''}
-              onChange={(event) => updateForm('studentNeed', event.target.value)}
-              rows={3}
-              placeholder="Contoh: siswa masih lemah di konsep dasar, perlu contoh lokal, atau perlu latihan bertahap."
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#0284C7] focus:ring-4 focus:ring-sky-900/10"
-            />
-          </label>
+              <label className="grid gap-2 text-sm font-bold text-slate-700">
+                Kebutuhan atau kondisi siswa
+                <textarea
+                  value={form.studentNeed || ''}
+                  onChange={(event) => updateForm('studentNeed', event.target.value)}
+                  rows={3}
+                  placeholder="Contoh: siswa masih lemah di konsep dasar, perlu contoh lokal, atau perlu latihan bertahap."
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#0284C7] focus:ring-4 focus:ring-sky-900/10"
+                />
+              </label>
+            </div>
+          )}
 
           <div className="mt-5">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -3218,16 +3312,20 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
             )}
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <SelectField label="Cara belajar" value={form.teachingApproach || 'Diskusi kelas'} onChange={(value) => updateForm('teachingApproach', value)} options={teachingApproachOptions} />
-            <SelectField label="Tingkat dukungan" value={form.level || 'Standar'} onChange={(value) => updateForm('level', value)} options={levelOptions} />
-          </div>
+          {showAdvanced && (
+            <>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <SelectField label="Cara belajar" value={form.teachingApproach || 'Diskusi kelas'} onChange={(value) => updateForm('teachingApproach', value)} options={teachingApproachOptions} />
+                <SelectField label="Tingkat dukungan" value={form.level || 'Standar'} onChange={(value) => updateForm('level', value)} options={levelOptions} />
+              </div>
 
-          <div className="mt-3">
-            <TextField label="Kriteria berhasil" value={form.successCriteria || ''} onChange={(value) => updateForm('successCriteria', value)} placeholder="Tanda siswa sudah memahami materi" />
-          </div>
+              <div className="mt-3">
+                <TextField label="Kriteria berhasil" value={form.successCriteria || ''} onChange={(value) => updateForm('successCriteria', value)} placeholder="Tanda siswa sudah memahami materi" />
+              </div>
+            </>
+          )}
 
-          {isQuestionMode && (
+          {isQuestionMode && showAdvanced && (
             <>
               <div className="mt-4 grid grid-cols-5 gap-2">
                 <StudioMiniNumberInput label="PG" value={form.mcCount} onChange={(value) => updateForm('mcCount', value)} />
@@ -3261,16 +3359,18 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
             </>
           )}
 
-          <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
-            Catatan guru
-            <textarea
-              value={form.customInstruction || ''}
-              onChange={(event) => updateForm('customInstruction', event.target.value)}
-              rows={4}
-              placeholder="Tambahkan arahan khusus, gaya bahasa, konteks lokal, atau batasan yang perlu dijaga."
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#0284C7] focus:ring-4 focus:ring-sky-900/10"
-            />
-          </label>
+          {showAdvanced && (
+            <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
+              Catatan guru
+              <textarea
+                value={form.customInstruction || ''}
+                onChange={(event) => updateForm('customInstruction', event.target.value)}
+                rows={4}
+                placeholder="Tambahkan arahan khusus, gaya bahasa, konteks lokal, atau batasan yang perlu dijaga."
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 outline-none transition focus:border-[#0284C7] focus:ring-4 focus:ring-sky-900/10"
+              />
+            </label>
+          )}
 
           <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
             <button onClick={generateDraft} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0B3A5B] px-5 py-3 text-sm font-black text-white shadow-lg shadow-sky-950/15 transition hover:-translate-y-0.5">

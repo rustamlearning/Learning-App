@@ -264,10 +264,10 @@ export function DataTable({ columns, rows }) {
   )
 }
 
-export function EmptyState({ title = 'Belum ada data.', description = 'Data akan tampil setelah aktivitas sekolah tersimpan di sistem.', action }) {
+export function EmptyState({ title = 'Belum ada data yang perlu ditampilkan.', description = 'Mulai dari aksi utama di halaman ini atau cek kembali setelah guru/admin menyiapkan data.', action }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[#B9D4F0] bg-[#F8FBFF] p-5 text-center">
-      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#2F80D8] ring-1 ring-[#D9E6F5]">
+    <div className="rounded-2xl border border-dashed border-[#B9D4F0] bg-[linear-gradient(135deg,#F8FBFF,#FFFFFF)] p-5 text-center">
+      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#2F80D8] shadow-[0_12px_24px_rgba(15,36,55,0.06)] ring-1 ring-[#D9E6F5]">
         <Inbox size={20} />
       </div>
       <h3 className="text-base font-black text-[#132437]">{title}</h3>
