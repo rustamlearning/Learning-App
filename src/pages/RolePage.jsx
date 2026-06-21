@@ -4260,117 +4260,476 @@ function printAttendancePdf(report) {
   setTimeout(() => printWindow.print(), 250)
 }
 
-function GuruDashboard({ user, notify }) {
+const teacherDashboardThresholds = {
+  lowAttendanceRate: 85,
+  lowGradeScore: 75,
+  minPublishedMaterials: 1,
+}
+
+const teacherDashboardDayLabels = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+
+function parseTeacherScheduleTime(value = '00:00') {
+  const [hour, minute] = String(value || '00:00').split(':').map(Number)
+  return {
+    hour: Number.isFinite(hour) ? hour : 0,
+    minute: Number.isFinite(minute) ? minute : 0,
+  }
+}
+
+function formatTeacherScheduleTime(value = '') {
+  return String(value || '').replace(':', '.')
+}
+
+function buildTeacherScheduleDate(meeting, timeValue, now = new Date()) {
+  const { hour, minute } = parseTeacherScheduleTime(timeValue)
+  const targetDay = Number(meeting?.day ?? now.getDay())
+  let dayOffset = (targetDay - now.getDay() + 7) % 7
+  const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, hour, minute, 0, 0)
+  return date
+}
+
+function getTeacherDashboardSchedule(user, subjectOptions = []) {
+  // TODO: sambungkan ke tabel jadwal mengajar permanen ketika data jadwal sudah tersedia.
+  const scopedSchedule = teacherDashboardMockSchedule.filter((item) => (
+    !subjectOptions.length || subjectOptions.some((subject) => sameSubjectName(subject, item.subject))
+  ))
+  if (scopedSchedule.length) return scopedSchedule
+  const fallbackSubject = subjectOptions[0] || getTeacherSubjectNames(user)[0] || 'Mata pelajaran'
+  return teacherDashboardMockSchedule.map((item) => ({ ...item, subject: fallbackSubject }))
+}
+
+function getNextTeacherMeeting(scheduleRows = [], now = new Date()) {
+  const meetings = scheduleRows.map((meeting) => {
+    let startDate = buildTeacherScheduleDate(meeting, meeting.start, now)
+    let endDate = buildTeacherScheduleDate(meeting, meeting.end, now)
+    if (endDate <= startDate) {
+      endDate = new Date(endDate.getTime() + 24 * 60 * 60 * 1000)
+    }
+    const isOngoing = startDate <= now && endDate > now
+    if (!isOngoing && endDate <= now) {
+      startDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000)
+      endDate = new Date(endDate.getTime() + 7 * 24 * 60 * 60 * 1000)
+    }
+    const startIso = toLocalIsoDate(startDate)
+    const nowIso = toLocalIsoDate(now)
+    const diffMinutes = Math.round((startDate.getTime() - now.getTime()) / 60000)
+    const dayLabel = teacherDashboardDayLabels[startDate.getDay()] || ''
+    const relativeLabel = isOngoing
+      ? 'Sedang berlangsung'
+      : startIso === nowIso
+        ? `${Math.max(1, diffMinutes)} menit lagi`
+        : startIso === addDaysIso(nowIso, 1)
+          ? 'Besok'
+          : dayLabel
+
+    return {
+      ...meeting,
+      startDate,
+      endDate,
+      dateIso: startIso,
+      dayLabel,
+      timeLabel: `${formatTeacherScheduleTime(meeting.start)} - ${formatTeacherScheduleTime(meeting.end)}`,
+      relativeLabel,
+      isOngoing,
+      isToday: startIso === nowIso,
+    }
+  })
+
+  return meetings.sort((left, right) => left.startDate - right.startDate)[0] || null
+}
+
+function getTeacherClassStudentCount(roster = [], className = '') {
+  const targetClass = promoteClassName(className)
+  const count = roster.filter((student) => promoteClassName(student.className) === targetClass).length
+  return count || 24
+}
+
+function buildTeacherAiBanner({ draftAssignments = [], draftQuizzes = [], publishedMaterials = [] } = {}) {
+  if (draftQuizzes.length > 0) {
+    return {
+      title: `${draftQuizzes.length} draft kuis belum dipublish`,
+      description: 'Selesaikan kuis yang sudah disiapkan agar siswa bisa mengerjakannya tepat waktu.',
+      actionLabel: 'Lanjutkan draft',
+      target: '/guru/kuis-live',
+    }
+  }
+  if (draftAssignments.length > 0) {
+    return {
+      title: `${draftAssignments.length} draft tugas belum aktif`,
+      description: 'Cek instruksi, target kelas, dan deadline sebelum tugas dibuka untuk siswa.',
+      actionLabel: 'Cek tugas',
+      target: '/guru/tugas',
+    }
+  }
+  if (publishedMaterials.length < teacherDashboardThresholds.minPublishedMaterials) {
+    return {
+      title: 'Materi minggu ini belum siap',
+      description: 'Buat bahan ajar ringkas dari catatan, link, atau dokumen yang sudah dimiliki.',
+      actionLabel: 'Siapkan materi',
+      target: '/guru/studio-konten',
+    }
+  }
+  return null
+}
+
+function buildTeacherAttentionItems({ activeAssignments = [], attendanceSessions = [], gradebookRows = [], nextMeeting, todayDate }) {
+  const items = []
+
+  activeAssignments.forEach((assignment) => {
+    const submissionCount = getLocalAssignmentSubmissions(assignment.id).length
+    if (!submissionCount) return
+    items.push({
+      id: `assignment-${assignment.id}`,
+      type: 'tugas',
+      priority: 20,
+      icon: ClipboardCheck,
+      title: `${submissionCount} submission perlu dinilai`,
+      meta: `${assignment.title || 'Tugas'} · ${assignment.className || 'Kelas'}`,
+      actionLabel: 'Nilai tugas',
+      target: '/guru/tugas',
+    })
+  })
+
+  if (nextMeeting?.isToday) {
+    const hasAttendance = attendanceSessions.some((session) => (
+      session.date === todayDate && promoteClassName(session.className) === promoteClassName(nextMeeting.className)
+    ))
+    if (!hasAttendance) {
+      items.push({
+        id: `attendance-${nextMeeting.className}-${todayDate}`,
+        type: 'absensi',
+        priority: nextMeeting.isOngoing ? 10 : 30,
+        icon: CalendarClock,
+        title: nextMeeting.isOngoing ? 'Absensi kelas sedang berjalan belum diisi' : 'Absensi kelas hari ini belum diisi',
+        meta: `${nextMeeting.className} · ${nextMeeting.timeLabel}`,
+        actionLabel: 'Mulai absensi',
+        target: '/guru/daftar-hadir',
+      })
+    }
+  }
+
+  const lowGradeByClass = new Map()
+  gradebookRows.forEach((row) => {
+    const score = Number(row.finalScore || 0)
+    if (!score || score >= teacherDashboardThresholds.lowGradeScore) return
+    const className = promoteClassName(row.className || 'Kelas')
+    lowGradeByClass.set(className, (lowGradeByClass.get(className) || 0) + 1)
+  })
+  Array.from(lowGradeByClass.entries()).forEach(([className, count]) => {
+    items.push({
+      id: `grade-${className}`,
+      type: 'nilai',
+      priority: 40,
+      icon: BarChart3,
+      title: `${count} siswa perlu penguatan nilai`,
+      meta: `${className} · di bawah KKTP ${teacherDashboardThresholds.lowGradeScore}`,
+      actionLabel: 'Buka nilai',
+      target: '/guru/daftar-nilai',
+    })
+  })
+
+  const attendanceByClass = new Map()
+  attendanceSessions.forEach((session) => {
+    const className = promoteClassName(session.className || 'Kelas')
+    const rows = Array.isArray(session.rows) ? session.rows : []
+    attendanceByClass.set(className, [...(attendanceByClass.get(className) || []), ...rows])
+  })
+  Array.from(attendanceByClass.entries()).forEach(([className, rows]) => {
+    const summary = summarizeAttendanceRows(rows)
+    if (!summary.total || summary.rate >= teacherDashboardThresholds.lowAttendanceRate) return
+    items.push({
+      id: `attendance-rate-${className}`,
+      type: 'siswa',
+      priority: 50,
+      icon: UsersRound,
+      title: `Kehadiran ${className} di bawah ${teacherDashboardThresholds.lowAttendanceRate}%`,
+      meta: `${summary.rate}% hadir · ${summary.tidakHadir} tidak hadir tercatat`,
+      actionLabel: 'Lihat rekap',
+      target: '/guru/daftar-hadir',
+    })
+  })
+
+  if (!items.length && !activeAssignments.length && !attendanceSessions.length && !gradebookRows.length) {
+    return teacherDashboardMockAttention.map((item, index) => ({
+      ...item,
+      priority: 70 + index,
+      icon: item.type === 'nilai' ? BarChart3 : UsersRound,
+    }))
+  }
+
+  return items.sort((left, right) => left.priority - right.priority).slice(0, 5)
+}
+
+function buildTeacherClassOverview({ scheduleRows = [], gradebookRows = [], attendanceSessions = [], roster = [] }) {
+  const realClassNames = [
+    ...scheduleRows.map((row) => row.className),
+    ...gradebookRows.map((row) => row.className),
+    ...attendanceSessions.map((row) => row.className),
+  ].filter(Boolean).map(promoteClassName)
+  const classNames = new Set(realClassNames.length ? realClassNames : teacherDashboardMockClassMetrics.map((row) => promoteClassName(row.className)))
+
+  return Array.from(classNames).slice(0, 6).map((className) => {
+    const mockMetric = teacherDashboardMockClassMetrics.find((item) => promoteClassName(item.className) === className)
+    const classGrades = gradebookRows.filter((row) => promoteClassName(row.className) === className)
+    const gradeSummary = summarizeGradebook(classGrades)
+    const classAttendanceRows = attendanceSessions
+      .filter((session) => promoteClassName(session.className) === className)
+      .flatMap((session) => Array.isArray(session.rows) ? session.rows : [])
+    const attendanceSummary = summarizeAttendanceRows(classAttendanceRows)
+    const studentCount = getTeacherClassStudentCount(roster, className)
+
+    return {
+      className,
+      studentCount,
+      average: gradeSummary.average || mockMetric?.average || 0,
+      attendanceRate: attendanceSummary.rate || mockMetric?.progress || 0,
+      note: gradeSummary.average ? `${gradeSummary.completed}/${gradeSummary.total} nilai terisi` : mockMetric?.note || 'Siap dikelola',
+    }
+  })
+}
+
+function TeacherDashboardSkeleton() {
+  return (
+    <div className="space-y-5" aria-label="Memuat dashboard guru">
+      <div className="h-64 animate-pulse rounded-[1.35rem] bg-[#EAF4FF]" />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="h-72 animate-pulse rounded-[1.15rem] bg-white ring-1 ring-[#D9E6F5]" />
+        <div className="h-72 animate-pulse rounded-[1.15rem] bg-white ring-1 ring-[#D9E6F5]" />
+      </div>
+    </div>
+  )
+}
+
+function HeroNextClassCard({ meeting, studentCount = 0, subjectLabel, onOpenMaterials, onStartAttendance }) {
+  return (
+    <section className="overflow-hidden rounded-[1.35rem] bg-[#0B3A5B] text-white shadow-[0_22px_60px_rgba(11,58,91,0.22)]">
+      <div className="grid gap-4 bg-[radial-gradient(circle_at_82%_16%,rgba(77,184,255,0.28),transparent_32%),linear-gradient(135deg,#0B3A5B_0%,#145A86_48%,#0F766E_100%)] p-5 md:p-6 xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-end">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-xl bg-white/12 px-3 py-1.5 text-xs font-black text-white ring-1 ring-white/20">
+              <CalendarClock size={15} /> Kelas berikutnya
+            </span>
+            <span className="rounded-xl bg-[#F7C948] px-3 py-1.5 text-xs font-black text-[#102A43]">
+              {meeting?.relativeLabel || 'Belum ada jadwal'}
+            </span>
+          </div>
+          <h2 className="mt-5 max-w-3xl text-balance text-3xl font-black leading-tight sm:text-4xl">
+            {meeting?.className || 'Tidak ada kelas terjadwal'}
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-white/78 sm:text-base">
+            {meeting
+              ? `${meeting.subject || subjectLabel} · ${meeting.dayLabel}, ${meeting.timeLabel}${meeting.room ? ` · ${meeting.room}` : ''}`
+              : 'Tambahkan jadwal mengajar agar dashboard bisa menampilkan kelas berikutnya secara otomatis.'}
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2 text-xs font-black text-white/84">
+            <span className="rounded-xl bg-white/12 px-3 py-2 ring-1 ring-white/16">{studentCount} siswa</span>
+            <span className="rounded-xl bg-white/12 px-3 py-2 ring-1 ring-white/16">{subjectLabel}</span>
+            {meeting?.isOngoing && <span className="rounded-xl bg-emerald-300 px-3 py-2 text-emerald-950">Sedang mengajar</span>}
+          </div>
+        </div>
+        <div className="grid gap-2">
+          <button onClick={onOpenMaterials} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[0.95rem] bg-white px-4 text-sm font-black text-[#0B3A5B] shadow-[0_16px_34px_rgba(3,18,34,0.18)] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF] active:translate-y-0">
+            <BookOpen size={18} /> Buka materi
+          </button>
+          <button onClick={onStartAttendance} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[0.95rem] bg-[#F7C948] px-4 text-sm font-black text-[#102A43] shadow-[0_16px_34px_rgba(3,18,34,0.16)] transition hover:-translate-y-0.5 hover:bg-[#FFD666] active:translate-y-0">
+            <CalendarClock size={18} /> Mulai absensi
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function AIContextBanner({ banner, onAction }) {
+  if (!banner) return null
+  return (
+    <section className="flex flex-col gap-3 rounded-[1.05rem] bg-[#F8FBFF] p-4 ring-1 ring-[#D9E6F5] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
+          <Sparkles size={19} />
+        </span>
+        <div>
+          <h3 className="text-base font-black leading-tight text-[#132437]">{banner.title}</h3>
+          <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">{banner.description}</p>
+        </div>
+      </div>
+      <button onClick={onAction} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[0.85rem] bg-[#0B3A5B] px-4 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#145A86] active:translate-y-0">
+        <Sparkles size={15} /> {banner.actionLabel}
+      </button>
+    </section>
+  )
+}
+
+function AttentionSection({ items = [], onNavigate }) {
+  return (
+    <DashboardPanel title="Perlu perhatian" description="Urutan dibuat berdasarkan hal yang paling cepat perlu tindakan.">
+      {items.length ? (
+        <div className="space-y-2">
+          {items.map((item) => <AttentionItem key={item.id} item={item} onNavigate={onNavigate} />)}
+        </div>
+      ) : (
+        <div className="rounded-[1rem] bg-emerald-50 p-4 text-emerald-900 ring-1 ring-emerald-100">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-white text-emerald-700 ring-1 ring-emerald-100">
+              <ClipboardCheck size={18} />
+            </span>
+            <div>
+              <p className="text-sm font-black">Semua aman hari ini.</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-emerald-800/80">Belum ada tugas menunggu, absensi tertinggal, atau nilai yang perlu segera dicek.</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </DashboardPanel>
+  )
+}
+
+function AttentionItem({ item, onNavigate }) {
+  const Icon = item.icon || Megaphone
+  const tones = {
+    absensi: 'bg-rose-50 text-rose-700 ring-rose-100',
+    siswa: 'bg-rose-50 text-rose-700 ring-rose-100',
+    tugas: 'bg-amber-50 text-amber-700 ring-amber-100',
+    nilai: 'bg-slate-100 text-slate-700 ring-slate-200',
+  }
+  return (
+    <article className="grid gap-3 rounded-[1rem] bg-white p-3 ring-1 ring-[#D9E6F5] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+      <span className={`grid h-11 w-11 place-items-center rounded-[0.9rem] ring-1 ${tones[item.type] || tones.nilai}`}>
+        <Icon size={18} />
+      </span>
+      <div className="min-w-0">
+        <h3 className="text-sm font-black leading-tight text-[#132437]">{item.title}</h3>
+        <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{item.meta}</p>
+      </div>
+      <button onClick={() => onNavigate(item.target)} className="inline-flex min-h-10 items-center justify-center rounded-[0.8rem] bg-[#F8FBFF] px-3 text-xs font-black text-[#0B3A5B] ring-1 ring-[#D9E6F5] transition hover:bg-[#EAF4FF]">
+        {item.actionLabel}
+      </button>
+    </article>
+  )
+}
+
+function ClassOverviewGrid({ rows = [], onOpen }) {
+  return (
+    <DashboardPanel title="Kelas saya" description="Ringkasan rombel yang sering diajar.">
+      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+        {rows.map((row) => (
+          <button key={row.className} onClick={() => onOpen(row.className)} className="group rounded-[1rem] bg-[#F8FBFF] p-4 text-left ring-1 ring-[#D9E6F5] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_16px_34px_rgba(15,36,55,0.08)]">
+            <div className="flex items-start justify-between gap-3">
+              <span className="grid h-11 w-11 place-items-center rounded-[0.9rem] bg-white text-[#2F80D8] ring-1 ring-[#D9E6F5]">
+                <School size={19} />
+              </span>
+              <span className="font-mono text-2xl font-black text-[#132437]">{row.average || '-'}</span>
+            </div>
+            <h3 className="mt-4 text-base font-black leading-tight text-[#132437]">{row.className}</h3>
+            <p className="mt-1 text-xs font-semibold text-[#64748B]">{row.studentCount} siswa · rata-rata nilai</p>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#EAF4FF]">
+              <span className="block h-full rounded-full bg-[#2F80D8]" style={{ width: `${Math.min(100, row.attendanceRate || 0)}%` }} />
+            </div>
+            <p className="mt-2 text-xs font-bold text-[#64748B]">{row.attendanceRate || 0}% kehadiran · {row.note}</p>
+          </button>
+        ))}
+      </div>
+    </DashboardPanel>
+  )
+}
+
+function GuruDashboard({ user }) {
   const navigate = useNavigate()
   const allSubjectOptions = useMemo(() => getGradeSubjectOptions(), [])
   const teacherSubjectOptions = useMemo(() => getTeacherSubjectOptions(user, allSubjectOptions), [allSubjectOptions, user?.subject])
-  const hasAssignedSubjects = getTeacherSubjectNames(user).length > 0
-  const teacherSubjectLabel = hasAssignedSubjects ? teacherSubjectOptions.join(', ') : 'Semua mapel'
-  const teacherMaterials = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-materials-'), user, teacherSubjectOptions)
-  const teacherAssignments = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-assignments-'), user, teacherSubjectOptions)
-  const teacherQuizzes = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-quizzes-'), user, teacherSubjectOptions)
-  const attendanceSessions = filterAttendanceSessionsByMode(getAttendanceSessions(user), { type: 'daily' })
-  const gradebookRows = filterRowsByTeacherSubjects(getGradebookRows(user), user, teacherSubjectOptions)
-  const gradeSummary = summarizeGradebook(gradebookRows)
-  const todayDate = toLocalIsoDate()
-  const todayAttendance = summarizeAttendanceSessions(attendanceSessions.filter((item) => item.date === todayDate))
-  const isStatus = (item, status) => String(item?.status || '').toLowerCase() === status.toLowerCase()
-  const publishedMaterials = teacherMaterials.filter((item) => isStatus(item, 'Publish'))
-  const activeAssignments = teacherAssignments.filter((item) => isStatus(item, 'Aktif'))
-  const draftAssignments = teacherAssignments.filter((item) => !isStatus(item, 'Aktif'))
-  const draftQuizzes = teacherQuizzes.filter((item) => isStatus(item, 'Draft'))
-  const publishedQuizzes = teacherQuizzes.filter((item) => isStatus(item, 'Publish'))
-  const teacherFirstName = user?.name?.split(' ')[0] || 'Guru'
-  const nextMeeting = {
-    className: classes[0]?.name || 'Kelas belum dipilih',
-    subject: teacherSubjectOptions[0] || teacherSubjectLabel,
-    time: '07.30 - 09.00',
-  }
+  const [dashboardReady, setDashboardReady] = useState(false)
+  const [dashboardRetryKey, setDashboardRetryKey] = useState(0)
 
-  const teacherCards = [
-    {
-      label: 'Materi',
-      value: publishedMaterials.length,
-      caption: `${teacherMaterials.length} tersimpan`,
-      icon: BookOpen,
-      tone: 'blue',
-      onClick: () => navigate('/guru/materi'),
-    },
-    {
-      label: 'Tugas',
-      value: activeAssignments.length,
-      caption: `${draftAssignments.length} draft`,
-      icon: ClipboardList,
-      tone: 'amber',
-      onClick: () => navigate('/guru/tugas'),
-    },
-    {
-      label: 'Kuis',
-      value: publishedQuizzes.length,
-      caption: `${draftQuizzes.length} draft`,
-      icon: FlaskConical,
-      tone: 'green',
-      onClick: () => navigate('/guru/kuis-live'),
-    },
-    {
-      label: 'Nilai',
-      value: gradeSummary.average || '-',
-      caption: `${gradebookRows.length} siswa`,
-      icon: BarChart3,
-      tone: 'cyan',
-      onClick: () => navigate('/guru/daftar-nilai'),
-    },
-    {
-      label: 'Absensi',
-      value: todayAttendance.total,
-      caption: `${todayAttendance.hadir} hadir hari ini`,
-      icon: CalendarClock,
-      tone: 'rose',
-      onClick: () => navigate('/guru/daftar-hadir'),
-    },
-    {
-      label: 'Siapkan',
-      value: 'AI',
-      caption: 'tugas, kuis, soal',
-      icon: Sparkles,
-      tone: 'slate',
-      onClick: () => navigate('/guru/studio-konten'),
-    },
-  ]
+  useEffect(() => {
+    setDashboardReady(false)
+    const timeout = window.setTimeout(() => setDashboardReady(true), 140)
+    return () => window.clearTimeout(timeout)
+  }, [dashboardRetryKey, user?.id])
+
+  const dashboard = useMemo(() => {
+    try {
+      const hasAssignedSubjects = getTeacherSubjectNames(user).length > 0
+      const teacherSubjectLabel = hasAssignedSubjects ? teacherSubjectOptions.join(', ') : 'Semua mapel'
+      const teacherMaterials = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-materials-'), user, teacherSubjectOptions)
+      const teacherAssignments = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-assignments-'), user, teacherSubjectOptions)
+      const teacherQuizzes = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-quizzes-'), user, teacherSubjectOptions)
+      const attendanceSessions = filterAttendanceSessionsByMode(getAttendanceSessions(user), { type: 'daily' })
+      const gradebookRows = filterRowsByTeacherSubjects(getGradebookRows(user), user, teacherSubjectOptions)
+      const roster = getAttendanceRoster()
+      const todayDate = toLocalIsoDate()
+      const isStatus = (item, status) => String(item?.status || '').toLowerCase() === status.toLowerCase()
+      const publishedMaterials = teacherMaterials.filter((item) => isStatus(item, 'Publish'))
+      const activeAssignments = teacherAssignments.filter((item) => isStatus(item, 'Aktif'))
+      const draftAssignments = teacherAssignments.filter((item) => !isStatus(item, 'Aktif'))
+      const draftQuizzes = teacherQuizzes.filter((item) => isStatus(item, 'Draft'))
+      const scheduleRows = getTeacherDashboardSchedule(user, teacherSubjectOptions)
+      const nextMeeting = getNextTeacherMeeting(scheduleRows)
+
+      return {
+        error: null,
+        teacherSubjectLabel,
+        teacherFirstName: user?.name?.split(' ')[0] || 'Guru',
+        nextMeeting,
+        nextMeetingStudentCount: getTeacherClassStudentCount(roster, nextMeeting?.className),
+        aiBanner: buildTeacherAiBanner({ draftAssignments, draftQuizzes, publishedMaterials }),
+        attentionItems: buildTeacherAttentionItems({
+          activeAssignments,
+          attendanceSessions,
+          gradebookRows,
+          nextMeeting,
+          todayDate,
+        }),
+        classRows: buildTeacherClassOverview({
+          scheduleRows,
+          gradebookRows,
+          attendanceSessions,
+          roster,
+        }),
+      }
+    } catch (error) {
+      return { error }
+    }
+  }, [dashboardRetryKey, teacherSubjectOptions, user])
+
+  if (!dashboardReady) return <TeacherDashboardSkeleton />
+
+  if (dashboard.error) {
+    return (
+      <DashboardPanel title="Dashboard belum bisa dimuat" description="Koneksi atau data lokal sedang tidak siap. Coba muat ulang bagian dashboard.">
+        <button onClick={() => setDashboardRetryKey((value) => value + 1)} className="inline-flex min-h-10 items-center justify-center rounded-[0.85rem] bg-[#0B3A5B] px-4 text-sm font-black text-white">
+          Coba lagi
+        </button>
+      </DashboardPanel>
+    )
+  }
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-[1.35rem] border border-[#D9E6F5] bg-white p-5 shadow-[0_18px_52px_rgba(15,36,55,0.07)]">
+      <section className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">Selamat mengajar, {teacherFirstName}</p>
-            <h2 className="mt-2 text-balance text-3xl font-black leading-tight text-[#132437] sm:text-4xl">Kelola kelas dari satu ringkasan.</h2>
-            <p className="mt-3 text-sm font-semibold leading-7 text-[#64748B]">
-              Fokus ke yang paling sering dipakai: materi, tugas, kuis, nilai, dan absensi.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#EAF4FF] px-3 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5]">
-              <BookOpen size={14} /> {teacherSubjectLabel}
-            </span>
-            <span className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#F8FBFF] px-3 text-xs font-black text-[#64748B] ring-1 ring-[#D9E6F5]">
-              {nextMeeting.time} · {nextMeeting.className}
-            </span>
+            <p className="text-xs font-black uppercase text-[#2F80D8]">Selamat mengajar, {dashboard.teacherFirstName}</p>
+            <h2 className="mt-1 text-balance text-3xl font-black leading-tight text-[#132437]">Mulai dari kelas terdekat.</h2>
           </div>
         </div>
+        <span className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#EAF4FF] px-3 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5]">
+          <BookOpen size={14} /> {dashboard.teacherSubjectLabel}
+        </span>
       </section>
 
-      <DashboardColorGrid items={teacherCards} />
+      <HeroNextClassCard
+        meeting={dashboard.nextMeeting}
+        studentCount={dashboard.nextMeetingStudentCount}
+        subjectLabel={dashboard.teacherSubjectLabel}
+        onOpenMaterials={() => navigate('/guru/materi')}
+        onStartAttendance={() => navigate('/guru/daftar-hadir')}
+      />
 
-      <DashboardPanel title="Hari ini" description="Ringkasan kecil, detail lengkap tetap di halaman masing-masing.">
-        <SetupSteps
-          items={[
-            { label: 'Absensi', description: `${todayAttendance.total} tercatat, ${todayAttendance.hadir} hadir.`, icon: CalendarClock, done: todayAttendance.total > 0, actionLabel: 'Buka', onClick: () => navigate('/guru/daftar-hadir') },
-            { label: 'Tugas aktif', description: `${activeAssignments.length} tugas berjalan.`, icon: ClipboardCheck, done: activeAssignments.length > 0, actionLabel: 'Kelola', onClick: () => navigate('/guru/tugas') },
-            { label: 'Kuis publish', description: `${publishedQuizzes.length} kuis siap siswa.`, icon: FlaskConical, done: publishedQuizzes.length > 0, actionLabel: 'Kelola', onClick: () => navigate('/guru/kuis-live') },
-          ]}
-        />
-      </DashboardPanel>
+      <AIContextBanner banner={dashboard.aiBanner} onAction={() => navigate(dashboard.aiBanner.target)} />
+
+      <AttentionSection items={dashboard.attentionItems} onNavigate={navigate} />
+
+      <ClassOverviewGrid rows={dashboard.classRows} onOpen={() => navigate('/guru/kelas')} />
     </div>
   )
 }
@@ -9756,6 +10115,11 @@ function GuruTugas({ user, notify, appContext }) {
       ...assignment,
       subject: assignment.subject || teacherSubject || 'Mapel belum dipilih',
     })
+    const validation = getAssignmentValidation(preparedAssignment)
+    if (!validation.valid) {
+      notify(`Lengkapi tugas sebelum disimpan: ${validation.missing.join(', ')}.`)
+      return
+    }
     if (!appContext?.accessToken || !isUuid(user?.id)) {
       const localAssignment = {
         ...preparedAssignment,
@@ -9983,6 +10347,24 @@ const defaultAssignmentRubricRows = [
   { id: 'rubric-process', component: 'Proses pengerjaan', weight: 20, description: 'Langkah kerja, alasan, atau bukti pendukung terlihat jelas.' },
   { id: 'rubric-presentation', component: 'Kerapian', weight: 20, description: 'Format rapi, mudah dibaca, dan dikumpulkan sesuai ketentuan.' },
 ]
+
+function getAssignmentValidation(assignment = {}) {
+  const missing = []
+  const targetClasses = normalizeAssignmentClassNames(assignment)
+  if (!String(assignment.title || '').trim()) missing.push('judul tugas')
+  if (!String(assignment.subject || '').trim() || normalizeLookupText(assignment.subject) === normalizeLookupText('Mapel belum dipilih')) missing.push('mata pelajaran')
+  if (!targetClasses.length) missing.push('target kelas')
+
+  if (assignment.status === 'Aktif') {
+    if (!String(assignment.description || '').trim()) missing.push('instruksi tugas')
+    if (!String(assignment.deadline || '').trim()) missing.push('tanggal dan jam tenggat')
+  }
+
+  return {
+    missing,
+    valid: missing.length === 0,
+  }
+}
 
 function normalizeAssignmentSubmissionTypes(value) {
   const aliases = {
@@ -10286,7 +10668,8 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
   const scopedSubjects = getScopedSubjectLookupRows(lookups.subjects, subjectOptions)
   const subjectsList = scopedSubjects.length > 0 ? scopedSubjects : [{ id: '', name: form.subject || assignment.subject || 'Mapel belum dipilih', synthetic: true }]
   const classesList = getAssignmentClassOptions(lookups.classes || [], form)
-  const validAssignment = String(form.title || '').trim() && normalizeAssignmentClassNames(form).length > 0
+  const assignmentValidation = getAssignmentValidation(form)
+  const validAssignment = assignmentValidation.valid
 
   useEffect(() => {
     const saved = safeReadLocalJson(autosaveKey, null)
@@ -10429,6 +10812,7 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
 
   const prepared = prepareAssignmentForSave(form)
   const rubricTotal = prepared.rubricRows.reduce((sum, row) => sum + Number(row.weight || 0), 0)
+  const rubricTotalIsIdeal = rubricTotal === 100
 
   return (
     <section className="mb-5 overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/90 shadow-[0_16px_48px_rgba(15,31,42,0.07)]">
@@ -10499,6 +10883,43 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
             </div>
           </div>
 
+          <div className="grid gap-3 lg:grid-cols-2">
+            <section className="rounded-[1rem] border border-[#0B3A5B]/10 bg-[#F8FBFF] p-3">
+              <p className="text-sm font-black text-[#13232d]">Metode pengumpulan</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Pilih satu atau beberapa cara siswa mengirim jawaban.</p>
+              <div className="mt-3 grid gap-2">
+                {assignmentSubmissionTypeOptions.map((option) => {
+                  const active = prepared.submissionTypes.includes(option.value)
+                  return (
+                    <label key={option.value} className={`flex cursor-pointer gap-3 rounded-[0.9rem] px-3 py-2.5 ring-1 transition ${active ? 'bg-white text-[#13232d] ring-[#0284c7]/30' : 'bg-white/70 text-slate-500 ring-[#0B3A5B]/8'}`}>
+                      <input type="checkbox" checked={active} onChange={() => toggleSubmissionType(option.value)} className="mt-1 h-4 w-4 rounded border-slate-300 text-[#0284c7]" />
+                      <span>
+                        <span className="block text-sm font-black">{option.label}</span>
+                        <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{option.helper}</span>
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            </section>
+
+            <section className="rounded-[1rem] border border-[#0B3A5B]/10 bg-white p-3">
+              <p className="text-sm font-black text-[#13232d]">Mode kerja</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Tentukan apakah tugas dikerjakan sendiri atau berkelompok.</p>
+              <div className="mt-3 grid gap-2">
+                {assignmentWorkModeOptions.map((option) => {
+                  const active = form.workMode === option.value
+                  return (
+                    <button key={option.value} type="button" onClick={() => updateField('workMode', option.value)} className={`rounded-[0.9rem] px-3 py-2.5 text-left ring-1 transition ${active ? 'bg-[#0B3A5B] text-white ring-[#0B3A5B]' : 'bg-white text-slate-600 ring-[#0B3A5B]/10 hover:bg-[#E0F2FE]'}`}>
+                      <span className="block text-sm font-black">{option.label}</span>
+                      <span className={`mt-0.5 block text-xs font-semibold leading-5 ${active ? 'text-white/78' : 'text-slate-500'}`}>{option.helper}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          </div>
+
           <div className="rounded-[1rem] border border-[#0B3A5B]/10 bg-white p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -10531,7 +10952,7 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
                 </div>
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-[0.8rem] bg-white px-3 py-2 text-xs font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/10">
                   <FileText size={14} /> Upload
-                  <input type="file" multiple onChange={addAttachmentFiles} className="hidden" />
+                  <input type="file" multiple onChange={addAttachmentFiles} className="hidden" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.html,.htm" />
                 </label>
               </div>
               <div className="mt-3 grid gap-2">
@@ -10569,8 +10990,14 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
                   <p className="text-sm font-black text-[#13232d]">Rubrik penilaian</p>
                   <p className="mt-1 text-xs font-semibold text-slate-500">Total bobot saat ini {rubricTotal}%.</p>
                 </div>
-                <button type="button" onClick={addRubricRow} className="rounded-[0.8rem] bg-[#E0F2FE] px-3 py-2 text-xs font-black text-[#0284c7]">Tambah</button>
+                <StatusBadge tone={rubricTotalIsIdeal ? 'green' : 'amber'}>{rubricTotalIsIdeal ? '100%' : 'Cek bobot'}</StatusBadge>
               </div>
+              {!rubricTotalIsIdeal && (
+                <div className="mt-3 rounded-[0.85rem] bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-800 ring-1 ring-amber-100">
+                  Total bobot rubrik sebaiknya 100% agar penilaian transparan untuk siswa.
+                </div>
+              )}
+              <button type="button" onClick={addRubricRow} className="mt-3 rounded-[0.8rem] bg-[#E0F2FE] px-3 py-2 text-xs font-black text-[#0284c7]">Tambah komponen rubrik</button>
               <div className="mt-3 space-y-2">
                 {prepared.rubricRows.map((row) => (
                   <div key={row.id} className="rounded-[0.9rem] border border-[#0B3A5B]/10 bg-[#F8FBFF] p-2">
@@ -10590,7 +11017,7 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
 
           {!validAssignment && (
             <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
-              Judul tugas dan minimal satu target kelas wajib diisi sebelum disimpan.
+              Lengkapi: {assignmentValidation.missing.join(', ')}.
             </div>
           )}
         </div>
@@ -10644,24 +11071,6 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
             </div>
           </div>
 
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0284c7]">Metode pengumpulan</p>
-            <div className="mt-2 space-y-2">
-              {assignmentSubmissionTypeOptions.map((option) => {
-                const active = prepared.submissionTypes.includes(option.value)
-                return (
-                  <label key={option.value} className={`flex cursor-pointer gap-3 rounded-[0.9rem] px-3 py-2.5 ring-1 transition ${active ? 'bg-white text-[#13232d] ring-[#0284c7]/30' : 'bg-white/70 text-slate-500 ring-[#0B3A5B]/8'}`}>
-                    <input type="checkbox" checked={active} onChange={() => toggleSubmissionType(option.value)} className="mt-1 h-4 w-4 rounded border-slate-300 text-[#0284c7]" />
-                    <span>
-                      <span className="block text-sm font-black">{option.label}</span>
-                      <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{option.helper}</span>
-                    </span>
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-
           <div className="grid grid-cols-2 gap-2">
             <label className={materialLabelClass}>Skor maksimal
               <input type="number" min="1" value={form.maxScore || 100} onChange={(event) => updateField('maxScore', event.target.value)} className={materialInputClass} />
@@ -10669,21 +11078,6 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
             <label className={materialLabelClass}>Bobot nilai %
               <input type="number" min="0" max="100" value={form.gradeWeight || 0} onChange={(event) => updateField('gradeWeight', event.target.value)} className={materialInputClass} />
             </label>
-          </div>
-
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0284c7]">Mode kerja</p>
-            <div className="mt-2 grid gap-2">
-              {assignmentWorkModeOptions.map((option) => {
-                const active = form.workMode === option.value
-                return (
-                  <button key={option.value} type="button" onClick={() => updateField('workMode', option.value)} className={`rounded-[0.9rem] px-3 py-2.5 text-left ring-1 transition ${active ? 'bg-[#0B3A5B] text-white ring-[#0B3A5B]' : 'bg-white text-slate-600 ring-[#0B3A5B]/10 hover:bg-[#E0F2FE]'}`}>
-                    <span className="block text-sm font-black">{option.label}</span>
-                    <span className={`mt-0.5 block text-xs font-semibold leading-5 ${active ? 'text-white/78' : 'text-slate-500'}`}>{option.helper}</span>
-                  </button>
-                )
-              })}
-            </div>
           </div>
 
           <button type="button" onClick={generateDraftWithAiHelper} className="inline-flex w-full items-center justify-center gap-2 rounded-[0.95rem] bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
