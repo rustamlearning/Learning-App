@@ -1,21 +1,30 @@
-import { Fragment, Suspense, lazy, useEffect, useMemo, useState } from 'react'
+import { Fragment, Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Award,
   ArrowLeft,
+  Atom,
   BarChart3,
   BookOpen,
   Bot,
   Brain,
+  Calculator,
   CalendarClock,
+  ChevronDown,
   ClipboardCheck,
   ClipboardList,
   Download,
   FileText,
   FileQuestion,
   FlaskConical,
+  Globe2,
+  Handshake,
+  Landmark,
+  Languages,
   Layers3,
   Link2,
+  Microscope,
+  Palette,
   Megaphone,
   PencilLine,
   PlayCircle,
@@ -23,7 +32,9 @@ import {
   Printer,
   Radio,
   Save,
+  Scale,
   School,
+  Search,
   Send,
   Sparkles,
   Target,
@@ -55,6 +66,7 @@ import {
   teachers,
 } from '../data/dummyData.js'
 import { schoolMaterials } from '../data/englishMaterials.js'
+import { teacherDashboardMockAttention, teacherDashboardMockClassMetrics, teacherDashboardMockSchedule } from '../data/teacherDashboardMock.js'
 import {
   CompactList,
   ConfirmDialog,
@@ -205,6 +217,7 @@ function renderAdmin(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'kelas') return <AdminKelas notify={notify} appContext={appContext} />
   if (page === 'wali-kelas') return <AdminWaliKelas notify={notify} />
   if (page === 'mapel') return <AdminMapel notify={notify} appContext={appContext} />
+  if (page === 'daftar-hadir') return <GuruDaftarHadir user={user} notify={notify} />
   if (page === 'pengaturan') return <Pengaturan notify={notify} />
   if (page === 'laporan') return <LaporanSekolah notify={notify} />
   if (page === 'backup') return <BackupPage notify={notify} setConfirmOpen={setConfirmOpen} appContext={appContext} />
@@ -225,8 +238,11 @@ function SiswaDashboard({ user, notify }) {
   const firstName = user?.name?.split(' ')[0] || 'Siswa'
   const navigate = useNavigate()
   const userId = user?.id || 'demo'
+  const studentClassName = user?.className || (user?.id === 'local-preview-siswa' ? 'XI Pangeran Diponegoro' : 'Kelas XI')
+  const studentGrade = extractGrade(studentClassName)
   const completedMaterials = getCompletedMaterials(userId)
   const availableMaterials = getAvailablePublishedMaterials()
+  const gradeMaterials = availableMaterials.filter((item) => !studentGrade || extractGrade(item.className) === studentGrade)
   const practiceResults = getStoredResultsByPrefix('islelearn-practice-result-')
   const quizResults = getStoredResultsByPrefix(`islelearn-quiz-result-${userId}-`)
   const assignmentSubmissions = readLocalRowsByPrefix('islelearn-assignment-submissions-').filter((item) => item.userId === userId)
@@ -236,27 +252,25 @@ function SiswaDashboard({ user, notify }) {
   const classAssignments = assignments.filter((item) => !user?.className || item.className === user.className)
   const activeAssignments = classAssignments.filter((item) => ['Aktif', 'Terlambat'].includes(item.status))
   const activeQuizzes = quizzes.filter((item) => ['Berlangsung', 'Belum mulai'].includes(item.status))
-  const continuingMaterials = availableMaterials
+  const continuingMaterials = gradeMaterials
     .filter((item) => item.status !== 'Selesai')
     .sort((a, b) => b.progress - a.progress)
     .slice(0, 3)
-  const nextMaterial = continuingMaterials[0] || availableMaterials[0]
-  const dailyGoal = Math.max(18, Math.min(100, learningProgress))
+  const nextMaterial = continuingMaterials[0] || gradeMaterials[0]
   const todayWorkCount = activeAssignments.length + activeQuizzes.length
-
-  const metricItems = [
-    { label: 'Progres', value: `${learningProgress}%`, caption: `${completedMaterials.length} materi selesai`, icon: BarChart3 },
-    { label: 'Prioritas', value: todayWorkCount, caption: 'tugas/kuis aktif', icon: ClipboardCheck },
-    { label: 'Aktivitas', value: practiceResults.length + quizResults.length, caption: 'latihan/kuis tersimpan', icon: CalendarClock },
-    { label: 'Rata-rata', value: average || '-', caption: 'nilai tersimpan', icon: Award },
-  ]
-
-  const quickLinks = [
-    { label: 'AI Tutor', icon: Bot, onClick: () => navigate('/siswa/ai-tutor') },
-    { label: 'Flashcard', icon: Layers3, onClick: () => navigate('/siswa/flashcard') },
-    { label: 'Latihan', icon: Brain, onClick: () => navigate('/siswa/latihan') },
-    { label: 'Kuis', icon: FileQuestion, onClick: () => navigate('/siswa/kuis') },
-  ]
+  const subjectNames = uniqueSubjectNames(gradeMaterials)
+  const subjectTiles = (subjectNames.length ? subjectNames : highSchoolSubjectFolders.slice(0, 8)).slice(0, 12).map((subjectName, index) => {
+    const rows = gradeMaterials.filter((item) => sameSubjectName(item.subject, subjectName))
+    const visual = getStudentSubjectVisual(subjectName, index)
+    const totalProgress = rows.reduce((total, item) => total + Number(item.progress || 0), 0)
+    return {
+      ...visual,
+      name: subjectName,
+      shortName: getStudentSubjectShortLabel(subjectName),
+      count: rows.length,
+      progress: rows.length ? Math.round(totalProgress / rows.length) : 0,
+    }
+  })
 
   const priorityItems = [
     ...activeQuizzes.slice(0, 2).map((item) => ({
@@ -292,74 +306,122 @@ function SiswaDashboard({ user, notify }) {
     onClick: () => navigate('/siswa/materi'),
   }))
 
-  const subjectCards = Object.values(availableMaterials.reduce((acc, item) => {
-    const key = item.subject || 'Mapel'
-    if (!acc[key]) acc[key] = { subject: key, total: 0, progress: 0, sample: item.topic || item.title }
-    acc[key].total += 1
-    acc[key].progress += Number(item.progress || 0)
-    return acc
-  }, {})).slice(0, 4).map((item) => ({
-    ...item,
-    progress: Math.round(item.progress / Math.max(1, item.total)),
-  }))
+  const featureTiles = [
+    {
+      label: 'Tugas',
+      caption: `${activeAssignments.length} perlu dicek`,
+      icon: ClipboardList,
+      path: '/siswa/tugas',
+      tone: 'bg-[#FFF6DE] text-amber-800 ring-amber-100',
+    },
+    {
+      label: 'Kuis',
+      caption: `${activeQuizzes.length} aktif`,
+      icon: FileQuestion,
+      path: '/siswa/kuis',
+      tone: 'bg-[#E8F8EF] text-emerald-800 ring-emerald-100',
+    },
+    {
+      label: 'Bank Soal',
+      caption: 'Latihan mandiri',
+      icon: FileQuestion,
+      path: '/siswa/kuis',
+      tone: 'bg-[#FFE9F1] text-rose-800 ring-rose-100',
+    },
+    {
+      label: 'Laporan Belajar',
+      caption: average ? `Rata-rata ${average}` : `${learningProgress}% progres`,
+      icon: LineChartIcon,
+      path: '/siswa/progres',
+      tone: 'bg-[#E8F2FF] text-[#17446E] ring-[#B9D8F7]',
+    },
+    {
+      label: 'AI Tutor',
+      caption: 'Tanya konsep sulit',
+      icon: Bot,
+      path: '/siswa/ai-tutor',
+      tone: 'bg-[#EEF2FF] text-indigo-800 ring-indigo-100',
+    },
+    {
+      label: 'Flashcard',
+      caption: 'Review cepat',
+      icon: Layers3,
+      path: '/siswa/flashcard',
+      tone: 'bg-[#F1F5F9] text-slate-800 ring-slate-200',
+    },
+  ]
+
+  const metricItems = [
+    { label: 'Progres', value: `${learningProgress}%`, caption: `${completedMaterials.length} materi selesai`, icon: BarChart3, tone: 'blue' },
+    { label: 'Prioritas', value: todayWorkCount, caption: 'tugas/kuis aktif', icon: ClipboardCheck, tone: 'amber' },
+    { label: 'Aktivitas', value: practiceResults.length + quizResults.length + assignmentSubmissions.length, caption: 'latihan dan submission', icon: CalendarClock, tone: 'green' },
+    { label: 'Rata-rata', value: average || '-', caption: 'nilai tersimpan', icon: Award, tone: 'rose' },
+  ]
+
+  const quickActions = [
+    { label: 'Buka Belajar', icon: BookOpen, onClick: () => navigate('/siswa/materi') },
+    { label: 'Tugas', icon: ClipboardList, onClick: () => navigate('/siswa/tugas') },
+    { label: 'Kuis', icon: FileQuestion, onClick: () => navigate('/siswa/kuis') },
+    { label: 'Progres', icon: LineChartIcon, onClick: () => navigate('/siswa/progres') },
+  ]
 
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-[1.35rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_18px_52px_rgba(15,36,55,0.07)] sm:p-5">
-        <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr] lg:items-stretch">
-          <div className="rounded-[1.1rem] bg-[#123B63] p-5 text-white">
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-sky-200">Selamat belajar, {firstName}</p>
-            <h2 className="mt-2 text-balance text-3xl font-black leading-tight text-white sm:text-4xl">Lanjutkan materi yang terakhir kamu pelajari.</h2>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-sky-100/82">
-              Beranda ini hanya menampilkan langkah yang perlu dilakukan sekarang: lanjut belajar, cek prioritas, lalu lihat progres.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <button
-                onClick={() => navigate('/siswa/materi')}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#123B63] shadow-[0_12px_24px_rgba(5,20,35,0.18)] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF] active:translate-y-0"
-              >
-                <PlayCircle size={16} /> Lanjutkan
-              </button>
-              <button
-                onClick={() => navigate('/siswa/tugas')}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/14 transition hover:-translate-y-0.5 hover:bg-white/16 active:translate-y-0"
-              >
-                <ClipboardCheck size={16} /> {todayWorkCount} prioritas
-              </button>
+      <section className="grid gap-4 overflow-hidden rounded-[1.35rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_18px_52px_rgba(15,36,55,0.07)] lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="rounded-[1.1rem] bg-[#123B63] p-5 text-white">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-200">Ringkasan belajar</p>
+          <h2 className="mt-2 max-w-3xl text-balance text-3xl font-black leading-tight sm:text-4xl">
+            Halo, {firstName}. Ini kondisi belajarmu hari ini.
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-sky-100/82">
+            Dashboard dipakai untuk melihat progres, prioritas tugas, nilai, dan materi yang perlu dilanjutkan.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              onClick={() => navigate('/siswa/materi')}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#123B63] shadow-[0_12px_24px_rgba(5,20,35,0.18)] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF] active:translate-y-0"
+            >
+              <BookOpen size={16} /> Lanjut belajar
+            </button>
+            <button
+              onClick={() => navigate('/siswa/tugas')}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/18 transition hover:-translate-y-0.5 hover:bg-white/16 active:translate-y-0"
+            >
+              <ClipboardCheck size={16} /> {todayWorkCount} prioritas
+            </button>
+          </div>
+        </div>
+
+        <article className="flex min-h-full flex-col rounded-[1.1rem] border border-[#D9E6F5] bg-[#F8FBFF] p-5">
+          <div className="flex items-center justify-between gap-3">
+            <StatusBadge tone="teal">{studentClassName}</StatusBadge>
+            <span className="rounded-xl bg-white px-3 py-1 text-xs font-black text-[#64748B] ring-1 ring-[#D9E6F5]">{learningProgress}%</span>
+          </div>
+          <h3 className="mt-4 text-2xl font-black leading-tight text-[#132437]">Target belajar</h3>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">
+            {nextMaterial ? `Lanjutkan: ${nextMaterial.title}` : 'Belum ada materi untuk dilanjutkan.'}
+          </p>
+          <div className="mt-5">
+            <div className="flex items-center justify-between text-xs font-black text-[#64748B]">
+              <span>Progress materi</span>
+              <span>{Number(nextMaterial?.progress || 0)}%</span>
+            </div>
+            <div className="mt-2 h-3 rounded-full bg-white ring-1 ring-[#D9E6F5]">
+              <div className="h-3 rounded-full bg-[#2F80D8]" style={{ width: `${Math.min(100, Number(nextMaterial?.progress || 0))}%` }} />
             </div>
           </div>
-
-          <article className="flex min-h-full flex-col rounded-[1.1rem] border border-[#D9E6F5] bg-[#F8FBFF] p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <StatusBadge tone="teal">Lanjutkan Belajar</StatusBadge>
-              <span className="rounded-xl bg-white px-3 py-1 text-xs font-black text-[#64748B] ring-1 ring-[#D9E6F5]">Estimasi 20 menit</span>
-            </div>
-            <h3 className="mt-4 line-clamp-2 text-2xl font-black leading-tight text-[#132437]">{nextMaterial?.title || 'Materi belum tersedia'}</h3>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">
-              {nextMaterial ? `${nextMaterial.subject} · ${nextMaterial.topic || nextMaterial.className || 'Materi kelas'}` : 'Cek kembali nanti atau tanya guru jika materi belum muncul.'}
-            </p>
-            <div className="mt-5">
-              <div className="flex items-center justify-between text-xs font-black text-[#64748B]">
-                <span>Progress</span>
-                <span>{nextMaterial?.progress || dailyGoal}%</span>
-              </div>
-              <div className="mt-2 h-3 rounded-full bg-white ring-1 ring-[#D9E6F5]">
-                <div className="h-3 rounded-full bg-[#2F80D8]" style={{ width: `${Math.min(100, nextMaterial?.progress || dailyGoal)}%` }} />
-              </div>
-            </div>
-            <div className="mt-auto flex flex-col gap-2 pt-5 sm:flex-row">
-              <button onClick={() => navigate('/siswa/materi')} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#17446E] px-4 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#2F80D8]">
-                <BookOpen size={16} /> Buka materi
-              </button>
-              <button onClick={() => navigate('/siswa/materi')} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#17446E] ring-1 ring-[#D9E6F5] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF]">
-                Lihat semua
-              </button>
-            </div>
-          </article>
-        </div>
+          <button
+            onClick={() => navigate('/siswa/materi')}
+            className="mt-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#17446E] px-4 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#2F80D8]"
+          >
+            <PlayCircle size={16} /> Buka halaman belajar
+          </button>
+        </article>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_0.95fr]">
+      <DashboardColorGrid items={metricItems} />
+
+      <div className="grid gap-4 xl:grid-cols-2">
         <CompactList
           title="Prioritas hari ini"
           description="Tugas dan kuis terdekat ditaruh paling atas."
@@ -374,30 +436,197 @@ function SiswaDashboard({ user, notify }) {
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <DashboardPanel title="Mapel saya" description="Ringkasan beberapa mapel dari materi yang tersedia.">
-          {subjectCards.length ? (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {subjectCards.map((subject) => (
-                <button key={subject.subject} onClick={() => navigate('/siswa/materi')} className="rounded-xl bg-[#F8FBFF] p-3 text-left ring-1 ring-[#D9E6F5] transition hover:-translate-y-0.5 hover:bg-white">
-                  <p className="line-clamp-1 text-sm font-black text-[#132437]">{subject.subject}</p>
-                  <p className="mt-1 line-clamp-1 text-xs font-semibold text-[#64748B]">{subject.total} materi · {subject.sample}</p>
-                  <div className="mt-3 h-2 rounded-full bg-white ring-1 ring-[#D9E6F5]">
-                    <div className="h-2 rounded-full bg-[#2F80D8]" style={{ width: `${subject.progress}%` }} />
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <EmptyState title="Belum ada progres." description="Mulai satu materi untuk melihat progres belajarmu." action={<QuickActionButton icon={BookOpen} label="Buka Belajar" onClick={() => navigate('/siswa/materi')} />} />
-          )}
-        </DashboardPanel>
-
-        <DashboardActionGrid items={quickLinks} title="Bantuan cepat" />
-      </div>
-
-      <MetricStrip items={metricItems} />
+      <DashboardActionGrid items={quickActions} title="Akses cepat" />
     </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      <section className="overflow-hidden rounded-[1.35rem] border border-[#D9E6F5] bg-[#EAF1F8] shadow-[0_18px_52px_rgba(15,36,55,0.08)]">
+        <div className="bg-gradient-to-r from-[#38BDF8] via-[#5B8DEF] to-[#7C6CF2] px-5 pb-16 pt-7 text-white">
+          <p className="text-sm font-black">Mau belajar apa hari ini, {firstName}?</p>
+          <h2 className="mt-2 max-w-3xl text-balance text-3xl font-black leading-tight sm:text-4xl">
+            Pilih mapel, lanjutkan materi, atau cek tugas dari satu ruang belajar.
+          </h2>
+        </div>
+
+        <div className="-mt-9 px-4 pb-4">
+          <div className="grid gap-3 rounded-[1.15rem] bg-white p-3 shadow-[0_16px_42px_rgba(15,36,55,0.12)] ring-1 ring-[#D9E6F5] lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <button
+              onClick={() => navigate('/siswa/materi')}
+              className="flex min-h-14 min-w-0 items-center gap-3 rounded-[0.95rem] bg-white px-4 text-left text-[#64748B] ring-1 ring-[#D9E6F5] transition hover:bg-[#F8FBFF] hover:text-[#17446E]"
+            >
+              <Search size={22} className="shrink-0 text-[#17446E]" />
+              <span className="truncate text-base font-bold">Coba cari materi belajarmu di sini</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/siswa/materi')}
+              className="flex min-h-14 items-center justify-between gap-4 rounded-[0.95rem] border border-[#FF7A3D] bg-[#FFF7ED] px-4 text-sm font-black text-[#132437] transition hover:bg-white lg:min-w-[18rem]"
+            >
+              <span className="min-w-0 truncate">{studentClassName} · Kurikulum Merdeka</span>
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#FF7A3D] text-white">
+                <ChevronDown size={17} />
+              </span>
+            </button>
+          </div>
+
+          {nextMaterial && (
+            <button
+              onClick={() => navigate('/siswa/materi')}
+              className="mt-3 flex w-full flex-col gap-2 rounded-[1rem] bg-[#E5F3FF] px-4 py-3 text-left ring-1 ring-[#CFE6FF] transition hover:bg-white sm:flex-row sm:items-center sm:justify-between"
+            >
+              <span className="min-w-0">
+                <span className="block text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">Lanjutkan materi</span>
+                <span className="mt-1 block truncate text-sm font-black text-[#132437]">{nextMaterial.title}</span>
+              </span>
+              <span className="shrink-0 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5]">Buka</span>
+            </button>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-[1.35rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_12px_36px_rgba(15,36,55,0.055)]">
+        <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-black text-[#132437]">IsleBelajar</h2>
+            <p className="mt-1 text-sm font-semibold text-[#64748B]">Mapel untuk jenjang kelasmu.</p>
+          </div>
+          <span className="text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">{subjectTiles.length} mapel</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+          {subjectTiles.map((subject) => {
+            const Icon = subject.icon
+            return (
+              <button
+                key={subject.name}
+                onClick={() => navigate('/siswa/materi')}
+                className="group min-h-[8.75rem] rounded-[1rem] border border-[#E5EDF7] bg-white p-3 text-center shadow-[0_10px_24px_rgba(15,36,55,0.035)] transition hover:-translate-y-0.5 hover:border-[#B9D8F7] hover:shadow-[0_16px_34px_rgba(15,36,55,0.08)]"
+              >
+                <span className={`mx-auto grid h-14 w-14 place-items-center rounded-2xl ring-1 ${subject.tone}`}>
+                  <Icon size={26} />
+                </span>
+                <span className="mt-3 block min-h-[2.5rem] text-sm font-black leading-tight text-[#132437]">{subject.shortName}</span>
+                <span className="mt-2 inline-flex rounded-full bg-[#F8FBFF] px-2.5 py-1 text-[11px] font-black text-[#64748B] ring-1 ring-[#D9E6F5]">
+                  {subject.count || 0} materi
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      <section className="rounded-[1.35rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_12px_36px_rgba(15,36,55,0.055)]">
+        <h2 className="text-xl font-black text-[#132437]">Lainnya di IsleLearn</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          {featureTiles.map((item) => {
+            const Icon = item.icon
+            return (
+              <button
+                key={item.label}
+                onClick={() => navigate(item.path)}
+                className={`flex min-h-16 items-center gap-3 rounded-[0.95rem] px-4 text-left ring-1 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_12px_28px_rgba(15,36,55,0.08)] ${item.tone}`}
+              >
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/82 shadow-sm ring-1 ring-white/80">
+                  <Icon size={21} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-black">{item.label}</span>
+                  <span className="mt-0.5 block truncate text-xs font-bold opacity-75">{item.caption}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <CompactList
+          title="Prioritas hari ini"
+          description="Tugas dan kuis terdekat ditaruh paling atas."
+          items={priorityItems}
+          emptyLabel="Belum ada tugas aktif. Kamu bisa lanjut belajar materi terakhir."
+        />
+
+        <CompactList
+          title="Lanjutkan materi"
+          items={materialItems}
+          emptyLabel="Materi belum tersedia untuk kelas ini. Cek kembali nanti atau tanya guru."
+        />
+      </div>
+    </div>
+  )
+}
+
+function StudentSubjectGrid({ subjectTiles = [], activeSubjectKey = '', onSelect }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+      {subjectTiles.map((subject) => {
+        const Icon = subject.icon
+        const active = activeSubjectKey === subject.key
+        return (
+          <button
+            key={subject.key}
+            data-testid={`student-subject-${subject.key}`}
+            onClick={() => onSelect?.(subject)}
+            className={`group min-h-[8.75rem] rounded-[1rem] border bg-white p-3 text-center transition hover:-translate-y-0.5 hover:border-[#B9D8F7] hover:shadow-[0_16px_34px_rgba(15,36,55,0.08)] ${
+              active
+                ? 'border-[#2F80D8] shadow-[0_16px_34px_rgba(47,128,216,0.14)]'
+                : 'border-[#E5EDF7] shadow-[0_10px_24px_rgba(15,36,55,0.035)]'
+            }`}
+          >
+            <span className={`mx-auto grid h-14 w-14 place-items-center rounded-2xl ring-1 ${subject.tone}`}>
+              <Icon size={26} />
+            </span>
+            <span className="mt-3 block min-h-[2.5rem] text-sm font-black leading-tight text-[#132437]">{subject.shortName}</span>
+            <span className="mt-2 inline-flex rounded-full bg-[#F8FBFF] px-2.5 py-1 text-[11px] font-black text-[#64748B] ring-1 ring-[#D9E6F5]">
+              {subject.count || 0} materi
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function DashboardColorGrid({ items = [] }) {
+  return (
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Kartu dashboard">
+      {items.map((item) => <DashboardColorCard key={item.label} {...item} />)}
+    </section>
+  )
+}
+
+function DashboardColorCard({ label, value, caption, icon: Icon = Sparkles, tone = 'blue', onClick }) {
+  const tones = {
+    blue: 'from-[#DCEEFF] to-[#F8FBFF] text-[#17446E] ring-[#B9D8F7]',
+    cyan: 'from-[#DDF7FF] to-[#F8FBFF] text-[#087EA4] ring-[#B7ECF8]',
+    green: 'from-[#DCFCE7] to-[#F8FBFF] text-emerald-800 ring-emerald-100',
+    amber: 'from-[#FFF3D7] to-[#F8FBFF] text-amber-800 ring-amber-100',
+    rose: 'from-[#FFE4E6] to-[#F8FBFF] text-rose-800 ring-rose-100',
+    slate: 'from-[#EAF4FF] to-[#F8FBFF] text-[#132437] ring-[#D9E6F5]',
+  }
+  const content = (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/78 shadow-[0_10px_24px_rgba(15,36,55,0.08)] ring-1 ring-white/80">
+          <Icon size={19} />
+        </span>
+        <span className="rounded-lg bg-white/64 px-2.5 py-1 text-[11px] font-black ring-1 ring-white/70">{label}</span>
+      </div>
+      <p className="mt-5 font-mono text-3xl font-black leading-none">{value}</p>
+      <p className="mt-2 line-clamp-2 text-sm font-bold leading-5 opacity-80">{caption}</p>
+    </>
+  )
+  const className = `min-h-[9rem] rounded-[1.1rem] bg-gradient-to-br p-4 text-left shadow-[0_14px_34px_rgba(15,36,55,0.07)] ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(15,36,55,0.10)] ${tones[tone] || tones.blue}`
+
+  return onClick ? (
+    <button type="button" onClick={onClick} className={className}>
+      {content}
+    </button>
+  ) : (
+    <article className={className}>{content}</article>
   )
 }
 
@@ -476,6 +705,56 @@ function LineChartIcon(props) {
   return <BarChart3 {...props} />
 }
 
+const studentSubjectVisualRules = [
+  { match: 'matematika', icon: Calculator, tone: 'bg-[#E8F2FF] text-[#2563EB] ring-[#B9D8F7]' },
+  { match: 'bahasa indonesia', icon: BookOpen, tone: 'bg-[#FFE9F1] text-rose-700 ring-rose-100' },
+  { match: 'bahasa inggris', icon: Languages, tone: 'bg-[#EEF2FF] text-indigo-700 ring-indigo-100' },
+  { match: 'biologi', icon: Microscope, tone: 'bg-[#E8F8EF] text-emerald-700 ring-emerald-100' },
+  { match: 'kimia', icon: FlaskConical, tone: 'bg-[#FFF6DE] text-amber-700 ring-amber-100' },
+  { match: 'fisika', icon: Atom, tone: 'bg-[#ECFEFF] text-cyan-700 ring-cyan-100' },
+  { match: 'ekonomi', icon: BarChart3, tone: 'bg-[#FFF7ED] text-orange-700 ring-orange-100' },
+  { match: 'geografi', icon: Globe2, tone: 'bg-[#DCFCE7] text-green-700 ring-green-100' },
+  { match: 'sejarah', icon: Landmark, tone: 'bg-[#F5F3FF] text-violet-700 ring-violet-100' },
+  { match: 'pancasila', icon: Scale, tone: 'bg-[#E0F2FE] text-sky-700 ring-sky-100' },
+  { match: 'seni', icon: Palette, tone: 'bg-[#FAE8FF] text-fuchsia-700 ring-fuchsia-100' },
+  { match: 'jasmani', icon: Trophy, tone: 'bg-[#FEF3C7] text-yellow-800 ring-yellow-100' },
+  { match: 'prakarya', icon: Handshake, tone: 'bg-[#F1F5F9] text-slate-700 ring-slate-200' },
+  { match: 'informatika', icon: LaptopIcon, tone: 'bg-[#E0F2FE] text-[#0369A1] ring-sky-100' },
+]
+
+const studentSubjectFallbackTones = [
+  'bg-[#E8F2FF] text-[#2563EB] ring-[#B9D8F7]',
+  'bg-[#FFF6DE] text-amber-700 ring-amber-100',
+  'bg-[#E8F8EF] text-emerald-700 ring-emerald-100',
+  'bg-[#FFE9F1] text-rose-700 ring-rose-100',
+  'bg-[#EEF2FF] text-indigo-700 ring-indigo-100',
+  'bg-[#ECFEFF] text-cyan-700 ring-cyan-100',
+]
+
+function LaptopIcon(props) {
+  return <School {...props} />
+}
+
+function getStudentSubjectVisual(subjectName, index = 0) {
+  const normalized = normalizeLookupText(subjectName)
+  const matched = studentSubjectVisualRules.find((rule) => normalized.includes(normalizeLookupText(rule.match)))
+  if (matched) return matched
+  return {
+    icon: BookOpen,
+    tone: studentSubjectFallbackTones[index % studentSubjectFallbackTones.length],
+  }
+}
+
+function getStudentSubjectShortLabel(subjectName) {
+  const normalized = normalizeLookupText(subjectName)
+  if (normalized.includes('pendidikanagamaislam')) return 'Pendidikan Agama'
+  if (normalized.includes('pendidikanjasmani')) return 'PJOK'
+  if (normalized.includes('matematikaumum')) return 'Matematika'
+  if (normalized.includes('pendidikanpancasila')) return 'PKN'
+  if (normalized.includes('prakaryadankewirausahaan')) return 'Prakarya'
+  return subjectName
+}
+
 function KelasSaya() {
   const navigate = useNavigate()
   const visibleSubjects = subjects.slice(0, 5)
@@ -512,7 +791,7 @@ function KelasSaya() {
 
 
 function getPublishedLocalTeacherMaterials() {
-  return readLocalRowsByPrefix('islelearn-teacher-materials-')
+  return publishHtmlMaterialRows(readLocalRowsByPrefix('islelearn-teacher-materials-'))
     .filter((item) => item && item.status === 'Publish')
     .map((item) => ({
       ...item,
@@ -524,6 +803,28 @@ function getPublishedLocalTeacherMaterials() {
       className: item.className || 'Kelas umum',
       teacher: item.teacher || 'Guru',
     }))
+}
+
+function isHtmlMaterial(row) {
+  const type = String(row?.type || '').trim().toLowerCase()
+  const content = String(row?.content || '').trim()
+  if (isAdvancedMaterialContent(content)) return false
+  return type === 'html' || /\.html(?:[?#].*)?$/i.test(content)
+}
+
+function publishHtmlMaterial(row) {
+  if (!row || !isHtmlMaterial(row)) return row
+  const progress = Number(row.progress || 0)
+  return {
+    ...row,
+    type: row.type || 'HTML',
+    status: 'Publish',
+    progress: Math.max(progress, 35),
+  }
+}
+
+function publishHtmlMaterialRows(rows = []) {
+  return Array.isArray(rows) ? rows.map((row) => publishHtmlMaterial(row)) : []
 }
 
 function getPublishedLocalTeacherQuizzes() {
@@ -541,15 +842,19 @@ function getPublishedLocalTeacherQuizzes() {
 
 function getPublishedLocalTeacherAssignments() {
   return readLocalRowsByPrefix('islelearn-teacher-assignments-')
-    .filter((item) => item && item.status === 'Aktif')
+    .filter((item) => item && item.status === 'Aktif' && isAssignmentReleased(item))
     .map((item) => ({
       ...item,
       source: item.source || 'local',
       subject: item.subject || 'Mata pelajaran',
       className: item.className || 'Kelas umum',
+      classNames: normalizeAssignmentClassNames(item),
       teacher: item.teacher || 'Guru',
       description: item.description || 'Instruksi tugas belum diisi lengkap.',
       deadline: item.deadline || '',
+      submissionTypes: normalizeAssignmentSubmissionTypes(item.submissionTypes),
+      attachments: normalizeAssignmentAttachments(item.attachments),
+      rubricRows: normalizeAssignmentRubricRows(item.rubricRows || item.rubric),
       submitted: getLocalAssignmentSubmissions(item.id).length,
     }))
 }
@@ -582,7 +887,7 @@ function getAvailablePublishedMaterials(remoteRows = []) {
     ...getPublishedLocalTeacherMaterials(),
     ...schoolMaterials,
     ...(remoteRows.length > 0 ? remoteRows : materials),
-  ]).filter((item) => item && item.status !== 'Draft')
+  ]).filter((item) => item && item.status !== 'Draft' && isMaterialReleased(item))
 }
 
 
@@ -630,7 +935,10 @@ function MateriBelajar({ user, notify, appContext }) {
     }
   }, [appContext?.accessToken, user?.id])
 
+  const studentClassName = user?.className || (user?.id === 'local-preview-siswa' ? 'XI Pangeran Diponegoro' : '')
+  const studentGrade = extractGrade(studentClassName)
   const data = getAvailablePublishedMaterials(remoteMaterials)
+    .filter((item) => !studentGrade || extractGrade(item.className) === studentGrade)
   const statusFilters = ['Semua', 'Selesai', 'Dipelajari', 'Belum Mulai']
   const enriched = data.map((item) => {
     if (completedIds.includes(item.id)) return { ...item, status: 'Selesai', progress: 100 }
@@ -638,11 +946,11 @@ function MateriBelajar({ user, notify, appContext }) {
     return item
   })
   const statusRows = enriched.filter((item) => filter === 'Semua' || item.status === filter)
-  const materialFolders = getMaterialSubjectFolders(statusRows).filter((folder) => folder.rows.length > 0)
+  const materialFolders = getMaterialSubjectFolders(enriched).filter((folder) => folder.rows.length > 0)
   const [activeSubjectKey, setActiveSubjectKey] = useState('')
   const materialFolderKeys = materialFolders.map((folder) => folder.key).join('|')
-  const activeFolder = materialFolders.find((folder) => folder.key === activeSubjectKey) || materialFolders[0] || null
-  const activeRows = activeFolder ? statusRows.filter((item) => normalizeLookupText(item.subject) === activeFolder.key) : []
+  const activeFolder = materialFolders.find((folder) => folder.key === activeSubjectKey) || null
+  const activeRows = activeFolder ? statusRows.filter((item) => normalizeLookupText(canonicalSubjectName(item.subject)) === activeFolder.key) : []
   const searchQuery = search.trim().toLowerCase()
   const visibleRows = activeRows.filter((item) => {
     if (!searchQuery) return true
@@ -650,15 +958,22 @@ function MateriBelajar({ user, notify, appContext }) {
       .some((value) => String(value || '').toLowerCase().includes(searchQuery))
   })
   const visibleGradeFolders = getMaterialGradeFolders(visibleRows).filter((gradeFolder) => gradeFolder.rows.length > 0)
+  const subjectTiles = materialFolders.map((folder, index) => {
+    const visual = getStudentSubjectVisual(folder.name, index)
+    const totalProgress = folder.rows.reduce((total, item) => total + Number(item.progress || 0), 0)
+    return {
+      ...visual,
+      key: folder.key,
+      name: folder.name,
+      shortName: getStudentSubjectShortLabel(folder.name),
+      count: folder.rows.length,
+      progress: folder.rows.length ? Math.round(totalProgress / folder.rows.length) : 0,
+    }
+  })
 
   useEffect(() => {
-    if (!materialFolders.length) {
-      if (activeSubjectKey) setActiveSubjectKey('')
-      return
-    }
-
-    if (!activeSubjectKey || !materialFolders.some((folder) => folder.key === activeSubjectKey)) {
-      setActiveSubjectKey(materialFolders[0].key)
+    if (activeSubjectKey && !materialFolders.some((folder) => folder.key === activeSubjectKey)) {
+      setActiveSubjectKey('')
     }
   }, [activeSubjectKey, materialFolderKeys])
 
@@ -702,6 +1017,117 @@ function MateriBelajar({ user, notify, appContext }) {
 
   return (
     <div className="space-y-4">
+      <section className="overflow-hidden rounded-[1.35rem] border border-[#D9E6F5] bg-[#EAF1F8] shadow-[0_18px_52px_rgba(15,36,55,0.08)]">
+        <div className="bg-gradient-to-r from-[#38BDF8] via-[#5B8DEF] to-[#7C6CF2] px-5 pb-16 pt-7 text-white">
+          <p className="text-sm font-black">Mau belajar apa hari ini?</p>
+          <h1 className="mt-2 max-w-3xl text-balance text-3xl font-black leading-tight sm:text-4xl">
+            Pilih mapel, lalu lanjutkan bab yang tersedia untuk kelasmu.
+          </h1>
+        </div>
+
+        <div className="-mt-9 px-4 pb-4">
+          <div className="grid gap-3 rounded-[1.15rem] bg-white p-3 shadow-[0_16px_42px_rgba(15,36,55,0.12)] ring-1 ring-[#D9E6F5] lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <label className="flex min-h-14 min-w-0 items-center gap-3 rounded-[0.95rem] bg-white px-4 text-left text-[#64748B] ring-1 ring-[#D9E6F5] transition focus-within:ring-[#2F80D8]">
+              <Search size={22} className="shrink-0 text-[#17446E]" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Coba cari materi belajarmu di sini"
+                className="min-w-0 flex-1 bg-transparent text-base font-bold text-[#132437] outline-none placeholder:text-[#94A3B8]"
+              />
+            </label>
+
+            <button
+              type="button"
+              className="flex min-h-14 items-center justify-between gap-4 rounded-[0.95rem] border border-[#FF7A3D] bg-[#FFF7ED] px-4 text-sm font-black text-[#132437] lg:min-w-[18rem]"
+            >
+              <span className="min-w-0 truncate">{studentClassName || 'Kelas'} · Kurikulum Merdeka</span>
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#FF7A3D] text-white">
+                <ChevronDown size={17} />
+              </span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {error && <div className="rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal tetap ditampilkan.</div>}
+
+      <section className="rounded-[1.35rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_12px_36px_rgba(15,36,55,0.055)]">
+        <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-black text-[#132437]">IsleBelajar</h2>
+            <p className="mt-1 text-sm font-semibold text-[#64748B]">Semua materi belajar dikelompokkan berdasarkan mapel.</p>
+          </div>
+          <span className="text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">{subjectTiles.length} mapel</span>
+        </div>
+
+        {subjectTiles.length > 0 ? (
+          <StudentSubjectGrid
+            subjectTiles={subjectTiles}
+            activeSubjectKey={activeFolder?.key}
+            onSelect={(subject) => setActiveSubjectKey(subject.key)}
+          />
+        ) : (
+          <EmptyState title="Belum ada mapel." description="Materi yang dipublish guru akan muncul sebagai daftar mapel di sini." />
+        )}
+      </section>
+
+      {activeFolder ? (
+        <section className="min-w-0 overflow-hidden rounded-[1.15rem] border border-[#D9E6F5] bg-white shadow-[0_14px_44px_rgba(15,31,42,0.065)]">
+          <header className="flex flex-col gap-3 border-b border-[#D9E6F5] bg-[#F8FAFC]/82 px-4 py-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#2F80D8]">Folder mapel</p>
+              <h2 className="break-words text-2xl font-black leading-tight text-[#132437]">{activeFolder.name}</h2>
+              <p className="mt-1 text-sm font-semibold text-[#64748B]">
+                {activeFolder.rows.length} materi tersedia untuk dibuka siswa.
+              </p>
+            </div>
+            <div className="min-w-0 xl:w-[34rem]">
+              <SearchFilterBar search={search} setSearch={setSearch} filters={statusFilters} activeFilter={filter} setActiveFilter={setFilter} />
+            </div>
+          </header>
+
+          {loading ? <div className="p-4"><LoadingState label="Memuat materi dari Supabase..." /></div> : (
+            materialFolders.length > 0 ? (
+              visibleGradeFolders.length > 0 ? (
+                <div className="divide-y divide-[#D9E6F5]">
+                  {visibleGradeFolders.map((gradeFolder, index) => (
+                    <StudentMaterialGradeFolder
+                      key={gradeFolder.key}
+                      gradeFolder={gradeFolder}
+                      onOpen={setSelected}
+                      defaultOpen={index === 0}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4">
+                  <EmptyState title="Materi tidak ditemukan." description="Coba ganti kata pencarian, status, atau pilih mapel lain." />
+                </div>
+              )
+            ) : (
+              <div className="p-4">
+                <EmptyState title="Belum ada materi." description="Materi yang dipublish guru akan muncul di sini." />
+              </div>
+            )
+          )}
+        </section>
+      ) : (
+        <section className="rounded-[1.15rem] border border-dashed border-[#B9D8F7] bg-white/78 p-6 text-center shadow-[0_10px_28px_rgba(15,36,55,0.035)]">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[#E8F2FF] text-[#2F80D8] ring-1 ring-[#B9D8F7]">
+            <BookOpen size={22} />
+          </span>
+          <h2 className="mt-3 text-xl font-black text-[#132437]">Pilih salah satu mapel.</h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#64748B]">
+            Materi belajar dan daftar bab baru akan muncul setelah mapel dipilih.
+          </p>
+        </section>
+      )}
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
       <section className="overflow-hidden rounded-[1.35rem] border border-[#0284c7]/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(224,242,254,0.72),rgba(248,250,252,0.88))] p-4 shadow-[0_18px_52px_rgba(15,31,42,0.07)] backdrop-blur-xl sm:p-5">
         <div className="grid gap-5 lg:grid-cols-[1fr_22rem] lg:items-end">
           <div>
@@ -710,7 +1136,7 @@ function MateriBelajar({ user, notify, appContext }) {
                 Belajar
               </span>
               <span className="rounded-[0.75rem] bg-[#fff7ed] px-3 py-1.5 text-[11px] font-black text-amber-700 ring-1 ring-amber-100">
-                {user?.className || 'Semua kelas'}
+                {studentClassName || 'Semua kelas'}
               </span>
             </div>
             <h1 className="max-w-3xl text-balance text-3xl font-black leading-[0.98] text-[#13232d] sm:text-5xl">
@@ -757,8 +1183,8 @@ function MateriBelajar({ user, notify, appContext }) {
       )}
       {loading ? <LoadingState label="Memuat materi dari Supabase..." /> : (
         materialFolders.length > 0 ? (
-          <section className="grid gap-4 xl:grid-cols-[18rem_1fr]">
-            <aside className="hidden rounded-[1.05rem] border border-[#0B3A5B]/10 bg-white/88 p-2 shadow-[0_14px_44px_rgba(15,31,42,0.065)] backdrop-blur-xl xl:block">
+          <section className="grid min-w-0 gap-3 xl:grid-cols-[17rem_minmax(0,1fr)]">
+            <aside className="hidden min-w-0 overflow-hidden rounded-[1.05rem] border border-[#0B3A5B]/10 bg-white/88 p-2 shadow-[0_14px_44px_rgba(15,31,42,0.065)] backdrop-blur-xl xl:block">
               <div className="px-2 pb-2 pt-1">
                 <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0284c7]">Mapel</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Folder course dipisah agar chapter tidak bercampur.</p>
@@ -766,20 +1192,14 @@ function MateriBelajar({ user, notify, appContext }) {
               <div className="grid gap-1">
                 {materialFolders.map((folder) => {
                   const selectedFolder = activeFolder?.key === folder.key
-                  const gradeSummary = folder.gradeFolders
-                    .filter((gradeFolder) => gradeFolder.rows.length > 0)
-                    .map((gradeFolder) => `${gradeFolder.name.replace('Kelas ', '')}: ${gradeFolder.rows.length}`)
-                    .join(' · ')
-
                   return (
                     <button
                       key={folder.key}
                       onClick={() => setActiveSubjectKey(folder.key)}
-                      className={`group flex min-h-[4.25rem] items-center justify-between gap-3 rounded-[0.9rem] px-3 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284c7] ${selectedFolder ? 'bg-[#0B3A5B] text-white shadow-[0_10px_22px_rgba(15,31,42,0.13)]' : 'bg-transparent text-[#13232d] hover:bg-[#E0F2FE]'}`}
+                      className={`group grid min-h-[3.35rem] w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-[0.85rem] px-3 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284c7] ${selectedFolder ? 'bg-[#0B3A5B] text-white shadow-[0_8px_18px_rgba(15,31,42,0.12)]' : 'bg-transparent text-[#13232d] hover:bg-[#E0F2FE]'}`}
                     >
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-black">{folder.name}</span>
-                        <span className={`mt-0.5 block truncate text-xs font-semibold ${selectedFolder ? 'text-white/68' : 'text-slate-500'}`}>{gradeSummary || 'Belum ada kelas'}</span>
                       </span>
                       <span className={`flex-shrink-0 rounded-[0.7rem] px-2.5 py-1 text-xs font-black ring-1 ${selectedFolder ? 'bg-white/12 text-white ring-white/18' : 'bg-white text-[#0284c7] ring-[#0284c7]/10'}`}>
                         {folder.rows.length}
@@ -790,11 +1210,11 @@ function MateriBelajar({ user, notify, appContext }) {
               </div>
             </aside>
 
-            <section className="overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/88 shadow-[0_14px_44px_rgba(15,31,42,0.065)] backdrop-blur-xl">
+            <section className="min-w-0 overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/88 shadow-[0_14px_44px_rgba(15,31,42,0.065)] backdrop-blur-xl">
               <header className="flex flex-col gap-3 border-b border-[#0B3A5B]/8 bg-[#F8FAFC]/82 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+                <div className="min-w-0">
                   <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0284c7]">Folder mapel</p>
-                  <h2 className="text-2xl font-black text-[#13232d]">{activeFolder?.name || 'Materi'}</h2>
+                  <h2 className="break-words text-2xl font-black leading-tight text-[#13232d]">{activeFolder?.name || 'Materi'}</h2>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <StatusBadge tone="teal">{activeFolder?.rows.length || 0} materi</StatusBadge>
@@ -1057,29 +1477,98 @@ function getChapterTitle(title) {
   return String(title || '').replace(/^(?:bab|chapter)\s*[-.:]?\s*\d+\s*[—:-]?\s*/i, '').trim() || title
 }
 
+const materialCardTones = [
+  {
+    background: 'linear-gradient(145deg, #F0F9FF 0%, #FFFFFF 58%, #E0F2FE 100%)',
+    border: '#BAE6FD',
+    accent: '#0284C7',
+    accentSoft: '#E0F2FE',
+    button: '#0B3A5B',
+    buttonHover: '#0284C7',
+  },
+  {
+    background: 'linear-gradient(145deg, #F0FDF4 0%, #FFFFFF 58%, #DCFCE7 100%)',
+    border: '#BBF7D0',
+    accent: '#15803D',
+    accentSoft: '#DCFCE7',
+    button: '#166534',
+    buttonHover: '#16A34A',
+  },
+  {
+    background: 'linear-gradient(145deg, #FFFBEB 0%, #FFFFFF 58%, #FEF3C7 100%)',
+    border: '#FDE68A',
+    accent: '#B45309',
+    accentSoft: '#FEF3C7',
+    button: '#92400E',
+    buttonHover: '#D97706',
+  },
+  {
+    background: 'linear-gradient(145deg, #F5F3FF 0%, #FFFFFF 58%, #EDE9FE 100%)',
+    border: '#DDD6FE',
+    accent: '#6D28D9',
+    accentSoft: '#EDE9FE',
+    button: '#4C1D95',
+    buttonHover: '#7C3AED',
+  },
+  {
+    background: 'linear-gradient(145deg, #FFF1F2 0%, #FFFFFF 58%, #FFE4E6 100%)',
+    border: '#FECDD3',
+    accent: '#BE123C',
+    accentSoft: '#FFE4E6',
+    button: '#9F1239',
+    buttonHover: '#E11D48',
+  },
+  {
+    background: 'linear-gradient(145deg, #ECFEFF 0%, #FFFFFF 58%, #CFFAFE 100%)',
+    border: '#A5F3FC',
+    accent: '#0E7490',
+    accentSoft: '#CFFAFE',
+    button: '#155E75',
+    buttonHover: '#0891B2',
+  },
+]
+
+function getMaterialCardTone(item) {
+  const chapter = getMaterialChapterNumber(item)
+  const fallbackSeed = normalizeLookupText(`${item?.subject || ''}${item?.title || ''}`).length
+  const index = Number.isFinite(chapter) ? chapter - 1 : fallbackSeed
+  return materialCardTones[Math.abs(index) % materialCardTones.length]
+}
+
 function StudentMaterialRow({ item, onOpen }) {
   const navigate = useNavigate()
   const completed = item.status === 'Selesai' || Number(item.progress || 0) >= 100
+  const chapterTitle = getChapterTitle(item.title)
+  const subjectLine = [item.subject, item.className].filter(Boolean).join(' · ')
+  const tone = getMaterialCardTone(item)
 
   return (
-    <article className="group rounded-[1rem] bg-white p-3 ring-1 ring-[#0B3A5B]/9 transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(15,31,42,0.08)]">
-      <div className="flex items-start justify-between gap-3">
-        <span className="inline-flex justify-center rounded-[0.75rem] bg-[#E0F2FE] px-2.5 py-1.5 font-mono text-xs font-black text-[#0284c7] ring-1 ring-[#0284c7]/10">
+    <article
+      className="group flex min-w-0 flex-col overflow-hidden rounded-[0.95rem] p-3 shadow-[0_12px_28px_rgba(15,31,42,0.045)] ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(15,31,42,0.085)]"
+      style={{ background: tone.background, '--tw-ring-color': tone.border }}
+    >
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <span
+          className="inline-flex shrink-0 justify-center rounded-[0.7rem] px-2.5 py-1.5 font-mono text-xs font-black ring-1"
+          style={{ backgroundColor: tone.accentSoft, color: tone.accent, '--tw-ring-color': tone.border }}
+        >
           {getChapterLabel(item.title)}
         </span>
-        <StatusBadge tone={completed ? 'green' : 'amber'}>{item.status}</StatusBadge>
+        <span className="min-w-0 shrink-0">
+          <StatusBadge tone={completed ? 'green' : 'amber'}>{item.status}</StatusBadge>
+        </span>
       </div>
 
-      <div className="mt-4 min-w-0">
-        <h3 className="line-clamp-2 min-h-[2.5rem] text-base font-black leading-snug text-[#13232d]">
-          {getChapterTitle(item.title)}
+      <div className="mt-3 min-w-0 flex-1">
+        <h3 className="line-clamp-2 min-h-[2.35rem] break-words text-[0.96rem] font-black leading-snug text-[#13232d]">
+          {chapterTitle}
         </h3>
-        <p className="mt-2 truncate text-xs font-black uppercase tracking-[0.12em] text-[#0284c7]">
-          {item.topic || item.subject} · {item.className}
+        <p className="mt-2 truncate text-[11px] font-black uppercase tracking-[0.08em]" style={{ color: tone.accent }}>
+          {subjectLine || 'Materi'}
         </p>
-        <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-5 text-slate-500">{item.description}</p>
-        <div className="mt-4 h-1.5 rounded-full bg-[#E0F2FE]">
-          <div className="h-1.5 rounded-full bg-[#0284c7]" style={{ width: `${item.progress}%` }} />
+        <p className="mt-2 line-clamp-2 min-h-[2.35rem] break-words text-[0.82rem] font-semibold leading-5 text-slate-500">{item.description}</p>
+        <div className="mt-4 h-1.5 rounded-full" style={{ backgroundColor: tone.accentSoft }}>
+          <div className="h-1.5 rounded-full" style={{ width: `${item.progress}%`, backgroundColor: tone.accent }} />
         </div>
         <div className="mt-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-500">
           <span>{Number(item.progress || 0)}% progress</span>
@@ -1087,11 +1576,22 @@ function StudentMaterialRow({ item, onOpen }) {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-[1fr_auto] items-center gap-2">
-        <button onClick={onOpen} className="inline-flex min-h-10 items-center justify-center rounded-[0.85rem] bg-[#0B3A5B] px-4 text-sm font-black text-white transition hover:bg-[#0284c7]">
+      <div className="mt-auto grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pt-4">
+        <button
+          onClick={onOpen}
+          className="inline-flex min-h-10 items-center justify-center rounded-[0.85rem] px-4 text-sm font-black text-white transition"
+          style={{ backgroundColor: tone.button }}
+          onMouseEnter={(event) => { event.currentTarget.style.backgroundColor = tone.buttonHover }}
+          onMouseLeave={(event) => { event.currentTarget.style.backgroundColor = tone.button }}
+        >
           Buka
         </button>
-        <button onClick={() => navigate('/siswa/ai-tutor')} aria-label="Tanya AI Tutor" className="inline-flex h-10 w-10 items-center justify-center rounded-[0.85rem] bg-[#E0F2FE] text-xs font-black text-[#0284c7] ring-1 ring-[#0284c7]/10 transition hover:bg-[#d8eee8]">
+        <button
+          onClick={() => navigate('/siswa/ai-tutor')}
+          aria-label="Tanya AI Tutor"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-[0.85rem] text-xs font-black ring-1 transition hover:bg-white"
+          style={{ backgroundColor: tone.accentSoft, color: tone.accent, '--tw-ring-color': tone.border }}
+        >
           <Bot size={17} />
         </button>
       </div>
@@ -1103,7 +1603,7 @@ function StudentMaterialGradeFolder({ gradeFolder, onOpen, defaultOpen = false }
   const hasRows = gradeFolder.rows.length > 0
 
   return (
-    <details open={hasRows && defaultOpen} className="group">
+    <details open={hasRows && defaultOpen} className="group min-w-0 overflow-hidden">
       <summary className="flex cursor-pointer list-none flex-col gap-2 bg-[#F8FAFC]/72 px-4 py-3 transition hover:bg-[#F1F7FF] sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="grid h-9 w-9 place-items-center rounded-[0.75rem] bg-white font-mono text-xs font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/8">
@@ -1119,7 +1619,7 @@ function StudentMaterialGradeFolder({ gradeFolder, onOpen, defaultOpen = false }
 
       <div className="border-t border-[#0B3A5B]/8">
         {hasRows ? (
-          <div className="grid gap-3 bg-[#f8fafc]/80 p-3 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid min-w-0 gap-2.5 bg-[#f8fafc]/80 p-2.5 md:grid-cols-2 2xl:grid-cols-3">
             {gradeFolder.rows.map((item) => (
               <StudentMaterialRow key={item.id} item={item} onOpen={() => onOpen(item)} />
             ))}
@@ -1192,6 +1692,8 @@ function buildMaterialLearningSections(item) {
 
 function MaterialDetail({ item, onBack, onComplete, notify }) {
   const navigate = useNavigate()
+  const actionGateRef = useRef(null)
+  const frameCleanupRef = useRef(null)
   const sections = buildMaterialLearningSections(item)
   const progress = Number(item.progress || 0)
   const completed = item.status === 'Selesai' || progress >= 100
@@ -1200,11 +1702,17 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
   const materialUrl = cleanMaterialUrl(item.content)
   const videoEmbedUrl = externalMaterial && ['Video', 'Embed'].includes(item.type) ? getEmbeddableVideoUrl(materialUrl) : ''
   const directVideoUrl = externalMaterial && item.type === 'Video' && !videoEmbedUrl ? materialUrl : ''
+  const directAudioUrl = externalMaterial && item.type === 'Audio' ? materialUrl : ''
   const documentPreviewUrl = externalMaterial ? getDocumentPreviewUrl(materialUrl, item.type) : ''
   const genericEmbedUrl = externalMaterial && item.type === 'Embed' && !videoEmbedUrl ? materialUrl : ''
   const framePreviewUrl = videoEmbedUrl || documentPreviewUrl || genericEmbedUrl
-  const linkOnlyMaterial = externalMaterial && !framePreviewUrl && !directVideoUrl
-  const showTextSections = !htmlMaterial && !framePreviewUrl && !directVideoUrl && !linkOnlyMaterial
+  const linkOnlyMaterial = externalMaterial && !framePreviewUrl && !directVideoUrl && !directAudioUrl
+  const advancedMaterial = isAdvancedMaterialContent(item.content)
+  const showAdvancedMaterial = advancedMaterial && !htmlMaterial && !framePreviewUrl && !directVideoUrl && !linkOnlyMaterial
+  const showTextSections = !showAdvancedMaterial && !htmlMaterial && !framePreviewUrl && !directVideoUrl && !directAudioUrl && !linkOnlyMaterial
+  const displayProgress = completed ? 100 : progress
+  const [materialReadComplete, setMaterialReadComplete] = useState(false)
+  const showCompletionActions = Boolean(onComplete && materialReadComplete)
 
   useEffect(() => {
     const resetScroll = () => {
@@ -1221,6 +1729,62 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
     return () => cancelAnimationFrame(frame)
   }, [item.id])
 
+  useEffect(() => {
+    setMaterialReadComplete(false)
+    if (frameCleanupRef.current) frameCleanupRef.current()
+    frameCleanupRef.current = null
+    return () => {
+      if (frameCleanupRef.current) frameCleanupRef.current()
+      frameCleanupRef.current = null
+    }
+  }, [item.id])
+
+  useEffect(() => {
+    if (!onComplete || htmlMaterial) return undefined
+    const gate = actionGateRef.current
+    if (!gate) return undefined
+    const observer = new IntersectionObserver(([entry]) => {
+      setMaterialReadComplete(Boolean(entry?.isIntersecting))
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.1 })
+
+    observer.observe(gate)
+    return () => observer.disconnect()
+  }, [htmlMaterial, item.id, onComplete])
+
+  useEffect(() => {
+    if (showAdvancedMaterial) requestMathTypeset()
+  }, [item.id, showAdvancedMaterial])
+
+  function handleMaterialFrameLoad(event) {
+    if (!onComplete || !htmlMaterial) return
+    if (frameCleanupRef.current) frameCleanupRef.current()
+
+    try {
+      const frameWindow = event.currentTarget.contentWindow
+      const frameDocument = event.currentTarget.contentDocument || frameWindow?.document
+      const scrollElement = frameDocument?.scrollingElement || frameDocument?.documentElement || frameDocument?.body
+      if (!frameWindow || !scrollElement) return
+
+      const checkEndReached = () => {
+        const remaining = scrollElement.scrollHeight - scrollElement.scrollTop - scrollElement.clientHeight
+        setMaterialReadComplete(remaining <= 96)
+      }
+
+      frameWindow.addEventListener('scroll', checkEndReached, { passive: true })
+      frameWindow.addEventListener('resize', checkEndReached)
+      frameDocument.addEventListener('scroll', checkEndReached, { passive: true })
+      checkEndReached()
+
+      frameCleanupRef.current = () => {
+        frameWindow.removeEventListener('scroll', checkEndReached)
+        frameWindow.removeEventListener('resize', checkEndReached)
+        frameDocument.removeEventListener('scroll', checkEndReached)
+      }
+    } catch {
+      setMaterialReadComplete(false)
+    }
+  }
+
   return (
     <div>
       <div className="mb-5 border-b border-[#0B3A5B]/10 pb-4">
@@ -1236,8 +1800,35 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
           {item.className} · {item.topic} · {item.type || 'Teks'} · Ringan dibuka
         </p>
       </div>
-      <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
-        <SectionCard>
+      <div className="space-y-4">
+        <section className="rounded-[1rem] border border-[#0B3A5B]/10 bg-white/88 p-3 shadow-[0_10px_28px_rgba(15,31,42,0.045)]">
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_17rem] xl:items-center">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-bold text-slate-600">
+              <StatusBadge tone={item.status === 'Selesai' ? 'green' : 'cyan'}>{item.status}</StatusBadge>
+              <span className="rounded-[0.75rem] bg-[#F8FAFC] px-3 py-2 ring-1 ring-[#0B3A5B]/8">
+                <b>Mapel:</b> {item.subject}
+              </span>
+              <span className="rounded-[0.75rem] bg-[#F8FAFC] px-3 py-2 ring-1 ring-[#0B3A5B]/8">
+                <b>Kelas:</b> {item.className}
+              </span>
+              <span className="max-w-full truncate rounded-[0.75rem] bg-[#F8FAFC] px-3 py-2 ring-1 ring-[#0B3A5B]/8">
+                <b>Guru:</b> {item.teacher}
+              </span>
+            </div>
+
+            <div className="min-w-0">
+              <div className="mb-2 flex items-center justify-between text-xs font-bold text-slate-500">
+                <span>Progress</span>
+                <span>{displayProgress}%</span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-[#E0F2FE]">
+                <div className="h-2.5 rounded-full bg-[#0284c7]" style={{ width: `${displayProgress}%` }} />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <SectionCard className="min-w-0">
           <StatusBadge tone={item.status === 'Selesai' ? 'green' : 'cyan'}>{item.status}</StatusBadge>
           {htmlMaterial && (
             <div className="mt-5 overflow-hidden rounded-[1rem] border border-[#0B3A5B]/10 bg-white shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
@@ -1250,6 +1841,7 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
               <iframe
                 title={item.title}
                 src={item.content}
+                onLoad={handleMaterialFrameLoad}
                 className="h-[78vh] w-full bg-[#F1F7FF]"
                 loading="lazy"
                 referrerPolicy="no-referrer"
@@ -1287,6 +1879,19 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
               <video controls src={directVideoUrl} className="aspect-video w-full bg-black" />
             </div>
           )}
+          {directAudioUrl && (
+            <div className="mt-5 overflow-hidden rounded-[1rem] border border-[#0B3A5B]/10 bg-white shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#0B3A5B]/8 bg-[#F8FAFC] px-3 py-2">
+                <StatusBadge tone="cyan">Audio</StatusBadge>
+                <a href={directAudioUrl} target="_blank" rel="noreferrer" className="rounded-[0.75rem] bg-[#E0F2FE] px-3 py-1.5 text-xs font-black text-[#0284c7] ring-1 ring-[#0284c7]/10">
+                  Buka di tab baru
+                </a>
+              </div>
+              <div className="p-4">
+                <audio controls src={directAudioUrl} className="w-full" />
+              </div>
+            </div>
+          )}
           {linkOnlyMaterial && (
             <div className="mt-5 rounded-2xl bg-cyan-50 p-3 ring-1 ring-cyan-100">
               <StatusBadge tone="cyan">{item.type}</StatusBadge>
@@ -1296,6 +1901,11 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
               <a href={item.content} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-2xl bg-white px-4 py-3 text-sm font-extrabold text-cyan-700 ring-1 ring-cyan-100">
                 Buka materi
               </a>
+            </div>
+          )}
+          {showAdvancedMaterial && (
+            <div className="mt-5">
+              <AdvancedMaterialViewer material={item} />
             </div>
           )}
           {showTextSections && (
@@ -1310,36 +1920,223 @@ function MaterialDetail({ item, onBack, onComplete, notify }) {
               ))}
             </div>
           )}
-          <div className="mt-6 flex flex-wrap gap-2">
-            <button onClick={onComplete} disabled={completed} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60">
-              {completed ? 'Materi selesai' : 'Tandai selesai'}
-            </button>
-            <button onClick={() => navigate('/siswa/ai-tutor')} className="rounded-2xl bg-galaxy-surface px-5 py-3 text-sm font-bold text-galaxy-purple">Tanya AI Tutor</button>
-          </div>
-          <div className="mt-4 rounded-2xl bg-cyan-50 p-3 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">
-            Jika AI Tutor belum aktif, gunakan bagian Latihan Cepat dan Refleksi di atas sebagai panduan belajar mandiri.
-          </div>
-        </SectionCard>
-        <SectionCard>
-          <p className="text-sm font-extrabold text-gray-950">Info Materi</p>
-          <div className="mt-4 space-y-3 text-sm text-slate-600">
-            <p><b>Mapel:</b> {item.subject}</p>
-            <p><b>Kelas:</b> {item.className}</p>
-            <p><b>Guru:</b> {item.teacher}</p>
-            <p><b>Status:</b> {item.status}</p>
-            <p><b>Topik:</b> {item.topic || item.title}</p>
-          </div>
-          <div className="mt-5">
-            <div className="mb-2 flex items-center justify-between text-xs font-bold text-slate-500">
-              <span>Progress</span>
-              <span>{completed ? 100 : progress}%</span>
-            </div>
-            <div className="h-3 rounded-full bg-galaxy-lavender">
-              <div className="h-3 rounded-full bg-galaxy-action" style={{ width: `${completed ? 100 : progress}%` }} />
-            </div>
-          </div>
+          {onComplete && <div ref={actionGateRef} aria-hidden="true" className="h-px" />}
+          {showCompletionActions && (
+            <>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <button onClick={onComplete} disabled={completed} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60">
+                  {completed ? 'Materi selesai' : 'Tandai selesai'}
+                </button>
+                <button onClick={() => navigate('/siswa/ai-tutor')} className="rounded-2xl bg-galaxy-surface px-5 py-3 text-sm font-bold text-galaxy-purple">Tanya AI Tutor</button>
+              </div>
+              <div className="mt-4 rounded-2xl bg-cyan-50 p-3 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">
+                Jika AI Tutor belum aktif, gunakan bagian Latihan Cepat dan Refleksi di atas sebagai panduan belajar mandiri.
+              </div>
+            </>
+          )}
         </SectionCard>
       </div>
+    </div>
+  )
+}
+
+function AdvancedMaterialViewer({ material, draft, compact = false }) {
+  const content = draft || parseAdvancedMaterialContent(material?.content)
+  const tone = getAdvancedTone(content.accentTone)
+
+  useEffect(() => {
+    requestMathTypeset()
+  }, [content.body, content.equations?.length])
+
+  return (
+    <article className={`space-y-4 ${compact ? 'text-sm' : ''}`}>
+      {(content.targetLevel || content.tags?.length > 0 || content.releaseAt) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {content.targetLevel && <StatusBadge tone="cyan">{content.targetLevel}</StatusBadge>}
+          {content.releaseAt && (
+            <span className="rounded-[0.75rem] bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700 ring-1 ring-amber-100">
+              Rilis {new Date(content.releaseAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+            </span>
+          )}
+          {content.tags?.slice(0, 8).map((tag) => (
+            <span key={tag} className="rounded-[0.75rem] bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-600 ring-1 ring-slate-100">
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {content.body?.trim() && (
+        <section className="overflow-hidden rounded-[1rem] border bg-white shadow-[0_12px_34px_rgba(15,31,42,0.05)]" style={{ borderColor: tone.border }}>
+          <div className="h-2" style={{ background: `linear-gradient(90deg, ${tone.accent}, ${tone.border})` }} />
+          <div
+            className="prose-material space-y-2 p-4"
+            dangerouslySetInnerHTML={{ __html: richTextToHtml(content.body) }}
+          />
+        </section>
+      )}
+
+      {content.equations?.length > 0 && (
+        <section className="rounded-[1rem] bg-slate-50 p-4 ring-1 ring-slate-100">
+          <div className="mb-3 flex items-center gap-2">
+            <Calculator size={18} className="text-sky-700" />
+            <h3 className="text-lg font-black text-slate-950">Rumus dan persamaan</h3>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {content.equations.map((equation) => (
+              <div key={equation.id} className="rounded-2xl bg-white p-4 ring-1 ring-slate-100">
+                <p className="text-sm font-black text-slate-950">{equation.label || 'Rumus'}</p>
+                <div className="mt-3 overflow-x-auto rounded-xl bg-slate-950 px-4 py-3 font-mono text-sm font-bold text-white">
+                  {equation.latex?.startsWith('$$') ? equation.latex : `$$${equation.latex || ''}$$`}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {content.tables?.length > 0 && (
+        <section className="rounded-[1rem] bg-white p-4 ring-1 ring-slate-100">
+          <div className="mb-3 flex items-center gap-2">
+            <ClipboardList size={18} className="text-emerald-700" />
+            <h3 className="text-lg font-black text-slate-950">Tabel data</h3>
+          </div>
+          <div className="space-y-4">
+            {content.tables.map((table) => (
+              <div key={table.id} className="overflow-hidden rounded-2xl ring-1 ring-slate-100">
+                <div className="bg-slate-50 px-3 py-2 text-sm font-black text-slate-900">{table.title || 'Tabel'}</div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-100 text-left text-sm">
+                    <thead className="bg-white">
+                      <tr>
+                        {(table.headers || []).map((header, index) => (
+                          <th key={`${table.id}-h-${index}`} className="px-3 py-2 font-black text-slate-700">{header || `Kolom ${index + 1}`}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {(table.rows || []).map((row, rowIndex) => (
+                        <tr key={`${table.id}-r-${rowIndex}`}>
+                          {(row || []).map((cell, cellIndex) => (
+                            <td key={`${table.id}-${rowIndex}-${cellIndex}`} className="px-3 py-2 font-semibold text-slate-600">{cell}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {content.media?.length > 0 && (
+        <section className="rounded-[1rem] bg-white p-4 ring-1 ring-slate-100">
+          <div className="mb-3 flex items-center gap-2">
+            <PlayCircle size={18} className="text-sky-700" />
+            <h3 className="text-lg font-black text-slate-950">Media dan lampiran</h3>
+          </div>
+          <div className="grid gap-3">
+            {content.media.map((media) => <AdvancedMaterialMedia key={media.id} media={media} />)}
+          </div>
+        </section>
+      )}
+
+      {content.quizzes?.length > 0 && (
+        <section className="rounded-[1rem] bg-[#F8FAFC] p-4 ring-1 ring-slate-100">
+          <div className="mb-3 flex items-center gap-2">
+            <FileQuestion size={18} className="text-violet-700" />
+            <h3 className="text-lg font-black text-slate-950">Kuis sela</h3>
+          </div>
+          <div className="grid gap-3">
+            {content.quizzes.map((quiz, index) => <AdvancedMaterialQuiz key={quiz.id} quiz={quiz} index={index} />)}
+          </div>
+        </section>
+      )}
+
+      {content.spoilers?.length > 0 && (
+        <section className="rounded-[1rem] bg-white p-4 ring-1 ring-slate-100">
+          <div className="mb-3 flex items-center gap-2">
+            <Brain size={18} className="text-amber-700" />
+            <h3 className="text-lg font-black text-slate-950">Pembahasan bertahap</h3>
+          </div>
+          <div className="space-y-2">
+            {content.spoilers.map((spoiler) => (
+              <details key={spoiler.id} className="group rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-100">
+                <summary className="cursor-pointer list-none font-black text-amber-900">
+                  {spoiler.title || 'Buka pembahasan'}
+                </summary>
+                <p className="mt-3 whitespace-pre-line text-sm font-semibold leading-7 text-amber-900">{spoiler.body}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+      )}
+    </article>
+  )
+}
+
+function AdvancedMaterialMedia({ media }) {
+  const mediaUrl = media.dataUrl || media.url || ''
+  const embedUrl = ['Video', 'Simulasi', 'Embed'].includes(media.type) ? getEmbeddableVideoUrl(mediaUrl) : ''
+  const frameUrl = embedUrl || (['PDF', 'Dokumen', 'Presentasi', 'Spreadsheet'].includes(media.type) ? getDocumentPreviewUrl(mediaUrl, media.type) : '') || (['Simulasi', 'Embed'].includes(media.type) ? mediaUrl : '')
+
+  return (
+    <div className="overflow-hidden rounded-2xl bg-slate-50 ring-1 ring-slate-100">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white px-3 py-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black text-slate-950">{media.title || media.name || media.type}</p>
+          <p className="text-xs font-semibold text-slate-500">{media.type}{media.size ? ` · ${formatFileSize(media.size)}` : ''}</p>
+        </div>
+        {mediaUrl && <a href={mediaUrl} target="_blank" rel="noreferrer" className="rounded-xl bg-sky-50 px-3 py-1.5 text-xs font-black text-sky-700 ring-1 ring-sky-100">Buka</a>}
+      </div>
+      {media.type === 'Gambar' && mediaUrl && <img src={mediaUrl} alt={media.title || media.name || 'Gambar materi'} className="max-h-[28rem] w-full object-contain bg-white" />}
+      {media.type === 'Audio' && mediaUrl && <div className="p-4"><audio controls src={mediaUrl} className="w-full" /></div>}
+      {media.type === 'Video' && mediaUrl && !frameUrl && <video controls src={mediaUrl} className="aspect-video w-full bg-black" />}
+      {frameUrl && (
+        <iframe
+          title={media.title || media.name || media.type}
+          src={frameUrl}
+          className="h-[28rem] w-full bg-white"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+        />
+      )}
+      {!mediaUrl && <p className="p-4 text-sm font-semibold text-slate-500">Media belum memiliki URL atau file.</p>}
+    </div>
+  )
+}
+
+function AdvancedMaterialQuiz({ quiz, index }) {
+  const [answer, setAnswer] = useState('')
+  const checked = Boolean(answer)
+  const correct = checked && normalizeLookupText(answer) === normalizeLookupText(quiz.answer)
+
+  return (
+    <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-100">
+      <p className="text-sm font-black uppercase tracking-[0.12em] text-violet-700">Soal {index + 1}</p>
+      <h4 className="mt-2 text-base font-black text-slate-950">{quiz.question || 'Pertanyaan belum diisi.'}</h4>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {normalizeStringList(quiz.options).map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => setAnswer(option)}
+            className={`rounded-xl px-3 py-2 text-left text-sm font-bold ring-1 transition ${answer === option ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-slate-50 text-slate-600 ring-slate-100 hover:bg-white'}`}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+      {checked && (
+        <div className={`mt-3 rounded-xl px-3 py-2 text-sm font-bold ring-1 ${correct ? 'bg-emerald-50 text-emerald-800 ring-emerald-100' : 'bg-amber-50 text-amber-800 ring-amber-100'}`}>
+          {correct ? 'Jawaban tepat.' : `Jawaban yang disarankan: ${quiz.answer || '-'}`}
+          {quiz.explanation && <p className="mt-1 font-semibold leading-6">{quiz.explanation}</p>}
+        </div>
+      )}
     </div>
   )
 }
@@ -1349,6 +2146,8 @@ function SiswaTugas({ user, notify, appContext }) {
   const [rows, setRows] = useState([])
   const [selected, setSelected] = useState(null)
   const [answer, setAnswer] = useState('')
+  const [submissionLink, setSubmissionLink] = useState('')
+  const [submissionFiles, setSubmissionFiles] = useState([])
   const [tab, setTab] = useState('Aktif')
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
@@ -1358,7 +2157,7 @@ function SiswaTugas({ user, notify, appContext }) {
 
     async function loadAssignments() {
       if (!appContext?.accessToken) {
-        setRows(uniqueRowsById([...assignments.filter((item) => item.status === 'Aktif'), ...getPublishedLocalTeacherAssignments()]))
+        setRows(uniqueRowsById([...assignments.filter((item) => isAssignmentVisibleToStudent(item, user)), ...getPublishedLocalTeacherAssignments()].filter((item) => isAssignmentVisibleToStudent(item, user))))
         setLoading(false)
         return
       }
@@ -1367,12 +2166,12 @@ function SiswaTugas({ user, notify, appContext }) {
         setLoading(true)
         const remoteRows = await fetchAssignments({ accessToken: appContext.accessToken, publishedOnly: true })
         if (active) {
-          setRows(uniqueRowsById([...(remoteRows.length > 0 ? remoteRows : assignments.filter((item) => item.status === 'Aktif')), ...getPublishedLocalTeacherAssignments()]))
+          setRows(uniqueRowsById([...(remoteRows.length > 0 ? remoteRows : assignments.filter((item) => item.status === 'Aktif')), ...getPublishedLocalTeacherAssignments()].filter((item) => isAssignmentVisibleToStudent(item, user))))
           setError('')
         }
       } catch (loadError) {
         if (active) {
-          setRows(uniqueRowsById([...assignments.filter((item) => item.status === 'Aktif'), ...getPublishedLocalTeacherAssignments()]))
+          setRows(uniqueRowsById([...assignments.filter((item) => item.status === 'Aktif'), ...getPublishedLocalTeacherAssignments()].filter((item) => isAssignmentVisibleToStudent(item, user))))
           setError(loadError.message)
         }
       } finally {
@@ -1384,19 +2183,48 @@ function SiswaTugas({ user, notify, appContext }) {
     return () => {
       active = false
     }
-  }, [appContext?.accessToken])
+  }, [appContext?.accessToken, user])
 
   function openAssignment(assignment) {
-    setSelected(assignment)
-    setAnswer(getLocalAssignmentSubmission(assignment.id, user?.id)?.answerText || '')
+    const normalized = normalizeAssignmentForEdit(assignment)
+    const submission = getLocalAssignmentSubmission(normalized.id, user?.id)
+    setSelected(normalized)
+    setAnswer(submission?.answerText || '')
+    setSubmissionLink(submission?.link || '')
+    setSubmissionFiles(normalizeAssignmentAttachments(submission?.files))
+  }
+
+  async function addSubmissionFiles(event) {
+    const files = Array.from(event.target.files || [])
+    if (!files.length) return
+    const items = await Promise.all(files.map(async (file) => ({
+      id: createMaterialBlockId('submission-file'),
+      title: file.name,
+      type: inferMediaTypeFromFile(file),
+      dataUrl: await blobToDataUrl(file),
+      url: '',
+      mime: file.type,
+      size: file.size,
+    })))
+    setSubmissionFiles((current) => [...normalizeAssignmentAttachments(current), ...items])
+    event.target.value = ''
   }
 
   async function submitAssignment() {
     if (!selected) return
-    if (!answer.trim()) {
-      notify('Isi jawaban tugas terlebih dahulu.')
+    const allowedTypes = normalizeAssignmentSubmissionTypes(selected.submissionTypes)
+    const hasText = allowedTypes.includes('text') && answer.trim()
+    const hasLink = allowedTypes.includes('link') && submissionLink.trim()
+    const hasFiles = allowedTypes.includes('file') && submissionFiles.length > 0
+    if (isAssignmentLocked(selected)) {
+      notify('Deadline tugas sudah lewat dan pengumpulan dikunci.')
       return
     }
+    if (!hasText && !hasLink && !hasFiles) {
+      notify('Isi minimal satu bentuk jawaban sesuai metode pengumpulan tugas.')
+      return
+    }
+    const late = isAssignmentPastDeadline(selected)
 
     const localSubmission = {
       id: `local-submission-${Date.now()}`,
@@ -1404,8 +2232,10 @@ function SiswaTugas({ user, notify, appContext }) {
       userId: user?.id || 'demo',
       studentName: user?.name || 'Siswa',
       answerText: answer.trim(),
+      link: submissionLink.trim(),
+      files: normalizeAssignmentAttachments(submissionFiles),
       submittedAt: new Date().toISOString(),
-      status: 'Terkirim',
+      status: late ? 'Terlambat' : 'Terkirim',
     }
 
     if (appContext?.accessToken && selected.source === 'supabase' && isUuid(user?.id)) {
@@ -1415,7 +2245,12 @@ function SiswaTugas({ user, notify, appContext }) {
           notify('Profil siswa belum terhubung ke data kelas. Hubungi admin sekolah.')
           return
         }
-        await createAssignmentSubmission({ accessToken: appContext.accessToken, assignmentId: selected.id, studentId: student?.id, answerText: answer.trim() })
+        const remoteAnswerText = [
+          answer.trim(),
+          submissionLink.trim() ? `Tautan: ${submissionLink.trim()}` : '',
+          submissionFiles.length ? `Lampiran lokal: ${submissionFiles.map((file) => file.title).join(', ')}` : '',
+        ].filter(Boolean).join('\n\n')
+        await createAssignmentSubmission({ accessToken: appContext.accessToken, assignmentId: selected.id, studentId: student?.id, answerText: remoteAnswerText })
         notify('Jawaban tugas dikirim ke Supabase.')
       } catch (submitError) {
         notify(`Supabase belum menerima submission, jawaban disimpan lokal: ${submitError.message}`)
@@ -1446,12 +2281,15 @@ function SiswaTugas({ user, notify, appContext }) {
 
   if (selected) {
     const submission = getLocalAssignmentSubmission(selected.id, user?.id)
+    const submissionTypes = normalizeAssignmentSubmissionTypes(selected.submissionTypes)
+    const attachments = normalizeAssignmentAttachments(selected.attachments)
+    const locked = isAssignmentLocked(selected)
     return (
       <div>
         <PageHeader
           eyebrow={selected.subject}
           title={selected.title}
-          description={`${selected.className} · Deadline ${selected.deadline || '-'} · ${selected.status}`}
+          description={`${normalizeAssignmentClassNames(selected).join(', ') || selected.className} · Deadline ${formatAssignmentDateTime(selected.deadline)} · ${selected.status}`}
           action={<button onClick={() => setSelected(null)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>}
         />
 
@@ -1460,22 +2298,80 @@ function SiswaTugas({ user, notify, appContext }) {
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge tone={submission ? 'green' : 'amber'}>{submission ? 'Sudah submit' : 'Belum submit'}</StatusBadge>
               <StatusBadge tone={statusTone(selected.status)}>{selected.status}</StatusBadge>
+              {isAssignmentPastDeadline(selected) && <StatusBadge tone={locked ? 'red' : 'amber'}>{locked ? 'Dikunci' : 'Lewat deadline'}</StatusBadge>}
             </div>
             <div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
               <p className="text-sm font-extrabold text-slate-950">Instruksi tugas</p>
               <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-600">{selected.description}</p>
             </div>
-            <label className="mt-5 grid gap-2 text-sm font-bold text-slate-700">
-              Jawaban teks
-              <textarea
-                value={answer}
-                onChange={(event) => setAnswer(event.target.value)}
-                rows={8}
-                className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300"
-                placeholder="Tulis jawaban tugas di sini. File upload belum diaktifkan agar storage tetap ringan."
-              />
-            </label>
-            <button onClick={submitAssignment} className="mt-5 rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white">
+
+            {attachments.length > 0 && (
+              <div className="mt-5 space-y-2">
+                <p className="text-sm font-extrabold text-slate-950">Lampiran tugas</p>
+                {attachments.map((attachment) => <AssignmentAttachmentPreview key={attachment.id} attachment={attachment} />)}
+              </div>
+            )}
+
+            <div className="mt-5 rounded-2xl bg-[#F8FBFF] p-3 ring-1 ring-[#0B3A5B]/8">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                {submissionTypes.map((type) => (
+                  <StatusBadge key={type} tone="cyan">{assignmentSubmissionTypeOptions.find((item) => item.value === type)?.label || type}</StatusBadge>
+                ))}
+              </div>
+
+              {submissionTypes.includes('text') && (
+                <label className="grid gap-2 text-sm font-bold text-slate-700">
+                  Jawaban teks
+                  <textarea
+                    value={answer}
+                    onChange={(event) => setAnswer(event.target.value)}
+                    rows={8}
+                    disabled={locked}
+                    className="rounded-xl border border-purple-100 bg-white px-3 py-2.5 outline-none focus:border-purple-300 disabled:bg-slate-100"
+                    placeholder="Tulis jawaban tugas di sini."
+                  />
+                </label>
+              )}
+
+              {submissionTypes.includes('file') && (
+                <div className="mt-4">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-3 py-2.5 text-sm font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/10">
+                    <FileText size={16} /> Unggah berkas jawaban
+                    <input type="file" multiple disabled={locked} onChange={addSubmissionFiles} className="hidden" />
+                  </label>
+                  {submissionFiles.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {submissionFiles.map((file) => (
+                        <div key={file.id} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 ring-1 ring-[#0B3A5B]/8">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-slate-800">{file.title}</p>
+                            <p className="text-xs font-bold text-slate-500">{file.type}{file.size ? ` · ${formatFileSize(file.size)}` : ''}</p>
+                          </div>
+                          <button type="button" onClick={() => setSubmissionFiles((current) => current.filter((item) => item.id !== file.id))} className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-black text-rose-700">
+                            Hapus
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {submissionTypes.includes('link') && (
+                <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
+                  Tautan jawaban
+                  <input
+                    value={submissionLink}
+                    onChange={(event) => setSubmissionLink(event.target.value)}
+                    disabled={locked}
+                    placeholder="https://drive.google.com/... atau link karya siswa"
+                    className="rounded-xl border border-purple-100 bg-white px-3 py-2.5 outline-none focus:border-purple-300 disabled:bg-slate-100"
+                  />
+                </label>
+              )}
+            </div>
+
+            <button disabled={locked} onClick={submitAssignment} className="mt-5 rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-45">
               {submission ? 'Perbarui submission' : 'Submit tugas'}
             </button>
           </SectionCard>
@@ -1484,16 +2380,27 @@ function SiswaTugas({ user, notify, appContext }) {
             <p className="text-sm font-extrabold text-gray-950">Status Submission</p>
             <div className="mt-4 space-y-3 text-sm text-slate-600">
               <p><b>Guru:</b> {selected.teacher || 'Guru'}</p>
-              <p><b>Deadline:</b> {selected.deadline || '-'}</p>
+              <p><b>Rilis:</b> {formatAssignmentDateTime(selected.releaseAt)}</p>
+              <p><b>Deadline:</b> {formatAssignmentDateTime(selected.deadline)}</p>
               <p><b>Mapel:</b> {selected.subject}</p>
+              <p><b>Mode:</b> {selected.workMode || 'Individu'}</p>
+              <p><b>Skor maksimal:</b> {selected.maxScore || 100}</p>
               <p><b>Terakhir submit:</b> {submission ? new Date(submission.submittedAt).toLocaleString('id-ID') : '-'}</p>
             </div>
             <div className="mt-5 rounded-2xl bg-cyan-50 p-3 text-sm font-semibold leading-6 text-cyan-800 ring-1 ring-cyan-100">
-              Untuk tahap ini, jawaban berupa teks. File besar nanti memakai link atau Supabase Storage agar database tetap ringan.
+              Ikuti metode pengumpulan yang dipilih guru. Link video atau dokumen akan tetap tersimpan sebagai tautan jawaban.
             </div>
-            {selected.rubric && (
+            {normalizeAssignmentRubricRows(selected.rubricRows || selected.rubric).length > 0 && (
               <div className="mt-3 rounded-2xl bg-purple-50 p-3 text-sm leading-6 text-purple-800 ring-1 ring-purple-100">
-                <b>Rubrik:</b> {selected.rubric}
+                <b>Rubrik:</b>
+                <div className="mt-2 space-y-2">
+                  {normalizeAssignmentRubricRows(selected.rubricRows || selected.rubric).map((row) => (
+                    <div key={row.id} className="rounded-xl bg-white/70 px-3 py-2">
+                      <p className="font-black">{row.component} {row.weight ? `(${row.weight}%)` : ''}</p>
+                      <p className="text-xs leading-5">{row.description || '-'}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </SectionCard>
@@ -1504,7 +2411,7 @@ function SiswaTugas({ user, notify, appContext }) {
 
   return (
     <div>
-      <PageHeader eyebrow="Tugas & Kuis" title="Kerjakan prioritas belajar." description="Tugas, kuis, dan latihan dikumpulkan di satu halaman agar kamu tidak berpindah-pindah menu." />
+      <PageHeader eyebrow="Tugas" title="Kerjakan tugas kelas." description="Daftar ini fokus pada tugas siswa. Kuis punya menu sendiri agar lebih mudah ditemukan." />
       {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim tugas: {error}. Data lokal tetap ditampilkan.</div>}
       <div className="mb-4 grid gap-3 xl:grid-cols-[1fr_20rem]">
         <DashboardPanel title="Kuis aktif" description="Kerjakan kuis yang sedang tersedia sebelum deadline.">
@@ -1549,7 +2456,14 @@ function SiswaTugas({ user, notify, appContext }) {
                   </div>
                   <h2 className="text-lg font-extrabold">{assignment.title}</h2>
                   <p className="mt-2 text-sm leading-6 text-gray-500">{assignment.description}</p>
-                  <p className="mt-3 text-xs font-bold text-slate-500">{assignment.subject} · Deadline {assignment.deadline || '-'}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {normalizeAssignmentSubmissionTypes(assignment.submissionTypes).map((type) => (
+                      <span key={type} className="rounded-full bg-[#E0F2FE] px-2.5 py-1 text-xs font-black text-[#0284c7]">
+                        {assignmentSubmissionTypeOptions.find((item) => item.value === type)?.label || type}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs font-bold text-slate-500">{assignment.subject} · Deadline {formatAssignmentDateTime(assignment.deadline)}</p>
                   <button onClick={() => openAssignment(assignment)} className="mt-5 w-full rounded-2xl bg-galaxy-action px-4 py-3 text-sm font-bold text-white">
                     {submission ? 'Lihat / perbarui jawaban' : 'Kerjakan tugas'}
                   </button>
@@ -2410,6 +3324,22 @@ function ProfilPage({ user }) {
 }
 
 const attendanceStatuses = ['Hadir', 'Izin', 'Sakit', 'Alpa']
+const attendanceTypeOptions = [
+  {
+    value: 'daily',
+    label: 'Daftar Hadir Harian',
+    shortLabel: 'Harian',
+    actor: 'Wali kelas',
+    description: 'Absensi resmi harian yang diisi wali kelas.',
+  },
+  {
+    value: 'subject',
+    label: 'Daftar Hadir Mapel',
+    shortLabel: 'Per Mapel',
+    actor: 'Guru mapel',
+    description: 'Absensi setiap pertemuan saat guru mengajar di kelas.',
+  },
+]
 
 const gradeFormatClassRoster = {
   'XI Pangeran Diponegoro': [
@@ -2531,13 +3461,39 @@ function getGradeFormatRoster() {
   ))
 }
 
+const schoolAttendanceStorageKey = 'islelearn-attendance-school'
+
 function attendanceStorageKey(user) {
   return `islelearn-attendance-${user?.id || 'demo'}`
+}
+
+function normalizeAttendanceType(type) {
+  return type === 'subject' ? 'subject' : 'daily'
+}
+
+function getAttendanceTypeMeta(type) {
+  return attendanceTypeOptions.find((item) => item.value === normalizeAttendanceType(type)) || attendanceTypeOptions[0]
+}
+
+function attendanceSessionMatchesScope(session, { date, className, type = 'daily', subject = '', lessonTime = '' } = {}) {
+  const sessionType = normalizeAttendanceType(session?.type)
+  if (date && session?.date !== date) return false
+  if (className && promoteClassName(session?.className) !== promoteClassName(className)) return false
+  if (sessionType !== normalizeAttendanceType(type)) return false
+  if (sessionType === 'subject') {
+    if (subject && String(session?.subject || '') !== String(subject || '')) return false
+    if (lessonTime && String(session?.lessonTime || '') !== String(lessonTime || '')) return false
+  }
+  return true
 }
 
 function normalizeAttendanceSession(session = {}) {
   return {
     ...session,
+    type: normalizeAttendanceType(session.type),
+    subject: session.subject || '',
+    lessonTime: session.lessonTime || '',
+    teacherName: session.teacherName || '',
     className: promoteClassName(session.className),
     rows: Array.isArray(session.rows)
       ? session.rows.map((row) => ({ ...row, className: promoteClassName(row.className || session.className) }))
@@ -2545,14 +3501,34 @@ function normalizeAttendanceSession(session = {}) {
   }
 }
 
+function dedupeAttendanceSessions(rows = []) {
+  const byScope = new Map()
+  rows.forEach((row) => {
+    const session = normalizeAttendanceSession(row)
+    if (isLegacyPreviewClassName(session.className)) return
+    const key = [
+      session.date,
+      promoteClassName(session.className),
+      normalizeAttendanceType(session.type),
+      session.subject || '',
+      session.lessonTime || '',
+    ].join('|')
+    byScope.set(key, session)
+  })
+  return Array.from(byScope.values()).sort((a, b) => String(b.updatedAt || b.date || '').localeCompare(String(a.updatedAt || a.date || '')))
+}
+
 function getAttendanceSessions(user) {
-  return safeReadLocalJson(attendanceStorageKey(user), [])
-    .map(normalizeAttendanceSession)
-    .filter((session) => !isLegacyPreviewClassName(session.className))
+  return dedupeAttendanceSessions([
+    ...safeReadLocalJson(schoolAttendanceStorageKey, []),
+    ...safeReadLocalJson(attendanceStorageKey(user), []),
+  ])
 }
 
 function setAttendanceSessions(user, rows) {
-  safeWriteLocalJson(attendanceStorageKey(user), Array.isArray(rows) ? rows : [])
+  const normalizedRows = dedupeAttendanceSessions(Array.isArray(rows) ? rows : [])
+  safeWriteLocalJson(schoolAttendanceStorageKey, normalizedRows)
+  safeWriteLocalJson(attendanceStorageKey(user), normalizedRows)
 }
 
 function toLocalIsoDate(date = new Date()) {
@@ -2629,8 +3605,8 @@ function getGradeRosterForClass(roster, className) {
   return formatRows.length ? formatRows : roster
 }
 
-function getAttendanceSession(sessions, date, className) {
-  return sessions.find((item) => item.date === date && item.className === className) || null
+function getAttendanceSession(sessions, date, className, options = {}) {
+  return sessions.find((item) => attendanceSessionMatchesScope(item, { date, className, ...options })) || null
 }
 
 function buildAttendanceRows(roster, savedRows = []) {
@@ -2681,14 +3657,16 @@ function summarizeAttendanceRows(rows = []) {
 }
 
 function upsertAttendanceSession(sessions, session) {
+  const sessionType = normalizeAttendanceType(session.type)
   const nextSession = {
     ...session,
-    id: session.id || `attendance-${session.date}-${session.className}`.replace(/\s+/g, '-').toLowerCase(),
+    type: sessionType,
+    id: session.id || `attendance-${sessionType}-${session.date}-${session.className}-${session.subject || 'harian'}-${session.lessonTime || ''}`.replace(/\s+/g, '-').toLowerCase(),
     updatedAt: new Date().toISOString(),
   }
-  const exists = sessions.some((item) => item.date === nextSession.date && item.className === nextSession.className)
+  const exists = sessions.some((item) => attendanceSessionMatchesScope(item, nextSession))
   return exists
-    ? sessions.map((item) => (item.date === nextSession.date && item.className === nextSession.className ? { ...item, ...nextSession } : item))
+    ? sessions.map((item) => (attendanceSessionMatchesScope(item, nextSession) ? { ...item, ...nextSession } : item))
     : [nextSession, ...sessions]
 }
 
@@ -2767,24 +3745,43 @@ function isIsoDateInRange(isoDate, range) {
   return safeDate >= range.startIso && safeDate <= range.endIso
 }
 
-function getAttendanceSessionsForRange(sessions, className, range) {
+function getAttendanceSessionsForRange(sessions, className, range, options = {}) {
   const targetClass = promoteClassName(className)
   return sessions.filter((session) => (
     promoteClassName(session.className) === targetClass
     && isIsoDateInRange(session.date, range)
+    && attendanceSessionMatchesScope(session, options)
+  ))
+}
+
+function filterAttendanceSessionsByMode(sessions, { type = 'daily', className = '', subject = '' } = {}) {
+  return sessions.filter((session) => (
+    attendanceSessionMatchesScope(session, { type, className, subject })
   ))
 }
 
 function buildStudentAttendanceRecap(roster, rangeSessions) {
   return roster.map((student) => {
     const counts = attendanceStatuses.reduce((acc, status) => ({ ...acc, [status]: 0 }), {})
+    const dailyStatuses = []
 
     rangeSessions.forEach((session) => {
       const row = Array.isArray(session.rows)
         ? session.rows.find((item) => item.studentId === student.id || item.name === student.name)
         : null
       const status = attendanceStatuses.includes(row?.status) ? row.status : ''
-      if (status) counts[status] += 1
+      if (status) {
+        counts[status] += 1
+        dailyStatuses.push({
+          date: session.date,
+          day: formatAttendanceDate(session.date, { weekday: 'long' }),
+          label: formatAttendanceDate(session.date, { weekday: 'short', day: '2-digit', month: 'short' }),
+          status,
+          note: row?.note || '',
+          subject: session.subject || '',
+          lessonTime: session.lessonTime || '',
+        })
+      }
     })
 
     const total = attendanceStatuses.reduce((sum, status) => sum + counts[status], 0)
@@ -2798,16 +3795,17 @@ function buildStudentAttendanceRecap(roster, rangeSessions) {
       sakit: counts.Sakit,
       alpa: counts.Alpa,
       rate: total ? Math.round((counts.Hadir / total) * 100) : 0,
+      dailyStatuses,
     }
   })
 }
 
-function buildSemesterMonthRecap(sessions, className, anchorDate = toLocalIsoDate()) {
+function buildSemesterMonthRecap(sessions, className, anchorDate = toLocalIsoDate(), options = {}) {
   const semesterRange = getAttendanceSemesterRange(anchorDate)
   return Array.from({ length: semesterRange.endMonth - semesterRange.startMonth + 1 }, (_, index) => {
     const monthDate = new Date(semesterRange.year, semesterRange.startMonth + index, 1)
     const monthRange = getAttendanceMonthRange(toLocalIsoDate(monthDate))
-    const monthSessions = getAttendanceSessionsForRange(sessions, className, monthRange)
+    const monthSessions = getAttendanceSessionsForRange(sessions, className, monthRange, options)
     const summary = summarizeAttendanceSessions(monthSessions)
     return {
       label: formatAttendanceDate(monthRange.startIso, { month: 'short' }),
@@ -2825,10 +3823,10 @@ function statusButtonClass(status, selected) {
   return 'bg-rose-600 text-white ring-rose-600'
 }
 
-function AttendanceChartPair({ weeklyData, monthlyData }) {
+function AttendanceChartPair({ weeklyData, monthlyData, showWeekly = true }) {
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
-      <div>
+    <div className={`grid gap-4 ${showWeekly ? 'xl:grid-cols-2' : ''}`}>
+      {showWeekly && <div>
         <div className="mb-2 flex items-center justify-between gap-2">
           <h3 className="text-sm font-black text-[#132437]">Mingguan</h3>
           <span className="rounded-lg bg-[#EAF4FF] px-2.5 py-1 text-[11px] font-black text-[#2F80D8]">7 hari</span>
@@ -2843,7 +3841,7 @@ function AttendanceChartPair({ weeklyData, monthlyData }) {
             <Bar dataKey="Tidak" fill="#D8A642" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
-      </div>
+      </div>}
 
       <div>
         <div className="mb-2 flex items-center justify-between gap-2">
@@ -2898,7 +3896,7 @@ function AttendanceRecapCard({ title, subtitle, summary, sessionCount }) {
   )
 }
 
-function AttendanceRecapTable({ monthlyRows, semesterRows }) {
+function AttendanceRecapTable({ monthlyRows, semesterRows, leftTitle = 'Bulan ini', rightTitle = 'Semester ini' }) {
   const semesterByStudent = new Map(semesterRows.map((row) => [row.studentId, row]))
   return (
     <div className="overflow-x-auto">
@@ -2906,8 +3904,8 @@ function AttendanceRecapTable({ monthlyRows, semesterRows }) {
         <thead>
           <tr className="border-b border-[#D9E6F5] text-[10px] uppercase tracking-[0.14em] text-[#2F80D8]">
             <th rowSpan={2} className="py-3 pr-4 font-black">Siswa</th>
-            <th colSpan={5} className="bg-[#EEF7FF] px-3 py-2 text-center font-black">Bulan ini</th>
-            <th colSpan={5} className="bg-[#F8FBFF] px-3 py-2 text-center font-black">Semester ini</th>
+            <th colSpan={5} className="bg-[#EEF7FF] px-3 py-2 text-center font-black">{leftTitle}</th>
+            <th colSpan={5} className="bg-[#F8FBFF] px-3 py-2 text-center font-black">{rightTitle}</th>
           </tr>
           <tr className="border-b border-[#D9E6F5] text-xs uppercase tracking-[0.12em] text-[#64748B]">
             {['H', 'I', 'S', 'A', '%'].map((label) => <th key={`m-${label}`} className="py-3 pr-3 text-center font-black">{label}</th>)}
@@ -2955,6 +3953,313 @@ function SemesterMonthRecap({ rows }) {
   )
 }
 
+function escapeReportHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+function tableRowsToHtml(rows = []) {
+  if (!rows.length) {
+    return '<p class="empty">Belum ada data pada periode ini.</p>'
+  }
+
+  const headers = Object.keys(rows[0])
+  return `
+    <table>
+      <thead><tr>${headers.map((header) => `<th>${escapeReportHtml(header)}</th>`).join('')}</tr></thead>
+      <tbody>
+        ${rows.map((row) => `<tr>${headers.map((header) => `<td>${escapeReportHtml(row[header])}</td>`).join('')}</tr>`).join('')}
+      </tbody>
+    </table>
+  `
+}
+
+function getMonthDates(anchorDate = toLocalIsoDate()) {
+  const range = getAttendanceMonthRange(anchorDate)
+  const days = []
+  for (let date = range.startIso; date <= range.endIso; date = addDaysIso(date, 1)) {
+    days.push(date)
+  }
+  return days
+}
+
+function attendanceStatusExportLabel(status = '') {
+  if (status === 'Alpa') return 'Alfa'
+  return status || ''
+}
+
+function attendanceStatusKey(status = '') {
+  if (status === 'Alfa') return 'Alpa'
+  return status
+}
+
+function getStudentSessionRow(session, student) {
+  return Array.isArray(session?.rows)
+    ? session.rows.find((row) => row.studentId === student.studentId || row.studentId === student.id || row.name === student.name)
+    : null
+}
+
+function getStudentStatusOnDate(sessions, date, student) {
+  const session = sessions.find((item) => item.date === date && getStudentSessionRow(item, student))
+  return attendanceStatusExportLabel(getStudentSessionRow(session, student)?.status || '')
+}
+
+function countStudentStatusInSessions(sessions, student, status) {
+  const targetStatus = attendanceStatusKey(status)
+  return sessions.reduce((total, session) => {
+    const row = getStudentSessionRow(session, student)
+    return total + (row?.status === targetStatus ? 1 : 0)
+  }, 0)
+}
+
+function buildDigitalMonthRows(students = [], sessions = [], selectedDate = toLocalIsoDate()) {
+  const monthDates = getMonthDates(selectedDate)
+  return students.map((student, index) => {
+    const statusByDate = monthDates.map((date) => getStudentStatusOnDate(sessions, date, student))
+    const sakit = statusByDate.filter((status) => status === 'Sakit').length
+    const izin = statusByDate.filter((status) => status === 'Izin').length
+    const alfa = statusByDate.filter((status) => status === 'Alfa').length
+    const terlambat = statusByDate.filter((status) => status === 'Terlambat').length
+    const hadir = statusByDate.filter((status) => status === 'Hadir').length
+    const terisi = statusByDate.filter(Boolean).length
+    return {
+      no: index + 1,
+      name: student.name,
+      gender: student.gender || '',
+      statuses: statusByDate,
+      sakit,
+      izin,
+      alfa,
+      terlambat,
+      tidakHadir: sakit + izin + alfa,
+      hadir,
+      rate: terisi ? Math.round((hadir / terisi) * 100) : 0,
+    }
+  })
+}
+
+function buildDigitalSemesterRows(students = [], sessions = []) {
+  return students.map((student, index) => {
+    const sakit = countStudentStatusInSessions(sessions, student, 'Sakit')
+    const izin = countStudentStatusInSessions(sessions, student, 'Izin')
+    const alfa = countStudentStatusInSessions(sessions, student, 'Alfa')
+    const terlambat = countStudentStatusInSessions(sessions, student, 'Terlambat')
+    const hadir = countStudentStatusInSessions(sessions, student, 'Hadir')
+    const total = sakit + izin + alfa + terlambat + hadir
+    return {
+      no: index + 1,
+      name: student.name,
+      gender: student.gender || '',
+      sakit,
+      izin,
+      alfa,
+      terlambat,
+      tidakHadir: sakit + izin + alfa,
+      hadir,
+      rate: total ? Math.round((hadir / total) * 100) : 0,
+    }
+  })
+}
+
+function buildSubjectMonthlyRows(students = [], monthlySessions = [], semesterSessions = []) {
+  return students.map((student, index) => {
+    const month = buildDigitalSemesterRows([student], monthlySessions)[0]
+    const semester = buildDigitalSemesterRows([student], semesterSessions)[0]
+    return {
+      No: index + 1,
+      Nama: student.name,
+      'L/P': student.gender || '',
+      'Hadir Bulan Ini': month.hadir,
+      'Sakit Bulan Ini': month.sakit,
+      'Izin Bulan Ini': month.izin,
+      'Alfa Bulan Ini': month.alfa,
+      'Persen Bulan Ini': `${month.rate}%`,
+      'Hadir Semester': semester.hadir,
+      'Sakit Semester': semester.sakit,
+      'Izin Semester': semester.izin,
+      'Alfa Semester': semester.alfa,
+      'Persen Semester': `${semester.rate}%`,
+    }
+  })
+}
+
+function buildAttendanceExportReport({ type, className, subject, lessonTime, teacherName, selectedDate, monthlySessions, monthlySummary, semesterSessions, semesterSummary, students }) {
+  const mode = getAttendanceTypeMeta(type)
+  const monthRange = getAttendanceMonthRange(selectedDate)
+  const semesterRange = getAttendanceSemesterRange(selectedDate)
+  const monthDates = getMonthDates(selectedDate)
+  const title = `${mode.label} ${className}`
+  const subjectLine = type === 'subject' ? `${subject} · ${lessonTime}` : 'Absensi harian wali kelas'
+  const monthRows = buildDigitalMonthRows(students, monthlySessions, selectedDate)
+  const semesterRows = buildDigitalSemesterRows(students, semesterSessions)
+  return {
+    title,
+    filename: `${slugFileName(title)}-${toLocalIsoDate()}`,
+    mode,
+    className,
+    subjectLine,
+    teacherName,
+    selectedDate,
+    monthRange,
+    semesterRange,
+    monthDates,
+    monthlySummary,
+    semesterSummary,
+    monthRows,
+    semesterRows,
+    subjectRows: buildSubjectMonthlyRows(students, monthlySessions, semesterSessions),
+  }
+}
+
+function buildAttendanceReportHtml(report, { print = false } = {}) {
+  const dailyMode = report.mode.value === 'daily'
+  const style = `
+    <style>
+      body { font-family: Arial, sans-serif; color: #132437; margin: ${print ? '24px' : '16px'}; }
+      h1 { margin: 0; font-size: 20px; }
+      h2 { margin: 22px 0 8px; font-size: 15px; color: #17446E; }
+      p { margin: 4px 0; color: #44546A; font-size: 12px; }
+      .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; margin-top: 12px; }
+      .summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+      .box { border: 1px solid #D9E6F5; border-radius: 10px; padding: 10px; background: #F8FBFF; }
+      .box b { display: block; font-size: 22px; color: #17446E; }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; page-break-inside: auto; }
+      th, td { border: 1px solid #C9D8E8; padding: 6px 7px; font-size: 11px; vertical-align: top; }
+      th { background: #C1FA70; color: #132437; text-align: center; }
+      td.center { text-align: center; }
+      td.name { min-width: 180px; font-weight: 700; }
+      .sheet { page-break-after: always; }
+      .wide { min-width: 1320px; }
+      .scroll { overflow-x: auto; }
+      tr { page-break-inside: avoid; }
+      .empty { border: 1px dashed #C9D8E8; padding: 12px; border-radius: 10px; }
+      @media print { body { margin: 12mm; } .no-print { display: none; } }
+    </style>
+  `
+  const monthTable = `
+    <div class="scroll">
+      <table class="wide">
+        <thead>
+          <tr>
+            <th rowspan="2">NO</th>
+            <th rowspan="2">NAMA PESERTA DIDIK</th>
+            <th>TGL</th>
+            ${report.monthDates.map((date) => `<th>${parseIsoDate(date).getDate()}</th>`).join('')}
+            <th colspan="6">KET</th>
+          </tr>
+          <tr>
+            <th>L/P</th>
+            ${report.monthDates.map((date) => `<th>${formatAttendanceDate(date, { weekday: 'short' })}</th>`).join('')}
+            <th>S</th><th>I</th><th>A</th><th>T</th><th>HADIR</th><th>PERSEN</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${report.monthRows.map((row) => `
+            <tr>
+              <td class="center">${row.no}</td>
+              <td class="name">${escapeReportHtml(row.name)}</td>
+              <td class="center">${escapeReportHtml(row.gender)}</td>
+              ${row.statuses.map((status) => `<td class="center">${escapeReportHtml(status)}</td>`).join('')}
+              <td class="center">${row.sakit}</td>
+              <td class="center">${row.izin}</td>
+              <td class="center">${row.alfa}</td>
+              <td class="center">${row.terlambat}</td>
+              <td class="center">${row.hadir}</td>
+              <td class="center">${row.rate}%</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+  const semesterTable = `
+    <table>
+      <thead>
+        <tr>
+          <th rowspan="2">NO</th>
+          <th rowspan="2">NAMA PESERTA DIDIK</th>
+          <th>TGL</th>
+          <th colspan="7">KET</th>
+        </tr>
+        <tr>
+          <th>L/P</th><th>S</th><th>I</th><th>A</th><th>T</th><th>TDK HADIR</th><th>HADIR</th><th>PERSENTASE KEHADIRAN</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${report.semesterRows.map((row) => `
+          <tr>
+            <td class="center">${row.no}</td>
+            <td class="name">${escapeReportHtml(row.name)}</td>
+            <td class="center">${escapeReportHtml(row.gender)}</td>
+            <td class="center">${row.sakit}</td>
+            <td class="center">${row.izin}</td>
+            <td class="center">${row.alfa}</td>
+            <td class="center">${row.terlambat}</td>
+            <td class="center">${row.tidakHadir}</td>
+            <td class="center">${row.hadir}</td>
+            <td class="center">${row.rate}%</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `
+
+  return `<!doctype html>
+    <html>
+      <head><meta charset="utf-8" />${style}</head>
+      <body>
+        <button class="no-print" onclick="window.print()" style="margin-bottom:14px;padding:10px 14px;border-radius:10px;border:0;background:#17446E;color:white;font-weight:700">Cetak / Simpan PDF</button>
+        <h1>${escapeReportHtml(report.title)}</h1>
+        <p>${escapeReportHtml(school.name)} · ${escapeReportHtml(report.mode.actor)}</p>
+        <div class="meta">
+          <p><b>Kelas:</b> ${escapeReportHtml(report.className)}</p>
+          <p><b>Jenis:</b> ${escapeReportHtml(report.mode.label)}</p>
+          <p><b>Mapel/Jam:</b> ${escapeReportHtml(report.subjectLine)}</p>
+          <p><b>Guru:</b> ${escapeReportHtml(report.teacherName || '-')}</p>
+          <p><b>Bulan:</b> ${escapeReportHtml(report.monthRange.label)}</p>
+          <p><b>Semester:</b> ${escapeReportHtml(report.semesterRange.label)}</p>
+        </div>
+        <div class="summary">
+          <div class="box"><span>Bulanan</span><b>${report.monthlySummary.rate}%</b><p>H ${report.monthlySummary.hadir} · I ${report.monthlySummary.izin} · S ${report.monthlySummary.sakit} · A ${report.monthlySummary.alpa}</p></div>
+          <div class="box"><span>Semester</span><b>${report.semesterSummary.rate}%</b><p>H ${report.semesterSummary.hadir} · I ${report.semesterSummary.izin} · S ${report.semesterSummary.sakit} · A ${report.semesterSummary.alpa}</p></div>
+        </div>
+        ${dailyMode ? `
+          <section class="sheet">
+            <h2>${escapeReportHtml(report.monthRange.label.toUpperCase())}</h2>
+            ${monthTable}
+          </section>
+          <section>
+            <h2>REKAP HADIR ${escapeReportHtml(report.semesterRange.semester.toUpperCase())}</h2>
+            ${semesterTable}
+          </section>
+        ` : `
+          <h2>REKAP PERTEMUAN GURU MAPEL - BULANAN DAN SEMESTER</h2>
+          ${tableRowsToHtml(report.subjectRows)}
+        `}
+      </body>
+    </html>`
+}
+
+function downloadAttendanceExcel(report) {
+  downloadTextFile(`${report.filename}.xls`, '\ufeff' + buildAttendanceReportHtml(report), 'application/vnd.ms-excel;charset=utf-8')
+}
+
+function printAttendancePdf(report) {
+  const printWindow = window.open('', '_blank', 'width=1100,height=800')
+  if (!printWindow) {
+    downloadTextFile(`${report.filename}.html`, buildAttendanceReportHtml(report, { print: true }), 'text/html;charset=utf-8')
+    return
+  }
+  printWindow.document.write(buildAttendanceReportHtml(report, { print: true }))
+  printWindow.document.close()
+  printWindow.focus()
+  setTimeout(() => printWindow.print(), 250)
+}
+
 function GuruDashboard({ user, notify }) {
   const navigate = useNavigate()
   const allSubjectOptions = useMemo(() => getGradeSubjectOptions(), [])
@@ -2963,223 +4268,109 @@ function GuruDashboard({ user, notify }) {
   const teacherSubjectLabel = hasAssignedSubjects ? teacherSubjectOptions.join(', ') : 'Semua mapel'
   const teacherMaterials = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-materials-'), user, teacherSubjectOptions)
   const teacherAssignments = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-assignments-'), user, teacherSubjectOptions)
-  const teacherQuestions = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-questions-'), user, teacherSubjectOptions)
   const teacherQuizzes = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-quizzes-'), user, teacherSubjectOptions)
-  const assignmentSubmissions = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-assignment-submissions-'), user, teacherSubjectOptions, { keepUnscoped: true })
-  const attendanceSessions = getAttendanceSessions(user)
+  const attendanceSessions = filterAttendanceSessionsByMode(getAttendanceSessions(user), { type: 'daily' })
   const gradebookRows = filterRowsByTeacherSubjects(getGradebookRows(user), user, teacherSubjectOptions)
   const gradeSummary = summarizeGradebook(gradebookRows)
   const todayDate = toLocalIsoDate()
   const todayAttendance = summarizeAttendanceSessions(attendanceSessions.filter((item) => item.date === todayDate))
-  const weeklyAttendanceData = buildWeeklyAttendanceData(attendanceSessions, todayDate)
-  const monthlyAttendanceData = buildMonthlyAttendanceData(attendanceSessions, todayDate)
   const isStatus = (item, status) => String(item?.status || '').toLowerCase() === status.toLowerCase()
-  const draftMaterials = teacherMaterials.filter((item) => isStatus(item, 'Draft'))
+  const publishedMaterials = teacherMaterials.filter((item) => isStatus(item, 'Publish'))
   const activeAssignments = teacherAssignments.filter((item) => isStatus(item, 'Aktif'))
   const draftAssignments = teacherAssignments.filter((item) => !isStatus(item, 'Aktif'))
   const draftQuizzes = teacherQuizzes.filter((item) => isStatus(item, 'Draft'))
   const publishedQuizzes = teacherQuizzes.filter((item) => isStatus(item, 'Publish'))
-  const ungradedSubmissions = assignmentSubmissions.filter((item) => item.score === undefined || item.score === null || item.score === '')
-  const draftTotal = draftMaterials.length + draftAssignments.length + draftQuizzes.length
-  const hasTeacherData = teacherMaterials.length > 0 || teacherAssignments.length > 0 || teacherQuestions.length > 0 || teacherQuizzes.length > 0 || assignmentSubmissions.length > 0 || gradebookRows.length > 0
-  const hasRaporAccess = isTeacherHomeroom(user)
   const teacherFirstName = user?.name?.split(' ')[0] || 'Guru'
   const nextMeeting = {
     className: classes[0]?.name || 'Kelas belum dipilih',
     subject: teacherSubjectOptions[0] || teacherSubjectLabel,
     time: '07.30 - 09.00',
-    material: teacherMaterials.find((item) => isStatus(item, 'Publish'))?.title || teacherMaterials[0]?.title || 'Materi hari ini belum dipilih',
   }
 
-  const metricItems = [
-    { label: 'Kehadiran', value: `${todayAttendance.rate}%`, caption: `${todayAttendance.hadir}/${todayAttendance.total} hadir hari ini`, icon: CalendarClock },
-    { label: 'Tugas', value: activeAssignments.length, caption: 'sedang aktif', icon: ClipboardCheck },
-    { label: 'Perlu dinilai', value: ungradedSubmissions.length, caption: `${assignmentSubmissions.length} submission`, icon: FileText },
-    { label: 'Kuis', value: publishedQuizzes.length, caption: 'dipublish', icon: PlayCircle },
-  ]
-
-  const quickActions = [
-    { label: 'Daftar Hadir', icon: CalendarClock, onClick: () => navigate('/guru/daftar-hadir') },
-    { label: 'Daftar Nilai', icon: BarChart3, onClick: () => navigate('/guru/daftar-nilai') },
-    ...(hasRaporAccess ? [{ label: 'Rapor', icon: FileText, onClick: () => navigate('/guru/rapor') }] : []),
-    { label: 'Siapkan', icon: Sparkles, onClick: () => navigate('/guru/studio-konten') },
-    { label: 'Materi', icon: BookOpen, onClick: () => navigate('/guru/materi') },
-    { label: 'Tugas', icon: ClipboardList, onClick: () => navigate('/guru/tugas') },
-    { label: 'Bank Soal', icon: FileQuestion, onClick: () => navigate('/guru/bank-soal') },
-    { label: 'Kuis', icon: PlayCircle, onClick: () => navigate('/guru/kuis-live') },
-    { label: 'Analisis', icon: LineChartIcon, onClick: () => navigate('/guru/analisis-nilai') },
-  ]
-
-  const priorityItems = hasTeacherData ? [
+  const teacherCards = [
     {
-      id: 'publish-content',
-      title: draftTotal > 0 ? `${draftTotal} draft` : 'Draft kosong',
-      eyebrow: 'Konten',
-      meta: draftTotal > 0 ? 'Materi/tugas/kuis perlu dicek sebelum dipublish.' : 'Mulai dari Siapkan Pembelajaran.',
-      status: draftTotal > 0 ? 'Review' : 'Kosong',
-      icon: Send,
-      actionLabel: draftTotal > 0 ? 'Cek' : 'Mulai',
-      onClick: () => navigate(draftTotal > 0 ? '/guru/materi' : '/guru/studio-konten'),
-    },
-    {
-      id: 'assignment-monitoring',
-      title: activeAssignments.length > 0 ? `${activeAssignments.length} tugas aktif` : 'Tugas kosong',
-      eyebrow: 'Tugas',
-      meta: activeAssignments.length > 0 ? 'Pantau pengumpulan siswa.' : 'Belum ada tugas yang berjalan.',
-      status: activeAssignments.length > 0 ? 'Pantau' : 'Kosong',
-      icon: ClipboardCheck,
-      actionLabel: 'Tugas',
-      onClick: () => navigate('/guru/tugas'),
-    },
-    {
-      id: 'feedback-loop',
-      title: ungradedSubmissions.length > 0 ? `${ungradedSubmissions.length} belum dinilai` : 'Nilai kosong',
-      eyebrow: 'Feedback',
-      meta: ungradedSubmissions.length > 0 ? 'Beri nilai atau komentar ke submission.' : 'Belum ada submission siswa.',
-      status: ungradedSubmissions.length > 0 ? 'Nilai' : 'Kosong',
-      icon: PencilLine,
-      actionLabel: 'Buka',
-      onClick: () => navigate('/guru/tugas'),
-    },
-    {
-      id: 'next-meeting',
-      title: 'Pertemuan baru',
-      eyebrow: 'Perencanaan',
-      meta: 'Susun materi, tugas, dan cek pemahaman.',
-      status: 'Siap',
-      icon: Sparkles,
-      actionLabel: 'Rancang',
-      onClick: () => navigate('/guru/studio-konten'),
-    },
-  ] : [
-    {
-      id: 'start-teaching-flow',
-      title: 'Pertemuan pertama',
-      eyebrow: 'Mulai',
-      meta: 'Buat alur belajar pertama untuk kelas.',
-      status: 'Mulai',
-      icon: Sparkles,
-      actionLabel: 'Rancang',
-      onClick: () => navigate('/guru/studio-konten'),
-    },
-    {
-      id: 'create-material',
-      title: 'Materi pertama',
-      eyebrow: 'Materi',
-      meta: 'Tambahkan materi yang bisa diakses siswa.',
-      status: 'Belum ada',
+      label: 'Materi',
+      value: publishedMaterials.length,
+      caption: `${teacherMaterials.length} tersimpan`,
       icon: BookOpen,
-      actionLabel: 'Materi',
-      onClick: () => navigate('/guru/studio-konten'),
+      tone: 'blue',
+      onClick: () => navigate('/guru/materi'),
     },
     {
-      id: 'check-understanding',
-      title: 'Cek pemahaman',
-      eyebrow: 'Evaluasi',
-      meta: 'Siapkan soal singkat atau tugas.',
-      status: 'Nanti',
-      icon: Target,
-      actionLabel: 'Siapkan',
+      label: 'Tugas',
+      value: activeAssignments.length,
+      caption: `${draftAssignments.length} draft`,
+      icon: ClipboardList,
+      tone: 'amber',
+      onClick: () => navigate('/guru/tugas'),
+    },
+    {
+      label: 'Kuis',
+      value: publishedQuizzes.length,
+      caption: `${draftQuizzes.length} draft`,
+      icon: FlaskConical,
+      tone: 'green',
+      onClick: () => navigate('/guru/kuis-live'),
+    },
+    {
+      label: 'Nilai',
+      value: gradeSummary.average || '-',
+      caption: `${gradebookRows.length} siswa`,
+      icon: BarChart3,
+      tone: 'cyan',
+      onClick: () => navigate('/guru/daftar-nilai'),
+    },
+    {
+      label: 'Absensi',
+      value: todayAttendance.total,
+      caption: `${todayAttendance.hadir} hadir hari ini`,
+      icon: CalendarClock,
+      tone: 'rose',
+      onClick: () => navigate('/guru/daftar-hadir'),
+    },
+    {
+      label: 'Siapkan',
+      value: 'AI',
+      caption: 'tugas, kuis, soal',
+      icon: Sparkles,
+      tone: 'slate',
       onClick: () => navigate('/guru/studio-konten'),
     },
   ]
 
   return (
-    <div className="space-y-4">
-      <section className="overflow-hidden rounded-[1.35rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_18px_52px_rgba(15,36,55,0.07)] sm:p-5">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-[1.35rem] border border-[#D9E6F5] bg-white p-5 shadow-[0_18px_52px_rgba(15,36,55,0.07)]">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">Selamat mengajar, {teacherFirstName}</p>
-            <h2 className="mt-1 text-balance text-3xl font-black leading-tight text-[#132437]">Mulai dari pertemuan sekarang.</h2>
+            <h2 className="mt-2 text-balance text-3xl font-black leading-tight text-[#132437] sm:text-4xl">Kelola kelas dari satu ringkasan.</h2>
+            <p className="mt-3 text-sm font-semibold leading-7 text-[#64748B]">
+              Fokus ke yang paling sering dipakai: materi, tugas, kuis, nilai, dan absensi.
+            </p>
           </div>
-          <span className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#EAF4FF] px-3 py-2 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5]">
-            <BookOpen size={14} /> {teacherSubjectLabel}
-          </span>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
-          <article className="rounded-[1.1rem] bg-[#123B63] p-5 text-white">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <StatusBadge tone="cyan">Pertemuan Sekarang</StatusBadge>
-              <span className="rounded-xl bg-white/10 px-3 py-1 text-xs font-black text-sky-50 ring-1 ring-white/14">{nextMeeting.time}</span>
-            </div>
-            <h3 className="mt-4 text-3xl font-black leading-tight text-white">{nextMeeting.className}</h3>
-            <p className="mt-2 text-sm font-semibold leading-6 text-sky-100/82">{nextMeeting.subject} · {nextMeeting.material}</p>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <button onClick={() => navigate('/guru/daftar-hadir')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#123B63] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF]">
-                <CalendarClock size={16} /> Absen
-              </button>
-              <button onClick={() => navigate('/guru/materi')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/14 transition hover:-translate-y-0.5 hover:bg-white/16">
-                <BookOpen size={16} /> Buka Materi
-              </button>
-              <button onClick={() => navigate('/guru/kuis-live')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/14 transition hover:-translate-y-0.5 hover:bg-white/16">
-                <PlayCircle size={16} /> Mulai Kuis
-              </button>
-              <button onClick={() => navigate('/guru/tugas')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/14 transition hover:-translate-y-0.5 hover:bg-white/16">
-                <ClipboardList size={16} /> Buat Tugas
-              </button>
-            </div>
-          </article>
-
-          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-            {[
-              ['Kehadiran hari ini', `${todayAttendance.rate}%`, `${todayAttendance.hadir}/${todayAttendance.total} hadir`],
-              ['Perlu dinilai', ungradedSubmissions.length, 'submission menunggu'],
-              ['Draft konten', draftTotal, 'materi/tugas/kuis'],
-            ].map(([label, value, caption]) => (
-              <div key={label} className="rounded-[1.1rem] bg-[#F8FBFF] p-4 ring-1 ring-[#D9E6F5]">
-                <p className="text-xs font-black text-[#64748B]">{label}</p>
-                <p className="mt-2 font-mono text-3xl font-black text-[#132437]">{value}</p>
-                <p className="mt-1 text-xs font-semibold text-[#64748B]">{caption}</p>
-              </div>
-            ))}
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#EAF4FF] px-3 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5]">
+              <BookOpen size={14} /> {teacherSubjectLabel}
+            </span>
+            <span className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#F8FBFF] px-3 text-xs font-black text-[#64748B] ring-1 ring-[#D9E6F5]">
+              {nextMeeting.time} · {nextMeeting.className}
+            </span>
           </div>
         </div>
       </section>
 
-      <MetricStrip items={metricItems} />
+      <DashboardColorGrid items={teacherCards} />
 
-      <div className="grid gap-4 xl:grid-cols-[0.72fr_1.28fr]">
-        <DashboardPanel title="Daftar hadir hari ini" description={formatAttendanceDate(todayDate, { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-[#F8FBFF] px-3 py-3 ring-1 ring-[#D9E6F5]">
-              <p className="text-xs font-black text-[#64748B]">Hadir</p>
-              <p className="mt-1 font-mono text-2xl font-black text-[#132437]">{todayAttendance.hadir}</p>
-            </div>
-            <div className="rounded-xl bg-[#F8FBFF] px-3 py-3 ring-1 ring-[#D9E6F5]">
-              <p className="text-xs font-black text-[#64748B]">Tidak hadir</p>
-              <p className="mt-1 font-mono text-2xl font-black text-[#132437]">{todayAttendance.tidakHadir}</p>
-            </div>
-          </div>
-          <button onClick={() => navigate('/guru/daftar-hadir')} className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#17446E] px-4 text-sm font-black text-white transition hover:bg-[#2F80D8]">
-            <CalendarClock size={16} /> Buka daftar hadir
-          </button>
-        </DashboardPanel>
-
-        <DashboardPanel title="Grafik kehadiran" description="Grafik otomatis membaca daftar hadir yang disimpan guru.">
-          <AttendanceChartPair weeklyData={weeklyAttendanceData} monthlyData={monthlyAttendanceData} />
-        </DashboardPanel>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <CompactList
-          title="Antrean kerja"
-          description="Urutkan pekerjaan mengajar yang paling dekat ke siswa."
-          items={priorityItems}
+      <DashboardPanel title="Hari ini" description="Ringkasan kecil, detail lengkap tetap di halaman masing-masing.">
+        <SetupSteps
+          items={[
+            { label: 'Absensi', description: `${todayAttendance.total} tercatat, ${todayAttendance.hadir} hadir.`, icon: CalendarClock, done: todayAttendance.total > 0, actionLabel: 'Buka', onClick: () => navigate('/guru/daftar-hadir') },
+            { label: 'Tugas aktif', description: `${activeAssignments.length} tugas berjalan.`, icon: ClipboardCheck, done: activeAssignments.length > 0, actionLabel: 'Kelola', onClick: () => navigate('/guru/tugas') },
+            { label: 'Kuis publish', description: `${publishedQuizzes.length} kuis siap siswa.`, icon: FlaskConical, done: publishedQuizzes.length > 0, actionLabel: 'Kelola', onClick: () => navigate('/guru/kuis-live') },
+          ]}
         />
-
-        <DashboardPanel title="Checklist kelas" description="Langkah minimal agar kelas terasa siap dipakai.">
-          <SetupSteps
-            items={[
-              { label: 'Buat materi awal', description: 'Tambahkan satu materi sebagai pintu masuk siswa.', icon: BookOpen, done: teacherMaterials.length > 0, actionLabel: 'Buka', onClick: () => navigate('/guru/studio-konten') },
-              { label: 'Siapkan evaluasi', description: 'Tugas atau kuis pendek untuk cek pemahaman.', icon: ClipboardCheck, done: activeAssignments.length + publishedQuizzes.length > 0, actionLabel: 'Siapkan', onClick: () => navigate('/guru/studio-konten') },
-              { label: 'Beri feedback', description: 'Nilai submission agar siswa tahu langkah berikutnya.', icon: PencilLine, done: assignmentSubmissions.length > 0 && ungradedSubmissions.length === 0, actionLabel: 'Cek', onClick: () => navigate('/guru/tugas') },
-            ]}
-          />
-        </DashboardPanel>
-      </div>
-
-      <DashboardActionGrid items={quickActions.slice(3)} title="Menu mengajar" />
+      </DashboardPanel>
     </div>
   )
 }
@@ -3187,57 +4378,187 @@ function GuruDashboard({ user, notify }) {
 function GuruDaftarHadir({ user, notify }) {
   const roster = useMemo(() => getAttendanceRoster(), [])
   const classOptions = useMemo(() => getAttendanceClassOptions(roster), [roster])
+  const teacherSubjectOptions = useMemo(() => getTeacherSubjectNames(user), [user])
+  const subjectOptionsForAttendance = useMemo(() => (
+    teacherSubjectOptions.length ? teacherSubjectOptions : subjects.map((subject) => subject.name)
+  ), [teacherSubjectOptions])
+  const homeroomClasses = useMemo(() => getHomeroomClassesForUser(user), [user])
+  const canFillDailyAttendance = user?.role === 'admin' || homeroomClasses.length > 0
+  const canFillSubjectAttendance = user?.role === 'guru'
+  const availableAttendanceTypes = useMemo(() => attendanceTypeOptions.filter((option) => (
+    option.value === 'daily' ? canFillDailyAttendance : canFillSubjectAttendance
+  )), [canFillDailyAttendance, canFillSubjectAttendance])
+  const recapAttendanceTypes = useMemo(() => attendanceTypeOptions.filter((option) => {
+    if (user?.role === 'admin') return option.value === 'daily'
+    return user?.role === 'guru'
+  }), [user?.role])
+  const defaultSubject = subjectOptionsForAttendance[0] || 'Mata pelajaran'
   const [selectedDate, setSelectedDate] = useState(toLocalIsoDate())
-  const [selectedClass, setSelectedClass] = useState(classOptions[0] || 'Kelas umum')
+  const [selectedClass, setSelectedClass] = useState((homeroomClasses[0] || classOptions[0]) || 'Kelas umum')
+  const [attendanceType, setAttendanceType] = useState(canFillDailyAttendance ? 'daily' : 'subject')
+  const [recapType, setRecapType] = useState(canFillDailyAttendance ? 'daily' : 'subject')
+  const [selectedSubject, setSelectedSubject] = useState(defaultSubject)
+  const [lessonTime, setLessonTime] = useState('07.30 - 09.00')
   const [sessions, setSessions] = useState(() => getAttendanceSessions(user))
+  const [attendanceDirty, setAttendanceDirty] = useState(false)
+  const fillClassOptions = useMemo(() => attendanceType === 'daily' && user?.role === 'guru' && homeroomClasses.length
+    ? homeroomClasses
+    : classOptions, [attendanceType, classOptions, homeroomClasses, user?.role])
   const rosterForClass = useMemo(() => getRosterForClass(roster, selectedClass), [roster, selectedClass])
-  const savedSession = getAttendanceSession(sessions, selectedDate, selectedClass)
+  const attendanceMode = getAttendanceTypeMeta(attendanceType)
+  const recapMode = getAttendanceTypeMeta(recapType)
+  const canEditCurrentAttendance = attendanceType === 'daily' ? canFillDailyAttendance : canFillSubjectAttendance
+  const sessionScope = attendanceType === 'subject'
+    ? { type: attendanceType, subject: selectedSubject, lessonTime }
+    : { type: attendanceType }
+  const recapScope = recapType === 'subject'
+    ? { type: recapType, subject: selectedSubject }
+    : { type: recapType }
+  const savedSession = getAttendanceSession(sessions, selectedDate, selectedClass, sessionScope)
   const [rows, setRows] = useState(() => buildAttendanceRows(rosterForClass, savedSession?.rows || []))
   const calendarDays = Array.from({ length: 7 }, (_, index) => addDaysIso(selectedDate, index - 3))
   const draftSession = {
     ...(savedSession || {}),
+    type: attendanceType,
     date: selectedDate,
     className: selectedClass,
+    subject: attendanceType === 'subject' ? selectedSubject : '',
+    lessonTime: attendanceType === 'subject' ? lessonTime : '',
+    teacherName: user?.name || attendanceMode.actor,
     rows,
     createdBy: user?.id || 'demo',
   }
   const previewSessions = upsertAttendanceSession(sessions, draftSession)
-  const selectedClassPreviewSessions = previewSessions.filter((session) => promoteClassName(session.className) === promoteClassName(selectedClass))
+  const selectedClassPreviewSessions = filterAttendanceSessionsByMode(previewSessions, { className: selectedClass, ...recapScope })
   const weeklyAttendanceData = buildWeeklyAttendanceData(selectedClassPreviewSessions, selectedDate)
   const monthlyAttendanceData = buildMonthlyAttendanceData(selectedClassPreviewSessions, selectedDate)
   const monthRange = getAttendanceMonthRange(selectedDate)
   const semesterRange = getAttendanceSemesterRange(selectedDate)
-  const monthlySessions = getAttendanceSessionsForRange(previewSessions, selectedClass, monthRange)
-  const semesterSessions = getAttendanceSessionsForRange(previewSessions, selectedClass, semesterRange)
+  const monthlySessions = getAttendanceSessionsForRange(previewSessions, selectedClass, monthRange, recapScope)
+  const semesterSessions = getAttendanceSessionsForRange(previewSessions, selectedClass, semesterRange, recapScope)
   const monthlySummary = summarizeAttendanceSessions(monthlySessions)
   const semesterSummary = summarizeAttendanceSessions(semesterSessions)
   const monthlyStudentRows = buildStudentAttendanceRecap(rosterForClass, monthlySessions)
   const semesterStudentRows = buildStudentAttendanceRecap(rosterForClass, semesterSessions)
-  const semesterMonthRows = buildSemesterMonthRecap(previewSessions, selectedClass, selectedDate)
+  const semesterMonthRows = buildSemesterMonthRecap(previewSessions, selectedClass, selectedDate, recapScope)
   const summary = summarizeAttendanceRows(rows)
+  const unsavedAttendanceMessage = 'Perubahan absensi belum disimpan. Simpan dulu agar data tidak hilang.'
 
   useEffect(() => {
-    if (!classOptions.includes(selectedClass) && classOptions[0]) {
-      setSelectedClass(classOptions[0])
+    if (!availableAttendanceTypes.some((option) => option.value === attendanceType) && availableAttendanceTypes[0]) {
+      setAttendanceType(availableAttendanceTypes[0].value)
     }
-  }, [classOptions, selectedClass])
+  }, [attendanceType, availableAttendanceTypes])
 
   useEffect(() => {
-    const session = getAttendanceSession(sessions, selectedDate, selectedClass)
+    if (!recapAttendanceTypes.some((option) => option.value === recapType) && recapAttendanceTypes[0]) {
+      setRecapType(recapAttendanceTypes[0].value)
+    }
+  }, [recapAttendanceTypes, recapType])
+
+  useEffect(() => {
+    if (!fillClassOptions.includes(selectedClass) && fillClassOptions[0]) {
+      setSelectedClass(fillClassOptions[0])
+    }
+  }, [fillClassOptions, selectedClass])
+
+  useEffect(() => {
+    if (!subjectOptionsForAttendance.includes(selectedSubject) && subjectOptionsForAttendance[0]) {
+      setSelectedSubject(subjectOptionsForAttendance[0])
+    }
+  }, [selectedSubject, subjectOptionsForAttendance])
+
+  useEffect(() => {
+    const session = getAttendanceSession(sessions, selectedDate, selectedClass, sessionScope)
     setRows(buildAttendanceRows(getRosterForClass(roster, selectedClass), session?.rows || []))
-  }, [roster, selectedClass, selectedDate, sessions])
+    setAttendanceDirty(false)
+  }, [roster, selectedClass, selectedDate, attendanceType, selectedSubject, lessonTime, sessions])
+
+  useEffect(() => {
+    if (!attendanceDirty) return undefined
+    const handleBeforeUnload = (event) => {
+      event.preventDefault()
+      event.returnValue = unsavedAttendanceMessage
+      return unsavedAttendanceMessage
+    }
+    const handleInternalNavigation = (event) => {
+      const anchor = event.target?.closest?.('a[href]')
+      if (!anchor) return
+      const href = anchor.getAttribute('href') || ''
+      if (!href || href.startsWith('#') || anchor.target && anchor.target !== '_self') return
+      const targetUrl = new URL(anchor.href, window.location.href)
+      const currentUrl = new URL(window.location.href)
+      if (targetUrl.origin !== currentUrl.origin || targetUrl.pathname === currentUrl.pathname) return
+      if (!window.confirm(`${unsavedAttendanceMessage}\n\nLanjut tanpa menyimpan?`)) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('click', handleInternalNavigation, true)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('click', handleInternalNavigation, true)
+    }
+  }, [attendanceDirty, unsavedAttendanceMessage])
+
+  function confirmDiscardAttendanceChanges() {
+    if (!attendanceDirty) return true
+    const confirmed = window.confirm(`${unsavedAttendanceMessage}\n\nLanjut tanpa menyimpan?`)
+    if (confirmed) setAttendanceDirty(false)
+    return confirmed
+  }
+
+  function changeAttendanceType(nextType) {
+    if (nextType === attendanceType) return
+    if (!confirmDiscardAttendanceChanges()) return
+    setAttendanceType(nextType)
+  }
+
+  function changeSelectedDate(nextDate) {
+    if (nextDate === selectedDate) return
+    if (!confirmDiscardAttendanceChanges()) return
+    setSelectedDate(nextDate)
+  }
+
+  function changeSelectedClass(nextClass) {
+    if (nextClass === selectedClass) return
+    if (!confirmDiscardAttendanceChanges()) return
+    setSelectedClass(nextClass)
+  }
+
+  function changeSelectedSubject(nextSubject) {
+    if (nextSubject === selectedSubject) return
+    if (!confirmDiscardAttendanceChanges()) return
+    setSelectedSubject(nextSubject)
+  }
+
+  function changeLessonTime(nextLessonTime) {
+    if (nextLessonTime === lessonTime) return
+    if (!confirmDiscardAttendanceChanges()) return
+    setLessonTime(nextLessonTime)
+  }
 
   function updateRow(studentId, patch) {
+    if (!canEditCurrentAttendance) return
+    setAttendanceDirty(true)
     setRows((currentRows) => currentRows.map((row) => (
       row.studentId === studentId ? { ...row, ...patch } : row
     )))
   }
 
   function markAll(status) {
+    if (!canEditCurrentAttendance) return
+    setAttendanceDirty(true)
     setRows((currentRows) => currentRows.map((row) => ({ ...row, status })))
   }
 
   function saveAttendance() {
+    if (!canEditCurrentAttendance) {
+      notify('Akun ini hanya dapat melihat rekap kehadiran, bukan mengisi daftar hadir pada mode ini.')
+      return
+    }
+
     const nextSessions = upsertAttendanceSession(sessions, {
       ...draftSession,
       rows: rows.map((row) => ({
@@ -3251,20 +4572,75 @@ function GuruDaftarHadir({ user, notify }) {
     })
     setAttendanceSessions(user, nextSessions)
     setSessions(nextSessions)
+    setAttendanceDirty(false)
     notify('Daftar hadir berhasil disimpan.')
+  }
+
+  function exportAttendance(format) {
+    const report = buildAttendanceExportReport({
+      type: recapType,
+      className: selectedClass,
+      subject: recapType === 'subject' ? selectedSubject : '',
+      lessonTime: recapType === 'subject' ? 'Semua pertemuan' : '',
+      teacherName: user?.name || recapMode.actor,
+      selectedDate,
+      monthlySessions,
+      monthlySummary,
+      semesterSessions,
+      semesterSummary,
+      students: rosterForClass,
+    })
+
+    if (format === 'excel') {
+      downloadAttendanceExcel(report)
+      notify('Rekap absensi Excel berhasil diunduh.')
+      return
+    }
+
+    printAttendancePdf(report)
+    notify('Dialog cetak dibuka. Pilih Save as PDF untuk menyimpan rekap absensi.')
   }
 
   return (
     <div className="space-y-4">
       <PageHeader
         eyebrow="Daftar Hadir"
-        title="Daftar hadir harian siswa."
-        description="Pilih tanggal dan kelas, tandai status siswa, lalu simpan. Grafik dashboard guru akan mengikuti data ini."
-        action={<QuickActionButton icon={Save} label="Simpan" onClick={saveAttendance} />}
+        title="Daftar hadir siswa."
+        description="Absensi harian diisi wali kelas. Absensi per mata pelajaran diisi guru mapel setiap mengajar di kelas."
+        action={
+          <div className="flex flex-wrap gap-2">
+            <QuickActionButton icon={Printer} label="PDF" onClick={() => exportAttendance('pdf')} />
+            <QuickActionButton icon={Download} label="Excel" onClick={() => exportAttendance('excel')} />
+          </div>
+        }
       />
 
+      <section className={`grid gap-3 rounded-2xl border border-[#D9E6F5] bg-white p-3 shadow-[0_10px_28px_rgba(15,36,55,0.045)] ${availableAttendanceTypes.length > 1 ? 'lg:grid-cols-2' : ''}`}>
+        {availableAttendanceTypes.map((option) => {
+          const active = attendanceType === option.value
+          return (
+            <button
+              key={option.value}
+              onClick={() => changeAttendanceType(option.value)}
+              className={`rounded-2xl p-4 text-left ring-1 transition ${active ? 'bg-[#17446E] text-white ring-[#17446E]' : 'bg-[#F8FBFF] text-[#132437] ring-[#D9E6F5] hover:bg-[#EAF4FF]'}`}
+            >
+              <span className={`text-xs font-black uppercase tracking-[0.14em] ${active ? 'text-sky-100' : 'text-[#2F80D8]'}`}>{option.actor}</span>
+              <span className="mt-1 block text-lg font-black">{option.label}</span>
+              <span className={`mt-1 block text-sm font-semibold leading-6 ${active ? 'text-sky-100/85' : 'text-[#64748B]'}`}>{option.description}</span>
+            </button>
+          )
+        })}
+        {availableAttendanceTypes.length === 0 && (
+          <div className="rounded-2xl bg-[#F8FBFF] p-4 ring-1 ring-[#D9E6F5]">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F80D8]">Rekap kehadiran</p>
+            <p className="mt-1 text-lg font-black text-[#132437]">Mode pengisian belum tersedia untuk akun ini.</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">Guru tetap dapat melihat rekap kehadiran siswa di bawah.</p>
+          </div>
+        )}
+      </section>
+
       <section className="overflow-hidden rounded-2xl border border-[#D9E6F5] bg-white shadow-[0_10px_28px_rgba(15,36,55,0.045)]">
-        <div className="grid gap-4 border-b border-[#D9E6F5] bg-[#F8FBFF] p-4 lg:grid-cols-[1fr_18rem_18rem] lg:items-end">
+        <div className="grid gap-4 border-b border-[#D9E6F5] bg-[#F8FBFF] p-4 xl:grid-cols-[1fr_14rem_14rem_16rem_13rem] xl:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F80D8]">Kalender hadir</p>
             <h2 className="mt-1 text-xl font-black text-[#132437]">
@@ -3274,15 +4650,40 @@ function GuruDaftarHadir({ user, notify }) {
 
           <label className="block">
             <span className="mb-1 block text-xs font-black text-[#64748B]">Tanggal</span>
-            <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className={materialInputClass} />
+            <input type="date" value={selectedDate} onChange={(event) => changeSelectedDate(event.target.value)} className={materialInputClass} />
           </label>
 
           <label className="block">
             <span className="mb-1 block text-xs font-black text-[#64748B]">Kelas</span>
-            <select value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)} className={materialInputClass}>
-              {classOptions.map((className) => <option key={className} value={className}>{className}</option>)}
+            <select value={selectedClass} onChange={(event) => changeSelectedClass(event.target.value)} className={materialInputClass}>
+              {fillClassOptions.map((className) => <option key={className} value={className}>{className}</option>)}
             </select>
           </label>
+
+          {attendanceType === 'subject' && (
+            <>
+              {subjectOptionsForAttendance.length <= 1 ? (
+                <div className="block">
+                  <span className="mb-1 block text-xs font-black text-[#64748B]">Mata pelajaran</span>
+                  <div className={`${materialInputClass} flex min-h-[2.75rem] items-center bg-[#EEF7FF] text-[#17446E]`}>
+                    {selectedSubject}
+                  </div>
+                </div>
+              ) : (
+                <label className="block">
+                  <span className="mb-1 block text-xs font-black text-[#64748B]">Mata pelajaran diampu</span>
+                  <select value={selectedSubject} onChange={(event) => changeSelectedSubject(event.target.value)} className={materialInputClass}>
+                    {subjectOptionsForAttendance.map((subjectName) => <option key={subjectName} value={subjectName}>{subjectName}</option>)}
+                  </select>
+                </label>
+              )}
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-black text-[#64748B]">Jam / pertemuan</span>
+                <input value={lessonTime} onChange={(event) => changeLessonTime(event.target.value)} placeholder="07.30 - 09.00" className={materialInputClass} />
+              </label>
+            </>
+          )}
         </div>
 
         <div className="grid grid-cols-7 gap-1.5 p-3">
@@ -3292,7 +4693,7 @@ function GuruDaftarHadir({ user, notify }) {
             return (
               <button
                 key={date}
-                onClick={() => setSelectedDate(date)}
+                onClick={() => changeSelectedDate(date)}
                 className={`min-h-[4.5rem] rounded-xl px-2 py-2 text-center transition ring-1 ${
                   active
                     ? 'bg-[#17446E] text-white ring-[#17446E]'
@@ -3313,14 +4714,28 @@ function GuruDaftarHadir({ user, notify }) {
       </section>
 
       <DashboardPanel title={`Daftar hadir ${selectedClass}`} description={`${rows.length} siswa pada tanggal terpilih.`}>
-        <div className="mb-3 flex flex-wrap gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <StatusBadge tone={attendanceType === 'subject' ? 'cyan' : 'teal'}>{attendanceMode.shortLabel}</StatusBadge>
+          <StatusBadge tone="gray">{attendanceMode.actor}</StatusBadge>
+          {attendanceType === 'subject' && <StatusBadge tone="amber">{selectedSubject} · {lessonTime}</StatusBadge>}
+          {!canEditCurrentAttendance && <StatusBadge tone="amber">Rekap saja</StatusBadge>}
+        </div>
+        {canEditCurrentAttendance && <div className="mb-3 flex flex-wrap gap-2">
           <button onClick={() => markAll('Hadir')} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700">
             Semua hadir
           </button>
           <button onClick={() => markAll('Alpa')} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-[#64748B] ring-1 ring-[#D9E6F5] transition hover:bg-[#F8FBFF]">
             Reset status
           </button>
-        </div>
+          <button onClick={saveAttendance} className="inline-flex items-center gap-1.5 rounded-xl bg-[#17446E] px-3 py-2 text-xs font-black text-white shadow-[0_10px_20px_rgba(23,68,110,0.18)] transition hover:bg-[#2F80D8]">
+            <Save size={14} /> Simpan
+          </button>
+        </div>}
+        {attendanceDirty && (
+          <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-800">
+            Absensi sudah diubah tetapi belum disimpan. Tekan <b>Simpan</b> sebelum mengganti tanggal, kelas, mapel, atau meninggalkan halaman.
+          </div>
+        )}
 
         <div className="space-y-2 md:hidden">
           {rows.map((row) => (
@@ -3337,6 +4752,7 @@ function GuruDaftarHadir({ user, notify }) {
                   <button
                     key={status}
                     onClick={() => updateRow(row.studentId, { status })}
+                    disabled={!canEditCurrentAttendance}
                     className={`min-h-10 rounded-lg px-2 text-xs font-black ring-1 transition ${statusButtonClass(status, row.status === status)}`}
                   >
                     {status}
@@ -3346,6 +4762,7 @@ function GuruDaftarHadir({ user, notify }) {
               <input
                 value={row.note}
                 onChange={(event) => updateRow(row.studentId, { note: event.target.value })}
+                disabled={!canEditCurrentAttendance}
                 placeholder="Catatan opsional"
                 className="mt-3 w-full rounded-xl border border-[#D9E6F5] bg-white px-3 py-2.5 text-sm font-semibold text-[#132437] outline-none focus:border-[#2F80D8]"
               />
@@ -3375,6 +4792,7 @@ function GuruDaftarHadir({ user, notify }) {
                         <button
                           key={status}
                           onClick={() => updateRow(row.studentId, { status })}
+                          disabled={!canEditCurrentAttendance}
                           className={`rounded-lg px-2.5 py-1.5 text-xs font-black ring-1 transition ${statusButtonClass(status, row.status === status)}`}
                         >
                           {status}
@@ -3386,6 +4804,7 @@ function GuruDaftarHadir({ user, notify }) {
                     <input
                       value={row.note}
                       onChange={(event) => updateRow(row.studentId, { note: event.target.value })}
+                      disabled={!canEditCurrentAttendance}
                       placeholder="Opsional"
                       className="w-full rounded-xl border border-[#D9E6F5] bg-[#F8FBFF] px-3 py-2 text-sm font-semibold text-[#132437] outline-none focus:border-[#2F80D8] focus:bg-white"
                     />
@@ -3427,15 +4846,37 @@ function GuruDaftarHadir({ user, notify }) {
           </div>
         </DashboardPanel>
 
-        <DashboardPanel title="Grafik kehadiran" description="Mingguan menampilkan 7 hari terakhir. Bulanan menampilkan persentase per minggu pada bulan terpilih.">
-          <AttendanceChartPair weeklyData={weeklyAttendanceData} monthlyData={monthlyAttendanceData} />
+        <DashboardPanel title="Grafik bulanan" description="Grafik dibuat per minggu dalam bulan terpilih agar rekap tetap sederhana.">
+          <AttendanceChartPair weeklyData={weeklyAttendanceData} monthlyData={monthlyAttendanceData} showWeekly={false} />
         </DashboardPanel>
       </div>
 
       <DashboardPanel
         title="Rekap bulan dan semester"
-        description={`Membaca data ${selectedClass} pada ${monthRange.label} dan ${semesterRange.label}.`}
+        description={`Membaca ${recapMode.label.toLowerCase()} ${selectedClass} pada ${monthRange.label} dan ${semesterRange.label}.`}
       >
+        {recapAttendanceTypes.length > 1 && (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]">Jenis rekap</span>
+            {recapAttendanceTypes.map((option) => {
+              const active = recapType === option.value
+              return (
+                <button
+                  key={option.value}
+                  onClick={() => setRecapType(option.value)}
+                  className={`rounded-xl px-3 py-2 text-xs font-black ring-1 transition ${
+                    active
+                      ? 'bg-[#17446E] text-white ring-[#17446E]'
+                      : 'bg-white text-[#17446E] ring-[#D9E6F5] hover:bg-[#EAF4FF]'
+                  }`}
+                >
+                  {option.shortLabel}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         <div className="grid gap-3 xl:grid-cols-2">
           <AttendanceRecapCard title="Rekap bulanan" subtitle={monthRange.label} summary={monthlySummary} sessionCount={monthlySessions.length} />
           <AttendanceRecapCard title="Rekap semester" subtitle={semesterRange.label} summary={semesterSummary} sessionCount={semesterSessions.length} />
@@ -3446,10 +4887,14 @@ function GuruDaftarHadir({ user, notify }) {
           <SemesterMonthRecap rows={semesterMonthRows} />
         </div>
 
-        <div className="mt-4">
-          <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#64748B]">Rekap per siswa</p>
-          <AttendanceRecapTable monthlyRows={monthlyStudentRows} semesterRows={semesterStudentRows} />
-        </div>
+        <details className="mt-4 rounded-2xl border border-[#D9E6F5] bg-[#F8FBFF]">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-black text-[#17446E]">
+            Lihat rekap per siswa
+          </summary>
+          <div className="border-t border-[#D9E6F5] bg-white p-3">
+            <AttendanceRecapTable monthlyRows={monthlyStudentRows} semesterRows={semesterStudentRows} leftTitle="Bulan ini" rightTitle="Semester ini" />
+          </div>
+        </details>
       </DashboardPanel>
     </div>
   )
@@ -3802,6 +5247,134 @@ function buildSampleGradeRows(rows, materialScopes = []) {
   })
 }
 
+function gradeExportCell(value) {
+  return value === '' || value === null || value === undefined ? '' : value
+}
+
+function buildGradebookExportRows(rows = [], materialScopes = []) {
+  return rows.map((row, index) => ({
+    No: index + 1,
+    'NISN/NIS': row.nis || '',
+    'Nama Siswa': row.name,
+    'L/P': row.gender || '',
+    ...Object.fromEntries(gradeFormativeScoreFields.map((field) => [field.label, gradeExportCell(row.scores?.[field.key])])),
+    'Rata Formatif': gradeExportCell(row.averageFormative),
+    ...Object.fromEntries(gradeSummativeScoreFields.map((field, fieldIndex) => {
+      const scopeName = materialScopes[fieldIndex]?.name || `Lingkup Materi ${fieldIndex + 1}`
+      return [`${field.label} - ${scopeName}`, gradeExportCell(row.scores?.[field.key])]
+    })),
+    'Rata SLM': gradeExportCell(row.averageSummative),
+    SAS: gradeExportCell(row.scores?.sas),
+    'Nilai Akhir': gradeExportCell(row.finalScore),
+    Ketercapaian: row.status || '',
+    Predikat: row.predicate || '',
+    'Capaian Kompetensi': row.competency || '',
+  }))
+}
+
+function buildGradebookScopeRows(materialScopes = []) {
+  return normalizeGradeMaterialScopes(materialScopes).map((scope, index) => ({
+    No: index + 1,
+    Kolom: gradeSummativeScoreFields[index]?.label || `SLM ${index + 1}`,
+    'Lingkup Materi': scope.name || '',
+    'Capaian Kompetensi / Tujuan Pembelajaran': scope.competency || '',
+    'Tindak Lanjut': scope.enrichment || '',
+  }))
+}
+
+function buildGradebookExportReport({ user, context, rows, materialScopes, summary }) {
+  const title = `Daftar Nilai ${context.subject} ${promoteClassName(context.className)}`
+  return {
+    title,
+    filename: `${slugFileName(title)}-${toLocalIsoDate()}`,
+    className: promoteClassName(context.className),
+    subject: context.subject,
+    semester: context.semester,
+    academicYear: context.academicYear,
+    teacherName: user?.name || '-',
+    generatedAt: formatAttendanceDate(toLocalIsoDate(), { weekday: 'long' }),
+    summary,
+    rows: buildGradebookExportRows(rows, materialScopes),
+    scopes: buildGradebookScopeRows(materialScopes),
+  }
+}
+
+function buildGradebookReportHtml(report, { print = false } = {}) {
+  const style = `
+    <style>
+      @page { size: 330mm 215mm; margin: 10mm; }
+      body { font-family: Arial, sans-serif; color: #132437; margin: ${print ? '0' : '16px'}; }
+      h1 { margin: 0; font-size: 20px; }
+      h2 { margin: 18px 0 8px; font-size: 14px; color: #17446E; }
+      p { margin: 4px 0; color: #44546A; font-size: 12px; }
+      .meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 14px; margin: 12px 0 14px; }
+      .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+      .box { border: 1px solid #C9D8E8; border-radius: 10px; padding: 9px; background: #F8FBFF; }
+      .box span { display: block; color: #64748B; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; }
+      .box b { display: block; margin-top: 3px; font-size: 20px; color: #17446E; }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; page-break-inside: auto; }
+      th, td { border: 1px solid #C9D8E8; padding: 5px 6px; font-size: 9px; vertical-align: top; }
+      th { background: #D9EBFF; color: #132437; text-align: center; font-weight: 800; }
+      td { color: #132437; }
+      tr { page-break-inside: avoid; }
+      .wide { min-width: 1680px; }
+      .scroll { overflow-x: auto; }
+      .empty { border: 1px dashed #C9D8E8; padding: 12px; border-radius: 10px; }
+      .no-print { margin-bottom: 14px; padding: 10px 14px; border-radius: 10px; border: 0; background: #17446E; color: white; font-weight: 700; }
+      @media print {
+        body { margin: 0; }
+        .no-print { display: none; }
+        .scroll { overflow: visible; }
+      }
+    </style>
+  `
+  return `<!doctype html>
+    <html>
+      <head><meta charset="utf-8" />${style}</head>
+      <body>
+        ${print ? '<button class="no-print" onclick="window.print()">Cetak / Simpan PDF</button>' : ''}
+        <h1>${escapeReportHtml(report.title)}</h1>
+        <p>${escapeReportHtml(school.name)} · Format nilai Kurikulum Merdeka</p>
+        <div class="meta">
+          <p><b>Kelas:</b> ${escapeReportHtml(report.className)}</p>
+          <p><b>Mapel:</b> ${escapeReportHtml(report.subject)}</p>
+          <p><b>Semester:</b> ${escapeReportHtml(report.semester)}</p>
+          <p><b>Tahun Ajaran:</b> ${escapeReportHtml(report.academicYear)}</p>
+          <p><b>Guru:</b> ${escapeReportHtml(report.teacherName)}</p>
+          <p><b>KKTP:</b> ${gradeKktp}</p>
+          <p><b>Bobot SLM:</b> ${Math.round(gradeWeights.summative * 100)}%</p>
+          <p><b>Bobot SAS:</b> ${Math.round(gradeWeights.finalAssessment * 100)}%</p>
+        </div>
+        <div class="summary">
+          <div class="box"><span>Rata-rata</span><b>${report.summary.average || '-'}</b></div>
+          <div class="box"><span>Terisi</span><b>${report.summary.completed}/${report.summary.total}</b></div>
+          <div class="box"><span>Tercapai</span><b>${report.summary.tuntas}</b></div>
+          <div class="box"><span>Perlu penguatan</span><b>${report.summary.remedial}</b></div>
+        </div>
+        <h2>Lingkup Materi dan Capaian Kompetensi</h2>
+        ${tableRowsToHtml(report.scopes)}
+        <h2>Daftar Nilai Peserta Didik</h2>
+        <div class="scroll">${tableRowsToHtml(report.rows).replace('<table>', '<table class="wide">')}</div>
+      </body>
+    </html>`
+}
+
+function downloadGradebookExcel(report) {
+  downloadTextFile(`${report.filename}.xls`, '\ufeff' + buildGradebookReportHtml(report), 'application/vnd.ms-excel;charset=utf-8')
+}
+
+function printGradebookPdf(report) {
+  const printWindow = window.open('', '_blank', 'width=1200,height=800')
+  if (!printWindow) {
+    downloadTextFile(`${report.filename}.html`, buildGradebookReportHtml(report, { print: true }), 'text/html;charset=utf-8')
+    return
+  }
+  printWindow.document.write(buildGradebookReportHtml(report, { print: true }))
+  printWindow.document.close()
+  printWindow.focus()
+  setTimeout(() => printWindow.print(), 250)
+}
+
 function GuruDaftarNilai({ user, notify }) {
   const navigate = useNavigate()
   const roster = useMemo(() => getGradebookRoster(), [])
@@ -3905,6 +5478,27 @@ function GuruDaftarNilai({ user, notify }) {
     saveRows(nextRows)
   }
 
+  function getCurrentGradebookReport() {
+    return buildGradebookExportReport({
+      user,
+      context,
+      rows,
+      materialScopes,
+      summary,
+    })
+  }
+
+  function exportGrades(format) {
+    const report = getCurrentGradebookReport()
+    if (format === 'excel') {
+      downloadGradebookExcel(report)
+      notify('Export Excel daftar nilai disiapkan.')
+      return
+    }
+    printGradebookPdf(report)
+    notify('Jendela cetak PDF daftar nilai dibuka.')
+  }
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -3914,7 +5508,6 @@ function GuruDaftarNilai({ user, notify }) {
         action={
           <div className="flex flex-wrap gap-2">
             {hasRaporAccess && <QuickActionButton icon={FileText} label="Buka Rapor" onClick={() => navigate('/guru/rapor')} />}
-            <QuickActionButton icon={Save} label="Simpan nilai" onClick={() => saveRows()} />
           </div>
         }
       />
@@ -3938,11 +5531,19 @@ function GuruDaftarNilai({ user, notify }) {
               {classOptions.map((className) => <option key={className} value={className}>{className}</option>)}
             </select>
           </label>
-          <label className={materialLabelClass}>Mata pelajaran
-            <select value={selectedSubject} onChange={(event) => setSelectedSubject(event.target.value)} className={materialInputClass}>
-              {subjectOptions.map((subject) => <option key={subject} value={subject}>{subject}</option>)}
-            </select>
-          </label>
+          {subjectOptions.length <= 1 ? (
+            <div className={materialLabelClass}>Mata pelajaran
+              <div className={`${materialInputClass} flex min-h-[2.75rem] items-center bg-[#EEF7FF] text-[#17446E]`}>
+                {selectedSubject || 'Mapel belum dipilih'}
+              </div>
+            </div>
+          ) : (
+            <label className={materialLabelClass}>Mata pelajaran diampu
+              <select value={selectedSubject} onChange={(event) => setSelectedSubject(event.target.value)} className={materialInputClass}>
+                {subjectOptions.map((subject) => <option key={subject} value={subject}>{subject}</option>)}
+              </select>
+            </label>
+          )}
           <label className={materialLabelClass}>Semester
             <select value={semester} onChange={(event) => setSemester(event.target.value)} className={materialInputClass}>
               <option>Ganjil</option>
@@ -4014,6 +5615,15 @@ function GuruDaftarNilai({ user, notify }) {
         <div className="mb-3 flex flex-wrap gap-2">
           <button onClick={fillSampleRows} className="rounded-xl bg-[#EAF4FF] px-3 py-2 text-xs font-black text-[#2F80D8] ring-1 ring-[#D9E6F5] transition hover:bg-white">
             Isi nilai awal
+          </button>
+          <button onClick={() => saveRows()} className="inline-flex items-center gap-1.5 rounded-xl bg-[#17446E] px-3 py-2 text-xs font-black text-white shadow-[0_10px_20px_rgba(23,68,110,0.18)] transition hover:bg-[#2F80D8]">
+            <Save size={14} /> Simpan Nilai
+          </button>
+          <button onClick={() => exportGrades('pdf')} className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5] transition hover:bg-[#F8FBFF]">
+            <Printer size={14} /> PDF
+          </button>
+          <button onClick={() => exportGrades('excel')} className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#2F80D8] ring-1 ring-[#D9E6F5] transition hover:bg-[#F8FBFF]">
+            <Download size={14} /> Excel
           </button>
         </div>
 
@@ -5120,10 +6730,10 @@ function getReportGradebookRows(user) {
 }
 
 function getReportAttendanceSessions(user) {
-  return uniqueRowsById([
+  return filterAttendanceSessionsByMode(uniqueRowsById([
     ...getAttendanceSessions(user),
     ...readLocalRowsByPrefix('islelearn-attendance-').map(normalizeAttendanceSession),
-  ]).filter((session) => !isLegacyPreviewClassName(session.className))
+  ]).filter((session) => !isLegacyPreviewClassName(session.className)), { type: 'daily' })
 }
 
 function buildRaporDocument({ user, student, className, semester, academicYear, subjectOptions, gradeRows, attendanceSessions, raporState, reportKey }) {
@@ -5211,6 +6821,7 @@ function buildRaporAttendanceSummary({ student, className, semester, academicYea
   const sessions = attendanceSessions.filter((session) => (
     promoteClassName(session.className) === promoteClassName(className)
     && isIsoDateInRange(session.date, range)
+    && normalizeAttendanceType(session.type) === 'daily'
   ))
   const counts = attendanceStatuses.reduce((acc, status) => ({ ...acc, [status]: 0 }), {})
 
@@ -5288,37 +6899,48 @@ function teacherMaterialStorageKey(user, teacherSubject) {
   return `islelearn-teacher-materials-${user?.id || teacherSubject || 'demo'}`
 }
 
-function getSeededTeacherMaterials(teacherSubject) {
-  const normalizedSubject = normalizeLookupText(teacherSubject)
-  const scopedMaterials = normalizedSubject
+function getSeededTeacherMaterials(teacherSubjects) {
+  const normalizedSubjects = (Array.isArray(teacherSubjects) ? teacherSubjects : [teacherSubjects])
+    .map((subject) => normalizeLookupText(subject))
+    .filter(Boolean)
+  const scopedMaterials = normalizedSubjects.length
     ? schoolMaterials.filter((item) => {
       const itemSubject = normalizeLookupText(item.subject)
-      return itemSubject === normalizedSubject || itemSubject.includes(normalizedSubject) || normalizedSubject.includes(itemSubject)
+      return normalizedSubjects.some((normalizedSubject) => (
+        itemSubject === normalizedSubject || itemSubject.includes(normalizedSubject) || normalizedSubject.includes(itemSubject)
+      ))
     })
     : schoolMaterials
 
-  return scopedMaterials.map((item) => ({
+  return publishHtmlMaterialRows(scopedMaterials).map((item) => ({
     ...item,
     progress: item.status === 'Publish' ? 35 : 0,
   }))
 }
 
-function getLocalTeacherMaterials(user, teacherSubject) {
+function getLocalTeacherMaterials(user, teacherSubject, teacherSubjectOptions = []) {
   const key = teacherMaterialStorageKey(user, teacherSubject)
   const storedRows = safeReadLocalJson(key, null)
+  const seedSubjects = teacherSubjectOptions.length ? teacherSubjectOptions : teacherSubject
 
   if (Array.isArray(storedRows)) {
+    const storedTeacherRows = storedRows.filter((row) => !isLegacyDemoRow(row))
+    const publishedTeacherRows = publishHtmlMaterialRows(storedTeacherRows)
+    if (JSON.stringify(storedTeacherRows) !== JSON.stringify(publishedTeacherRows)) {
+      safeWriteLocalJson(key, publishedTeacherRows)
+    }
+
     return uniqueRowsById([
-      ...storedRows.filter((row) => !isLegacyDemoRow(row)),
-      ...getSeededTeacherMaterials(teacherSubject),
+      ...publishedTeacherRows,
+      ...getSeededTeacherMaterials(seedSubjects),
     ])
   }
 
-  return getSeededTeacherMaterials(teacherSubject)
+  return getSeededTeacherMaterials(seedSubjects)
 }
 
 function setLocalTeacherMaterials(user, teacherSubject, rows) {
-  safeWriteLocalJson(teacherMaterialStorageKey(user, teacherSubject), Array.isArray(rows) ? rows : [])
+  safeWriteLocalJson(teacherMaterialStorageKey(user, teacherSubject), publishHtmlMaterialRows(rows))
 }
 
 function materialSourceLabel(source) {
@@ -5329,10 +6951,12 @@ function materialSourceLabel(source) {
 
 function GuruMateri({ user, notify, appContext }) {
   const allSubjectOptions = useMemo(() => getGradeSubjectOptions(), [])
-  const teacherSubjectOptions = useMemo(() => getTeacherSubjectOptions(user, allSubjectOptions), [allSubjectOptions, user?.subject])
-  const hasTeacherSubject = getTeacherSubjectNames(user).length > 0
+  const effectiveTeacherSubject = user?.subject || (user?.id === 'local-preview-guru' ? 'Bahasa Inggris' : '')
+  const teacherScopeUser = useMemo(() => ({ ...(user || {}), subject: effectiveTeacherSubject }), [effectiveTeacherSubject, user])
+  const teacherSubjectOptions = useMemo(() => getTeacherSubjectOptions(teacherScopeUser, allSubjectOptions), [allSubjectOptions, teacherScopeUser])
+  const hasTeacherSubject = getTeacherSubjectNames(teacherScopeUser).length > 0
   const teacherSubject = hasTeacherSubject ? teacherSubjectOptions[0] : ''
-  const teacherSubjectLabel = hasTeacherSubject ? teacherSubjectOptions.join(', ') : 'semua mapel'
+  const teacherSubjectLabel = hasTeacherSubject ? teacherSubjectOptions.join(', ') : 'mapel yang diampu'
   const pageTitle = hasTeacherSubject ? `Materi ${teacherSubjectLabel}` : 'Materi guru'
   const materialScope = teacherSubjectLabel
   const [rows, setRows] = useState([])
@@ -5341,17 +6965,12 @@ function GuruMateri({ user, notify, appContext }) {
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)
-  const scopedRows = filterRowsByTeacherSubjects(rows, user, teacherSubjectOptions)
+  const [previewing, setPreviewing] = useState(null)
+  const scopedRows = filterRowsByTeacherSubjects(rows, teacherScopeUser, teacherSubjectOptions)
   const publishedCount = scopedRows.filter((item) => item.status === 'Publish').length
   const draftCount = scopedRows.filter((item) => item.status !== 'Publish').length
-  const subjectFolders = getMaterialSubjectFolders(scopedRows, hasTeacherSubject ? teacherSubjectOptions : lookups.subjects)
-  const teacherSubjectKeys = teacherSubjectOptions.map((subject) => normalizeLookupText(subject))
-  const teacherSubjectFolders = hasTeacherSubject
-    ? subjectFolders.filter((folder) => teacherSubjectKeys.includes(folder.key))
-    : subjectFolders.filter((folder) => folder.rows.length > 0)
-  const visibleSubjectFolders = teacherSubjectFolders.length > 0
-    ? teacherSubjectFolders
-    : subjectFolders.filter((folder) => !hasTeacherSubject || teacherSubjectKeys.includes(folder.key))
+  const subjectFolders = getMaterialSubjectFolders(scopedRows, lookups.subjects)
+  const visibleSubjectFolders = subjectFolders.filter((folder) => folder.rows.length > 0)
   const filledFolderCount = visibleSubjectFolders.filter((folder) => folder.rows.length > 0).length
   const gradeSubfolderCount = visibleSubjectFolders.reduce((total, folder) => total + folder.gradeFolders.length, 0)
   const filledGradeSubfolderCount = visibleSubjectFolders.reduce((total, folder) => total + folder.gradeFolders.filter((gradeFolder) => gradeFolder.rows.length > 0).length, 0)
@@ -5383,7 +7002,7 @@ function GuruMateri({ user, notify, appContext }) {
 
     async function loadTeacherMaterials() {
       if (!appContext?.accessToken || !isUuid(user?.id)) {
-        setRows(getLocalTeacherMaterials(user, teacherSubject))
+        setRows(getLocalTeacherMaterials(teacherScopeUser, teacherSubject, teacherSubjectOptions))
         setLoading(false)
         return
       }
@@ -5395,13 +7014,13 @@ function GuruMateri({ user, notify, appContext }) {
           fetchMaterialLookups({ accessToken: appContext.accessToken }),
         ])
         if (active) {
-          setRows(materialRows)
+          setRows(uniqueRowsById([...materialRows, ...getSeededTeacherMaterials(teacherSubjectOptions)]))
           setLookups(lookupRows)
           setError('')
         }
       } catch (loadError) {
         if (active) {
-          setRows(getLocalTeacherMaterials(user, teacherSubject))
+          setRows(getLocalTeacherMaterials(teacherScopeUser, teacherSubject, teacherSubjectOptions))
           setError(loadError.message)
         }
       } finally {
@@ -5413,7 +7032,7 @@ function GuruMateri({ user, notify, appContext }) {
     return () => {
       active = false
     }
-  }, [appContext?.accessToken, teacherSubject, user?.id])
+  }, [appContext?.accessToken, teacherScopeUser, teacherSubject, teacherSubjectOptions, user?.id])
 
   async function handleSave(material) {
     if (!appContext?.accessToken || !isUuid(user?.id)) {
@@ -5431,7 +7050,7 @@ function GuruMateri({ user, notify, appContext }) {
         const nextRows = material.id
           ? current.map((item) => item.id === material.id ? { ...item, ...localMaterial } : item)
           : [localMaterial, ...current]
-        setLocalTeacherMaterials(user, teacherSubject, nextRows)
+        setLocalTeacherMaterials(teacherScopeUser, teacherSubject, nextRows)
         return nextRows
       })
 
@@ -5455,7 +7074,7 @@ function GuruMateri({ user, notify, appContext }) {
     if (!appContext?.accessToken || !isUuid(user?.id) || deleting.source !== 'supabase') {
       setRows((current) => {
         const nextRows = current.filter((item) => item.id !== deleting.id)
-        setLocalTeacherMaterials(user, teacherSubject, nextRows)
+        setLocalTeacherMaterials(teacherScopeUser, teacherSubject, nextRows)
         return nextRows
       })
       setDeleting(null)
@@ -5471,6 +7090,10 @@ function GuruMateri({ user, notify, appContext }) {
     } catch (deleteError) {
       notify(`Gagal menghapus materi: ${deleteError.message}`)
     }
+  }
+
+  if (previewing) {
+    return <MaterialDetail item={previewing} onBack={() => setPreviewing(null)} notify={notify} />
   }
 
   return (
@@ -5504,30 +7127,34 @@ function GuruMateri({ user, notify, appContext }) {
       {editing && <MaterialForm material={editing} lookups={lookups} subjectOptions={hasTeacherSubject ? teacherSubjectOptions : []} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat materi guru dari Supabase..." /> : (
         visibleSubjectFolders.length > 0 ? (
-          <section className="grid min-w-0 gap-3 lg:grid-cols-[16rem_minmax(0,1fr)]">
-            <aside className="min-w-0 rounded-[1rem] border border-sky-100 bg-white/86 p-2.5 shadow-[0_10px_28px_rgba(37,99,235,0.045)]">
-              <div className="px-2 pb-2 pt-1">
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-600">Daftar mapel</p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Pilih mapel untuk melihat folder kelas.</p>
+          <section className="min-w-0 overflow-hidden rounded-[1rem] border border-sky-100 bg-white/88 shadow-[0_10px_28px_rgba(37,99,235,0.045)]">
+            <div className="border-b border-sky-100 bg-[#F8FBFF]/92 px-4 py-3">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-600">Mapel diampu</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Mapel mengikuti data mengajar akun guru.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <StatusBadge tone={activeFolder?.rows.length ? 'green' : 'gray'}>{activeFolder?.rows.length || 0} materi</StatusBadge>
+                  <StatusBadge tone="teal">{activeFolder?.publishedCount || 0} publish</StatusBadge>
+                  {(activeFolder?.draftCount || 0) > 0 && <StatusBadge tone="amber">{activeFolder.draftCount} draft</StatusBadge>}
+                </div>
               </div>
-              <div className="max-h-[30rem] space-y-1 overflow-y-auto pr-1">
+
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                 {visibleSubjectFolders.map((folder) => {
                   const selectedFolder = activeFolder?.key === folder.key
-                  const gradeSummary = folder.gradeFolders
-                    .filter((gradeFolder) => gradeFolder.rows.length > 0)
-                    .map((gradeFolder) => `${gradeFolder.name.replace('Kelas ', '')}: ${gradeFolder.rows.length}`)
-                    .join(' · ')
 
                   return (
                     <button
                       key={folder.key}
                       onClick={() => setActiveSubjectKey(folder.key)}
-                      className={`group flex w-full min-w-0 items-center gap-2.5 rounded-[0.8rem] border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 ${selectedFolder ? 'border-sky-200 bg-sky-50 text-[#13232d] shadow-[0_8px_22px_rgba(37,99,235,0.08)]' : 'border-transparent bg-transparent text-[#13232d] hover:border-sky-100 hover:bg-[#F7FBFF]'}`}
+                      className={`group flex min-w-[14rem] max-w-[18rem] items-center gap-2.5 rounded-[0.85rem] border px-3 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 ${selectedFolder ? 'border-sky-200 bg-white text-[#13232d] shadow-[0_8px_22px_rgba(37,99,235,0.08)]' : 'border-sky-100 bg-sky-50/50 text-[#13232d] hover:border-sky-200 hover:bg-white'}`}
                     >
-                      <span className={`h-8 w-1 flex-shrink-0 rounded-full ${selectedFolder ? 'bg-sky-500' : 'bg-transparent'}`} />
+                      <span className={`h-8 w-1 flex-shrink-0 rounded-full ${selectedFolder ? 'bg-sky-500' : 'bg-sky-200'}`} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-black">{folder.name}</span>
-                        <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">{gradeSummary || 'Belum ada kelas terisi'}</span>
+                        <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">Mapel diampu</span>
                       </span>
                       <span className={`flex-shrink-0 rounded-[0.65rem] px-2.5 py-1 text-xs font-black ring-1 ${selectedFolder ? 'bg-white text-sky-700 ring-sky-200' : 'bg-white text-slate-500 ring-slate-200'}`}>
                         {folder.rows.length}
@@ -5536,41 +7163,33 @@ function GuruMateri({ user, notify, appContext }) {
                   )
                 })}
               </div>
-            </aside>
+            </div>
 
-            <section className="min-w-0 overflow-hidden rounded-[1rem] border border-sky-100 bg-white/88 shadow-[0_10px_28px_rgba(37,99,235,0.045)]">
-              <header className="flex flex-col gap-2 border-b border-sky-100 bg-[#F8FBFF]/92 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-600">Folder kelas</p>
-                  <h2 className="truncate text-xl font-black text-[#13232d]">{activeFolder?.name || 'Materi'}</h2>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <StatusBadge tone={activeFolder?.rows.length ? 'green' : 'gray'}>{activeFolder?.rows.length || 0} materi</StatusBadge>
-                  <StatusBadge tone="teal">{activeFolder?.publishedCount || 0} publish</StatusBadge>
-                  {(activeFolder?.draftCount || 0) > 0 && <StatusBadge tone="amber">{activeFolder.draftCount} draft</StatusBadge>}
-                </div>
-              </header>
+            <header className="flex flex-col gap-1 border-b border-sky-100 bg-white px-4 py-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-600">Folder kelas</p>
+              <h2 className="truncate text-xl font-black text-[#13232d]">{activeFolder?.name || 'Materi'}</h2>
+            </header>
 
-              <div className="grid gap-2.5 p-2.5 xl:grid-cols-3">
-                {activeFolder?.gradeFolders.map((gradeFolder, index) => {
-                  const firstFilledIndex = activeFolder.gradeFolders.findIndex((folder) => folder.rows.length > 0)
-                  const defaultOpen = index === (firstFilledIndex >= 0 ? firstFilledIndex : 0)
+            <div className="grid gap-3 bg-[#F8FBFF]/70 p-3">
+              {activeFolder?.gradeFolders.map((gradeFolder, index) => {
+                const firstFilledIndex = activeFolder.gradeFolders.findIndex((folder) => folder.rows.length > 0)
+                const defaultOpen = index === (firstFilledIndex >= 0 ? firstFilledIndex : 0)
 
-                  return (
-                    <TeacherMaterialGradeFolder
-                      key={gradeFolder.key}
-                      subjectName={activeFolder.name}
-                      gradeFolder={gradeFolder}
-                      defaultOpen={defaultOpen}
-                      onAdd={() => setEditing(emptyMaterial(lookups, activeFolder.name, gradeFolder.name))}
-                      onEdit={setEditing}
-                      onToggleStatus={(row) => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })}
-                      onDelete={setDeleting}
-                    />
-                  )
-                })}
-              </div>
-            </section>
+                return (
+                  <TeacherMaterialGradeFolder
+                    key={gradeFolder.key}
+                    subjectName={activeFolder.name}
+                    gradeFolder={gradeFolder}
+                    defaultOpen={defaultOpen}
+                    onAdd={() => setEditing(emptyMaterial(lookups, activeFolder.name, gradeFolder.name))}
+                    onOpen={setPreviewing}
+                    onEdit={setEditing}
+                    onToggleStatus={(row) => handleSave({ ...row, status: row.status === 'Publish' ? 'Draft' : 'Publish' })}
+                    onDelete={setDeleting}
+                  />
+                )
+              })}
+            </div>
           </section>
         ) : (
           <EmptyState
@@ -5585,15 +7204,15 @@ function GuruMateri({ user, notify, appContext }) {
   )
 }
 
-function TeacherMaterialGradeFolder({ subjectName, gradeFolder, defaultOpen = false, onAdd, onEdit, onToggleStatus, onDelete }) {
+function TeacherMaterialGradeFolder({ subjectName, gradeFolder, defaultOpen = false, onAdd, onOpen, onEdit, onToggleStatus, onDelete }) {
   const hasRows = gradeFolder.rows.length > 0
 
   return (
-    <details open={hasRows || defaultOpen} className="min-w-0 overflow-hidden rounded-[0.9rem] border border-sky-100 bg-white shadow-[0_8px_22px_rgba(37,99,235,0.035)]">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 transition hover:bg-[#F7FBFF]">
+    <details open={hasRows || defaultOpen} className="min-w-0 overflow-hidden rounded-[1rem] border border-sky-100 bg-white shadow-[0_10px_26px_rgba(37,99,235,0.04)]">
+      <summary className="flex cursor-pointer list-none flex-col gap-2 px-4 py-3 transition hover:bg-[#F7FBFF] sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-sky-500">Kelas</p>
-          <h3 className="truncate text-base font-black text-[#13232d]">{gradeFolder.name}</h3>
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-sky-500">Folder kelas</p>
+          <h3 className="truncate text-lg font-black text-[#13232d]">{gradeFolder.name}</h3>
         </div>
         <div className="flex flex-shrink-0 items-center gap-1.5">
           <span className={`rounded-[0.65rem] px-2 py-1 text-xs font-black ring-1 ${hasRows ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-slate-50 text-slate-500 ring-slate-200'}`}>
@@ -5605,17 +7224,20 @@ function TeacherMaterialGradeFolder({ subjectName, gradeFolder, defaultOpen = fa
         </div>
       </summary>
 
-      <div className="border-t border-sky-100">
+      <div className="border-t border-sky-100 bg-[#F8FBFF]/70 p-3">
         {hasRows ? (
-          gradeFolder.rows.map((row) => (
-            <MaterialFolderRow
-              key={row.id}
-              row={row}
-              onEdit={() => onEdit(row)}
-              onToggleStatus={() => onToggleStatus(row)}
-              onDelete={() => onDelete(row)}
-            />
-          ))
+          <div className="grid gap-2.5 xl:grid-cols-2">
+            {gradeFolder.rows.map((row) => (
+              <MaterialFolderRow
+                key={row.id}
+                row={row}
+                onOpen={() => onOpen(row)}
+                onEdit={() => onEdit(row)}
+                onToggleStatus={() => onToggleStatus(row)}
+                onDelete={() => onDelete(row)}
+              />
+            ))}
+          </div>
         ) : (
           <div className="grid gap-3 bg-[#F8FBFF] px-3 py-3">
             <div className="min-w-0">
@@ -5632,35 +7254,51 @@ function TeacherMaterialGradeFolder({ subjectName, gradeFolder, defaultOpen = fa
   )
 }
 
-function MaterialFolderRow({ row, onEdit, onToggleStatus, onDelete }) {
+function MaterialFolderRow({ row, onOpen, onEdit, onToggleStatus, onDelete }) {
+  const tone = getMaterialCardTone(row)
+  const chapterTitle = getChapterTitle(row.title || 'Tanpa judul')
+  const chapterLabel = getChapterLabel([row.title, row.topic, row.content, row.id].filter(Boolean).join(' '))
+
   return (
-    <article className="grid min-w-0 gap-2 border-b border-sky-100 px-3 py-2.5 last:border-b-0">
-      <div className="flex min-w-0 items-start gap-2.5">
-        <span className="mt-0.5 inline-flex min-w-[3.2rem] justify-center rounded-[0.7rem] bg-[#E0F2FE] px-2 py-1 font-mono text-[11px] font-black text-sky-700 ring-1 ring-sky-100">
-          {getChapterLabel([row.title, row.topic, row.content, row.id].filter(Boolean).join(' '))}
+    <article
+      className="group flex min-w-0 flex-col overflow-hidden rounded-[0.9rem] p-3 shadow-[0_10px_24px_rgba(15,31,42,0.045)] ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(15,31,42,0.08)]"
+      style={{ background: tone.background, '--tw-ring-color': tone.border }}
+    >
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <span
+          className="inline-flex shrink-0 justify-center rounded-[0.7rem] px-2.5 py-1.5 font-mono text-xs font-black ring-1"
+          style={{ backgroundColor: tone.accentSoft, color: tone.accent, '--tw-ring-color': tone.border }}
+        >
+          {chapterLabel}
         </span>
-        <div className="min-w-0 flex-1">
-          <div className="mb-1 flex min-w-0 flex-wrap items-center gap-1.5">
-            <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>
-            <StatusBadge tone="teal">{row.type || 'Teks'}</StatusBadge>
-            <span className="truncate text-[11px] font-bold text-slate-400">{materialSourceLabel(row.source)}</span>
-          </div>
-          <h2 className="truncate text-sm font-black leading-5 text-[#13232d]">{getChapterTitle(row.title || 'Tanpa judul')}</h2>
-          <p className="mt-0.5 line-clamp-1 text-xs font-semibold leading-5 text-slate-500">
-            {row.topic || row.description || 'Belum ada topik.'}
-          </p>
+        <div className="flex min-w-0 flex-wrap justify-end gap-1.5">
+          <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>
+          <StatusBadge tone="teal">{row.type || 'Teks'}</StatusBadge>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5 pl-[3.7rem]">
-        <button onClick={onEdit} className="inline-flex min-h-8 items-center gap-1.5 rounded-[0.65rem] bg-[#F1F7FF] px-2.5 text-xs font-black text-sky-700 ring-1 ring-sky-100 transition hover:bg-[#E0F2FE]">
+      <div className="mt-3 min-w-0 flex-1">
+        <h2 className="line-clamp-2 min-h-[2.35rem] break-words text-[0.96rem] font-black leading-snug text-[#13232d]">{chapterTitle}</h2>
+        <p className="mt-2 truncate text-[11px] font-black uppercase tracking-[0.08em]" style={{ color: tone.accent }}>
+          {materialSourceLabel(row.source)}
+        </p>
+        <p className="mt-2 line-clamp-2 min-h-[2.35rem] break-words text-[0.82rem] font-semibold leading-5 text-slate-500">
+          {row.topic || row.description || 'Belum ada topik.'}
+        </p>
+      </div>
+
+      <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+        <button onClick={onOpen} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[0.7rem] px-2.5 text-xs font-black text-white shadow-[0_8px_18px_rgba(15,31,42,0.12)] transition hover:opacity-90" style={{ backgroundColor: tone.button }}>
+          <BookOpen size={14} /> Buka
+        </button>
+        <button onClick={onEdit} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[0.7rem] bg-white/72 px-2.5 text-xs font-black ring-1 transition hover:bg-white" style={{ color: tone.accent, '--tw-ring-color': tone.border }}>
           <PencilLine size={14} /> Edit
         </button>
-        <button onClick={onToggleStatus} className="inline-flex min-h-8 items-center gap-1.5 rounded-[0.65rem] bg-cyan-50 px-2.5 text-xs font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
+        <button onClick={onToggleStatus} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[0.7rem] bg-white/72 px-2.5 text-xs font-black ring-1 transition hover:bg-white sm:col-span-2" style={{ color: tone.accent, '--tw-ring-color': tone.border }}>
           <Send size={14} /> {row.status === 'Publish' ? 'Jadikan draft' : 'Publish'}
         </button>
         {row.source !== 'school-content' && (
-          <button onClick={onDelete} className="inline-flex min-h-8 items-center gap-1.5 rounded-[0.65rem] bg-rose-50 px-2.5 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
+          <button onClick={onDelete} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[0.7rem] bg-rose-50 px-2.5 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100 sm:col-span-2">
             <Trash2 size={14} /> Hapus
           </button>
         )}
@@ -5679,6 +7317,7 @@ const materialTypeOptions = [
   { value: 'Spreadsheet', label: 'Spreadsheet', helper: 'Sheet atau file nilai/latihan.' },
   { value: 'HTML', label: 'HTML', helper: 'Path internal atau halaman web.' },
   { value: 'Video', label: 'Video', helper: 'YouTube, Vimeo, atau video URL.' },
+  { value: 'Audio', label: 'Audio', helper: 'Audio penjelasan atau rekaman guru.' },
   { value: 'Link', label: 'Link', helper: 'Tautan materi eksternal.' },
   { value: 'Embed', label: 'Embed', helper: 'URL yang bisa tampil dalam frame.' },
 ]
@@ -5687,6 +7326,7 @@ function getMaterialTypeIcon(type) {
   if (type === 'HTML') return FileText
   if (type === 'PDF') return Download
   if (type === 'Video') return PlayCircle
+  if (type === 'Audio') return Radio
   if (['Dokumen', 'Document', 'Presentasi', 'Spreadsheet'].includes(type)) return FileText
   if (type === 'Embed') return PlayCircle
   if (type === 'Link') return Link2
@@ -5709,6 +7349,7 @@ function getMaterialContentLabel(type, linkedMaterial) {
   if (!linkedMaterial) return 'Isi materi'
   if (type === 'HTML') return 'Path atau URL HTML'
   if (type === 'Video') return 'URL video'
+  if (type === 'Audio') return 'URL audio'
   if (type === 'PDF') return 'URL PDF'
   if (type === 'Dokumen' || type === 'Document') return 'URL dokumen'
   if (type === 'Presentasi') return 'URL presentasi'
@@ -5721,6 +7362,7 @@ function getMaterialContentPlaceholder(type, linkedMaterial) {
   if (!linkedMaterial) return 'Tulis isi materi, instruksi baca, contoh, atau catatan ringkas untuk siswa.'
   if (type === 'HTML') return '/materials/mapel/nama-file.html atau https://contoh.sch.id/materi.html'
   if (type === 'Video') return 'https://www.youtube.com/watch?v=... atau https://youtu.be/...'
+  if (type === 'Audio') return 'https://.../audio-penjelasan.mp3'
   if (type === 'PDF') return 'https://.../modul.pdf atau link Google Drive yang bisa diakses siswa'
   if (type === 'Dokumen' || type === 'Document') return 'https://.../dokumen.docx atau link Google Docs'
   if (type === 'Presentasi') return 'https://.../slide.pptx atau link Google Slides'
@@ -5734,6 +7376,7 @@ function getMaterialTypeHint(type) {
   if (type === 'Teks') return 'Cocok untuk bacaan ringkas, LKPD pendek, atau instruksi belajar yang diketik langsung.'
   if (type === 'HTML') return 'HTML bisa berupa file internal di folder /materials atau halaman web yang boleh ditampilkan dalam iframe.'
   if (type === 'Video') return 'URL YouTube dan Vimeo akan diubah otomatis menjadi video tertanam di halaman siswa.'
+  if (type === 'Audio') return 'Audio ditampilkan dengan pemutar langsung di halaman siswa.'
   if (type === 'PDF') return 'PDF ditampilkan sebagai preview dokumen agar siswa bisa membaca tanpa meninggalkan aplikasi.'
   if (isDocumentMaterialType(type)) return 'Dokumen office ditampilkan lewat preview dokumen; pastikan link dapat diakses oleh siswa.'
   if (type === 'Embed') return 'Gunakan untuk simulasi, peta, atau media web yang memang menyediakan URL embed.'
@@ -5761,6 +7404,12 @@ function getEmbeddableVideoUrl(value) {
     const host = url.hostname.replace(/^www\./, '').toLowerCase()
     const youtubeId = getYoutubeVideoId(url)
     if (youtubeId) return `https://www.youtube.com/embed/${youtubeId}`
+    if (host.endsWith('drive.google.com')) {
+      const parts = url.pathname.split('/').filter(Boolean)
+      const fileIndex = parts.indexOf('file')
+      const driveId = fileIndex >= 0 && parts[fileIndex + 1] === 'd' ? parts[fileIndex + 2] : url.searchParams.get('id')
+      if (driveId) return `https://drive.google.com/file/d/${driveId}/preview`
+    }
     if (host === 'player.vimeo.com' && url.pathname.startsWith('/video/')) return url.toString()
     if (host === 'vimeo.com') {
       const vimeoId = url.pathname.split('/').filter(Boolean)[0]
@@ -5800,27 +7449,306 @@ function getDocumentPreviewUrl(value, type) {
   return ''
 }
 
+const advancedMaterialSchema = 'islelearn-material-v1'
+const materialTargetLevels = ['SMA/MA', 'Pemula', 'Mahir', 'SMP/MTs', 'SD/MI', 'Kuliah']
+const materialToneOptions = [
+  { value: 'sky', label: 'Biru edukasi', accent: '#2F80D8', soft: '#E8F2FF', border: '#B9D8F7' },
+  { value: 'emerald', label: 'Sains hijau', accent: '#15803D', soft: '#ECFDF5', border: '#BBF7D0' },
+  { value: 'amber', label: 'Catatan kuning', accent: '#B45309', soft: '#FFFBEB', border: '#FDE68A' },
+  { value: 'rose', label: 'Fokus merah muda', accent: '#BE123C', soft: '#FFF1F2', border: '#FECDD3' },
+  { value: 'violet', label: 'Konsep ungu', accent: '#6D5BD0', soft: '#F5F3FF', border: '#DDD6FE' },
+]
+const scienceSymbolGroups = [
+  ['Yunani', ['α', 'β', 'γ', 'Δ', 'θ', 'λ', 'μ', 'π', 'Σ', 'Ω']],
+  ['Matematika', ['≈', '≠', '≤', '≥', '∞', '√', '∫', '∑', '∈', '∴']],
+  ['Kimia', ['→', '⇌', '↑', '↓', '°C', 'mol', 'pH', 'H₂O', 'CO₂', 'O₂']],
+]
+const materialPreviewDevices = [
+  { value: 'phone', label: 'HP', width: 'max-w-[23rem]' },
+  { value: 'tablet', label: 'Tablet', width: 'max-w-[42rem]' },
+  { value: 'laptop', label: 'Laptop', width: 'max-w-full' },
+]
+
+function createMaterialBlockId(prefix = 'block') {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+}
+
+function parseAdvancedMaterialContent(content) {
+  const raw = String(content || '').trim()
+  if (!raw) return createEmptyAdvancedMaterialContent()
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed?.schema === advancedMaterialSchema) {
+      return {
+        ...createEmptyAdvancedMaterialContent(),
+        ...parsed,
+        tags: normalizeStringList(parsed.tags),
+        media: normalizeArray(parsed.media),
+        equations: normalizeArray(parsed.equations),
+        tables: normalizeArray(parsed.tables),
+        quizzes: normalizeArray(parsed.quizzes),
+        spoilers: normalizeArray(parsed.spoilers),
+      }
+    }
+  } catch {
+    // Konten lama tetap dianggap sebagai isi teks biasa.
+  }
+  return {
+    ...createEmptyAdvancedMaterialContent(),
+    body: content || '',
+  }
+}
+
+function createEmptyAdvancedMaterialContent() {
+  return {
+    schema: advancedMaterialSchema,
+    body: '',
+    targetLevel: 'SMA/MA',
+    tags: [],
+    accentTone: 'sky',
+    releaseAt: '',
+    media: [],
+    equations: [],
+    tables: [],
+    quizzes: [],
+    spoilers: [],
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+function isAdvancedMaterialContent(content) {
+  try {
+    return JSON.parse(String(content || '')).schema === advancedMaterialSchema
+  } catch {
+    return false
+  }
+}
+
+function normalizeArray(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : []
+}
+
+function normalizeStringList(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean)
+  return String(value || '').split(/[,\n;]+/).map((item) => item.trim()).filter(Boolean)
+}
+
+function serializeAdvancedMaterialContent(draft) {
+  return JSON.stringify({
+    ...createEmptyAdvancedMaterialContent(),
+    ...draft,
+    tags: normalizeStringList(draft.tags),
+    media: normalizeArray(draft.media),
+    equations: normalizeArray(draft.equations),
+    tables: normalizeArray(draft.tables),
+    quizzes: normalizeArray(draft.quizzes),
+    spoilers: normalizeArray(draft.spoilers),
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+function getAdvancedTone(value) {
+  return materialToneOptions.find((tone) => tone.value === value) || materialToneOptions[0]
+}
+
+function isMaterialReleased(item) {
+  if (!item || item.status === 'Draft') return false
+  const releaseAt = parseAdvancedMaterialContent(item.content).releaseAt
+  if (!releaseAt) return true
+  const releaseDate = new Date(releaseAt)
+  if (Number.isNaN(releaseDate.getTime())) return true
+  return releaseDate.getTime() <= Date.now()
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+function formatRichInline(value) {
+  return escapeHtml(value)
+    .replace(/`([^`]+)`/g, '<code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[0.9em] text-slate-800">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/~~([^~]+)~~/g, '<s>$1</s>')
+    .replace(/==([^=]+)==/g, '<mark class="rounded bg-amber-100 px-1">$1</mark>')
+    .replace(/\^([^^]+)\^/g, '<sup>$1</sup>')
+    .replace(/~([^~]+)~/g, '<sub>$1</sub>')
+    .replace(/\[biru\]([\s\S]*?)\[\/biru\]/g, '<span class="font-semibold text-sky-700">$1</span>')
+    .replace(/\[hijau\]([\s\S]*?)\[\/hijau\]/g, '<span class="font-semibold text-emerald-700">$1</span>')
+    .replace(/\[merah\]([\s\S]*?)\[\/merah\]/g, '<span class="font-semibold text-rose-700">$1</span>')
+    .replace(/\[tengah\]([\s\S]*?)\[\/tengah\]/g, '<span class="block text-center">$1</span>')
+    .replace(/\[kanan\]([\s\S]*?)\[\/kanan\]/g, '<span class="block text-right">$1</span>')
+    .replace(/\[kiri\]([\s\S]*?)\[\/kiri\]/g, '<span class="block text-left">$1</span>')
+}
+
+function richTextToHtml(value) {
+  const lines = String(value || '').split('\n')
+  const html = []
+  let inCode = false
+  let codeLines = []
+
+  function flushCode() {
+    if (!codeLines.length) return
+    html.push(`<pre class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-sm leading-6 text-slate-50"><code>${escapeHtml(codeLines.join('\n'))}</code></pre>`)
+    codeLines = []
+  }
+
+  lines.forEach((line) => {
+    if (line.trim().startsWith('```')) {
+      if (inCode) flushCode()
+      inCode = !inCode
+      return
+    }
+    if (inCode) {
+      codeLines.push(line)
+      return
+    }
+    if (!line.trim()) {
+      html.push('<div class="h-2"></div>')
+      return
+    }
+    if (/^###\s+/.test(line)) {
+      html.push(`<h3 class="mt-5 text-xl font-black leading-tight text-slate-950">${formatRichInline(line.replace(/^###\s+/, ''))}</h3>`)
+      return
+    }
+    if (/^##\s+/.test(line)) {
+      html.push(`<h2 class="mt-6 text-2xl font-black leading-tight text-slate-950">${formatRichInline(line.replace(/^##\s+/, ''))}</h2>`)
+      return
+    }
+    if (/^#\s+/.test(line)) {
+      html.push(`<h1 class="mt-6 text-3xl font-black leading-tight text-slate-950">${formatRichInline(line.replace(/^#\s+/, ''))}</h1>`)
+      return
+    }
+    if (/^>\s*/.test(line)) {
+      html.push(`<p class="rounded-2xl border-l-4 border-sky-400 bg-sky-50 px-4 py-3 text-sm font-semibold leading-7 text-sky-900">${formatRichInline(line.replace(/^>\s*/, ''))}</p>`)
+      return
+    }
+    if (/^\s*[-*]\s+/.test(line)) {
+      html.push(`<p class="pl-4 text-sm leading-7 text-slate-700 before:mr-2 before:text-sky-600 before:content-['•']">${formatRichInline(line.replace(/^\s*[-*]\s+/, ''))}</p>`)
+      return
+    }
+    if (/^\s*\d+\.\s+/.test(line)) {
+      html.push(`<p class="pl-4 text-sm leading-7 text-slate-700">${formatRichInline(line)}</p>`)
+      return
+    }
+    if (/^\$\$[\s\S]*\$\$$/.test(line.trim()) || /\\\([\s\S]*\\\)/.test(line)) {
+      html.push(`<div class="overflow-x-auto rounded-2xl bg-slate-50 px-4 py-3 font-mono text-sm font-bold text-slate-800 ring-1 ring-slate-100">${escapeHtml(line)}</div>`)
+      return
+    }
+    html.push(`<p class="text-sm leading-7 text-slate-700">${formatRichInline(line)}</p>`)
+  })
+  if (inCode) flushCode()
+  return html.join('')
+}
+
+function formatFileSize(size) {
+  const bytes = Number(size || 0)
+  if (!bytes) return ''
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function inferMediaTypeFromFile(file) {
+  const mime = file?.type || ''
+  const name = file?.name || ''
+  if (mime.startsWith('image/')) return 'Gambar'
+  if (mime.startsWith('audio/')) return 'Audio'
+  if (mime.startsWith('video/')) return 'Video'
+  if (mime.includes('pdf') || /\.pdf$/i.test(name)) return 'PDF'
+  if (mime.includes('presentation') || /\.(ppt|pptx)$/i.test(name)) return 'Presentasi'
+  if (mime.includes('sheet') || /\.(xls|xlsx|csv)$/i.test(name)) return 'Spreadsheet'
+  return 'Dokumen'
+}
+
+function parseTableDraft(headersText, rowsText) {
+  const headers = String(headersText || '')
+    .split(/[,\t]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  const rows = String(rowsText || '')
+    .split('\n')
+    .map((line) => line.split(/[,\t]/).map((item) => item.trim()))
+    .filter((row) => row.some(Boolean))
+  return { headers: headers.length ? headers : ['Kolom 1', 'Kolom 2'], rows }
+}
+
+function requestMathTypeset() {
+  if (typeof window === 'undefined') return
+  if (window.MathJax?.typesetPromise) {
+    window.MathJax.typesetPromise().catch(() => {})
+    return
+  }
+  if (document.getElementById('islelearn-mathjax')) return
+  window.MathJax = {
+    tex: { inlineMath: [['\\(', '\\)']], displayMath: [['$$', '$$']] },
+    svg: { fontCache: 'global' },
+  }
+  const script = document.createElement('script')
+  script.id = 'islelearn-mathjax'
+  script.async = true
+  script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js'
+  document.head.appendChild(script)
+}
+
 function MaterialForm({ material, lookups, subjectOptions = [], onCancel, onSave }) {
   const [form, setForm] = useState(material)
+  const [draft, setDraft] = useState(() => parseAdvancedMaterialContent(material.content))
+  const [activePanel, setActivePanel] = useState('editor')
+  const [previewDevice, setPreviewDevice] = useState('laptop')
+  const [autosaveNotice, setAutosaveNotice] = useState('')
+  const [equationDraft, setEquationDraft] = useState({ label: '', latex: '' })
+  const [mediaDraft, setMediaDraft] = useState({ type: 'Video', title: '', url: '' })
+  const [tableDraft, setTableDraft] = useState({ title: 'Tabel data', headers: 'Variabel,Nilai,Keterangan', rows: 'Contoh,10,Satuan' })
+  const [quizDraft, setQuizDraft] = useState({ question: '', options: 'A\nB\nC\nD', answer: '', explanation: '' })
+  const [spoilerDraft, setSpoilerDraft] = useState({ title: 'Pembahasan', body: '' })
+  const bodyRef = useRef(null)
   const scopedSubjects = getScopedSubjectLookupRows(lookups.subjects, subjectOptions)
   const subjectsList = getMaterialSubjectOptions(scopedSubjects, [material], subjectOptions.length ? subjectOptions : highSchoolSubjectFolders)
   const classesList = getMaterialClassOptions(lookups.classes, material.className)
   const activeTypeDetails = getMaterialTypeDetails(form.type)
   const linkedMaterial = isLinkedMaterialType(form.type)
-  const content = form.content || ''
+  const content = linkedMaterial ? (form.content || '') : (draft.body || '')
+  const autosaveKey = `islelearn-material-autosave-${material.id || 'baru'}`
   const hasContent = content.trim().length > 0
+    || (!linkedMaterial && (draft.media.length > 0 || draft.equations.length > 0 || draft.tables.length > 0 || draft.quizzes.length > 0 || draft.spoilers.length > 0))
   const hasTitle = (form.title || '').trim().length > 0
   const invalidLinkedMaterial = linkedMaterial && hasContent && !isValidLinkedMaterial(content, form.type)
   const publishNeedsContent = form.status === 'Publish' && !hasContent
   const publishNeedsLinkedMaterial = form.status === 'Publish' && linkedMaterial && !isValidLinkedMaterial(content, form.type)
   const validMaterial = hasTitle && !invalidLinkedMaterial && !publishNeedsContent && !publishNeedsLinkedMaterial
+  const selectedDevice = materialPreviewDevices.find((device) => device.value === previewDevice) || materialPreviewDevices[2]
 
   useEffect(() => {
     setForm(material)
+    setDraft(parseAdvancedMaterialContent(material.content))
+    const saved = safeReadLocalJson(autosaveKey, null)
+    setAutosaveNotice(saved?.draft ? 'Autosave tersedia' : '')
   }, [material])
+
+  useEffect(() => {
+    if (!hasTitle && !hasContent) return undefined
+    const timer = setTimeout(() => {
+      safeWriteLocalJson(autosaveKey, {
+        form,
+        draft,
+        savedAt: new Date().toISOString(),
+      })
+      setAutosaveNotice('Tersimpan otomatis')
+    }, 700)
+    return () => clearTimeout(timer)
+  }, [autosaveKey, draft, form, hasContent, hasTitle])
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function updateDraft(field, value) {
+    setDraft((current) => ({ ...current, [field]: value }))
   }
 
   function updateSubject(value) {
@@ -5841,56 +7769,407 @@ function MaterialForm({ material, lookups, subjectOptions = [], onCancel, onSave
     }))
   }
 
+  function restoreAutosave() {
+    const saved = safeReadLocalJson(autosaveKey, null)
+    if (!saved?.draft) return
+    setForm((current) => ({ ...current, ...(saved.form || {}) }))
+    setDraft({ ...createEmptyAdvancedMaterialContent(), ...saved.draft })
+    setAutosaveNotice('Autosave dipulihkan')
+  }
+
+  function saveCurrentMaterial() {
+    const nextContent = linkedMaterial ? content : serializeAdvancedMaterialContent(draft)
+    safeWriteLocalJson(autosaveKey, null)
+    onSave({
+      ...form,
+      content: nextContent,
+      description: form.description || draft.body.slice(0, 160),
+    })
+  }
+
+  function wrapBodySelection(before, after = before, placeholder = 'teks') {
+    const textarea = bodyRef.current
+    const currentBody = draft.body || ''
+    const start = textarea?.selectionStart ?? currentBody.length
+    const end = textarea?.selectionEnd ?? currentBody.length
+    const selected = currentBody.slice(start, end) || placeholder
+    const nextBody = `${currentBody.slice(0, start)}${before}${selected}${after}${currentBody.slice(end)}`
+    updateDraft('body', nextBody)
+    requestAnimationFrame(() => {
+      bodyRef.current?.focus()
+      const cursor = start + before.length + selected.length + after.length
+      bodyRef.current?.setSelectionRange(cursor, cursor)
+    })
+  }
+
+  function insertBodyText(text) {
+    const textarea = bodyRef.current
+    const currentBody = draft.body || ''
+    const start = textarea?.selectionStart ?? currentBody.length
+    const end = textarea?.selectionEnd ?? currentBody.length
+    const nextBody = `${currentBody.slice(0, start)}${text}${currentBody.slice(end)}`
+    updateDraft('body', nextBody)
+    requestAnimationFrame(() => {
+      bodyRef.current?.focus()
+      const cursor = start + text.length
+      bodyRef.current?.setSelectionRange(cursor, cursor)
+    })
+  }
+
+  function addEquation() {
+    if (!equationDraft.latex.trim()) return
+    setDraft((current) => ({
+      ...current,
+      equations: [
+        ...current.equations,
+        { id: createMaterialBlockId('equation'), label: equationDraft.label || 'Rumus', latex: equationDraft.latex.trim() },
+      ],
+      body: `${current.body || ''}\n\n$$${equationDraft.latex.trim().replace(/^\$\$|\$\$$/g, '')}$$`,
+    }))
+    setEquationDraft({ label: '', latex: '' })
+  }
+
+  function addMediaFromUrl(type = mediaDraft.type) {
+    if (!mediaDraft.url.trim()) return
+    setDraft((current) => ({
+      ...current,
+      media: [
+        ...current.media,
+        {
+          id: createMaterialBlockId('media'),
+          type,
+          title: mediaDraft.title || type,
+          url: mediaDraft.url.trim(),
+        },
+      ],
+    }))
+    setMediaDraft({ type, title: '', url: '' })
+  }
+
+  function readFilesIntoDraft(files) {
+    files.forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        setDraft((current) => ({
+          ...current,
+          media: [
+            ...current.media,
+            {
+              id: createMaterialBlockId('file'),
+              type: inferMediaTypeFromFile(file),
+              title: file.name,
+              name: file.name,
+              size: file.size,
+              mime: file.type,
+              dataUrl: reader.result,
+            },
+          ],
+        }))
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  function handleFileUpload(event) {
+    readFilesIntoDraft(Array.from(event.target.files || []))
+    event.target.value = ''
+  }
+
+  function handleFileDrop(event) {
+    event.preventDefault()
+    readFilesIntoDraft(Array.from(event.dataTransfer?.files || []))
+  }
+
+  function addTable() {
+    const parsed = parseTableDraft(tableDraft.headers, tableDraft.rows)
+    setDraft((current) => ({
+      ...current,
+      tables: [
+        ...current.tables,
+        { id: createMaterialBlockId('table'), title: tableDraft.title || 'Tabel data', ...parsed },
+      ],
+    }))
+  }
+
+  function addQuiz() {
+    if (!quizDraft.question.trim()) return
+    setDraft((current) => ({
+      ...current,
+      quizzes: [
+        ...current.quizzes,
+        {
+          id: createMaterialBlockId('quiz'),
+          question: quizDraft.question.trim(),
+          options: normalizeStringList(quizDraft.options),
+          answer: quizDraft.answer.trim(),
+          explanation: quizDraft.explanation.trim(),
+        },
+      ],
+    }))
+    setQuizDraft({ question: '', options: 'A\nB\nC\nD', answer: '', explanation: '' })
+  }
+
+  function addSpoiler() {
+    if (!spoilerDraft.body.trim()) return
+    setDraft((current) => ({
+      ...current,
+      spoilers: [
+        ...current.spoilers,
+        { id: createMaterialBlockId('spoiler'), title: spoilerDraft.title || 'Pembahasan', body: spoilerDraft.body.trim() },
+      ],
+    }))
+    setSpoilerDraft({ title: 'Pembahasan', body: '' })
+  }
+
+  function removeDraftItem(collection, id) {
+    setDraft((current) => ({ ...current, [collection]: current[collection].filter((item) => item.id !== id) }))
+  }
+
   return (
-    <section className="mb-5 overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/88 shadow-[0_16px_48px_rgba(15,31,42,0.07)] backdrop-blur-xl">
-      <header className="flex flex-col gap-3 border-b border-[#0B3A5B]/8 bg-[#F8FAFC]/78 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <section className="mb-5 overflow-hidden rounded-[1.2rem] border border-[#D9E6F5] bg-white shadow-[0_18px_52px_rgba(15,36,55,0.08)]">
+      <header className="flex flex-col gap-3 border-b border-[#D9E6F5] bg-[#F8FBFF] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#E0F2FE] text-[#0284c7] ring-1 ring-[#0284c7]/10">
+          <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#E8F2FF] text-[#2F80D8] ring-1 ring-[#B9D8F7]">
             <BookOpen size={20} />
           </span>
           <div>
-            <h2 className="text-xl font-black leading-tight text-[#13232d]">{form.id ? 'Edit bahan belajar' : 'Tulis bahan belajar'}</h2>
+            <h2 className="text-xl font-black leading-tight text-[#13232d]">{form.id ? 'Edit materi belajar' : 'Tulis materi belajar'}</h2>
             <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-              Materi dapat berupa teks, dokumen, PDF, HTML, video, embed interaktif, atau tautan eksternal yang ringan dibuka siswa.
+              Tulis cepat, sisipkan rumus, media, kuis sela, pembahasan tersembunyi, lalu preview sebelum publish.
             </p>
           </div>
         </div>
-        <StatusBadge tone={form.status === 'Publish' ? 'green' : 'amber'}>{form.status}</StatusBadge>
+        <div className="flex flex-wrap items-center gap-2">
+          {autosaveNotice && <StatusBadge tone="cyan">{autosaveNotice}</StatusBadge>}
+          {autosaveNotice === 'Autosave tersedia' && (
+            <button type="button" onClick={restoreAutosave} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-sky-700 ring-1 ring-sky-100">
+              Pulihkan
+            </button>
+          )}
+          <StatusBadge tone={form.status === 'Publish' ? 'green' : 'amber'}>{form.status}</StatusBadge>
+        </div>
       </header>
 
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <div className="space-y-3 p-4">
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className={materialLabelClass}>Judul
-              <input value={form.title || ''} onChange={(event) => updateField('title', event.target.value)} placeholder="Judul materi" className={materialInputClass} />
-            </label>
-            <label className={materialLabelClass}>Topik
-              <input value={form.topic || ''} onChange={(event) => updateField('topic', event.target.value)} placeholder="Topik singkat" className={materialInputClass} />
-            </label>
-          </div>
-
-          <label className={materialLabelClass}>Deskripsi
-            <textarea value={form.description || ''} onChange={(event) => updateField('description', event.target.value)} rows={2} placeholder="Ringkasan singkat untuk membantu siswa memilih materi." className={`${materialInputClass} resize-y leading-6`} />
-          </label>
-
-          <label className={materialLabelClass}>{getMaterialContentLabel(form.type, linkedMaterial)}
-            <textarea
-              value={content}
-              onChange={(event) => updateField('content', event.target.value)}
-              rows={linkedMaterial ? 3 : 7}
-              placeholder={getMaterialContentPlaceholder(form.type, linkedMaterial)}
-              className={`${materialInputClass} resize-y leading-7`}
-            />
-          </label>
-
-          {invalidLinkedMaterial && (
-            <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
-              Untuk HTML, gunakan path internal /materials/...html atau URL lengkap. Untuk dokumen, PDF, video, embed, dan link, gunakan URL lengkap yang diawali http atau https.
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="space-y-4 p-4">
+          <section className="rounded-[1rem] bg-[#F8FBFF] p-4 ring-1 ring-[#D9E6F5]">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#2F80D8]">Informasi materi</p>
+                <h3 className="text-lg font-black text-[#13232d]">Identitas yang dilihat siswa</h3>
+              </div>
+              <span className="rounded-xl bg-white px-3 py-1.5 text-xs font-black text-slate-500 ring-1 ring-slate-100">Wajib ringkas</span>
             </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className={materialLabelClass}>Judul utama
+                <input value={form.title || ''} onChange={(event) => updateField('title', event.target.value)} placeholder="Contoh: Bab 1 Teks LHO" className={materialInputClass} />
+              </label>
+              <label className={materialLabelClass}>Topik / Bab
+                <input value={form.topic || ''} onChange={(event) => updateField('topic', event.target.value)} placeholder="Topik singkat" className={materialInputClass} />
+              </label>
+              <label className={materialLabelClass}>Target tingkatan
+                <select value={draft.targetLevel} onChange={(event) => updateDraft('targetLevel', event.target.value)} className={materialInputClass}>
+                  {materialTargetLevels.map((level) => <option key={level}>{level}</option>)}
+                </select>
+              </label>
+              <label className={materialLabelClass}>Tag & kata kunci
+                <input value={draft.tags.join(', ')} onChange={(event) => updateDraft('tags', normalizeStringList(event.target.value))} placeholder="observasi, teks, latihan" className={materialInputClass} />
+              </label>
+            </div>
+            <label className={`${materialLabelClass} mt-3`}>Deskripsi singkat
+              <textarea value={form.description || ''} onChange={(event) => updateField('description', event.target.value)} rows={2} placeholder="Rangkuman 1-2 kalimat tentang apa yang akan dipelajari siswa." className={`${materialInputClass} resize-y leading-6`} />
+            </label>
+          </section>
+
+          {linkedMaterial ? (
+            <section className="rounded-[1rem] bg-white p-4 ring-1 ring-[#D9E6F5]">
+              <div className="mb-3 flex items-start gap-3">
+                <span className="grid h-10 w-10 place-items-center rounded-2xl bg-sky-50 text-sky-700 ring-1 ring-sky-100">
+                  {(() => {
+                    const ActiveIcon = getMaterialTypeIcon(form.type)
+                    return <ActiveIcon size={18} />
+                  })()}
+                </span>
+                <div>
+                  <h3 className="text-lg font-black text-[#13232d]">{getMaterialContentLabel(form.type, linkedMaterial)}</h3>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{getMaterialTypeHint(form.type)}</p>
+                </div>
+              </div>
+              <textarea
+                value={content}
+                onChange={(event) => updateField('content', event.target.value)}
+                rows={4}
+                placeholder={getMaterialContentPlaceholder(form.type, linkedMaterial)}
+                className={`${materialInputClass} resize-y leading-7`}
+              />
+            </section>
+          ) : (
+            <>
+              <section className="rounded-[1rem] bg-white p-4 ring-1 ring-[#D9E6F5]">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#2F80D8]">Editor teks</p>
+                    <h3 className="text-lg font-black text-[#13232d]">Tulis isi materi</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      ['B', () => wrapBodySelection('**', '**', 'teks tebal')],
+                      ['I', () => wrapBodySelection('*', '*', 'teks miring')],
+                      ['S', () => wrapBodySelection('~~', '~~', 'teks coret')],
+                      ['H1', () => insertBodyText('\n# Judul besar\n')],
+                      ['H2', () => insertBodyText('\n## Sub-bab\n')],
+                      ['H3', () => insertBodyText('\n### Poin kecil\n')],
+                      ['•', () => insertBodyText('\n- Poin materi')],
+                      ['1.', () => insertBodyText('\n1. Langkah pertama')],
+                      ['Callout', () => insertBodyText('\n> Info penting: tulis definisi atau catatan kunci di sini.\n')],
+                      ['Code', () => insertBodyText('\n```js\n// tulis kode di sini\n```\n')],
+                      ['x²', () => wrapBodySelection('^', '^', '2')],
+                      ['H₂O', () => wrapBodySelection('~', '~', '2')],
+                      ['Mark', () => wrapBodySelection('==', '==', 'kata penting')],
+                      ['Biru', () => wrapBodySelection('[biru]', '[/biru]', 'teks berwarna')],
+                      ['Hijau', () => wrapBodySelection('[hijau]', '[/hijau]', 'teks berwarna')],
+                      ['Merah', () => wrapBodySelection('[merah]', '[/merah]', 'teks berwarna')],
+                      ['Kiri', () => wrapBodySelection('[kiri]', '[/kiri]', 'teks rata kiri')],
+                      ['Tengah', () => wrapBodySelection('[tengah]', '[/tengah]', 'teks rata tengah')],
+                      ['Kanan', () => wrapBodySelection('[kanan]', '[/kanan]', 'teks rata kanan')],
+                    ].map(([label, action]) => (
+                      <button key={label} type="button" onClick={action} className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs font-black text-slate-700 ring-1 ring-slate-100 transition hover:bg-sky-50 hover:text-sky-700">
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <textarea
+                  ref={bodyRef}
+                  value={draft.body}
+                  onChange={(event) => updateDraft('body', event.target.value)}
+                  rows={13}
+                  placeholder="Tulis materi di sini. Gunakan toolbar untuk judul, daftar, callout, kode, pangkat, rumus, dan penekanan."
+                  className={`${materialInputClass} resize-y leading-7`}
+                />
+              </section>
+
+              <section className="rounded-[1rem] bg-white p-4 ring-1 ring-[#D9E6F5]">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">Matematika & science</p>
+                    <h3 className="text-lg font-black text-[#13232d]">Rumus, simbol, simulasi, dan tabel</h3>
+                  </div>
+                  <button type="button" onClick={() => setActivePanel(activePanel === 'science' ? 'editor' : 'science')} className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800 ring-1 ring-emerald-100">
+                    {activePanel === 'science' ? 'Ringkas' : 'Buka tools'}
+                  </button>
+                </div>
+                <div className="grid gap-3 xl:grid-cols-2">
+                  <div className="rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-100">
+                    <p className="text-sm font-black text-emerald-950">Equation editor</p>
+                    <div className="mt-3 grid gap-2">
+                      <input value={equationDraft.label} onChange={(event) => setEquationDraft((current) => ({ ...current, label: event.target.value }))} placeholder="Nama rumus, contoh: Hukum Newton" className={materialInputClass} />
+                      <input value={equationDraft.latex} onChange={(event) => setEquationDraft((current) => ({ ...current, latex: event.target.value }))} placeholder="LaTeX: F = m \\times a" className={materialInputClass} />
+                      <button type="button" onClick={addEquation} className="rounded-xl bg-emerald-700 px-3 py-2.5 text-sm font-black text-white">Sisipkan rumus</button>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
+                    <p className="text-sm font-black text-slate-950">Library simbol cepat</p>
+                    <div className="mt-3 space-y-2">
+                      {scienceSymbolGroups.map(([label, symbols]) => (
+                        <div key={label}>
+                          <p className="mb-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {symbols.map((symbol) => (
+                              <button key={symbol} type="button" onClick={() => insertBodyText(symbol)} className="rounded-lg bg-white px-2.5 py-1.5 font-mono text-xs font-black text-slate-700 ring-1 ring-slate-100 hover:bg-sky-50">
+                                {symbol}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1fr]">
+                  <div className="rounded-2xl bg-sky-50 p-3 ring-1 ring-sky-100">
+                    <p className="text-sm font-black text-sky-950">Sematkan simulasi</p>
+                    <div className="mt-3 grid gap-2">
+                      <input value={mediaDraft.type === 'Simulasi' ? mediaDraft.title : ''} onChange={(event) => setMediaDraft({ type: 'Simulasi', title: event.target.value, url: mediaDraft.url })} placeholder="Judul simulasi, contoh: Gerak parabola" className={materialInputClass} />
+                      <input value={mediaDraft.type === 'Simulasi' ? mediaDraft.url : ''} onChange={(event) => setMediaDraft({ type: 'Simulasi', title: mediaDraft.title, url: event.target.value })} placeholder="URL embed PhET, GeoGebra, Desmos" className={materialInputClass} />
+                      <button type="button" onClick={() => addMediaFromUrl('Simulasi')} className="rounded-xl bg-sky-700 px-3 py-2.5 text-sm font-black text-white">Tambahkan simulasi</button>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-100">
+                    <p className="text-sm font-black text-amber-950">Pembuat tabel struktur</p>
+                    <div className="mt-3 grid gap-2">
+                      <input value={tableDraft.title} onChange={(event) => setTableDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Judul tabel" className={materialInputClass} />
+                      <input value={tableDraft.headers} onChange={(event) => setTableDraft((current) => ({ ...current, headers: event.target.value }))} placeholder="Kolom dipisahkan koma" className={materialInputClass} />
+                      <textarea value={tableDraft.rows} onChange={(event) => setTableDraft((current) => ({ ...current, rows: event.target.value }))} rows={3} placeholder="Satu baris data per baris, kolom dipisahkan koma" className={`${materialInputClass} resize-y`} />
+                      <button type="button" onClick={addTable} className="rounded-xl bg-amber-600 px-3 py-2.5 text-sm font-black text-white">Tambahkan tabel</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-[1rem] bg-white p-4 ring-1 ring-[#D9E6F5]">
+                <div className="mb-3">
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#2F80D8]">Media & berkas</p>
+                  <h3 className="text-lg font-black text-[#13232d]">Gambar, video, audio, PDF, dokumen, dan embed</h3>
+                </div>
+                <div className="grid gap-3 lg:grid-cols-[1fr_1fr]">
+                  <label
+                    className="grid min-h-[9rem] cursor-pointer place-items-center rounded-2xl border border-dashed border-sky-200 bg-sky-50/50 p-4 text-center transition hover:bg-sky-50"
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={handleFileDrop}
+                  >
+                    <input type="file" multiple className="sr-only" onChange={handleFileUpload} accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv" />
+                    <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-sky-700 ring-1 ring-sky-100"><Download size={18} /></span>
+                    <span className="mt-2 text-sm font-black text-slate-950">Klik atau drop file</span>
+                    <span className="mt-1 text-xs font-semibold leading-5 text-slate-500">Gambar akan tertanam. File besar lebih baik memakai URL/Drive.</span>
+                  </label>
+                  <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
+                    <div className="grid gap-2">
+                      <select value={mediaDraft.type} onChange={(event) => setMediaDraft((current) => ({ ...current, type: event.target.value }))} className={materialInputClass}>
+                        {['Gambar', 'Video', 'Audio', 'PDF', 'Dokumen', 'Presentasi', 'Spreadsheet', 'Embed'].map((type) => <option key={type}>{type}</option>)}
+                      </select>
+                      <input value={mediaDraft.title} onChange={(event) => setMediaDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Judul media" className={materialInputClass} />
+                      <input value={mediaDraft.url} onChange={(event) => setMediaDraft((current) => ({ ...current, url: event.target.value }))} placeholder="URL YouTube/Drive/PDF/embed" className={materialInputClass} />
+                      <button type="button" onClick={() => addMediaFromUrl(mediaDraft.type)} className="rounded-xl bg-[#0B3A5B] px-3 py-2.5 text-sm font-black text-white">Tambahkan URL</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-[1rem] bg-white p-4 ring-1 ring-[#D9E6F5]">
+                <div className="mb-3">
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-violet-700">Evaluasi & pembahasan</p>
+                  <h3 className="text-lg font-black text-[#13232d]">Kuis sela dan spoiler solusi</h3>
+                </div>
+                <div className="grid gap-3 xl:grid-cols-2">
+                  <div className="rounded-2xl bg-violet-50 p-3 ring-1 ring-violet-100">
+                    <p className="text-sm font-black text-violet-950">Penyisip kuis sela</p>
+                    <div className="mt-3 grid gap-2">
+                      <textarea value={quizDraft.question} onChange={(event) => setQuizDraft((current) => ({ ...current, question: event.target.value }))} rows={2} placeholder="Pertanyaan cek pemahaman" className={`${materialInputClass} resize-y`} />
+                      <textarea value={quizDraft.options} onChange={(event) => setQuizDraft((current) => ({ ...current, options: event.target.value }))} rows={4} placeholder="Pilihan jawaban, satu opsi per baris" className={`${materialInputClass} resize-y`} />
+                      <input value={quizDraft.answer} onChange={(event) => setQuizDraft((current) => ({ ...current, answer: event.target.value }))} placeholder="Jawaban benar" className={materialInputClass} />
+                      <textarea value={quizDraft.explanation} onChange={(event) => setQuizDraft((current) => ({ ...current, explanation: event.target.value }))} rows={2} placeholder="Pembahasan singkat" className={`${materialInputClass} resize-y`} />
+                      <button type="button" onClick={addQuiz} className="rounded-xl bg-violet-700 px-3 py-2.5 text-sm font-black text-white">Tambahkan kuis</button>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-100">
+                    <p className="text-sm font-black text-amber-950">Blok pembahasan tersembunyi</p>
+                    <div className="mt-3 grid gap-2">
+                      <input value={spoilerDraft.title} onChange={(event) => setSpoilerDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Judul spoiler" className={materialInputClass} />
+                      <textarea value={spoilerDraft.body} onChange={(event) => setSpoilerDraft((current) => ({ ...current, body: event.target.value }))} rows={6} placeholder="Langkah penyelesaian atau jawaban yang baru dibuka siswa saat diklik." className={`${materialInputClass} resize-y`} />
+                      <button type="button" onClick={addSpoiler} className="rounded-xl bg-amber-600 px-3 py-2.5 text-sm font-black text-white">Tambahkan spoiler</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </>
           )}
-          {publishNeedsContent && (
+
+          {(invalidLinkedMaterial || publishNeedsContent) && (
             <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
-              Publish membutuhkan isi materi atau URL agar siswa tidak melihat halaman kosong.
+              {invalidLinkedMaterial
+                ? 'Gunakan path internal /materials/...html atau URL lengkap yang diawali http/https.'
+                : 'Publish membutuhkan isi materi, media, atau URL agar siswa tidak melihat halaman kosong.'}
             </div>
           )}
         </div>
@@ -5958,22 +8237,102 @@ function MaterialForm({ material, lookups, subjectOptions = [], onCancel, onSave
                 )
               })}
             </div>
-            <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-              Draft tetap tersimpan untuk guru. Publish membuat materi muncul di halaman siswa.
+              <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+              Draft tetap tersimpan untuk guru. Publish membuat materi muncul di halaman siswa saat jadwal rilis sudah tiba.
             </p>
           </div>
 
-          <label className={materialLabelClass}>Mata pelajaran
-            <select value={form.subjectId || `subject:${form.subject || subjectsList[0]?.name || ''}`} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
-              {subjectsList.map((subject) => <option key={subjectOptionValue(subject)} value={subjectOptionValue(subject)}>{subject.name}</option>)}
-            </select>
-          </label>
+          {subjectOptions.length === 1 ? (
+            <div className={materialLabelClass}>Mata pelajaran
+              <div className={`${materialInputClass} flex min-h-[2.75rem] items-center bg-[#EEF7FF] text-[#17446E]`}>
+                {form.subject || subjectsList[0]?.name || subjectOptions[0]}
+              </div>
+            </div>
+          ) : (
+            <label className={materialLabelClass}>Mata pelajaran
+              <select value={form.subjectId || `subject:${form.subject || subjectsList[0]?.name || ''}`} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
+                {subjectsList.map((subject) => <option key={subjectOptionValue(subject)} value={subjectOptionValue(subject)}>{subject.name}</option>)}
+              </select>
+            </label>
+          )}
 
           <label className={materialLabelClass}>Kelas
             <select value={form.classId || `class:${form.className || classesList[0]?.name || ''}`} onChange={(event) => updateClass(event.target.value)} className={materialInputClass}>
               {classesList.map((classItem) => <option key={classOptionValue(classItem)} value={classOptionValue(classItem)}>{classItem.name}</option>)}
             </select>
           </label>
+
+          {!linkedMaterial && (
+            <>
+              <label className={materialLabelClass}>Jadwal rilis
+                <input type="datetime-local" value={draft.releaseAt || ''} onChange={(event) => updateDraft('releaseAt', event.target.value)} className={materialInputClass} />
+              </label>
+
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0284c7]">Tone visual</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {materialToneOptions.map((tone) => (
+                    <button
+                      key={tone.value}
+                      type="button"
+                      onClick={() => updateDraft('accentTone', tone.value)}
+                      className={`rounded-xl px-3 py-2 text-left text-xs font-black ring-1 transition ${draft.accentTone === tone.value ? 'bg-white text-slate-950 shadow-sm' : 'bg-white/60 text-slate-600'}`}
+                      style={{ borderColor: tone.border }}
+                    >
+                      <span className="mb-1 block h-2 rounded-full" style={{ backgroundColor: tone.accent }} />
+                      {tone.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0284c7]">Preview</p>
+                  <div className="flex rounded-xl bg-white p-1 ring-1 ring-slate-100">
+                    {materialPreviewDevices.map((device) => (
+                      <button key={device.value} type="button" onClick={() => setPreviewDevice(device.value)} className={`rounded-lg px-2 py-1 text-[11px] font-black ${previewDevice === device.value ? 'bg-[#0B3A5B] text-white' : 'text-slate-500'}`}>
+                        {device.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="max-h-[34rem] overflow-auto rounded-2xl bg-white p-2 ring-1 ring-slate-100">
+                  <div className={`mx-auto ${selectedDevice.width}`}>
+                    <AdvancedMaterialViewer material={form} draft={draft} compact />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-white p-3 ring-1 ring-slate-100">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Isi tambahan</p>
+                <div className="mt-3 grid gap-2 text-xs font-bold text-slate-600">
+                  {[
+                    ['Rumus', draft.equations.length, 'equations'],
+                    ['Media', draft.media.length, 'media'],
+                    ['Tabel', draft.tables.length, 'tables'],
+                    ['Kuis', draft.quizzes.length, 'quizzes'],
+                    ['Spoiler', draft.spoilers.length, 'spoilers'],
+                  ].map(([label, count, key]) => (
+                    <div key={key} className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                      <span>{label}</span>
+                      <span>{count}</span>
+                    </div>
+                  ))}
+                </div>
+                {[...draft.equations.map((item) => ['equations', item]), ...draft.media.map((item) => ['media', item]), ...draft.tables.map((item) => ['tables', item]), ...draft.quizzes.map((item) => ['quizzes', item]), ...draft.spoilers.map((item) => ['spoilers', item])].length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    {[...draft.equations.map((item) => ['equations', item]), ...draft.media.map((item) => ['media', item]), ...draft.tables.map((item) => ['tables', item]), ...draft.quizzes.map((item) => ['quizzes', item]), ...draft.spoilers.map((item) => ['spoilers', item])].slice(0, 7).map(([collection, item]) => (
+                      <div key={item.id} className="flex items-center justify-between gap-2 rounded-xl bg-white px-2 py-1.5 text-xs font-bold text-slate-600 ring-1 ring-slate-100">
+                        <span className="min-w-0 truncate">{item.title || item.label || item.question || item.name || collection}</span>
+                        <button type="button" onClick={() => removeDraftItem(collection, item.id)} className="text-rose-600"><X size={14} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </aside>
       </div>
 
@@ -5981,7 +8340,7 @@ function MaterialForm({ material, lookups, subjectOptions = [], onCancel, onSave
         <button onClick={onCancel} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-100">
           <X size={16} /> Batal
         </button>
-        <button onClick={() => onSave(form)} disabled={!validMaterial} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] bg-[#0B3A5B] px-4 py-2.5 text-sm font-black text-white shadow-[0_12px_28px_rgba(15,31,42,0.14)] transition hover:bg-[#0284c7] disabled:cursor-not-allowed disabled:opacity-45">
+        <button onClick={saveCurrentMaterial} disabled={!validMaterial} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] bg-[#0B3A5B] px-4 py-2.5 text-sm font-black text-white shadow-[0_12px_28px_rgba(15,31,42,0.14)] transition hover:bg-[#0284c7] disabled:cursor-not-allowed disabled:opacity-45">
           <Save size={16} /> Simpan materi
         </button>
       </footer>
@@ -6012,6 +8371,402 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '')
 }
 
+const questionImportFileTypes = '.pdf,.docx,.html,.htm,.txt'
+const questionMediaTypeOptions = ['Gambar', 'Audio', 'Video', 'PDF', 'Dokumen', 'HTML', 'Embed']
+
+function normalizeQuestionMedia(media) {
+  return normalizeArray(media).map((item, index) => ({
+    id: item.id || createMaterialBlockId(`question-media-${index + 1}`),
+    type: item.type || 'Embed',
+    title: item.title || item.name || item.type || 'Media soal',
+    url: item.url || item.dataUrl || '',
+    dataUrl: item.dataUrl || '',
+    name: item.name || '',
+    size: item.size || 0,
+    mime: item.mime || '',
+  })).filter((item) => item.url || item.dataUrl)
+}
+
+function questionMediaUrl(media) {
+  return media?.dataUrl || media?.url || ''
+}
+
+function questionMediaMarker(type, title, url) {
+  if (!url) return ''
+  return `[[MEDIA|${encodeURIComponent(type || 'Embed')}|${encodeURIComponent(title || type || 'Media')}|${encodeURIComponent(url)}]]`
+}
+
+function extractQuestionMediaMarkers(lines) {
+  const media = []
+  const cleanLines = []
+  const markerPattern = /\[\[MEDIA\|([^|]+)\|([^|]*)\|([^\]]+)\]\]/g
+
+  lines.forEach((line) => {
+    let nextLine = line
+    markerPattern.lastIndex = 0
+    let match = markerPattern.exec(line)
+    while (match) {
+      media.push({
+        id: createMaterialBlockId('import-media'),
+        type: decodeURIComponent(match[1] || 'Embed'),
+        title: decodeURIComponent(match[2] || 'Media soal'),
+        url: decodeURIComponent(match[3] || ''),
+      })
+      nextLine = nextLine.replace(match[0], '').trim()
+      match = markerPattern.exec(line)
+    }
+    if (nextLine) cleanLines.push(nextLine)
+  })
+
+  return { media, lines: cleanLines }
+}
+
+function prettifyQuestionFileName(name = '') {
+  return String(name || 'Topik umum')
+    .replace(/\.[^.]+$/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function questionTopicFromLine(line) {
+  const text = String(line || '').trim()
+  const match = text.match(/^(?:bab|topik|materi|chapter)\s*(?:\d+|[ivxlcdm]+)?\s*[:：.\-–]?\s*(.+)$/i)
+  if (match?.[1] && match[1].length <= 90) return match[1].trim()
+  if (/^(?:bab|topik|materi|chapter)\b/i.test(text) && text.length <= 90) return text
+  return ''
+}
+
+function isQuestionStartLine(line) {
+  const text = String(line || '').trim()
+  return /^(\d{1,3}|soal\s*\d{1,3}|question\s*\d{1,3})[\).:\-–\s]/i.test(text)
+}
+
+function cleanQuestionStart(line) {
+  return String(line || '')
+    .replace(/^(?:soal|question)?\s*\d{1,3}[\).:\-–\s]+/i, '')
+    .trim()
+}
+
+function normalizeImportedText(text) {
+  return String(text || '')
+    .replace(/\r/g, '\n')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function decodePdfLiteralString(value) {
+  return String(value || '')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '')
+    .replace(/\\t/g, ' ')
+    .replace(/\\([()\\])/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function decodePdfHexString(value) {
+  const hex = String(value || '').replace(/\s+/g, '')
+  if (!hex || hex.length % 2 !== 0) return ''
+  const bytes = []
+  for (let index = 0; index < hex.length; index += 2) {
+    const byte = Number.parseInt(hex.slice(index, index + 2), 16)
+    if (Number.isFinite(byte)) bytes.push(byte)
+  }
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+    let text = ''
+    for (let index = 2; index < bytes.length; index += 2) {
+      text += String.fromCharCode((bytes[index] << 8) + (bytes[index + 1] || 0))
+    }
+    return text.trim()
+  }
+  return bytes.map((byte) => String.fromCharCode(byte)).join('').replace(/\s+/g, ' ').trim()
+}
+
+function extractPdfTextFromBuffer(buffer) {
+  const decoder = typeof TextDecoder !== 'undefined' ? new TextDecoder('latin1') : null
+  const raw = decoder ? decoder.decode(buffer) : ''
+  const pieces = []
+
+  raw.replace(/\((?:\\.|[^\\)]){2,}\)\s*Tj/g, (match) => {
+    pieces.push(decodePdfLiteralString(match.replace(/\)\s*Tj$/, '').slice(1)))
+    return match
+  })
+  raw.replace(/<([0-9a-fA-F\s]{6,})>\s*Tj/g, (match, hex) => {
+    const decoded = decodePdfHexString(hex)
+    if (decoded) pieces.push(decoded)
+    return match
+  })
+  raw.replace(/\[((?:\s*(?:\((?:\\.|[^\\)])*\)|<[0-9a-fA-F\s]+>|\-?\d+\.?\d*)\s*)+)\]\s*TJ/g, (match, body) => {
+    const line = []
+    body.replace(/\((?:\\.|[^\\)])*\)|<[0-9a-fA-F\s]+>/g, (token) => {
+      if (token.startsWith('(')) line.push(decodePdfLiteralString(token.slice(1, -1)))
+      if (token.startsWith('<')) line.push(decodePdfHexString(token.slice(1, -1)))
+      return token
+    })
+    const text = line.join(' ').replace(/\s+/g, ' ').trim()
+    if (text) pieces.push(text)
+    return match
+  })
+
+  return pieces
+    .filter((piece) => /[A-Za-z0-9À-ž]/.test(piece) && !/^https?:\/\//i.test(piece))
+    .join('\n')
+}
+
+function fileToText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsText(file)
+  })
+}
+
+function fileToArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsArrayBuffer(file)
+  })
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+}
+
+function getZipString(bytes, offset, length) {
+  return Array.from(bytes.slice(offset, offset + length)).map((byte) => String.fromCharCode(byte)).join('')
+}
+
+async function inflateZipEntry(bytes, method, mime = 'application/octet-stream') {
+  if (method === 0) return bytes
+  if (method !== 8 || typeof DecompressionStream === 'undefined') {
+    throw new Error('Browser belum bisa membaca kompresi DOCX ini.')
+  }
+  const stream = new Blob([bytes], { type: mime }).stream().pipeThrough(new DecompressionStream('deflate-raw'))
+  return new Uint8Array(await new Response(stream).arrayBuffer())
+}
+
+async function unzipDocxEntries(buffer) {
+  const bytes = new Uint8Array(buffer)
+  const view = new DataView(buffer)
+  let eocdOffset = -1
+  for (let offset = bytes.length - 22; offset >= Math.max(0, bytes.length - 66000); offset -= 1) {
+    if (view.getUint32(offset, true) === 0x06054b50) {
+      eocdOffset = offset
+      break
+    }
+  }
+  if (eocdOffset < 0) throw new Error('Struktur DOCX tidak terbaca.')
+
+  const totalEntries = view.getUint16(eocdOffset + 10, true)
+  let centralOffset = view.getUint32(eocdOffset + 16, true)
+  const entries = {}
+
+  for (let index = 0; index < totalEntries; index += 1) {
+    if (view.getUint32(centralOffset, true) !== 0x02014b50) break
+    const method = view.getUint16(centralOffset + 10, true)
+    const compressedSize = view.getUint32(centralOffset + 20, true)
+    const fileNameLength = view.getUint16(centralOffset + 28, true)
+    const extraLength = view.getUint16(centralOffset + 30, true)
+    const commentLength = view.getUint16(centralOffset + 32, true)
+    const localOffset = view.getUint32(centralOffset + 42, true)
+    const name = getZipString(bytes, centralOffset + 46, fileNameLength)
+    const localNameLength = view.getUint16(localOffset + 26, true)
+    const localExtraLength = view.getUint16(localOffset + 28, true)
+    const dataOffset = localOffset + 30 + localNameLength + localExtraLength
+    const compressed = bytes.slice(dataOffset, dataOffset + compressedSize)
+    entries[name] = await inflateZipEntry(compressed, method)
+    centralOffset += 46 + fileNameLength + extraLength + commentLength
+  }
+
+  return entries
+}
+
+function decodeUtf8(bytes) {
+  return new TextDecoder('utf-8').decode(bytes)
+}
+
+function getXmlElementsByLocalName(node, localName) {
+  return Array.from(node.getElementsByTagName('*')).filter((element) => element.localName === localName)
+}
+
+async function extractDocxTextAndMedia(file) {
+  const entries = await unzipDocxEntries(await fileToArrayBuffer(file))
+  const documentXml = entries['word/document.xml']
+  if (!documentXml) throw new Error('DOCX tidak memiliki word/document.xml.')
+
+  const relsXml = entries['word/_rels/document.xml.rels']
+  const rels = {}
+  if (relsXml) {
+    const relDoc = new DOMParser().parseFromString(decodeUtf8(relsXml), 'application/xml')
+    getXmlElementsByLocalName(relDoc, 'Relationship').forEach((element) => {
+      rels[element.getAttribute('Id')] = element.getAttribute('Target')
+    })
+  }
+
+  const xmlDoc = new DOMParser().parseFromString(decodeUtf8(documentXml), 'application/xml')
+  const lines = []
+  const paragraphs = getXmlElementsByLocalName(xmlDoc, 'p')
+
+  for (const paragraph of paragraphs) {
+    const text = getXmlElementsByLocalName(paragraph, 't').map((element) => element.textContent || '').join('').trim()
+    const paragraphLines = []
+    if (text) paragraphLines.push(text)
+
+    const blips = getXmlElementsByLocalName(paragraph, 'blip')
+    for (const blip of blips) {
+      const relationshipId = blip.getAttribute('r:embed') || blip.getAttribute('embed')
+      const target = rels[relationshipId]
+      if (!target) continue
+      const entryName = target.startsWith('media/') ? `word/${target}` : `word/${target.replace(/^\.\.\//, '')}`
+      const mediaBytes = entries[entryName]
+      if (!mediaBytes) continue
+      const fileName = target.split('/').pop() || 'gambar-soal'
+      const type = inferMediaTypeFromFile({ name: fileName, type: '' })
+      const mime = type === 'Gambar' ? `image/${(fileName.split('.').pop() || 'png').replace('jpg', 'jpeg')}` : 'application/octet-stream'
+      const dataUrl = await blobToDataUrl(new Blob([mediaBytes], { type: mime }))
+      paragraphLines.push(questionMediaMarker(type, fileName, dataUrl))
+    }
+
+    if (paragraphLines.length) lines.push(paragraphLines.join('\n'))
+  }
+
+  return lines.join('\n')
+}
+
+function extractHtmlTextAndMedia(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  doc.querySelectorAll('script, style, noscript').forEach((element) => element.remove())
+  doc.querySelectorAll('img, audio, video, iframe, embed, object').forEach((element, index) => {
+    const tag = element.tagName.toLowerCase()
+    const src = element.getAttribute('src') || element.getAttribute('data') || element.querySelector('source')?.getAttribute('src') || ''
+    const type = tag === 'img' ? 'Gambar' : tag === 'audio' ? 'Audio' : tag === 'video' ? 'Video' : 'Embed'
+    const title = element.getAttribute('alt') || element.getAttribute('title') || `${type} ${index + 1}`
+    element.replaceWith(doc.createTextNode(`\n${questionMediaMarker(type, title, src)}\n`))
+  })
+  return doc.body?.innerText || ''
+}
+
+async function readQuestionImportFile(file) {
+  const extension = file.name.split('.').pop()?.toLowerCase()
+  if (['html', 'htm'].includes(extension)) return extractHtmlTextAndMedia(await fileToText(file))
+  if (extension === 'docx') return extractDocxTextAndMedia(file)
+  if (extension === 'pdf') return extractPdfTextFromBuffer(await fileToArrayBuffer(file))
+  return fileToText(file)
+}
+
+function parseImportedQuestionBlock(lines, context) {
+  const { media, lines: cleanLines } = extractQuestionMediaMarkers(lines)
+  const options = []
+  let answerToken = ''
+  let explanation = ''
+  const questionLines = []
+
+  cleanLines.forEach((line) => {
+    const answerMatch = line.match(/^(?:kunci|jawaban|answer|ans)\s*[:：]\s*(.+)$/i)
+    if (answerMatch) {
+      answerToken = answerMatch[1].trim()
+      return
+    }
+
+    const explanationMatch = line.match(/^(?:pembahasan|alasan|explanation)\s*[:：]\s*(.+)$/i)
+    if (explanationMatch) {
+      explanation = explanationMatch[1].trim()
+      return
+    }
+
+    const optionMatch = line.match(/^([A-E])[\).]\s+(.+)$/i)
+    if (optionMatch) {
+      options.push({ key: optionMatch[1].toUpperCase(), text: optionMatch[2].trim() })
+      return
+    }
+
+    questionLines.push(questionLines.length === 0 ? cleanQuestionStart(line) : line)
+  })
+
+  const questionText = questionLines.join('\n').trim()
+  if (!questionText && media.length === 0) return null
+
+  const optionTexts = options.map((option) => option.text)
+  const keyAnswer = options.find((option) => option.key === answerToken.toUpperCase())
+  const trueFalseAnswer = /^(benar|salah|true|false)$/i.test(answerToken) ? answerToken : ''
+  const type = optionTexts.length >= 2 ? 'Pilihan ganda' : trueFalseAnswer ? 'Benar/salah' : 'Essay'
+
+  return {
+    id: createMaterialBlockId('import-question'),
+    questionText: questionText || 'Soal berbasis media. Periksa kembali sebelum dipakai.',
+    options: type === 'Pilihan ganda' ? optionLetters.map((_, index) => optionTexts[index] || '') : type === 'Benar/salah' ? ['Benar', 'Salah'] : [],
+    correctAnswer: keyAnswer?.text || answerToken || '',
+    explanation,
+    subject: context.subject,
+    className: context.className,
+    topic: context.topic,
+    difficulty: 'Sedang',
+    type,
+    media,
+    needsReview: !answerToken,
+    importMeta: {
+      fileName: context.fileName,
+      importedAt: new Date().toISOString(),
+    },
+  }
+}
+
+function parseQuestionsFromImportedText(text, context) {
+  const defaultTopic = context.topic || prettifyQuestionFileName(context.fileName)
+  let currentTopic = defaultTopic
+  const lines = normalizeImportedText(text)
+  const blocks = []
+  let currentBlock = []
+
+  lines.forEach((line) => {
+    const nextTopic = questionTopicFromLine(line)
+    if (nextTopic && !isQuestionStartLine(line)) {
+      currentTopic = nextTopic
+      return
+    }
+
+    if (isQuestionStartLine(line) && currentBlock.length) {
+      blocks.push({ topic: currentTopic, lines: currentBlock })
+      currentBlock = []
+    }
+    currentBlock.push(line)
+  })
+
+  if (currentBlock.length) blocks.push({ topic: currentTopic, lines: currentBlock })
+
+  const parsed = blocks
+    .map((block) => parseImportedQuestionBlock(block.lines, { ...context, topic: block.topic || defaultTopic }))
+    .filter(Boolean)
+
+  if (parsed.length) return parsed
+
+  const fallback = parseImportedQuestionBlock(lines, { ...context, topic: defaultTopic })
+  return fallback ? [fallback] : []
+}
+
+function groupQuestionsByTopic(rows) {
+  const map = new Map()
+  rows.forEach((row) => {
+    const topic = String(row.topic || 'Topik umum').trim() || 'Topik umum'
+    if (!map.has(topic)) map.set(topic, [])
+    map.get(topic).push(row)
+  })
+  return Array.from(map.entries()).map(([topic, items]) => ({ topic, items }))
+}
+
 function BankSoal({ user, notify, appContext }) {
   const allSubjectOptions = useMemo(() => getGradeSubjectOptions(), [])
   const teacherSubjectOptions = useMemo(() => getTeacherSubjectOptions(user, allSubjectOptions), [allSubjectOptions, user?.subject])
@@ -6025,12 +8780,15 @@ function BankSoal({ user, notify, appContext }) {
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(null)
+  const [importing, setImporting] = useState(false)
   const [deleting, setDeleting] = useState(null)
   const localMode = !appContext?.accessToken || !isUuid(user?.id)
   const sourceLabel = localMode ? 'Preview lokal' : 'Supabase'
   const scopedRows = filterRowsByTeacherSubjects(rows, user, teacherSubjectOptions)
   const multipleChoiceCount = scopedRows.filter((item) => item.type === 'Pilihan ganda').length
   const essayCount = scopedRows.filter((item) => ['Essay', 'Isian'].includes(item.type)).length
+  const mediaQuestionCount = scopedRows.filter((item) => normalizeQuestionMedia(item.media).length > 0).length
+  const topicGroups = groupQuestionsByTopic(scopedRows)
 
   useEffect(() => {
     let active = true
@@ -6076,6 +8834,7 @@ function BankSoal({ user, notify, appContext }) {
         id: question.id || `local-question-${Date.now()}`,
         subject: question.subject || teacherSubject || 'Mapel belum dipilih',
         className: question.className || 'Semua kelas',
+        media: normalizeQuestionMedia(question.media),
         source: 'local',
       }
 
@@ -6099,6 +8858,46 @@ function BankSoal({ user, notify, appContext }) {
       notify(question.id ? 'Soal berhasil diperbarui di Supabase.' : 'Soal berhasil ditambahkan ke Supabase.')
     } catch (saveError) {
       notify(`Gagal menyimpan soal: ${saveError.message}`)
+    }
+  }
+
+  async function handleImportQuestions(importedQuestions) {
+    const normalizedQuestions = importedQuestions.map((question, index) => ({
+      ...question,
+      id: question.id || `local-question-import-${Date.now()}-${index + 1}`,
+      subject: question.subject || teacherSubject || 'Mapel belum dipilih',
+      className: question.className || 'Semua kelas',
+      media: normalizeQuestionMedia(question.media),
+      source: localMode ? 'local' : 'supabase',
+    }))
+
+    if (!normalizedQuestions.length) {
+      notify('Belum ada soal yang bisa diimpor dari file.')
+      return
+    }
+
+    if (!appContext?.accessToken || !isUuid(user?.id)) {
+      setRows((current) => {
+        const nextRows = [...normalizedQuestions, ...current]
+        setLocalTeacherQuestions(user, teacherSubject, nextRows)
+        return nextRows
+      })
+      setImporting(false)
+      notify(`${normalizedQuestions.length} soal berhasil diimpor ke Bank Soal lokal.`)
+      return
+    }
+
+    try {
+      const savedRows = []
+      for (const question of normalizedQuestions) {
+        const saved = await saveQuestion({ accessToken: appContext.accessToken, teacherId: user.id, question })
+        savedRows.push({ ...saved, media: question.media, importMeta: question.importMeta, needsReview: question.needsReview })
+      }
+      setRows((current) => [...savedRows, ...current])
+      setImporting(false)
+      notify(`${savedRows.length} soal berhasil diimpor ke Supabase.`)
+    } catch (saveError) {
+      notify(`Gagal mengimpor soal: ${saveError.message}`)
     }
   }
 
@@ -6131,7 +8930,18 @@ function BankSoal({ user, notify, appContext }) {
         eyebrow="Bank Soal"
         title={pageTitle}
         description={`Kelola butir soal, kunci, pilihan jawaban, dan pembahasan untuk asesmen ${assessmentScope}.`}
-        action={<QuickActionButton icon={Plus} label={editing ? 'Editor terbuka' : 'Tulis soal'} disabled={Boolean(editing)} onClick={() => setEditing(emptyQuestion(lookups, teacherSubject))} />}
+        action={(
+          <div className="flex flex-wrap gap-2">
+            <QuickActionButton icon={Download} label={importing ? 'Import terbuka' : 'Impor soal'} disabled={Boolean(importing)} onClick={() => {
+              setEditing(null)
+              setImporting(true)
+            }} />
+            <QuickActionButton icon={Plus} label={editing ? 'Editor terbuka' : 'Tulis soal'} disabled={Boolean(editing)} onClick={() => {
+              setImporting(false)
+              setEditing(emptyQuestion(lookups, teacherSubject))
+            }} />
+          </div>
+        )}
       />
 
       <section className="mb-4 flex flex-col gap-3 rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/80 px-4 py-3 shadow-[0_12px_36px_rgba(15,31,42,0.055)] sm:flex-row sm:items-center sm:justify-between">
@@ -6141,6 +8951,8 @@ function BankSoal({ user, notify, appContext }) {
           </span>
           <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{multipleChoiceCount} pilihan ganda</span>
           <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{essayCount} uraian/isian</span>
+          <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{topicGroups.length} folder topik</span>
+          <span className="rounded-[0.75rem] bg-[#F1F7FF] px-3 py-1.5 text-slate-600 ring-1 ring-[#0B3A5B]/8">{mediaQuestionCount} soal bermedia</span>
         </div>
         <p className="text-xs font-bold text-slate-500">
           Sumber data: <span className="text-[#0284c7]">{sourceLabel}</span>
@@ -6148,45 +8960,301 @@ function BankSoal({ user, notify, appContext }) {
       </section>
 
       {error && <div className="mb-4 rounded-[1rem] bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data soal: {error}. Data lokal mapel guru ditampilkan.</div>}
+      {importing && (
+        <QuestionImportPanel
+          lookups={lookups}
+          teacherSubject={teacherSubject}
+          subjectOptions={hasTeacherSubject ? teacherSubjectOptions : []}
+          onCancel={() => setImporting(false)}
+          onImport={handleImportQuestions}
+        />
+      )}
       {editing && <QuestionForm question={editing} lookups={lookups} subjectOptions={hasTeacherSubject ? teacherSubjectOptions : []} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat bank soal dari Supabase..." /> : scopedRows.length > 0 ? (
-        <section className="overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
-          {scopedRows.map((row) => (
-            <article key={row.id} className="grid gap-3 border-b border-[#0B3A5B]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-              <div className="min-w-0">
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <StatusBadge tone={row.difficulty === 'Sulit' ? 'red' : row.difficulty === 'Sedang' ? 'amber' : 'green'}>{row.difficulty || 'Level belum diisi'}</StatusBadge>
-                  <StatusBadge tone="teal">{row.type || 'Jenis belum diisi'}</StatusBadge>
-                  <span className="text-xs font-bold text-slate-400">{row.source === 'supabase' ? 'Tersimpan server' : 'Tersimpan perangkat'}</span>
+        <div className="space-y-4">
+          {topicGroups.map((group) => (
+            <section key={group.topic} className="overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
+              <header className="flex flex-col gap-2 border-b border-[#0B3A5B]/8 bg-[#F8FBFF] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#0284c7]">Folder topik</p>
+                  <h2 className="text-lg font-black text-[#13232d]">{group.topic}</h2>
                 </div>
-                <h2 className="line-clamp-2 text-base font-black leading-6 text-[#13232d]">{row.questionText || 'Pertanyaan belum diisi'}</h2>
-                <p className="mt-2 text-xs font-bold text-slate-500">
-                  {(row.subject || 'Mapel belum dipilih')} · {(row.className || 'Semua kelas')} · {(row.topic || 'Tanpa topik')}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2 lg:justify-end">
-                <button onClick={() => setEditing(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-[#F1F7FF] px-3 py-2 text-xs font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/8 transition hover:bg-[#E0F2FE]">
-                  <PencilLine size={14} /> Edit
-                </button>
-                <button onClick={() => setDeleting(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
-                  <Trash2 size={14} /> Hapus
-                </button>
-              </div>
-            </article>
+                <StatusBadge tone="cyan">{group.items.length} soal</StatusBadge>
+              </header>
+              {group.items.map((row) => (
+                <QuestionRowCard key={row.id} row={row} onEdit={() => setEditing(row)} onDelete={() => setDeleting(row)} />
+              ))}
+            </section>
           ))}
-        </section>
+        </div>
       ) : (
         !editing && (
           <EmptyState
             title={hasTeacherSubject ? `Belum ada soal ${teacherSubject}.` : 'Belum ada soal.'}
-            description="Tulis soal pertama saat siap. Halaman ini tidak menampilkan contoh palsu."
-            action={<QuickActionButton icon={Plus} label="Tulis soal pertama" onClick={() => setEditing(emptyQuestion(lookups, teacherSubject))} />}
+            description="Tulis soal pertama atau impor dari PDF, DOCX, HTML, dan TXT."
+            action={(
+              <div className="flex flex-wrap justify-center gap-2">
+                <QuickActionButton icon={Download} label="Impor soal" onClick={() => setImporting(true)} />
+                <QuickActionButton icon={Plus} label="Tulis soal pertama" onClick={() => setEditing(emptyQuestion(lookups, teacherSubject))} />
+              </div>
+            )}
           />
         )
       )}
       <ConfirmDialog open={Boolean(deleting)} title="Hapus soal?" description="Soal akan dihapus dari bank soal setelah konfirmasi." onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
     </div>
+  )
+}
+
+function QuestionImportPanel({ lookups, teacherSubject, subjectOptions = [], onCancel, onImport }) {
+  const scopedSubjects = getScopedSubjectLookupRows(lookups.subjects, subjectOptions)
+  const subjectsList = getMaterialSubjectOptions(scopedSubjects, [], subjectOptions.length ? subjectOptions : highSchoolSubjectFolders)
+  const classesList = getMaterialClassOptions(lookups.classes, highSchoolGradeFolders[0].name)
+  const [subject, setSubject] = useState(subjectsList[0]?.name || teacherSubject || highSchoolSubjectFolders[0])
+  const [subjectId, setSubjectId] = useState(subjectsList[0]?.synthetic ? '' : subjectsList[0]?.id || '')
+  const [className, setClassName] = useState(classesList[0]?.name || highSchoolGradeFolders[0].name)
+  const [classId, setClassId] = useState(classesList[0]?.synthetic ? '' : classesList[0]?.id || '')
+  const [topicOverride, setTopicOverride] = useState('')
+  const [previewRows, setPreviewRows] = useState([])
+  const [errors, setErrors] = useState([])
+  const [parsing, setParsing] = useState(false)
+
+  function updateSubject(value) {
+    const selected = subjectsList.find((item) => subjectOptionValue(item) === value)
+    setSubject(selected?.name || subject)
+    setSubjectId(selected?.synthetic ? '' : selected?.id || '')
+  }
+
+  function updateClass(value) {
+    const selected = classesList.find((item) => classOptionValue(item) === value)
+    setClassName(selected?.name || className)
+    setClassId(selected?.synthetic ? '' : selected?.id || '')
+  }
+
+  async function parseFiles(files) {
+    if (!files.length) return
+    setParsing(true)
+    const nextRows = []
+    const nextErrors = []
+
+    for (const file of files) {
+      try {
+        const text = await readQuestionImportFile(file)
+        const rows = parseQuestionsFromImportedText(text, {
+          fileName: file.name,
+          subject,
+          subjectId,
+          className,
+          classId,
+          topic: topicOverride.trim(),
+        }).map((row) => ({
+          ...row,
+          subjectId,
+          classId,
+          subject,
+          className,
+          importMeta: { ...(row.importMeta || {}), fileName: file.name, fileSize: file.size },
+        }))
+        if (rows.length) nextRows.push(...rows)
+        if (!rows.length) nextErrors.push(`${file.name}: belum ditemukan pola soal yang bisa dibaca.`)
+      } catch (error) {
+        nextErrors.push(`${file.name}: ${error.message || 'gagal dibaca'}`)
+      }
+    }
+
+    setPreviewRows((current) => [...nextRows, ...current])
+    setErrors((current) => [...nextErrors, ...current])
+    setParsing(false)
+  }
+
+  function handleFileInput(event) {
+    parseFiles(Array.from(event.target.files || []))
+    event.target.value = ''
+  }
+
+  function handleDrop(event) {
+    event.preventDefault()
+    parseFiles(Array.from(event.dataTransfer?.files || []))
+  }
+
+  const groups = groupQuestionsByTopic(previewRows)
+  const readyCount = previewRows.filter((row) => !row.needsReview).length
+  const mediaCount = previewRows.filter((row) => normalizeQuestionMedia(row.media).length > 0).length
+
+  return (
+    <section className="mb-5 overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/90 shadow-[0_16px_48px_rgba(15,31,42,0.07)]">
+      <header className="flex flex-col gap-3 border-b border-[#0B3A5B]/8 bg-[#F8FBFF] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#E0F2FE] text-[#0284c7] ring-1 ring-[#0284c7]/10">
+            <Download size={20} />
+          </span>
+          <div>
+            <h2 className="text-xl font-black leading-tight text-[#13232d]">Impor soal dari file</h2>
+            <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+              Terima PDF, DOCX, HTML, dan TXT. Soal akan dipetakan ke folder topik, pilihan jawaban, kunci, pembahasan, dan media jika terbaca.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <StatusBadge tone="cyan">{previewRows.length} terbaca</StatusBadge>
+          <StatusBadge tone="green">{readyCount} siap</StatusBadge>
+          <StatusBadge tone="amber">{mediaCount} bermedia</StatusBadge>
+        </div>
+      </header>
+
+      <div className="grid gap-4 p-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
+        <aside className="space-y-3">
+          {subjectOptions.length === 1 ? (
+            <div className={materialLabelClass}>Mata pelajaran
+              <div className={`${materialInputClass} flex min-h-[2.75rem] items-center bg-[#EEF7FF] text-[#17446E]`}>
+                {subject}
+              </div>
+            </div>
+          ) : (
+            <label className={materialLabelClass}>Mata pelajaran
+              <select value={subjectId || `subject:${subject || subjectsList[0]?.name || ''}`} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
+                {subjectsList.map((item) => <option key={subjectOptionValue(item)} value={subjectOptionValue(item)}>{item.name}</option>)}
+              </select>
+            </label>
+          )}
+
+          <label className={materialLabelClass}>Kelas
+            <select value={classId || `class:${className || classesList[0]?.name || ''}`} onChange={(event) => updateClass(event.target.value)} className={materialInputClass}>
+              {classesList.map((item) => <option key={classOptionValue(item)} value={classOptionValue(item)}>{item.name}</option>)}
+            </select>
+          </label>
+
+          <label className={materialLabelClass}>Topik default
+            <input value={topicOverride} onChange={(event) => setTopicOverride(event.target.value)} placeholder="Kosongkan jika topik dibaca dari file" className={materialInputClass} />
+          </label>
+
+          <label
+            className="grid min-h-[10rem] cursor-pointer place-items-center rounded-2xl border border-dashed border-sky-200 bg-sky-50/60 p-4 text-center transition hover:bg-sky-50"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={handleDrop}
+          >
+            <input type="file" multiple accept={questionImportFileTypes} className="sr-only" onChange={handleFileInput} />
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-sky-700 ring-1 ring-sky-100"><Download size={18} /></span>
+            <span className="mt-2 text-sm font-black text-slate-950">{parsing ? 'Membaca file...' : 'Klik atau drop file soal'}</span>
+            <span className="mt-1 text-xs font-semibold leading-5 text-slate-500">PDF teks, DOCX, HTML, atau TXT. PDF hasil scan perlu OCR terlebih dahulu.</span>
+          </label>
+
+          {errors.length > 0 && (
+            <div className="rounded-2xl bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-800 ring-1 ring-amber-100">
+              {errors.slice(0, 4).map((error) => <p key={error}>{error}</p>)}
+            </div>
+          )}
+        </aside>
+
+        <div className="min-w-0 rounded-[1rem] bg-[#F8FBFF] p-3 ring-1 ring-[#D9E6F5]">
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#0284c7]">Preview hasil impor</p>
+              <h3 className="text-lg font-black text-[#13232d]">Folder topik dari file</h3>
+            </div>
+            <button
+              type="button"
+              disabled={!previewRows.length || parsing}
+              onClick={() => onImport(previewRows)}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#0B3A5B] px-4 text-sm font-black text-white transition hover:bg-[#0284c7] disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <Save size={16} /> Masukkan ke Bank Soal
+            </button>
+          </div>
+
+          {previewRows.length > 0 ? (
+            <div className="space-y-3">
+              {groups.map((group) => (
+                <section key={group.topic} className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#D9E6F5]">
+                  <header className="flex items-center justify-between gap-3 border-b border-[#D9E6F5] px-3 py-2">
+                    <h4 className="text-sm font-black text-[#13232d]">{group.topic}</h4>
+                    <StatusBadge tone="cyan">{group.items.length} soal</StatusBadge>
+                  </header>
+                  <div className="divide-y divide-[#EEF4FB]">
+                    {group.items.slice(0, 5).map((row) => (
+                      <QuestionPreviewLine key={row.id} row={row} />
+                    ))}
+                    {group.items.length > 5 && <p className="px-3 py-2 text-xs font-bold text-slate-500">+{group.items.length - 5} soal lain di folder ini.</p>}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="grid min-h-[16rem] place-items-center rounded-2xl bg-white text-center ring-1 ring-[#D9E6F5]">
+              <div className="max-w-sm p-5">
+                <FileQuestion className="mx-auto text-[#2F80D8]" size={32} />
+                <h4 className="mt-3 text-lg font-black text-[#13232d]">Belum ada file dibaca</h4>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                  Gunakan format nomor soal dan opsi A-E agar hasil impor langsung rapi.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <footer className="flex justify-end border-t border-[#0B3A5B]/8 bg-white/72 px-4 py-3">
+        <button onClick={onCancel} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-100">
+          <X size={16} /> Tutup import
+        </button>
+      </footer>
+    </section>
+  )
+}
+
+function QuestionPreviewLine({ row }) {
+  const media = normalizeQuestionMedia(row.media)
+  return (
+    <article className="px-3 py-3">
+      <div className="mb-2 flex flex-wrap gap-2">
+        <StatusBadge tone={row.needsReview ? 'amber' : 'green'}>{row.needsReview ? 'Perlu review' : 'Siap'}</StatusBadge>
+        <StatusBadge tone="teal">{row.type}</StatusBadge>
+        {media.length > 0 && <StatusBadge tone="cyan">{media.length} media</StatusBadge>}
+      </div>
+      <p className="line-clamp-2 text-sm font-black leading-6 text-[#13232d]">{row.questionText}</p>
+      {row.options?.length > 0 && (
+        <p className="mt-1 text-xs font-semibold text-slate-500">{row.options.filter(Boolean).length} opsi · Kunci: {row.correctAnswer || 'belum terbaca'}</p>
+      )}
+    </article>
+  )
+}
+
+function QuestionRowCard({ row, onEdit, onDelete }) {
+  const media = normalizeQuestionMedia(row.media)
+  return (
+    <article className="grid gap-3 border-b border-[#0B3A5B]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+      <div className="min-w-0">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <StatusBadge tone={row.difficulty === 'Sulit' ? 'red' : row.difficulty === 'Sedang' ? 'amber' : 'green'}>{row.difficulty || 'Level belum diisi'}</StatusBadge>
+          <StatusBadge tone="teal">{row.type || 'Jenis belum diisi'}</StatusBadge>
+          {row.needsReview && <StatusBadge tone="amber">Perlu review</StatusBadge>}
+          {media.length > 0 && <StatusBadge tone="cyan">{media.length} media</StatusBadge>}
+          <span className="text-xs font-bold text-slate-400">{row.source === 'supabase' ? 'Tersimpan server' : 'Tersimpan perangkat'}</span>
+        </div>
+        <h2 className="line-clamp-2 text-base font-black leading-6 text-[#13232d]">{row.questionText || 'Pertanyaan belum diisi'}</h2>
+        <p className="mt-2 text-xs font-bold text-slate-500">
+          {(row.subject || 'Mapel belum dipilih')} · {(row.className || 'Semua kelas')} · {(row.topic || 'Tanpa topik')}
+        </p>
+        {media.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {media.slice(0, 4).map((item) => (
+              <a key={item.id} href={questionMediaUrl(item)} target="_blank" rel="noreferrer" className="rounded-lg bg-[#E0F2FE] px-2 py-1 text-[11px] font-black text-[#0284c7] ring-1 ring-[#0284c7]/10">
+                {item.type}: {item.title}
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2 lg:justify-end">
+        <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-[#F1F7FF] px-3 py-2 text-xs font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/8 transition hover:bg-[#E0F2FE]">
+          <PencilLine size={14} /> Edit
+        </button>
+        <button onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
+          <Trash2 size={14} /> Hapus
+        </button>
+      </div>
+    </article>
   )
 }
 
@@ -6217,6 +9285,7 @@ function normalizeQuestionForm(question) {
     type,
     options,
     correctAnswer: question.correctAnswer || (type === 'Benar/salah' ? 'Benar' : ''),
+    media: normalizeQuestionMedia(question.media),
   }
 }
 
@@ -6224,7 +9293,7 @@ function getQuestionSubmitOptions(form) {
   const answer = String(form.correctAnswer || '').trim()
 
   if (form.type === 'Pilihan ganda') {
-    return optionLetters.map((_, index) => String(form.options?.[index] || '').trim())
+    return optionLetters.map((_, index) => String(form.options?.[index] || '').trim()).filter(Boolean)
   }
 
   const options = Array.isArray(form.options) ? form.options.map((item) => String(item || '').trim()).filter(Boolean) : []
@@ -6236,6 +9305,7 @@ function getQuestionSubmitOptions(form) {
 
 function QuestionForm({ question, lookups, subjectOptions = [], onCancel, onSave }) {
   const [form, setForm] = useState(() => normalizeQuestionForm(question))
+  const [mediaDraft, setMediaDraft] = useState({ type: 'Gambar', title: '', url: '' })
   const scopedSubjects = getScopedSubjectLookupRows(lookups.subjects, subjectOptions)
   const subjectsList = getMaterialSubjectOptions(scopedSubjects, [question], subjectOptions.length ? subjectOptions : highSchoolSubjectFolders)
   const classesList = getMaterialClassOptions(lookups.classes, question.className)
@@ -6245,7 +9315,8 @@ function QuestionForm({ question, lookups, subjectOptions = [], onCancel, onSave
   const isShortAnswer = form.type === 'Isian'
   const isEssay = form.type === 'Essay'
   const multipleChoiceOptions = optionLetters.map((_, index) => String(form.options?.[index] || '').trim())
-  const multipleChoiceReady = multipleChoiceOptions.every(Boolean) && multipleChoiceOptions.includes(answer)
+  const mediaItems = normalizeQuestionMedia(form.media)
+  const multipleChoiceReady = multipleChoiceOptions.filter(Boolean).length >= 2 && multipleChoiceOptions.includes(answer)
   const validQuestion = Boolean(
     String(form.questionText || '').trim()
       && answer
@@ -6260,6 +9331,42 @@ function QuestionForm({ question, lookups, subjectOptions = [], onCancel, onSave
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function addQuestionMedia(item) {
+    setForm((current) => ({ ...current, media: [...normalizeQuestionMedia(current.media), item] }))
+  }
+
+  function addQuestionMediaUrl() {
+    if (!mediaDraft.url.trim()) return
+    addQuestionMedia({
+      id: createMaterialBlockId('question-media'),
+      type: mediaDraft.type,
+      title: mediaDraft.title || mediaDraft.type,
+      url: mediaDraft.url.trim(),
+    })
+    setMediaDraft((current) => ({ ...current, title: '', url: '' }))
+  }
+
+  async function handleQuestionMediaUpload(event) {
+    const files = Array.from(event.target.files || [])
+    for (const file of files) {
+      const dataUrl = await blobToDataUrl(file)
+      addQuestionMedia({
+        id: createMaterialBlockId('question-file'),
+        type: inferMediaTypeFromFile(file),
+        title: file.name,
+        name: file.name,
+        size: file.size,
+        mime: file.type,
+        dataUrl,
+      })
+    }
+    event.target.value = ''
+  }
+
+  function removeQuestionMedia(id) {
+    setForm((current) => ({ ...current, media: normalizeQuestionMedia(current.media).filter((item) => item.id !== id) }))
   }
 
   function changeType(type) {
@@ -6323,6 +9430,7 @@ function QuestionForm({ question, lookups, subjectOptions = [], onCancel, onSave
       explanation: String(form.explanation || '').trim(),
       topic: String(form.topic || '').trim(),
       options: getQuestionSubmitOptions(form),
+      media: mediaItems,
     })
   }
 
@@ -6379,7 +9487,7 @@ function QuestionForm({ question, lookups, subjectOptions = [], onCancel, onSave
               <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="text-sm font-black text-[#13232d]">Pilihan jawaban</p>
-                  <p className="text-xs font-semibold leading-5 text-slate-500">Isi opsi A-E, lalu pilih huruf opsi sebagai kunci. Tidak perlu mengetik huruf A/B/C/D/E di teks jawaban.</p>
+                  <p className="text-xs font-semibold leading-5 text-slate-500">Isi minimal dua opsi, lalu pilih salah satu sebagai kunci. Opsi E boleh dikosongkan jika file hanya A-D.</p>
                 </div>
               </div>
               <div className="grid gap-2">
@@ -6445,9 +9553,58 @@ function QuestionForm({ question, lookups, subjectOptions = [], onCancel, onSave
             <textarea value={form.explanation || ''} onChange={(event) => updateField('explanation', event.target.value)} rows={3} placeholder="Tulis alasan jawaban atau catatan koreksi." className={`${materialInputClass} resize-y leading-7`} />
           </label>
 
+          <section className="rounded-[1rem] bg-[#F8FBFF] p-4 ring-1 ring-[#D9E6F5]">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#0284c7]">Media soal</p>
+                <h3 className="text-lg font-black text-[#13232d]">Gambar, audio, video, atau lampiran</h3>
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                  Media akan ikut menempel pada soal, baik dari impor maupun input manual.
+                </p>
+              </div>
+              <StatusBadge tone={mediaItems.length ? 'cyan' : 'gray'}>{mediaItems.length} media</StatusBadge>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <label className="grid min-h-[8.5rem] cursor-pointer place-items-center rounded-2xl border border-dashed border-sky-200 bg-sky-50/60 p-4 text-center transition hover:bg-sky-50">
+                <input type="file" multiple className="sr-only" onChange={handleQuestionMediaUpload} accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.html,.htm" />
+                <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-sky-700 ring-1 ring-sky-100"><Download size={17} /></span>
+                <span className="mt-2 text-sm font-black text-slate-950">Upload media soal</span>
+                <span className="mt-1 text-xs font-semibold leading-5 text-slate-500">Gambar, audio, video, PDF, DOCX, atau HTML.</span>
+              </label>
+
+              <div className="rounded-2xl bg-white p-3 ring-1 ring-[#D9E6F5]">
+                <div className="grid gap-2">
+                  <select value={mediaDraft.type} onChange={(event) => setMediaDraft((current) => ({ ...current, type: event.target.value }))} className={materialInputClass}>
+                    {questionMediaTypeOptions.map((type) => <option key={type}>{type}</option>)}
+                  </select>
+                  <input value={mediaDraft.title} onChange={(event) => setMediaDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Judul media" className={materialInputClass} />
+                  <input value={mediaDraft.url} onChange={(event) => setMediaDraft((current) => ({ ...current, url: event.target.value }))} placeholder="URL YouTube/audio/gambar/embed" className={materialInputClass} />
+                  <button type="button" onClick={addQuestionMediaUrl} className="rounded-xl bg-[#0B3A5B] px-3 py-2.5 text-sm font-black text-white">Tambahkan media</button>
+                </div>
+              </div>
+            </div>
+
+            {mediaItems.length > 0 && (
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {mediaItems.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2 ring-1 ring-[#D9E6F5]">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-[#13232d]">{item.title}</p>
+                      <p className="text-xs font-semibold text-slate-500">{item.type}{item.size ? ` · ${formatFileSize(item.size)}` : ''}</p>
+                    </div>
+                    <button type="button" onClick={() => removeQuestionMedia(item.id)} className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-100">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
           {!validQuestion && (
             <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
-              Lengkapi pertanyaan dan kunci. Untuk pilihan ganda, opsi A sampai E wajib terisi dan satu opsi harus dipilih sebagai kunci.
+              Lengkapi pertanyaan dan kunci. Untuk pilihan ganda, minimal dua opsi harus terisi dan satu opsi harus dipilih sebagai kunci.
             </div>
           )}
         </div>
@@ -6487,11 +9644,19 @@ function QuestionForm({ question, lookups, subjectOptions = [], onCancel, onSave
             <input value={form.topic || ''} onChange={(event) => updateField('topic', event.target.value)} placeholder="Misalnya: Keanekaragaman hayati" className={materialInputClass} />
           </label>
 
-          <label className={materialLabelClass}>Mata pelajaran
-            <select value={form.subjectId || `subject:${form.subject || subjectsList[0]?.name || ''}`} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
-              {subjectsList.map((subject) => <option key={subjectOptionValue(subject)} value={subjectOptionValue(subject)}>{subject.name}</option>)}
-            </select>
-          </label>
+          {subjectOptions.length === 1 ? (
+            <div className={materialLabelClass}>Mata pelajaran
+              <div className={`${materialInputClass} flex min-h-[2.75rem] items-center bg-[#EEF7FF] text-[#17446E]`}>
+                {form.subject || subjectsList[0]?.name || subjectOptions[0]}
+              </div>
+            </div>
+          ) : (
+            <label className={materialLabelClass}>Mata pelajaran
+              <select value={form.subjectId || `subject:${form.subject || subjectsList[0]?.name || ''}`} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
+                {subjectsList.map((subject) => <option key={subjectOptionValue(subject)} value={subjectOptionValue(subject)}>{subject.name}</option>)}
+              </select>
+            </label>
+          )}
 
           <label className={materialLabelClass}>Kelas
             <select value={form.classId || `class:${form.className || classesList[0]?.name || ''}`} onChange={(event) => updateClass(event.target.value)} className={materialInputClass}>
@@ -6531,6 +9696,7 @@ function emptyQuestion(lookups, teacherSubject) {
     topic: '',
     difficulty: 'Mudah',
     type: 'Pilihan ganda',
+    media: [],
   }
 }
 
@@ -6546,7 +9712,8 @@ function GuruTugas({ user, notify, appContext }) {
   const [viewingSubmissions, setViewingSubmissions] = useState(null)
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
-  const scopedRows = filterRowsByTeacherSubjects(rows, user, teacherSubjectOptions)
+  const normalizedRows = useMemo(() => rows.map((item) => normalizeAssignmentForEdit(item, lookups, teacherSubject)), [lookups, rows, teacherSubject])
+  const scopedRows = filterRowsByTeacherSubjects(normalizedRows, user, teacherSubjectOptions)
   const activeCount = scopedRows.filter((item) => item.status === 'Aktif').length
   const draftCount = scopedRows.filter((item) => item.status !== 'Aktif').length
   const sourceLabel = (!appContext?.accessToken || !isUuid(user?.id)) ? 'Preview lokal' : 'Supabase'
@@ -6585,17 +9752,19 @@ function GuruTugas({ user, notify, appContext }) {
   }, [appContext?.accessToken, teacherSubject, user?.id])
 
   async function handleSave(assignment) {
+    const preparedAssignment = prepareAssignmentForSave({
+      ...assignment,
+      subject: assignment.subject || teacherSubject || 'Mapel belum dipilih',
+    })
     if (!appContext?.accessToken || !isUuid(user?.id)) {
       const localAssignment = {
-        ...assignment,
-        id: assignment.id || `local-assignment-${Date.now()}`,
-        subject: assignment.subject || teacherSubject || 'Mapel belum dipilih',
-        className: assignment.className || 'Semua kelas',
+        ...preparedAssignment,
+        id: preparedAssignment.id || `local-assignment-${Date.now()}`,
         source: 'local',
       }
 
       setRows((current) => {
-        const nextRows = assignment.id
+        const nextRows = preparedAssignment.id
           ? current.map((item) => item.id === assignment.id ? { ...item, ...localAssignment } : item)
           : [localAssignment, ...current]
         setLocalTeacherAssignments(user, teacherSubject, nextRows)
@@ -6608,16 +9777,28 @@ function GuruTugas({ user, notify, appContext }) {
     }
 
     try {
-      const assignmentPayload = assignment.rubric
-        ? { ...assignment, description: `${assignment.description || ''}\n\nRubrik sederhana:\n${assignment.rubric}`.trim() }
-        : assignment
+      const assignmentPayload = { ...preparedAssignment, description: buildAssignmentStoredDescription(preparedAssignment) }
       const saved = await saveAssignment({ accessToken: appContext.accessToken, teacherId: user.id, assignment: assignmentPayload })
-      setRows((current) => assignment.id ? current.map((item) => item.id === assignment.id ? saved : item) : [saved, ...current])
+      const mergedSaved = { ...preparedAssignment, ...saved, description: preparedAssignment.description }
+      setRows((current) => preparedAssignment.id ? current.map((item) => item.id === preparedAssignment.id ? mergedSaved : item) : [mergedSaved, ...current])
       setEditing(null)
-      notify(assignment.id ? 'Tugas berhasil diperbarui di Supabase.' : 'Tugas berhasil dibuat di Supabase.')
+      notify(preparedAssignment.id ? 'Tugas berhasil diperbarui di Supabase.' : 'Tugas berhasil dibuat di Supabase.')
     } catch (saveError) {
       notify(`Gagal menyimpan tugas: ${saveError.message}`)
     }
+  }
+
+  async function handleClone(row) {
+    const cloned = prepareAssignmentForSave({
+      ...row,
+      id: '',
+      title: `${row.title || 'Tugas'} (Salinan)`,
+      status: 'Draft',
+      releaseAt: '',
+      deadline: '',
+    })
+    await handleSave(cloned)
+    notify('Salinan tugas dibuat sebagai Draft.')
   }
 
   async function handleDelete() {
@@ -6675,6 +9856,16 @@ function GuruTugas({ user, notify, appContext }) {
                 </div>
                 <p className="text-sm font-extrabold text-slate-950">{submission.studentName || submission.student_id || `Siswa ${index + 1}`}</p>
                 <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-600">{submission.answerText || submission.answer_text || 'Jawaban kosong.'}</p>
+                {submission.link && (
+                  <a href={submission.link} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-[0.8rem] bg-[#E0F2FE] px-3 py-2 text-xs font-black text-[#0284c7]">
+                    Buka tautan siswa
+                  </a>
+                )}
+                {normalizeAssignmentAttachments(submission.files).length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {normalizeAssignmentAttachments(submission.files).map((file) => <AssignmentAttachmentPreview key={file.id} attachment={file} />)}
+                  </div>
+                )}
                 <p className="mt-3 text-xs font-bold text-slate-400">
                   {submission.submittedAt || submission.submitted_at ? new Date(submission.submittedAt || submission.submitted_at).toLocaleString('id-ID') : 'Waktu belum tersedia'}
                 </p>
@@ -6720,12 +9911,23 @@ function GuruTugas({ user, notify, appContext }) {
               <div className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge>
-                  <StatusBadge tone="teal">{row.className || 'Semua kelas'}</StatusBadge>
-                  <span className="text-xs font-bold text-slate-400">Deadline {row.deadline || 'belum diatur'}</span>
+                  <StatusBadge tone="teal">{normalizeAssignmentClassNames(row).join(', ') || 'Semua kelas'}</StatusBadge>
+                  <StatusBadge tone="cyan">{row.workMode || 'Individu'}</StatusBadge>
+                  <span className="text-xs font-bold text-slate-400">Deadline {formatAssignmentDateTime(row.deadline)}</span>
                 </div>
                 <h2 className="truncate text-lg font-black text-[#13232d]">{row.title || 'Tanpa judul'}</h2>
                 <p className="mt-1 line-clamp-2 max-w-3xl text-sm leading-6 text-slate-500">{row.description || 'Belum ada deskripsi.'}</p>
-                <p className="mt-2 text-xs font-bold text-slate-500">{row.subject || 'Mapel belum dipilih'}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
+                  <span>{row.subject || 'Mapel belum dipilih'}</span>
+                  <span>·</span>
+                  <span>{normalizeAssignmentSubmissionTypes(row.submissionTypes).map((type) => assignmentSubmissionTypeOptions.find((item) => item.value === type)?.label || type).join(', ')}</span>
+                  {normalizeAssignmentAttachments(row.attachments).length > 0 && (
+                    <>
+                      <span>·</span>
+                      <span>{normalizeAssignmentAttachments(row.attachments).length} lampiran</span>
+                    </>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-2 lg:justify-end">
@@ -6734,6 +9936,9 @@ function GuruTugas({ user, notify, appContext }) {
                 </button>
                 <button onClick={() => handleSave({ ...row, status: row.status === 'Aktif' ? 'Draft' : 'Aktif' })} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
                   <Send size={14} /> {row.status === 'Aktif' ? 'Jadikan draft' : 'Aktifkan'}
+                </button>
+                <button onClick={() => handleClone(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-violet-50 px-3 py-2 text-xs font-black text-violet-700 ring-1 ring-violet-100 transition hover:bg-violet-100">
+                  <Layers3 size={14} /> Duplikasi
                 </button>
                 <button onClick={() => openSubmissions(row)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 ring-1 ring-emerald-100 transition hover:bg-emerald-100">
                   <ClipboardCheck size={14} /> Submission ({getLocalAssignmentSubmissions(row.id).length})
@@ -6759,16 +9964,345 @@ function GuruTugas({ user, notify, appContext }) {
   )
 }
 
+const assignmentStatusOptions = ['Draft', 'Aktif', 'Selesai']
+const assignmentWorkModeOptions = [
+  { value: 'Individu', label: 'Individu', helper: 'Setiap siswa mengumpulkan jawaban sendiri.' },
+  { value: 'Kelompok', label: 'Kelompok', helper: 'Siswa dapat mengerjakan sebagai kelompok.' },
+]
+const assignmentLatePolicyOptions = [
+  { value: 'allow-late', label: 'Boleh terlambat', helper: 'Submission tetap diterima dengan tanda Terlambat.' },
+  { value: 'hard-lock', label: 'Kunci otomatis', helper: 'Siswa tidak bisa submit setelah tenggat.' },
+]
+const assignmentSubmissionTypeOptions = [
+  { value: 'text', label: 'Teks langsung', helper: 'Siswa mengetik jawaban di aplikasi.' },
+  { value: 'file', label: 'Unggah berkas', helper: 'PDF, Word, Excel, gambar, audio, atau video.' },
+  { value: 'link', label: 'Tautan luar', helper: 'Google Drive, Canva, YouTube, atau URL lain.' },
+]
+const defaultAssignmentRubricRows = [
+  { id: 'rubric-accuracy', component: 'Ketepatan jawaban', weight: 60, description: 'Isi jawaban sesuai konsep dan instruksi.' },
+  { id: 'rubric-process', component: 'Proses pengerjaan', weight: 20, description: 'Langkah kerja, alasan, atau bukti pendukung terlihat jelas.' },
+  { id: 'rubric-presentation', component: 'Kerapian', weight: 20, description: 'Format rapi, mudah dibaca, dan dikumpulkan sesuai ketentuan.' },
+]
+
+function normalizeAssignmentSubmissionTypes(value) {
+  const aliases = {
+    teks: 'text',
+    text: 'text',
+    'teks langsung': 'text',
+    file: 'file',
+    berkas: 'file',
+    upload: 'file',
+    link: 'link',
+    tautan: 'link',
+  }
+  const rawItems = Array.isArray(value) ? value : String(value || 'text').split(/[,\n;]+/)
+  const selected = rawItems
+    .map((item) => aliases[normalizeLookupText(item)] || String(item || '').trim())
+    .filter((item) => assignmentSubmissionTypeOptions.some((option) => option.value === item))
+  return selected.length > 0 ? Array.from(new Set(selected)) : ['text']
+}
+
+function normalizeAssignmentAttachments(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item) => item && (item.url || item.dataUrl || item.title))
+    .map((item, index) => ({
+      id: item.id || createMaterialBlockId(`assignment-attachment-${index + 1}`),
+      title: item.title || item.name || `Lampiran ${index + 1}`,
+      type: item.type || inferMediaTypeFromFile({ name: item.title || item.name || '', type: item.mime || '' }),
+      url: item.url || '',
+      dataUrl: item.dataUrl || '',
+      mime: item.mime || '',
+      size: Number(item.size || 0),
+    }))
+}
+
+function normalizeAssignmentRubricRows(value) {
+  if (Array.isArray(value)) {
+    const rows = value
+      .filter((item) => item && (item.component || item.description || item.weight))
+      .map((item, index) => ({
+        id: item.id || createMaterialBlockId(`rubric-${index + 1}`),
+        component: item.component || `Komponen ${index + 1}`,
+        weight: Number(item.weight || 0),
+        description: item.description || '',
+      }))
+    return rows.length > 0 ? rows : defaultAssignmentRubricRows.map((row) => ({ ...row }))
+  }
+
+  const text = String(value || '').trim()
+  if (!text) return defaultAssignmentRubricRows.map((row) => ({ ...row }))
+  const rows = text.split('\n').map((line, index) => {
+    const match = line.match(/(.+?)(\d{1,3})\s*%/)
+    return {
+      id: createMaterialBlockId(`rubric-${index + 1}`),
+      component: (match ? match[1] : line).replace(/[:,-]\s*$/, '').trim() || `Komponen ${index + 1}`,
+      weight: match ? Number(match[2]) : 0,
+      description: line.trim(),
+    }
+  })
+  return rows.length > 0 ? rows : defaultAssignmentRubricRows.map((row) => ({ ...row }))
+}
+
+function getAssignmentRubricText(rows = []) {
+  return normalizeAssignmentRubricRows(rows)
+    .map((row) => `${row.component}${row.weight ? ` ${row.weight}%` : ''}: ${row.description || '-'}`)
+    .join('\n')
+}
+
+function normalizeAssignmentClassIds(assignment = {}) {
+  if (Array.isArray(assignment.classIds)) return assignment.classIds.map(String).filter(Boolean)
+  return assignment.classId ? [String(assignment.classId)] : []
+}
+
+function normalizeAssignmentClassNames(assignment = {}) {
+  if (Array.isArray(assignment.classNames)) return assignment.classNames.map((item) => String(item || '').trim()).filter(Boolean)
+  const value = String(assignment.className || '').trim()
+  if (!value) return []
+  return value.split(/\s*,\s*/).map((item) => item.trim()).filter(Boolean)
+}
+
+function sameAssignmentClassName(left, right) {
+  const leftText = String(left || '').trim()
+  const rightText = String(right || '').trim()
+  if (!leftText || !rightText) return false
+  if (normalizeLookupText(leftText) === normalizeLookupText(rightText)) return true
+  const leftGrade = extractGrade(leftText)
+  const rightGrade = extractGrade(rightText)
+  return Boolean(leftGrade && rightGrade && leftGrade === rightGrade)
+}
+
+function getAssignmentClassOptions(lookupClasses = [], assignment = {}) {
+  const options = getMaterialClassOptions(lookupClasses, assignment.className || '')
+  normalizeAssignmentClassNames(assignment).forEach((name) => {
+    if (!options.some((classItem) => sameAssignmentClassName(classItem.name, name))) {
+      options.push({ id: '', name, synthetic: true })
+    }
+  })
+  return options.length > 0 ? options : highSchoolGradeFolders.map((gradeFolder) => ({ id: '', name: gradeFolder.name, synthetic: true }))
+}
+
+function normalizeAssignmentForEdit(assignment = {}, lookups = { subjects: [], classes: [] }, fallbackSubject = '') {
+  const subjectName = assignment.subject || fallbackSubject || 'Mapel belum dipilih'
+  const classesList = getAssignmentClassOptions(lookups.classes || [], assignment)
+  const classNames = normalizeAssignmentClassNames(assignment)
+  const targetClassNames = classNames.length > 0 ? classNames : [classesList[0]?.name || 'Semua kelas']
+  const classIds = normalizeAssignmentClassIds(assignment)
+  return {
+    ...assignment,
+    title: assignment.title || '',
+    description: assignment.description || assignment.instructions || '',
+    subjectId: assignment.subjectId || assignment.subject_id || '',
+    subject: subjectName,
+    classIds,
+    classNames: targetClassNames,
+    classId: assignment.classId || assignment.class_id || classIds[0] || '',
+    className: targetClassNames.join(', '),
+    releaseAt: assignment.releaseAt || assignment.release_at || '',
+    deadline: assignment.deadline || '',
+    latePolicy: assignment.latePolicy || 'allow-late',
+    submissionTypes: normalizeAssignmentSubmissionTypes(assignment.submissionTypes),
+    maxScore: Number(assignment.maxScore || 100),
+    gradeWeight: Number(assignment.gradeWeight || 10),
+    rubricRows: normalizeAssignmentRubricRows(assignment.rubricRows || assignment.rubric),
+    rubric: assignment.rubric || getAssignmentRubricText(assignment.rubricRows),
+    workMode: assignment.workMode || 'Individu',
+    attachments: normalizeAssignmentAttachments(assignment.attachments),
+    status: assignment.status || 'Draft',
+  }
+}
+
+function prepareAssignmentForSave(assignment = {}) {
+  const classNames = normalizeAssignmentClassNames(assignment)
+  const rubricRows = normalizeAssignmentRubricRows(assignment.rubricRows || assignment.rubric)
+  const submissionTypes = normalizeAssignmentSubmissionTypes(assignment.submissionTypes)
+  const attachments = normalizeAssignmentAttachments(assignment.attachments)
+  return {
+    ...assignment,
+    title: String(assignment.title || '').trim(),
+    description: String(assignment.description || '').trim(),
+    classIds: normalizeAssignmentClassIds(assignment),
+    classNames,
+    classId: normalizeAssignmentClassIds(assignment)[0] || assignment.classId || '',
+    className: classNames.length > 0 ? classNames.join(', ') : assignment.className || 'Semua kelas',
+    deadline: assignment.deadline || '',
+    releaseAt: assignment.releaseAt || '',
+    latePolicy: assignment.latePolicy || 'allow-late',
+    submissionTypes,
+    maxScore: Number(assignment.maxScore || 100),
+    gradeWeight: Number(assignment.gradeWeight || 0),
+    rubricRows,
+    rubric: getAssignmentRubricText(rubricRows),
+    workMode: assignment.workMode || 'Individu',
+    attachments,
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+function buildAssignmentStoredDescription(assignment = {}) {
+  const prepared = prepareAssignmentForSave(assignment)
+  const details = [
+    prepared.description,
+    '',
+    '--- Pengaturan Tugas IsleLearn ---',
+    `Target kelas: ${prepared.className || '-'}`,
+    `Rilis: ${formatAssignmentDateTime(prepared.releaseAt)}`,
+    `Deadline: ${formatAssignmentDateTime(prepared.deadline)}`,
+    `Kebijakan terlambat: ${assignmentLatePolicyOptions.find((item) => item.value === prepared.latePolicy)?.label || prepared.latePolicy}`,
+    `Metode submit: ${prepared.submissionTypes.map((type) => assignmentSubmissionTypeOptions.find((item) => item.value === type)?.label || type).join(', ')}`,
+    `Skor maksimal: ${prepared.maxScore}`,
+    `Bobot nilai: ${prepared.gradeWeight}%`,
+    `Mode: ${prepared.workMode}`,
+    prepared.rubric ? `Rubrik:\n${prepared.rubric}` : '',
+    prepared.attachments.length ? `Lampiran:\n${prepared.attachments.map((item) => `- ${item.title}${item.url ? ` (${item.url})` : ''}`).join('\n')}` : '',
+  ].filter(Boolean)
+  return details.join('\n')
+}
+
+function isAssignmentReleased(assignment = {}) {
+  if (assignment.status !== 'Aktif') return false
+  if (!assignment.releaseAt && !assignment.release_at) return true
+  const releaseDate = new Date(assignment.releaseAt || assignment.release_at)
+  if (Number.isNaN(releaseDate.getTime())) return true
+  return releaseDate.getTime() <= Date.now()
+}
+
+function isAssignmentPastDeadline(assignment = {}) {
+  if (!assignment.deadline) return false
+  const deadlineDate = new Date(assignment.deadline)
+  if (Number.isNaN(deadlineDate.getTime())) return false
+  return deadlineDate.getTime() < Date.now()
+}
+
+function isAssignmentLocked(assignment = {}) {
+  return assignment.latePolicy === 'hard-lock' && isAssignmentPastDeadline(assignment)
+}
+
+function isAssignmentVisibleToStudent(assignment = {}, user = {}) {
+  if (!isAssignmentReleased(assignment)) return false
+  const targetNames = normalizeAssignmentClassNames(assignment)
+  if (!targetNames.length || targetNames.some((name) => /semua/i.test(name))) return true
+  const studentClass = user?.className || user?.class || user?.kelas || user?.rombel || ''
+  if (!studentClass) return true
+  return targetNames.some((name) => sameAssignmentClassName(name, studentClass))
+}
+
+function formatAssignmentDateTime(value) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+function getAssignmentAttachmentPreviewUrl(attachment = {}) {
+  const rawUrl = attachment.dataUrl || attachment.url || ''
+  if (!rawUrl) return ''
+  if (attachment.type === 'Video') return getEmbeddableVideoUrl(rawUrl) || rawUrl
+  if (['PDF', 'Dokumen', 'Presentasi', 'Spreadsheet'].includes(attachment.type)) return getDocumentPreviewUrl(rawUrl, attachment.type) || rawUrl
+  return rawUrl
+}
+
+function AssignmentAttachmentPreview({ attachment }) {
+  const previewUrl = getAssignmentAttachmentPreviewUrl(attachment)
+  if (!previewUrl) return null
+  const isFrame = ['Video', 'PDF', 'Dokumen', 'Presentasi', 'Spreadsheet', 'Embed'].includes(attachment.type)
+  return (
+    <div className="overflow-hidden rounded-[1rem] border border-[#0B3A5B]/10 bg-white">
+      <div className="flex items-center justify-between gap-3 border-b border-[#0B3A5B]/8 px-3 py-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black text-[#13232d]">{attachment.title}</p>
+          <p className="text-xs font-bold text-slate-500">{attachment.type}{attachment.size ? ` · ${formatFileSize(attachment.size)}` : ''}</p>
+        </div>
+        {attachment.url && (
+          <a href={attachment.url} target="_blank" rel="noreferrer" className="rounded-[0.7rem] bg-[#E0F2FE] px-2.5 py-1.5 text-xs font-black text-[#0284c7]">
+            Buka
+          </a>
+        )}
+      </div>
+      {attachment.type === 'Gambar' ? (
+        <img src={previewUrl} alt={attachment.title} className="max-h-72 w-full object-contain bg-slate-50" />
+      ) : attachment.type === 'Audio' ? (
+        <div className="p-3"><audio controls src={previewUrl} className="w-full" /></div>
+      ) : isFrame ? (
+        <iframe title={attachment.title} src={previewUrl} className="h-72 w-full bg-white" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+      ) : (
+        <div className="p-3 text-sm font-semibold text-slate-600">Lampiran siap dibuka oleh siswa.</div>
+      )}
+    </div>
+  )
+}
+
+function AssignmentStudentPreview({ assignment }) {
+  const prepared = prepareAssignmentForSave(assignment)
+  return (
+    <div className="rounded-[1rem] border border-[#0B3A5B]/10 bg-[#F8FBFF] p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusBadge tone={prepared.status === 'Aktif' ? 'green' : 'amber'}>{prepared.status}</StatusBadge>
+        <StatusBadge tone="cyan">{prepared.workMode}</StatusBadge>
+        <StatusBadge tone="teal">{prepared.maxScore} poin</StatusBadge>
+      </div>
+      <h3 className="mt-3 text-lg font-black leading-tight text-[#13232d]">{prepared.title || 'Judul tugas'}</h3>
+      <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-[#0284c7]">{prepared.subject} · {prepared.className}</p>
+      <div className="mt-3 grid gap-2 text-xs font-bold text-slate-600 sm:grid-cols-2">
+        <span>Rilis: {formatAssignmentDateTime(prepared.releaseAt)}</span>
+        <span>Deadline: {formatAssignmentDateTime(prepared.deadline)}</span>
+      </div>
+      <div className="mt-3 rounded-[0.9rem] bg-white p-3 text-sm leading-7 text-slate-700 ring-1 ring-[#0B3A5B]/8">
+        {prepared.description || 'Instruksi tugas akan tampil di sini.'}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {prepared.submissionTypes.map((type) => (
+          <span key={type} className="rounded-full bg-[#E0F2FE] px-3 py-1 text-xs font-black text-[#0284c7]">
+            {assignmentSubmissionTypeOptions.find((item) => item.value === type)?.label || type}
+          </span>
+        ))}
+      </div>
+      {prepared.attachments.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {prepared.attachments.map((attachment) => <AssignmentAttachmentPreview key={attachment.id} attachment={attachment} />)}
+        </div>
+      )}
+      <div className="mt-3 overflow-hidden rounded-[0.9rem] border border-[#0B3A5B]/10 bg-white">
+        {prepared.rubricRows.map((row) => (
+          <div key={row.id} className="grid gap-1 border-b border-[#0B3A5B]/8 px-3 py-2 last:border-b-0 sm:grid-cols-[1fr_auto]">
+            <div>
+              <p className="text-sm font-black text-[#13232d]">{row.component}</p>
+              <p className="text-xs font-semibold leading-5 text-slate-500">{row.description || 'Deskripsi rubrik belum diisi.'}</p>
+            </div>
+            <span className="text-sm font-black text-[#0284c7]">{row.weight}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, onSave }) {
-  const [form, setForm] = useState(assignment)
+  const autosaveKey = useMemo(() => `islelearn-assignment-autosave-${assignment?.id || 'baru'}`, [assignment?.id])
+  const [form, setForm] = useState(() => normalizeAssignmentForEdit(assignment, lookups, assignment?.subject || subjectOptions[0]))
+  const [showPreview, setShowPreview] = useState(false)
+  const [autosaveNotice, setAutosaveNotice] = useState('')
+  const [attachmentDraft, setAttachmentDraft] = useState({ type: 'Video', title: '', url: '' })
   const scopedSubjects = getScopedSubjectLookupRows(lookups.subjects, subjectOptions)
-  const subjectsList = scopedSubjects.length > 0 ? scopedSubjects : [{ id: '', name: assignment.subject || 'Mapel belum dipilih' }]
-  const classesList = lookups.classes.length > 0 ? lookups.classes : [{ id: '', name: assignment.className || 'Semua kelas' }]
-  const validAssignment = form.title.trim()
+  const subjectsList = scopedSubjects.length > 0 ? scopedSubjects : [{ id: '', name: form.subject || assignment.subject || 'Mapel belum dipilih', synthetic: true }]
+  const classesList = getAssignmentClassOptions(lookups.classes || [], form)
+  const validAssignment = String(form.title || '').trim() && normalizeAssignmentClassNames(form).length > 0
 
   useEffect(() => {
-    setForm(assignment)
-  }, [assignment])
+    const saved = safeReadLocalJson(autosaveKey, null)
+    const savedAssignment = saved?.assignment
+    const shouldRestore = savedAssignment && (savedAssignment.id === assignment?.id || (!savedAssignment.id && !assignment?.id))
+    setForm(normalizeAssignmentForEdit(shouldRestore ? savedAssignment : assignment, lookups, assignment?.subject || subjectOptions[0]))
+    setAutosaveNotice(shouldRestore ? 'Draf otomatis dipulihkan.' : '')
+  }, [assignment, autosaveKey, lookups])
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      safeWriteLocalJson(autosaveKey, { assignment: form, savedAt: new Date().toISOString() })
+      setAutosaveNotice(`Tersimpan otomatis ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`)
+    }, 900)
+    return () => window.clearTimeout(timeout)
+  }, [autosaveKey, form])
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -6783,62 +10317,298 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
     }))
   }
 
-  function updateClass(value) {
-    const selected = classesList.find((classItem) => String(classItem.id || '') === value)
+  function toggleClass(classItem) {
+    const currentNames = normalizeAssignmentClassNames(form)
+    const active = currentNames.some((name) => sameAssignmentClassName(name, classItem.name))
+    const nextNames = active
+      ? currentNames.filter((name) => !sameAssignmentClassName(name, classItem.name))
+      : [...currentNames, classItem.name]
+    const normalizedNames = nextNames.length > 0 ? nextNames : [classItem.name]
+    const nextIds = classesList
+      .filter((item) => normalizedNames.some((name) => sameAssignmentClassName(name, item.name)) && item.id)
+      .map((item) => String(item.id))
     setForm((current) => ({
       ...current,
-      classId: value,
-      className: selected?.name || current.className || 'Semua kelas',
+      classIds: nextIds,
+      classNames: normalizedNames,
+      classId: nextIds[0] || '',
+      className: normalizedNames.join(', '),
     }))
   }
 
+  function toggleSubmissionType(value) {
+    const currentTypes = normalizeAssignmentSubmissionTypes(form.submissionTypes)
+    const nextTypes = currentTypes.includes(value)
+      ? currentTypes.filter((item) => item !== value)
+      : [...currentTypes, value]
+    updateField('submissionTypes', nextTypes.length ? nextTypes : ['text'])
+  }
+
+  function updateRubricRow(id, field, value) {
+    setForm((current) => ({
+      ...current,
+      rubricRows: normalizeAssignmentRubricRows(current.rubricRows).map((row) => row.id === id ? { ...row, [field]: field === 'weight' ? Number(value || 0) : value } : row),
+    }))
+  }
+
+  function addRubricRow() {
+    setForm((current) => ({
+      ...current,
+      rubricRows: [...normalizeAssignmentRubricRows(current.rubricRows), { id: createMaterialBlockId('rubric'), component: 'Komponen baru', weight: 0, description: '' }],
+    }))
+  }
+
+  function removeRubricRow(id) {
+    setForm((current) => ({
+      ...current,
+      rubricRows: normalizeAssignmentRubricRows(current.rubricRows).filter((row) => row.id !== id),
+    }))
+  }
+
+  function appendInstruction(snippet) {
+    setForm((current) => ({
+      ...current,
+      description: `${current.description || ''}${current.description ? '\n\n' : ''}${snippet}`,
+    }))
+  }
+
+  async function addAttachmentFiles(event) {
+    const files = Array.from(event.target.files || [])
+    if (!files.length) return
+    const items = await Promise.all(files.map(async (file) => ({
+      id: createMaterialBlockId('assignment-file'),
+      title: file.name,
+      type: inferMediaTypeFromFile(file),
+      dataUrl: await blobToDataUrl(file),
+      url: '',
+      mime: file.type,
+      size: file.size,
+    })))
+    setForm((current) => ({ ...current, attachments: [...normalizeAssignmentAttachments(current.attachments), ...items] }))
+    event.target.value = ''
+  }
+
+  function addLinkAttachment() {
+    const url = cleanMaterialUrl(attachmentDraft.url)
+    if (!url) return
+    setForm((current) => ({
+      ...current,
+      attachments: [
+        ...normalizeAssignmentAttachments(current.attachments),
+        {
+          id: createMaterialBlockId('assignment-link'),
+          title: attachmentDraft.title || `${attachmentDraft.type} referensi`,
+          type: attachmentDraft.type,
+          url,
+          dataUrl: '',
+          size: 0,
+        },
+      ],
+    }))
+    setAttachmentDraft({ type: 'Video', title: '', url: '' })
+  }
+
+  function removeAttachment(id) {
+    setForm((current) => ({ ...current, attachments: normalizeAssignmentAttachments(current.attachments).filter((item) => item.id !== id) }))
+  }
+
+  function generateDraftWithAiHelper() {
+    const topic = form.title || 'topik pembelajaran'
+    const subject = form.subject || 'mapel'
+    setForm((current) => ({
+      ...current,
+      description: `Pelajari materi tentang ${topic} pada mata pelajaran ${subject}. Kerjakan tugas sesuai instruksi berikut:\n\n1. Baca atau tonton materi pendukung yang diberikan guru.\n2. Buat jawaban ringkas namun lengkap dengan contoh atau bukti pendukung.\n3. Pastikan jawaban dikumpulkan sesuai metode yang dipilih.\n4. Tulis refleksi singkat tentang bagian yang paling kamu pahami dan bagian yang masih perlu ditanyakan.`,
+      rubricRows: [
+        { id: createMaterialBlockId('rubric'), component: 'Pemahaman konsep', weight: 50, description: 'Jawaban menunjukkan konsep utama dipahami dengan tepat.' },
+        { id: createMaterialBlockId('rubric'), component: 'Argumentasi dan bukti', weight: 30, description: 'Jawaban memakai alasan, data, contoh, atau langkah kerja yang jelas.' },
+        { id: createMaterialBlockId('rubric'), component: 'Kerapian pengumpulan', weight: 20, description: 'Format jawaban rapi dan dikumpulkan sesuai tenggat.' },
+      ],
+    }))
+    setAutosaveNotice('Draf instruksi dan rubrik dibuat dari Bantuan AI Creator lokal.')
+  }
+
+  const prepared = prepareAssignmentForSave(form)
+  const rubricTotal = prepared.rubricRows.reduce((sum, row) => sum + Number(row.weight || 0), 0)
+
   return (
-    <section className="mb-5 overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/88 shadow-[0_16px_48px_rgba(15,31,42,0.07)] backdrop-blur-xl">
-      <header className="flex flex-col gap-3 border-b border-[#0B3A5B]/8 bg-[#F8FAFC]/78 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <section className="mb-5 overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/90 shadow-[0_16px_48px_rgba(15,31,42,0.07)]">
+      <header className="flex flex-col gap-3 border-b border-[#0B3A5B]/8 bg-[#F8FBFF] px-4 py-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-start gap-3">
           <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#E0F2FE] text-[#0284c7] ring-1 ring-[#0284c7]/10">
             <ClipboardList size={20} />
           </span>
           <div>
             <h2 className="text-xl font-black leading-tight text-[#13232d]">{form.id ? 'Edit tugas' : 'Buat tugas'}</h2>
-            <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-              Tugas berisi instruksi kerja siswa, tenggat, dan rubrik ringkas agar penilaian tetap jelas.
+            <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
+              Semua pengaturan utama tugas ada di sini: kelas paralel, lampiran, jadwal rilis, deadline, metode submit, rubrik, dan pratinjau siswa.
             </p>
           </div>
         </div>
-        <StatusBadge tone={form.status === 'Aktif' ? 'green' : 'amber'}>{form.status}</StatusBadge>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge tone={prepared.status === 'Aktif' ? 'green' : 'amber'}>{prepared.status}</StatusBadge>
+          <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-slate-500 ring-1 ring-[#0B3A5B]/8">{autosaveNotice || 'Auto-save aktif'}</span>
+          <button type="button" onClick={() => setShowPreview((current) => !current)} className="inline-flex items-center gap-2 rounded-[0.85rem] bg-white px-3 py-2 text-xs font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/10 transition hover:bg-[#E0F2FE]">
+            <Search size={14} /> {showPreview ? 'Tutup preview' : 'Preview siswa'}
+          </button>
+        </div>
       </header>
 
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <div className="space-y-3 p-4">
-          <label className={materialLabelClass}>Judul
-            <input value={form.title || ''} onChange={(event) => updateField('title', event.target.value)} placeholder="Judul tugas" className={materialInputClass} />
-          </label>
+      <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_23rem]">
+        <div className="space-y-4 p-4">
+          <div className="grid gap-3 lg:grid-cols-[1.25fr_0.75fr]">
+            <label className={materialLabelClass}>Judul tugas
+              <input value={form.title || ''} onChange={(event) => updateField('title', event.target.value)} placeholder="Contoh: Latihan 3: Hukum Newton" className={materialInputClass} />
+            </label>
+            {subjectOptions.length === 1 ? (
+              <div className={materialLabelClass}>Mata pelajaran
+                <div className={`${materialInputClass} flex min-h-[2.75rem] items-center bg-[#EEF7FF] text-[#17446E]`}>
+                  {form.subject || subjectsList[0]?.name || subjectOptions[0]}
+                </div>
+              </div>
+            ) : (
+              <label className={materialLabelClass}>Mata pelajaran
+                <select value={form.subjectId || `subject:${form.subject || subjectsList[0]?.name || ''}`} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
+                  {subjectsList.map((subject) => <option key={subjectOptionValue(subject)} value={subjectOptionValue(subject)}>{subject.name}</option>)}
+                </select>
+              </label>
+            )}
+          </div>
 
-          <label className={materialLabelClass}>Instruksi tugas
-            <textarea value={form.description || ''} onChange={(event) => updateField('description', event.target.value)} rows={5} placeholder="Tulis instruksi pengerjaan, format jawaban, dan batasan yang perlu diketahui siswa." className={`${materialInputClass} resize-y leading-7`} />
-          </label>
+          <div>
+            <p className="text-sm font-black text-[#13232d]">Target kelas</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">Bisa memilih lebih dari satu kelas paralel.</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {classesList.map((classItem) => {
+                const active = normalizeAssignmentClassNames(form).some((name) => sameAssignmentClassName(name, classItem.name))
+                return (
+                  <button
+                    key={classOptionValue(classItem)}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => toggleClass(classItem)}
+                    className={`rounded-[0.9rem] px-3 py-3 text-left text-sm font-black ring-1 transition ${
+                      active
+                        ? 'bg-[#0B3A5B] text-white ring-[#0B3A5B]'
+                        : 'bg-white text-slate-700 ring-[#0B3A5B]/10 hover:bg-[#E0F2FE] hover:text-[#0284c7]'
+                    }`}
+                  >
+                    {classItem.name}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
-          <label className={materialLabelClass}>Rubrik sederhana
-            <textarea value={form.rubric || ''} onChange={(event) => updateField('rubric', event.target.value)} rows={3} placeholder="Contoh: isi 40%, ketepatan konsep 30%, kerapian 20%, refleksi 10%." className={`${materialInputClass} resize-y leading-7`} />
-          </label>
+          <div className="rounded-[1rem] border border-[#0B3A5B]/10 bg-white p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-black text-[#13232d]">Instruksi tugas</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">Mendukung format cepat: heading, tebal, daftar, callout, dan code block.</p>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  ['H2', '## Subbagian'],
+                  ['B', '**teks tebal**'],
+                  ['List', '- poin instruksi'],
+                  ['Info', '> Catatan penting'],
+                  ['Code', '```\ncontoh kode\n```'],
+                ].map(([label, snippet]) => (
+                  <button key={label} type="button" onClick={() => appendInstruction(snippet)} className="rounded-[0.7rem] bg-[#F1F7FF] px-2.5 py-1.5 text-xs font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/8">
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <textarea value={form.description || ''} onChange={(event) => updateField('description', event.target.value)} rows={8} placeholder="Tulis detail pengerjaan, format jawaban, dan langkah-langkah yang harus diikuti siswa." className={`${materialInputClass} mt-3 resize-y leading-7`} />
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <div className="rounded-[1rem] border border-[#0B3A5B]/10 bg-[#F8FBFF] p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-[#13232d]">Lampiran dan referensi</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Dokumen, gambar, audio, video, PDF, atau link YouTube/Drive bisa muncul sebagai embed.</p>
+                </div>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-[0.8rem] bg-white px-3 py-2 text-xs font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/10">
+                  <FileText size={14} /> Upload
+                  <input type="file" multiple onChange={addAttachmentFiles} className="hidden" />
+                </label>
+              </div>
+              <div className="mt-3 grid gap-2">
+                <select value={attachmentDraft.type} onChange={(event) => setAttachmentDraft((current) => ({ ...current, type: event.target.value }))} className={materialInputClass}>
+                  {['Video', 'PDF', 'Dokumen', 'Presentasi', 'Spreadsheet', 'Gambar', 'Audio', 'Embed', 'Link'].map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+                <input value={attachmentDraft.title} onChange={(event) => setAttachmentDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Judul lampiran" className={materialInputClass} />
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <input value={attachmentDraft.url} onChange={(event) => setAttachmentDraft((current) => ({ ...current, url: event.target.value }))} placeholder="URL YouTube, Drive, PDF, audio, atau embed" className={materialInputClass} />
+                  <button type="button" onClick={addLinkAttachment} className="rounded-[0.85rem] bg-[#0B3A5B] px-4 py-2.5 text-sm font-black text-white">
+                    Tambah
+                  </button>
+                </div>
+              </div>
+              {prepared.attachments.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {prepared.attachments.map((attachment) => (
+                    <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-[0.85rem] bg-white px-3 py-2 ring-1 ring-[#0B3A5B]/8">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-[#13232d]">{attachment.title}</p>
+                        <p className="text-xs font-bold text-slate-500">{attachment.type}{attachment.size ? ` · ${formatFileSize(attachment.size)}` : ''}</p>
+                      </div>
+                      <button type="button" onClick={() => removeAttachment(attachment.id)} className="rounded-[0.7rem] bg-rose-50 px-2.5 py-1.5 text-xs font-black text-rose-700 ring-1 ring-rose-100">
+                        Hapus
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-[1rem] border border-[#0B3A5B]/10 bg-white p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-[#13232d]">Rubrik penilaian</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">Total bobot saat ini {rubricTotal}%.</p>
+                </div>
+                <button type="button" onClick={addRubricRow} className="rounded-[0.8rem] bg-[#E0F2FE] px-3 py-2 text-xs font-black text-[#0284c7]">Tambah</button>
+              </div>
+              <div className="mt-3 space-y-2">
+                {prepared.rubricRows.map((row) => (
+                  <div key={row.id} className="rounded-[0.9rem] border border-[#0B3A5B]/10 bg-[#F8FBFF] p-2">
+                    <div className="grid gap-2 sm:grid-cols-[1fr_5rem_auto]">
+                      <input value={row.component} onChange={(event) => updateRubricRow(row.id, 'component', event.target.value)} className={materialInputClass} />
+                      <input type="number" min="0" max="100" value={row.weight} onChange={(event) => updateRubricRow(row.id, 'weight', event.target.value)} className={materialInputClass} />
+                      <button type="button" onClick={() => removeRubricRow(row.id)} className="rounded-[0.8rem] bg-white px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100">Hapus</button>
+                    </div>
+                    <textarea value={row.description} onChange={(event) => updateRubricRow(row.id, 'description', event.target.value)} rows={2} placeholder="Deskripsi kriteria penilaian" className={`${materialInputClass} mt-2 resize-y leading-6`} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {showPreview && <AssignmentStudentPreview assignment={form} />}
 
           {!validAssignment && (
             <div className="rounded-[0.9rem] bg-amber-50 px-3 py-2.5 text-sm font-bold leading-6 text-amber-800 ring-1 ring-amber-100">
-              Judul tugas wajib diisi sebelum disimpan.
+              Judul tugas dan minimal satu target kelas wajib diisi sebelum disimpan.
             </div>
           )}
         </div>
 
-        <aside className="space-y-4 border-t border-[#0B3A5B]/8 bg-[#F1F7FF]/58 p-4 lg:border-l lg:border-t-0">
-          <label className={materialLabelClass}>Deadline
-            <input type="date" value={form.deadline || ''} onChange={(event) => updateField('deadline', event.target.value)} className={materialInputClass} />
-          </label>
+        <aside className="space-y-4 border-t border-[#0B3A5B]/8 bg-[#F1F7FF]/66 p-4 xl:border-l xl:border-t-0">
+          <div className="grid gap-3">
+            <label className={materialLabelClass}>Tanggal & jam rilis
+              <input type="datetime-local" value={form.releaseAt || ''} onChange={(event) => updateField('releaseAt', event.target.value)} className={materialInputClass} />
+            </label>
+            <label className={materialLabelClass}>Tanggal & jam tenggat
+              <input type="datetime-local" value={form.deadline || ''} onChange={(event) => updateField('deadline', event.target.value)} className={materialInputClass} />
+            </label>
+          </div>
 
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0284c7]">Status</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0284c7]">Status tugas</p>
             <div className="mt-2 grid grid-cols-3 gap-2">
-              {['Draft', 'Aktif', 'Selesai'].map((status) => {
+              {assignmentStatusOptions.map((status) => {
                 const active = form.status === status
                 return (
                   <button
@@ -6857,30 +10627,76 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
                 )
               })}
             </div>
-            <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-              Draft belum tampil. Aktif membuat tugas muncul di halaman siswa.
-            </p>
           </div>
 
-          <label className={materialLabelClass}>Mata pelajaran
-            <select value={form.subjectId || `subject:${form.subject || subjectsList[0]?.name || ''}`} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
-              {subjectsList.map((subject) => <option key={subjectOptionValue(subject)} value={subjectOptionValue(subject)}>{subject.name}</option>)}
-            </select>
-          </label>
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0284c7]">Keterlambatan</p>
+            <div className="mt-2 space-y-2">
+              {assignmentLatePolicyOptions.map((option) => {
+                const active = form.latePolicy === option.value
+                return (
+                  <button key={option.value} type="button" onClick={() => updateField('latePolicy', option.value)} className={`w-full rounded-[0.9rem] px-3 py-2.5 text-left ring-1 transition ${active ? 'bg-[#0B3A5B] text-white ring-[#0B3A5B]' : 'bg-white text-slate-600 ring-[#0B3A5B]/10 hover:bg-[#E0F2FE]'}`}>
+                    <span className="block text-sm font-black">{option.label}</span>
+                    <span className={`mt-0.5 block text-xs font-semibold leading-5 ${active ? 'text-white/78' : 'text-slate-500'}`}>{option.helper}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
-          <label className={materialLabelClass}>Kelas
-            <select value={form.classId || ''} onChange={(event) => updateClass(event.target.value)} className={materialInputClass}>
-              {classesList.map((classItem) => <option key={classItem.id || classItem.name} value={classItem.id || ''}>{classItem.name}</option>)}
-            </select>
-          </label>
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0284c7]">Metode pengumpulan</p>
+            <div className="mt-2 space-y-2">
+              {assignmentSubmissionTypeOptions.map((option) => {
+                const active = prepared.submissionTypes.includes(option.value)
+                return (
+                  <label key={option.value} className={`flex cursor-pointer gap-3 rounded-[0.9rem] px-3 py-2.5 ring-1 transition ${active ? 'bg-white text-[#13232d] ring-[#0284c7]/30' : 'bg-white/70 text-slate-500 ring-[#0B3A5B]/8'}`}>
+                    <input type="checkbox" checked={active} onChange={() => toggleSubmissionType(option.value)} className="mt-1 h-4 w-4 rounded border-slate-300 text-[#0284c7]" />
+                    <span>
+                      <span className="block text-sm font-black">{option.label}</span>
+                      <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{option.helper}</span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className={materialLabelClass}>Skor maksimal
+              <input type="number" min="1" value={form.maxScore || 100} onChange={(event) => updateField('maxScore', event.target.value)} className={materialInputClass} />
+            </label>
+            <label className={materialLabelClass}>Bobot nilai %
+              <input type="number" min="0" max="100" value={form.gradeWeight || 0} onChange={(event) => updateField('gradeWeight', event.target.value)} className={materialInputClass} />
+            </label>
+          </div>
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0284c7]">Mode kerja</p>
+            <div className="mt-2 grid gap-2">
+              {assignmentWorkModeOptions.map((option) => {
+                const active = form.workMode === option.value
+                return (
+                  <button key={option.value} type="button" onClick={() => updateField('workMode', option.value)} className={`rounded-[0.9rem] px-3 py-2.5 text-left ring-1 transition ${active ? 'bg-[#0B3A5B] text-white ring-[#0B3A5B]' : 'bg-white text-slate-600 ring-[#0B3A5B]/10 hover:bg-[#E0F2FE]'}`}>
+                    <span className="block text-sm font-black">{option.label}</span>
+                    <span className={`mt-0.5 block text-xs font-semibold leading-5 ${active ? 'text-white/78' : 'text-slate-500'}`}>{option.helper}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <button type="button" onClick={generateDraftWithAiHelper} className="inline-flex w-full items-center justify-center gap-2 rounded-[0.95rem] bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
+            <Sparkles size={16} /> Bantuan AI Creator
+          </button>
         </aside>
       </div>
 
-      <footer className="flex flex-col-reverse gap-2 border-t border-[#0B3A5B]/8 bg-white/72 px-4 py-3 sm:flex-row sm:justify-end">
+      <footer className="flex flex-col-reverse gap-2 border-t border-[#0B3A5B]/8 bg-white/78 px-4 py-3 sm:flex-row sm:justify-end">
         <button onClick={onCancel} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-100">
           <X size={16} /> Batal
         </button>
-        <button onClick={() => onSave(form)} disabled={!validAssignment} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] bg-[#0B3A5B] px-4 py-2.5 text-sm font-black text-white shadow-[0_12px_28px_rgba(15,31,42,0.14)] transition hover:bg-[#0284c7] disabled:cursor-not-allowed disabled:opacity-45">
+        <button onClick={() => onSave(prepareAssignmentForSave(form))} disabled={!validAssignment} className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] bg-[#0B3A5B] px-4 py-2.5 text-sm font-black text-white shadow-[0_12px_28px_rgba(15,31,42,0.14)] transition hover:bg-[#0284c7] disabled:cursor-not-allowed disabled:opacity-45">
           <Save size={16} /> Simpan tugas
         </button>
       </footer>
@@ -6890,18 +10706,27 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
 
 function emptyAssignment(lookups, teacherSubject) {
   const subject = lookups.subjects.find((item) => sameSubjectName(item.name, teacherSubject)) || lookups.subjects[0]
-  const classItem = lookups.classes[0]
-  return {
+  const classItem = getAssignmentClassOptions(lookups.classes || [], {})[0]
+  return normalizeAssignmentForEdit({
     title: '',
     description: '',
     subjectId: subject?.id || '',
-    classId: classItem?.id || '',
+    classId: classItem?.synthetic ? '' : classItem?.id || '',
+    classIds: classItem?.id ? [classItem.id] : [],
     subject: subject?.name || teacherSubject || 'Mapel belum dipilih',
-    className: classItem?.name || 'Semua kelas',
+    classNames: [classItem?.name || 'Kelas X'],
+    className: classItem?.name || 'Kelas X',
+    releaseAt: '',
     deadline: '',
+    latePolicy: 'allow-late',
+    submissionTypes: ['text'],
+    maxScore: 100,
+    gradeWeight: 10,
     status: 'Draft',
-    rubric: '',
-  }
+    workMode: 'Individu',
+    attachments: [],
+    rubricRows: defaultAssignmentRubricRows.map((row) => ({ ...row })),
+  }, lookups, teacherSubject)
 }
 
 function KuisLive({ user, notify, appContext }) {
@@ -7230,11 +11055,19 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, subjectOptions
             </p>
           </div>
 
-          <label className={materialLabelClass}>Mata pelajaran
-            <select value={form.subjectId || `subject:${form.subject || subjectsList[0]?.name || ''}`} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
-              {subjectsList.map((subject) => <option key={subjectOptionValue(subject)} value={subjectOptionValue(subject)}>{subject.name}</option>)}
-            </select>
-          </label>
+          {subjectOptions.length === 1 ? (
+            <div className={materialLabelClass}>Mata pelajaran
+              <div className={`${materialInputClass} flex min-h-[2.75rem] items-center bg-[#EEF7FF] text-[#17446E]`}>
+                {form.subject || subjectsList[0]?.name || subjectOptions[0]}
+              </div>
+            </div>
+          ) : (
+            <label className={materialLabelClass}>Mata pelajaran
+              <select value={form.subjectId || `subject:${form.subject || subjectsList[0]?.name || ''}`} onChange={(event) => updateSubject(event.target.value)} className={materialInputClass}>
+                {subjectsList.map((subject) => <option key={subjectOptionValue(subject)} value={subjectOptionValue(subject)}>{subject.name}</option>)}
+              </select>
+            </label>
+          )}
 
           <label className={materialLabelClass}>Kelas
             <select value={form.classId || ''} onChange={(event) => updateClass(event.target.value)} className={materialInputClass}>

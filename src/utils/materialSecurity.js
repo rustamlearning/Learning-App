@@ -1,5 +1,5 @@
 export function isExternalMaterialType(type) {
-  return ['Link', 'Video', 'PDF', 'Dokumen', 'Document', 'Presentasi', 'Spreadsheet', 'Embed'].includes(type)
+  return ['Link', 'Video', 'Audio', 'PDF', 'Dokumen', 'Document', 'Presentasi', 'Spreadsheet', 'Embed'].includes(type)
 }
 
 export function isHtmlMaterialType(type) {

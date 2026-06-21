@@ -35,7 +35,7 @@ import {
 } from '../components/ui.jsx'
 
 import { useAuth } from '../context/AuthContext.jsx'
-import { fetchMaterialLookups, saveMaterial } from '../services/materialService.js'
+import { fetchMaterialLookups } from '../services/materialService.js'
 import { saveQuestion } from '../services/questionService.js'
 import { saveQuiz } from '../services/quizService.js'
 import { saveAssignment } from '../services/assignmentService.js'
@@ -201,21 +201,16 @@ function buildStudioSubjectOptions(lookupSubjects = [], userSubject = '') {
 }
 
 const levelOptions = ['Mudah', 'Standar', 'Menantang']
-const outputOptions = ['Materi', 'Tugas', 'Kuis', 'Soal', 'Flashcard', 'LKPD', 'Rubrik', 'Remedial', 'Pengayaan']
+const outputOptions = ['Tugas', 'Kuis', 'Soal', 'Flashcard', 'LKPD', 'Rubrik', 'Remedial', 'Pengayaan']
 const lessonPurposeOptions = ['Pertemuan baru', 'Penguatan konsep', 'Latihan terbimbing', 'Remedial', 'Pengayaan']
 const teachingApproachOptions = ['Diskusi kelas', 'Kolaborasi kelompok', 'Praktik/LKPD', 'Literasi mandiri', 'Proyek singkat']
 const readinessOptions = ['Belum dipetakan', 'Campuran', 'Perlu penguatan dasar', 'Siap tantangan']
-
-function isMaterialOutput(outputType) {
-  return outputType === 'Materi'
-}
 
 function isQuestionOutput(outputType) {
   return ['Soal', 'Kuis'].includes(outputType)
 }
 
 function getOutputLabel(form) {
-  if (isMaterialOutput(form.outputType)) return 'Materi pembelajaran'
   if (form.outputType === 'Tugas') return 'Draft tugas'
   if (form.outputType === 'Kuis') return `Kuis ${String(form.assessmentType || 'formatif').toLowerCase()}`
   if (form.outputType === 'Soal') return `Soal ${String(form.assessmentType || 'formatif').toLowerCase()}`
@@ -226,7 +221,6 @@ function getOutputMeta(form, total = 0) {
   const classLabel = String(form.className || '').startsWith('Kelas') ? form.className : `Kelas ${form.className || '-'}`
   const base = [form.subject || 'Mata pelajaran', classLabel].filter(Boolean).join(' · ')
 
-  if (isMaterialOutput(form.outputType)) return `${base} · bahan belajar siswa`
   if (isQuestionOutput(form.outputType)) return `${base} · ${total} soal`
   if (form.outputType === 'Tugas') return `${base} · instruksi tugas`
   return `${base} · draft konten`
@@ -272,17 +266,6 @@ const stemResources = [
 
 
 const featureTargets = [
-  {
-    id: 'materi',
-    label: 'Simpan sebagai Materi',
-    shortLabel: 'Materi',
-    description: 'Kirim ke Materi Guru sebagai Draft. Guru perlu cek/edit lalu Publish agar tampil ke siswa.',
-    success: 'Draft materi tersimpan. Belum tampil ke siswa sampai guru klik Publish di Materi Guru.',
-    nextStep: 'Buka halaman Materi, cek konten, lalu klik Publish agar muncul di siswa.',
-    path: '/guru/materi',
-    tone: 'cyan',
-    icon: BookOpen,
-  },
   {
     id: 'tugas',
     label: 'Buat Tugas',
@@ -475,7 +458,7 @@ const smartTemplates = [
     title: 'Analisis Teks & Rubrik',
     topic: 'Teks Eksposisi',
     contentType: 'Analisis teks',
-    outputType: 'Materi',
+    outputType: 'Tugas',
     level: 'Standar',
     duration: '2 JP',
     icon: PenTool,
@@ -496,7 +479,7 @@ const smartTemplates = [
     title: 'Timeline & Studi Kasus',
     topic: 'Perubahan Sosial',
     contentType: 'Timeline',
-    outputType: 'Materi',
+    outputType: 'Tugas',
     level: 'Menantang',
     duration: '2 JP',
     icon: Layers3,
@@ -529,7 +512,7 @@ const contentStudioWorkflowSteps = [
   },
   {
     title: 'Kirim ke fitur aplikasi',
-    text: 'Simpan sebagai Materi, Tugas, Bank Soal, Kuis Live, Flashcard, Rubrik, Remedial, atau Pengayaan.',
+    text: 'Kirim draft ke Tugas, Bank Soal, Kuis Live, Flashcard, Rubrik, Remedial, atau Pengayaan.',
   },
   {
     title: 'Publish ke siswa',
@@ -1015,12 +998,11 @@ function getStudioPreviewQuestions(preview, form) {
 
 function buildStudioConfiguredPreview(draft, form) {
   const materialDraft = enhanceStudioMaterialDraft(draft, form)
-  const outputType = form.outputType || draft.outputType || 'Soal'
+  const rawOutputType = form.outputType || draft.outputType || 'Soal'
+  const outputType = rawOutputType === 'Materi' ? 'Tugas' : rawOutputType
   const generatedDraft = {
     ...materialDraft,
-    title: isMaterialOutput(outputType)
-      ? cleanAIPreviewTitle(materialDraft.title || form.topic || 'Materi pembelajaran', 'Materi pembelajaran')
-      : cleanAIPreviewTitle(materialDraft.title || `${getOutputLabel({ ...form, outputType })}: ${form.topic || 'Topik pembelajaran'}`, getOutputLabel({ ...form, outputType })),
+    title: cleanAIPreviewTitle(materialDraft.title || `${getOutputLabel({ ...form, outputType })}: ${form.topic || 'Topik pembelajaran'}`, getOutputLabel({ ...form, outputType })),
     outputType,
     hasGenerated: true,
   }
@@ -1168,29 +1150,11 @@ function buildImportTextDraft(form) {
   const keywords = extractSourceKeywords(text, 10)
   const questions = buildQuestionsFromText(text, topic, form)
   const flashcards = buildFlashcardsFromText(text, topic, form)
-  const materialMode = isMaterialOutput(form.outputType || 'Materi')
 
   const summary = sentences.slice(0, 3).join('. ') || `Teks ini membahas ${topic}. Guru dapat mengembangkan materi dengan contoh, latihan, dan refleksi.`
   const importantPoints = keywords.length > 0
     ? keywords.slice(0, 6).map((keyword, index) => `${index + 1}. ${titleCase(keyword)}`).join('\n')
     : `1. Konsep utama ${topic}\n2. Contoh penerapan\n3. Latihan pemahaman\n4. Refleksi siswa`
-  const materialSections = [
-    { title: 'Ringkasan materi', body: summary },
-    { title: 'Poin penting', body: importantPoints },
-    { title: 'Glosarium belajar', body: flashcards.cards.map((card) => `${card.front}: ${card.back}`).join('\n') },
-    {
-      title: 'Aktivitas memahami teks',
-      body: `A. Baca teks dengan teliti.\nB. Tandai kata atau konsep penting.\nC. Buat peta konsep sederhana.\nD. Tulis kesimpulan ${topic} dengan bahasa sendiri.\nE. Ceritakan satu contoh penerapan yang dekat dengan kehidupan siswa.`,
-    },
-    {
-      title: 'Refleksi siswa',
-      body: [
-        `Apa gagasan paling penting dari teks tentang ${topic}?`,
-        `Bagian mana yang masih membingungkan dan perlu dijelaskan ulang?`,
-        `Bagaimana konsep ${topic} bisa digunakan dalam kehidupan sehari-hari atau lingkungan sekolah?`,
-      ].join('\n'),
-    },
-  ]
   const assessmentSections = [
     { title: 'Ringkasan materi', body: summary },
     { title: 'Poin penting', body: importantPoints },
@@ -1221,18 +1185,16 @@ function buildImportTextDraft(form) {
     className: form.className,
     topic,
     contentType: 'Import teks',
-    outputType: form.outputType || 'Materi',
+    outputType: form.outputType === 'Materi' ? 'Tugas' : (form.outputType || 'Tugas'),
     level: form.level,
     duration: form.duration,
     createdAt: new Date().toISOString(),
     source: 'import-text',
     importedText: text,
-    generatedQuestions: materialMode ? [] : questions,
+    generatedQuestions: questions,
     generatedFlashcard: flashcards,
-    sections: materialMode ? materialSections : assessmentSections,
-    tools: materialMode
-      ? ['Text Analyzer', 'Flashcard Maker', 'LKPD Builder', 'Exit Ticket']
-      : ['Text Analyzer', 'Flashcard Maker', 'Quiz Maker', 'LKPD Builder', 'Exit Ticket'],
+    sections: assessmentSections,
+    tools: ['Text Analyzer', 'Flashcard Maker', 'Quiz Maker', 'LKPD Builder', 'Exit Ticket'],
   }
 }
 
@@ -1335,33 +1297,6 @@ function buildVideoInteractiveDraft(form) {
   const parsedQuestions = parseVideoQuestions(form.videoTimestamps)
   const generatedQuestions = buildVideoQuestions(form, parsedQuestions)
   const generatedFlashcard = buildVideoFlashcard(form)
-  const materialMode = isMaterialOutput(form.outputType)
-  const materialSections = [
-    {
-      title: 'Link video',
-      body: form.videoUrl || 'Link video belum diisi.',
-    },
-    {
-      title: 'Tujuan menonton',
-      body: `Siswa menonton video untuk memahami konsep ${topic}, mencatat poin penting, dan menghubungkannya dengan contoh yang dekat dengan kehidupan mereka.`,
-    },
-    {
-      title: 'Panduan menonton aktif',
-      body: parsedQuestions.map((item, index) => `${index + 1}. ${item.timestamp} — ${item.question}`).join('\n'),
-    },
-    {
-      title: 'Catatan guru',
-      body: form.videoNote?.trim() || 'Minta siswa menonton secara aktif, menjeda video pada bagian penting, lalu menulis catatan singkat.',
-    },
-    {
-      title: 'Aktivitas siswa',
-      body: `A. Tonton video.\nB. Catat poin penting.\nC. Diskusikan bagian yang belum dipahami.\nD. Tulis kesimpulan tentang ${topic} dengan bahasa sendiri.`,
-    },
-    {
-      title: 'Exit ticket',
-      body: `Setelah menonton video, tuliskan 1 hal baru yang dipahami, 1 bagian yang masih membingungkan, dan 1 contoh penerapan ${topic}.`,
-    },
-  ]
   const assessmentSections = [
     {
       title: 'Link video',
@@ -1408,13 +1343,39 @@ function buildVideoInteractiveDraft(form) {
     videoUrl: form.videoUrl,
     videoTitle,
     videoQuestions: parsedQuestions,
-    generatedQuestions: materialMode ? [] : generatedQuestions,
+    generatedQuestions,
     generatedFlashcard,
-    sections: materialMode ? materialSections : assessmentSections,
-    tools: materialMode
-      ? ['Video Guide Builder', 'Timestamp Prompt', 'Flashcard Maker', 'Exit Ticket']
-      : ['Video Question Builder', 'Timestamp Prompt', 'Quiz Maker', 'Flashcard Maker', 'Exit Ticket'],
+    sections: assessmentSections,
+    tools: ['Video Question Builder', 'Timestamp Prompt', 'Quiz Maker', 'Flashcard Maker', 'Exit Ticket'],
   }
+}
+
+function getStudioVideoId(url) {
+  const host = url.hostname.replace(/^www\./, '').toLowerCase()
+  if (host === 'youtu.be') return url.pathname.split('/').filter(Boolean)[0] || ''
+  if (host.endsWith('youtube.com') || host.endsWith('youtube-nocookie.com')) {
+    if (url.pathname.startsWith('/embed/')) return url.pathname.split('/').filter(Boolean)[1] || ''
+    if (url.pathname.startsWith('/shorts/')) return url.pathname.split('/').filter(Boolean)[1] || ''
+    return url.searchParams.get('v') || ''
+  }
+  return ''
+}
+
+function getStudioEmbeddableVideoUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim())
+    const host = url.hostname.replace(/^www\./, '').toLowerCase()
+    const youtubeId = getStudioVideoId(url)
+    if (youtubeId) return `https://www.youtube.com/embed/${youtubeId}`
+    if (host === 'player.vimeo.com' && url.pathname.startsWith('/video/')) return url.toString()
+    if (host === 'vimeo.com') {
+      const vimeoId = url.pathname.split('/').filter(Boolean)[0]
+      if (vimeoId) return `https://player.vimeo.com/video/${vimeoId}`
+    }
+  } catch {
+    return ''
+  }
+  return ''
 }
 
 
@@ -1450,14 +1411,12 @@ function topEntries(counter, limit = 6) {
 
 function getTeacherAnalyticsSnapshot(contentRows, rubricRows) {
   const flashcards = readStorage(FLASHCARD_KEY, [])
-  const materials = readRowsByPrefix('islelearn-teacher-materials-')
   const questions = readRowsByPrefix('islelearn-teacher-questions-')
   const quizzes = readRowsByPrefix('islelearn-teacher-quizzes-')
   const assignments = readRowsByPrefix('islelearn-teacher-assignments-')
 
   const allContent = [
     ...contentRows,
-    ...materials.map((item) => ({ ...item, outputType: 'Materi' })),
     ...assignments.map((item) => ({ ...item, outputType: 'Tugas' })),
     ...questions.map((item) => ({ ...item, title: item.title || item.questionText, outputType: 'Bank Soal' })),
     ...quizzes.map((item) => ({ ...item, outputType: 'Kuis Live' })),
@@ -1622,7 +1581,7 @@ function buildFallbackLesson(form) {
 
   return {
     id: `studio-content-${Date.now()}`,
-    title: isMaterialOutput(form.outputType) ? `Bahan ajar: ${topic}` : `${form.outputType}: ${topic}`,
+    title: `${form.outputType}: ${topic}`,
     subject: form.subject,
     className: form.className,
     topic,
@@ -1665,10 +1624,8 @@ function buildFallbackLesson(form) {
         body: `Pendekatan utama: ${teachingApproach}. Siswa membaca ringkasan, mengamati contoh, berdiskusi berpasangan, lalu mengerjakan latihan singkat atau LKPD sesuai arahan guru.`,
       },
       {
-        title: isMaterialOutput(form.outputType) ? 'Latihan pemahaman' : 'Latihan',
-        body: isMaterialOutput(form.outputType)
-          ? `Sediakan latihan belajar ringan: siswa menulis ulang inti ${topic}, memberi satu contoh, dan menjawab pertanyaan reflektif tanpa format ujian.`
-          : `Buat 5 soal pemahaman dasar, 3 soal penerapan, dan 2 soal refleksi. Tambahkan pembahasan singkat agar siswa bisa belajar mandiri.`,
+        title: 'Latihan',
+        body: `Buat 5 soal pemahaman dasar, 3 soal penerapan, dan 2 soal refleksi. Tambahkan pembahasan singkat agar siswa bisa belajar mandiri.`,
       },
       ...(successCriteria ? [{
         title: 'Kriteria berhasil',
@@ -1886,13 +1843,10 @@ function englishFallbackLesson(form) {
 
 
 function buildStudioPrompt(form) {
-  const materialMode = isMaterialOutput(form.outputType)
   return [
     'WAJIB kembalikan JSON valid tanpa markdown.',
     'Gunakan struktur:',
-    materialMode
-      ? '{"title":"...","sections":[{"title":"...","body":"..."}],"tools":["..."],"generatedQuestions":[]}'
-      : '{"title":"...","sections":[{"title":"...","body":"..."}],"tools":["..."],"generatedQuestions":[{"questionText":"...","options":["A","B","C","D"],"correctAnswer":"...","explanation":"..."}]}',
+    '{"title":"...","sections":[{"title":"...","body":"..."}],"tools":["..."],"generatedQuestions":[{"questionText":"...","options":["A","B","C","D"],"correctAnswer":"...","explanation":"..."}]}',
     '',
     studioLanguageInstruction(form),
     '',
@@ -1911,18 +1865,14 @@ function buildStudioPrompt(form) {
     `Durasi: ${form.duration}`,
     `Instruksi khusus guru: ${form.customInstruction || 'Tidak ada instruksi khusus. Buat versi terbaik yang praktis untuk kelas.'}`,
     '',
-    materialMode
-      ? 'MODE MATERI: buat bahan belajar siswa. Jangan perlakukan sebagai sumatif, tes, ujian, bank soal, kunci jawaban, atau kisi-kisi. Jika ada cek pemahaman, tulis sebagai aktivitas belajar di dalam sections, bukan generatedQuestions formal.'
-      : `MODE ASESMEN/KERJA: jenis asesmen ${form.assessmentType || 'Formatif'}. Buat soal/aktivitas sesuai output yang dipilih.`,
+    `MODE ASESMEN/KERJA: jenis asesmen ${form.assessmentType || 'Formatif'}. Buat soal/aktivitas sesuai output yang dipilih.`,
     '',
     'Ikuti instruksi khusus guru selama tetap sesuai dengan target belajar topik.',
     '',
     'Buat draft pembelajaran yang siap dipakai guru.',
     'Untuk mapel Bahasa Inggris, pastikan model text, contoh kalimat, dialog, soal, opsi jawaban, dan correct answer berbahasa Inggris.',
     'Untuk mapel Bahasa Inggris, pastikan penjelasan konsep, pembahasan jawaban, instruksi bantuan, dan arahan belajar menggunakan Bahasa Indonesia.',
-    materialMode
-      ? 'Sertakan tujuan belajar, penjelasan materi, contoh, aktivitas belajar siswa, refleksi, dan tindak lanjut.'
-      : 'Sertakan target belajar, ringkasan seperlunya, soal/aktivitas, pembahasan, dan tindak lanjut.',
+    'Sertakan target belajar, ringkasan seperlunya, soal/aktivitas, pembahasan, dan tindak lanjut.',
   ].join('\n')
 }
 
@@ -2090,7 +2040,7 @@ function normalizeAILesson(aiText, form) {
           parsed.modelText && { title: 'Model Text / Example', body: parsed.modelText },
           parsed.activity && { title: 'Aktivitas Siswa', body: parsed.activity },
           parsed.practice && { title: 'Latihan', body: parsed.practice },
-          !isMaterialOutput(form.outputType) && parsed.assessment && { title: 'Asesmen', body: parsed.assessment },
+          parsed.assessment && { title: 'Asesmen', body: parsed.assessment },
         ].filter(Boolean)
 
     const sections = rawSections.length > 0
@@ -2103,9 +2053,7 @@ function normalizeAILesson(aiText, form) {
         })
       : fallback.sections
 
-    const generatedQuestions = isMaterialOutput(form.outputType)
-      ? []
-      : normalizeAIQuestions(parsed.generatedQuestions || parsed.questions || parsed.quiz || parsed.latihan, form)
+    const generatedQuestions = normalizeAIQuestions(parsed.generatedQuestions || parsed.questions || parsed.quiz || parsed.latihan, form)
 
     return {
       ...fallback,
@@ -2295,26 +2243,6 @@ async function publishStudioDraftToSupabase({ target, accessToken, user, form, p
   const token = shortStudioToken()
   const context = { subjectId, classId, topic, token }
 
-  if (target === 'materi') {
-    await saveMaterial({
-      accessToken,
-      teacherId: user.id,
-      material: {
-        title: preview.title || `Materi ${topic}`,
-        description: `Draft materi dari Siapkan Pembelajaran untuk topik ${topic}.`,
-        content: contentText,
-        subjectId,
-        classId,
-        subject,
-        className,
-        topic,
-        type: 'Teks',
-        status: 'Draft',
-      },
-    })
-    return
-  }
-
   if (target === 'tugas') {
     await saveAssignment({
       accessToken,
@@ -2385,7 +2313,7 @@ export default function ContentStudio({ user: propUser }) {
     className: '',
     topic: '',
     contentType: '',
-    outputType: 'Materi',
+    outputType: 'Tugas',
     level: 'Standar',
     duration: '2 JP',
     sourceText: '',
@@ -2424,7 +2352,7 @@ export default function ContentStudio({ user: propUser }) {
     className: '',
     topic: '',
     contentType: '',
-    outputType: 'Materi',
+    outputType: 'Tugas',
     level: 'Standar',
     duration: '2 JP',
   }))
@@ -2494,6 +2422,12 @@ export default function ContentStudio({ user: propUser }) {
     })
   }, [form.subject, subjectOptions])
 
+  useEffect(() => {
+    if (form.outputType !== 'Materi') return
+    setForm((current) => ({ ...current, outputType: 'Tugas' }))
+    setResultTab('draft')
+  }, [form.outputType])
+
 
   function updateForm(field, value) {
     setForm((current) => {
@@ -2526,16 +2460,16 @@ export default function ContentStudio({ user: propUser }) {
     if (!ensureLearningContext()) return
 
     try {
-      setToast(isMaterialOutput(form.outputType) ? 'Membuat materi otomatis...' : isQuestionOutput(form.outputType) ? 'Membuat soal otomatis...' : 'Membuat draft otomatis...')
+      setToast(isQuestionOutput(form.outputType) ? 'Membuat soal otomatis...' : 'Membuat draft tugas otomatis...')
       const aiDraft = await requestStudioAIDraft(form)
       const draft = buildStudioConfiguredPreview(aiDraft, form)
       setPreview(draft)
-      setResultTab(isQuestionOutput(form.outputType) ? 'soal' : 'materi')
+      setResultTab(isQuestionOutput(form.outputType) ? 'soal' : 'draft')
       setToast(draft.source === 'ai' ? 'Draft berhasil dibuat dengan AI server.' : 'Draft berhasil dibuat dan dirapikan.')
     } catch (aiError) {
       const draft = buildStudioConfiguredPreview(buildFallbackLesson(form), form)
       setPreview(draft)
-      setResultTab(isQuestionOutput(form.outputType) ? 'soal' : 'materi')
+      setResultTab(isQuestionOutput(form.outputType) ? 'soal' : 'draft')
       setToast('AI belum tersedia, draft lokal berhasil dibuat.')
     }
   }
@@ -2610,7 +2544,7 @@ export default function ContentStudio({ user: propUser }) {
     const className = `Kelas ${form.className}`
     const topic = preview.topic || form.topic || 'Topik pembelajaran'
     const contentText = previewToPlainText(preview)
-    const supabaseTargets = ['materi', 'tugas', 'bank-soal', 'kuis']
+    const supabaseTargets = ['tugas', 'bank-soal', 'kuis']
 
     if (supabaseTargets.includes(target) && accessToken && user?.id) {
       try {
@@ -2623,27 +2557,6 @@ export default function ContentStudio({ user: propUser }) {
       } finally {
         setSavingTarget('')
       }
-      return
-    }
-
-
-    if (target === 'materi') {
-      appendStorageRows(teacherStorageKey('materials', user, subject), [{
-        id: `studio-material-${Date.now()}`,
-        title: preview.title || `Materi ${topic}`,
-        description: `Draft materi dari Siapkan Pembelajaran untuk topik ${topic}.`,
-        content: contentText,
-        subject,
-        className,
-        teacher: user?.name || 'Guru',
-        topic,
-        type: 'Teks',
-        status: 'Draft',
-        progress: 0,
-        source: 'local',
-      }])
-      setAnalyticsTick((current) => current + 1)
-      showDeliverySuccess('materi')
       return
     }
 
@@ -2739,7 +2652,7 @@ export default function ContentStudio({ user: propUser }) {
       subject: template.subject || form.subject,
       topic: template.topic || template.sampleTopic || form.topic,
       contentType: template.contentType || template.type || form.contentType,
-      outputType: template.outputType || form.outputType || 'Materi',
+      outputType: template.outputType === 'Materi' ? 'Tugas' : (template.outputType || form.outputType || 'Tugas'),
       level: template.level || form.level || 'Standar',
       duration: template.duration || form.duration || '2 JP',
     }
@@ -2748,7 +2661,7 @@ export default function ContentStudio({ user: propUser }) {
 
     setForm(nextForm)
     setPreview(draft)
-    setResultTab(nextForm.outputType === 'Materi' ? 'materi' : 'soal')
+    setResultTab(isQuestionOutput(nextForm.outputType) ? 'soal' : 'draft')
     setDeliveryStatus(null)
     setActiveTab('builder')
     setToast(`Template "${template.title}" siap digunakan. Cek preview lalu kirim ke fitur aplikasi.`)
@@ -2801,9 +2714,9 @@ export default function ContentStudio({ user: propUser }) {
 
     const draft = buildStudioConfiguredPreview(buildImportTextDraft(form), form)
     setPreview(draft)
-    setResultTab(form.outputType === 'Materi' ? 'materi' : 'soal')
+    setResultTab(isQuestionOutput(form.outputType) ? 'soal' : 'draft')
     setDeliveryStatus(null)
-    setToast(isMaterialOutput(form.outputType) ? 'Teks berhasil diubah menjadi bahan ajar siap review.' : 'Teks berhasil diubah menjadi draft asesmen siap review.')
+    setToast(isQuestionOutput(form.outputType) ? 'Teks berhasil diubah menjadi draft asesmen siap review.' : 'Teks berhasil diubah menjadi draft tugas siap review.')
   }
 
   function createVideoInteractive() {
@@ -2816,9 +2729,9 @@ export default function ContentStudio({ user: propUser }) {
 
     const draft = buildStudioConfiguredPreview(buildVideoInteractiveDraft(form), form)
     setPreview(draft)
-    setResultTab(isMaterialOutput(form.outputType) ? 'materi' : 'soal')
+    setResultTab(isQuestionOutput(form.outputType) ? 'soal' : 'draft')
     setDeliveryStatus(null)
-    setToast(isMaterialOutput(form.outputType) ? 'Panduan belajar dari video berhasil dibuat.' : 'Video interaktif berhasil dibuat dengan soal dan pertanyaan timestamp.')
+    setToast(isQuestionOutput(form.outputType) ? 'Video interaktif berhasil dibuat dengan soal dan pertanyaan timestamp.' : 'Link/video berhasil diubah menjadi draft tugas siap review.')
   }
 
   function updatePreviewQuestion(index, nextQuestion) {
@@ -2860,7 +2773,7 @@ export default function ContentStudio({ user: propUser }) {
       <PageHeader
         eyebrow="Ruang Kerja Guru"
         title="Siapkan pembelajaran."
-        description="Mulai dari konteks kelas dan kebutuhan siswa, lalu jadikan hasilnya bahan ajar, tugas, kuis, atau soal."
+        description="Mulai dari konteks kelas dan kebutuhan siswa, lalu jadikan hasilnya tugas, kuis, atau soal."
       />
 
       <div className="mx-auto grid max-w-6xl gap-4">
@@ -2957,15 +2870,36 @@ function StudioMiniNumberInput({ label, value, onChange, min = 0, suffix = '' })
   )
 }
 
+function StudioLinkEmbedPreview({ url }) {
+  const source = String(url || '').trim()
+  const embedUrl = getStudioEmbeddableVideoUrl(source)
+
+  if (!source) return null
+
+  if (embedUrl) {
+    return (
+      <div className="overflow-hidden rounded-2xl bg-slate-950 ring-1 ring-slate-200">
+        <iframe
+          title="Preview video sumber"
+          src={embedUrl}
+          className="aspect-video w-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-2xl bg-amber-50 px-4 py-3 text-xs font-bold leading-5 text-amber-800 ring-1 ring-amber-100">
+      Link ini akan dipakai sebagai sumber. Untuk video yang tampil langsung, gunakan URL YouTube atau Vimeo.
+    </div>
+  )
+}
+
 function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOptions, availableContentTypes, updateForm, generateDraft, saveContent, canSave = false, createFromText, createVideoInteractive }) {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const outputModes = [
-    {
-      id: 'Materi',
-      label: 'Bahan ajar',
-      description: 'Untuk dipelajari siswa',
-      icon: BookOpen,
-    },
     {
       id: 'Tugas',
       label: 'Tugas',
@@ -3009,14 +2943,12 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
   const selectedLevels = Array.isArray(form.cognitiveLevels) ? form.cognitiveLevels : ['C2', 'C3', 'C4']
   const isQuestionMode = isQuestionOutput(form.outputType)
   const isTaskMode = form.outputType === 'Tugas'
-  const contentTypeOptions = Array.isArray(availableContentTypes) && availableContentTypes.length > 0 ? availableContentTypes : ['Materi teks']
+  const contentTypeOptions = ['Instruksi tugas', 'LKPD', 'Proyek singkat', 'Diskusi kelompok', 'Latihan mandiri']
   const primaryActionLabel = form.outputType === 'Kuis'
     ? 'Siapkan kuis'
     : form.outputType === 'Soal'
       ? 'Siapkan soal'
-      : isTaskMode
-        ? 'Siapkan tugas'
-        : 'Siapkan bahan ajar'
+      : 'Siapkan tugas'
   const legacySourceModes = {
     'Tanpa Materi': 'Topik saja',
     'Ketik Manual': 'Tempel materi',
@@ -3031,7 +2963,7 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
       description: 'Isi kelas dan topik, sisanya memakai setelan aman.',
       icon: Wand2,
       patch: {
-        outputType: 'Materi',
+        outputType: 'Tugas',
         referenceMode: 'Topik saja',
         lessonPurpose: 'Pertemuan baru',
         studentReadiness: 'Belum dipetakan',
@@ -3046,7 +2978,7 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
       description: 'Tempel catatan, modul, artikel, atau link sumber.',
       icon: ClipboardList,
       patch: {
-        outputType: 'Materi',
+        outputType: 'Tugas',
         referenceMode: 'Tempel materi',
         lessonPurpose: 'Melanjutkan materi',
         duration: '2 JP',
@@ -3091,82 +3023,40 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
 
   return (
     <section className="glass-panel overflow-hidden rounded-[1.35rem]">
-      <div className="glass-dark rounded-b-none rounded-t-[1.35rem] p-4 text-white sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+      <div className="glass-dark rounded-b-none rounded-t-[1.35rem] px-4 py-4 text-white sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
             <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-sky-100">Siapkan Pembelajaran</p>
-            <h2 className="mt-1 text-2xl font-black">Rancang pertemuan dari kebutuhan kelas</h2>
-            <p className="mt-1 max-w-2xl text-sm font-medium leading-6 text-sky-50/80">
-              Konteks mengajar menjadi dasar sebelum memilih bahan ajar, tugas, kuis, atau soal.
-            </p>
+            <h2 className="mt-1 text-balance text-2xl font-black">Rancang tugas, kuis, dan soal</h2>
           </div>
-          <span className="rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-sky-50 ring-1 ring-white/15">
+          <span className="max-w-full truncate rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-sky-50 ring-1 ring-white/15">
             {form.subject || 'Pilih mapel'} · {form.className ? `Kelas ${form.className}` : 'Kelas belum dipilih'}
           </span>
         </div>
-
-        <div className="mt-5 grid gap-2 sm:grid-cols-4">
-          {summaryItems.map(([Icon, value, label]) => (
-            <div key={label} className="rounded-[0.95rem] bg-white/8 px-3 py-3 ring-1 ring-white/12">
-              <div className="flex items-center gap-2 text-sky-50">
-                <Icon size={15} />
-                <span className="text-[0.68rem] font-black uppercase tracking-[0.12em] opacity-75">{label}</span>
-              </div>
-              <p className="mt-2 truncate text-sm font-black text-white">{value}</p>
-            </div>
-          ))}
-        </div>
       </div>
 
-      <div className="grid gap-0 lg:grid-cols-[1.08fr_0.92fr]">
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="p-4 sm:p-5">
-          <div className="mb-5">
-            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className="text-sm font-black text-slate-950">Mulai dari alur cepat</p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-                  Pilih pola kerja, lalu guru cukup melengkapi kelas dan topik.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAdvanced((current) => !current)}
-                className="rounded-xl bg-white px-3 py-2 text-xs font-black text-[#0B3A5B] ring-1 ring-slate-200 transition hover:bg-[#F1F7FF]"
-              >
-                {showAdvanced ? 'Sembunyikan detail' : 'Detail opsional'}
-              </button>
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-3">
-              {quickModes.map((mode) => {
-                const Icon = mode.icon
-                return (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    onClick={() => applyQuickMode(mode)}
-                    className="rounded-2xl bg-white p-3 text-left ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:bg-[#F1F7FF] hover:shadow-[0_12px_28px_rgba(15,31,42,0.07)]"
-                  >
-                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#E0F2FE] text-[#0284c7]">
-                      <Icon size={17} />
-                    </span>
-                    <span className="mt-3 block text-sm font-black text-slate-950">{mode.label}</span>
-                    <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{mode.description}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
           <div className="mb-4 flex items-start gap-3">
             <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[0.9rem] bg-white/44 text-[#0284c7] ring-1 ring-white/60">
               <Users size={18} />
             </span>
-            <div>
-              <p className="text-sm font-black text-slate-950">Konteks mengajar</p>
-              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-                Field wajib dibuat pendek: kelas, mapel, topik, dan kondisi umum siswa.
-              </p>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-slate-950">Konteks mengajar</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                    Isi mapel, kelas, topik, lalu pilih sumber bahan. Detail lain cukup dibuka bila perlu.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced((current) => !current)}
+                  className="rounded-xl bg-white px-3 py-2 text-xs font-black text-[#0B3A5B] ring-1 ring-slate-200 transition hover:bg-[#F1F7FF]"
+                >
+                  {showAdvanced ? 'Sembunyikan detail' : 'Detail opsional'}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -3210,22 +3100,20 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
               <p className="text-sm font-black text-slate-950">Bahan guru</p>
               <span className="text-xs font-bold text-slate-400">{selectedSource.label}</span>
             </div>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="flex flex-wrap gap-2">
               {sourceModes.map(({ id, label, description, icon: Icon }) => (
                 <button
                   key={id}
                   onClick={() => updateForm('referenceMode', id)}
-                  className={`min-h-28 rounded-2xl p-3 text-left transition ${
+                  className={`inline-flex min-h-10 min-w-0 items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-black transition ${
                     activeSourceMode === id
                       ? 'bg-[#0B3A5B] text-white shadow-lg shadow-sky-950/10'
-                      : 'bg-slate-50 text-slate-700 ring-1 ring-slate-200 hover:bg-white'
+                      : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-[#F1F7FF]'
                   }`}
+                  title={description}
                 >
-                  <Icon size={18} />
-                  <span className="mt-3 block text-sm font-black">{label}</span>
-                  <span className={`mt-1 block text-xs font-semibold leading-5 ${activeSourceMode === id ? 'text-sky-50/80' : 'text-slate-500'}`}>
-                    {description}
-                  </span>
+                  <Icon size={15} />
+                  <span className="truncate">{label}</span>
                 </button>
               ))}
             </div>
@@ -3250,6 +3138,7 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
               <div className="glass-inset mt-3 grid gap-3 rounded-2xl p-3">
                 <TextField label="Link video / artikel" value={form.videoUrl || ''} onChange={(value) => updateForm('videoUrl', value)} placeholder="https://..." />
                 <TextField label="Judul sumber" value={form.videoTitle || ''} onChange={(value) => updateForm('videoTitle', value)} placeholder={`Video ${form.topic || template.sampleTopic}`} />
+                <StudioLinkEmbedPreview url={form.videoUrl} />
                 <button onClick={createVideoInteractive} className="w-fit rounded-xl bg-[#0B3A5B] px-4 py-2.5 text-xs font-black text-white">
                   Buat dari link
                 </button>
@@ -3262,35 +3151,38 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
           <div>
             <p className="text-sm font-black text-slate-950">Hasil yang disiapkan</p>
             <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-              Pilih satu keluaran yang paling cocok dengan kebutuhan pertemuan.
+              Pilih output akhir. Detail akan menyesuaikan otomatis.
             </p>
           </div>
 
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="mt-3 grid gap-2">
             {outputModes.map(({ id, label, description, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => updateForm('outputType', id)}
-                className={`min-h-20 rounded-[1rem] p-3 text-left ring-1 transition ${
+                className={`flex min-h-12 items-center justify-between gap-3 rounded-xl px-3 py-2 text-left ring-1 transition ${
                   form.outputType === id
                     ? 'bg-[#0B3A5B] text-white shadow-lg shadow-sky-950/10 ring-[#0B3A5B]'
                     : 'bg-white text-slate-700 ring-slate-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,31,42,0.07)]'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <Icon size={17} />
-                  <span className="text-sm font-black">{label}</span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <Icon size={16} className="shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black">{label}</span>
+                    <span className={`block truncate text-[11px] font-semibold ${form.outputType === id ? 'text-sky-50/78' : 'text-slate-500'}`}>
+                      {description}
+                    </span>
+                  </span>
                 </div>
-                <span className={`mt-2 block text-xs font-semibold leading-5 ${form.outputType === id ? 'text-sky-50/80' : 'text-slate-500'}`}>
-                  {description}
-                </span>
+                {form.outputType === id && <CheckCircle2 size={16} className="shrink-0" />}
               </button>
             ))}
           </div>
 
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="mt-5 text-sm font-black text-slate-950">{isQuestionMode ? 'Komposisi asesmen' : isTaskMode ? 'Rancangan tugas' : 'Rancangan bahan ajar'}</p>
+              <p className="mt-5 text-sm font-black text-slate-950">{isQuestionMode ? 'Komposisi asesmen' : 'Rancangan tugas'}</p>
               <p className="mt-1 text-xs font-semibold text-slate-500">
                 {isQuestionMode ? `${form.mcCount || 0} PG · ${selectedLevels.join(', ')}` : `${form.contentType || contentTypeOptions[0]} · ${form.duration}`}
               </p>
@@ -3306,7 +3198,7 @@ function SimpleStudioBuilder({ form, template, subjectOptions = smaSubjectOption
               </>
             ) : (
               <>
-                <SelectField label={isTaskMode ? 'Jenis tugas' : 'Jenis bahan ajar'} value={form.contentType || contentTypeOptions[0]} onChange={(value) => updateForm('contentType', value)} options={contentTypeOptions} />
+                <SelectField label="Jenis tugas" value={form.contentType || contentTypeOptions[0]} onChange={(value) => updateForm('contentType', value)} options={contentTypeOptions} />
                 <TextField label="Durasi belajar" value={form.duration || ''} onChange={(value) => updateForm('duration', value)} placeholder="2 JP" />
               </>
             )}
@@ -3405,14 +3297,11 @@ function StudioOutputWorkspace({
   setEditingQuestionIndex,
   updatePreviewQuestion,
 }) {
-  const materialMode = isMaterialOutput(form.outputType)
   const questionMode = isQuestionOutput(form.outputType)
   const questions = getStudioPreviewQuestions(preview, form)
   const total = questions.length
   const hasGenerated = Boolean(preview?.hasGenerated)
-  const tabs = materialMode
-    ? [['materi', 'Materi', BookOpen]]
-    : questionMode
+  const tabs = questionMode
       ? [
           ['soal', 'Soal', FileQuestion],
           ['kunci', 'Kunci', CheckCircle2],
@@ -3420,7 +3309,7 @@ function StudioOutputWorkspace({
           ['analisis', 'Analisis', Brain],
         ]
       : [
-          ['materi', form.outputType === 'Tugas' ? 'Tugas' : 'Draft', ClipboardList],
+          ['draft', form.outputType === 'Tugas' ? 'Tugas' : 'Draft', ClipboardList],
         ]
   const safeResultTab = tabs.some(([id]) => id === resultTab)
     ? resultTab
@@ -3480,7 +3369,7 @@ function StudioOutputWorkspace({
           {safeResultTab === 'kunci' && <StudioAnswerKey questions={questions} />}
           {safeResultTab === 'kisi' && <StudioBlueprint questions={questions} form={form} />}
           {safeResultTab === 'analisis' && <StudioAnalysisPanel questions={questions} form={form} />}
-          {safeResultTab === 'materi' && <StudioMaterialDocument preview={preview} />}
+          {safeResultTab === 'draft' && <StudioMaterialDocument preview={preview} outputType={form.outputType} />}
         </div>
 
         <div className="mt-4 border-t border-[#0B3A5B]/10 pt-4">
@@ -3848,11 +3737,7 @@ function StudioBlueprint({ questions, form }) {
 }
 
 function StudioPublishPanel({ outputType, publishToFeature, savingTarget, disabled = false }) {
-  const actions = isMaterialOutput(outputType)
-    ? [
-        ['materi', 'Simpan ke Materi Siswa', BookOpen, 'Masukkan draft ini ke halaman Materi sebagai bahan belajar siswa.'],
-      ]
-    : isQuestionOutput(outputType)
+  const actions = isQuestionOutput(outputType)
       ? [
           ['bank-soal', 'Bank Soal', FileQuestion, 'Simpan soal agar bisa diedit dan dipakai ulang.'],
           ['kuis', 'Kuis Live', PlayCircle, 'Buat draft kuis dari soal yang sudah dihasilkan.'],
@@ -3861,15 +3746,11 @@ function StudioPublishPanel({ outputType, publishToFeature, savingTarget, disabl
         ? [
             ['tugas', 'Tugas', ClipboardList, 'Simpan sebagai draft tugas siswa.'],
           ]
-        : [
-            ['materi', 'Materi', BookOpen, 'Simpan sebagai draft konten guru.'],
-          ]
-  const panelTitle = isMaterialOutput(outputType) ? 'Publikasi materi' : 'Kirim ke fitur guru'
-  const panelDescription = isMaterialOutput(outputType)
-    ? 'Simpan draft sebagai materi pelajaran. Materi tidak masuk Bank Soal, Kuis, atau Tugas.'
-    : 'Pilih tujuan setelah draft selesai direview.'
-  const readyLabel = isMaterialOutput(outputType) ? 'Siap disimpan' : 'Siap kirim'
-  const waitingLabel = isMaterialOutput(outputType) ? 'Menunggu materi' : 'Menunggu draft'
+        : []
+  const panelTitle = 'Kirim ke fitur guru'
+  const panelDescription = 'Pilih tujuan setelah draft selesai direview.'
+  const readyLabel = 'Siap kirim'
+  const waitingLabel = 'Menunggu draft'
 
   return (
     <div className="rounded-[1rem] bg-[#F1F7FF]/72 p-3 ring-1 ring-[#0B3A5B]/10">
@@ -3968,16 +3849,17 @@ function StudioAnalysisPanel({ questions, form }) {
   )
 }
 
-function StudioMaterialDocument({ preview }) {
+function StudioMaterialDocument({ preview, outputType = 'Tugas' }) {
   const sections = cleanStudioSections(preview.sections)
+  const documentLabel = outputType === 'Tugas' ? 'Draft tugas' : 'Draft'
 
   if (!preview?.hasGenerated || sections.length === 0) {
     return (
       <div className="mt-4 rounded-2xl border border-dashed border-[#99c8bd] bg-slate-50 p-5 text-center">
-        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#0284c7]">Belum ada bahan ajar</p>
+        <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#0284c7]">Belum ada draft</p>
         <h3 className="mt-2 text-2xl font-black text-slate-950">Hasil akan muncul setelah pembelajaran disiapkan.</h3>
         <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
-          Isi konteks kelas, topik, tujuan, dan kebutuhan siswa. Setelah itu klik <b>Siapkan bahan ajar</b>.
+          Isi konteks kelas, topik, tujuan, dan kebutuhan siswa. Setelah itu klik tombol siapkan.
         </p>
       </div>
     )
@@ -3986,8 +3868,8 @@ function StudioMaterialDocument({ preview }) {
   return (
     <div className="mt-5">
       <div className="mb-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
-        <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#0284c7]">Bahan ajar siswa</p>
-        <h3 className="mt-1 text-2xl font-black text-slate-950">{preview.title || preview.topic || 'Materi Pembelajaran'}</h3>
+        <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#0284c7]">{documentLabel}</p>
+        <h3 className="mt-1 text-2xl font-black text-slate-950">{preview.title || preview.topic || 'Draft Pembelajaran'}</h3>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
           {preview.subject || 'Mata pelajaran'} · {preview.className || 'Kelas'} · {preview.topic || 'Topik'}
         </p>

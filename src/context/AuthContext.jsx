@@ -36,6 +36,7 @@ const LOCAL_PREVIEW_USERS = {
     email: 'siswa@local.preview',
     role: 'siswa',
     avatar: 'S',
+    className: 'XI Pangeran Diponegoro',
   },
   guru: {
     id: 'local-preview-guru',
@@ -43,6 +44,7 @@ const LOCAL_PREVIEW_USERS = {
     email: 'guru@local.preview',
     role: 'guru',
     avatar: 'G',
+    subject: 'Bahasa Inggris',
   },
   admin: {
     id: 'local-preview-admin',

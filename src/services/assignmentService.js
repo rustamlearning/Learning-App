@@ -73,7 +73,7 @@ function toAssignmentItem(row) {
     subject: row.subjects?.name || 'Mata pelajaran',
     className: row.classes?.name || 'Semua kelas',
     teacher: row.users_profile?.name || 'Guru',
-    deadline: row.deadline ? row.deadline.slice(0, 10) : '',
+    deadline: row.deadline || '',
     status: row.status || 'Draft',
     submitted: 0,
     source: 'supabase',

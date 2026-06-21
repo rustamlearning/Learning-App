@@ -163,15 +163,15 @@ function Sidebar({ user, items, open, setOpen, onLogout }) {
 function groupNavItems(role, items) {
   const labels = {
     siswa: [
-      ['Utama', ['/dashboard', '/materi', '/tugas', '/progres']],
+      ['Utama', ['/dashboard', '/materi', '/tugas', '/kuis', '/progres']],
     ],
     guru: [
-      ['Mengajar', ['/dashboard', '/kelas', '/materi']],
+      ['Mengajar', ['/dashboard', '/kelas', '/materi', '/bank-soal', '/tugas', '/kuis-live']],
       ['Kelola', ['/daftar-nilai', '/daftar-hadir']],
     ],
     admin: [
       ['Konsol', ['/dashboard']],
-      ['Data Sekolah', ['/guru', '/siswa', '/kelas', '/wali-kelas', '/mapel']],
+      ['Data Sekolah', ['/guru', '/siswa', '/kelas', '/wali-kelas', '/mapel', '/daftar-hadir']],
       ['Sistem', ['/pengaturan', '/laporan', '/backup']],
     ],
     pimpinan: [
@@ -195,8 +195,8 @@ function getPageTitle(role, pathname, items) {
   const hiddenTitles = {
     siswa: {
       '/siswa/kelas': 'Belajar',
-      '/siswa/latihan': 'Tugas & Kuis',
-      '/siswa/kuis': 'Tugas & Kuis',
+      '/siswa/latihan': 'Latihan',
+      '/siswa/kuis': 'Kuis',
       '/siswa/flashcard': 'Belajar',
       '/siswa/ai-tutor': 'Bantuan belajar',
       '/siswa/leaderboard': 'Progres',
@@ -204,9 +204,9 @@ function getPageTitle(role, pathname, items) {
       '/siswa/profil': 'Profil',
     },
     guru: {
-      '/guru/bank-soal': 'Evaluasi',
-      '/guru/tugas': 'Evaluasi',
-      '/guru/kuis-live': 'Evaluasi',
+      '/guru/bank-soal': 'Bank Soal',
+      '/guru/tugas': 'Tugas',
+      '/guru/kuis-live': 'Kuis',
       '/guru/studio-konten': 'Siapkan Pembelajaran',
       '/guru/rapor': 'Rapor',
       '/guru/analisis-nilai': 'Analisis Nilai',
@@ -325,7 +325,7 @@ function Topbar({ user, title, showMenuButton = true, onMenu }) {
 }
 
 function BottomNavigation({ items = [], role }) {
-  const mobileItems = items.slice(0, role === 'guru' ? 5 : 4)
+  const mobileItems = items.slice(0, 5)
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#D9E6F5] bg-white/94 px-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-16px_44px_rgba(15,36,55,0.10)] backdrop-blur-xl lg:hidden" aria-label="Navigasi utama">
