@@ -66,7 +66,6 @@ import {
   teachers,
 } from '../data/dummyData.js'
 import { schoolMaterials } from '../data/englishMaterials.js'
-import { teacherDashboardMockAttention, teacherDashboardMockClassMetrics, teacherDashboardMockSchedule } from '../data/teacherDashboardMock.js'
 import {
   CompactList,
   ConfirmDialog,
@@ -248,6 +247,7 @@ function SiswaDashboard({ user, notify }) {
   const assignmentSubmissions = readLocalRowsByPrefix('islelearn-assignment-submissions-').filter((item) => item.userId === userId)
   const average = averageScore([...practiceResults, ...quizResults])
   const learningProgress = Math.min(100, completedMaterials.length * 20 + practiceResults.length * 10 + quizResults.length * 15 + assignmentSubmissions.length * 15)
+  const normalizedProgress = Math.max(0, Math.min(100, learningProgress))
 
   const classAssignments = assignments.filter((item) => !user?.className || item.className === user.className)
   const activeAssignments = classAssignments.filter((item) => ['Aktif', 'Terlambat'].includes(item.status))
@@ -257,20 +257,8 @@ function SiswaDashboard({ user, notify }) {
     .sort((a, b) => b.progress - a.progress)
     .slice(0, 3)
   const nextMaterial = continuingMaterials[0] || gradeMaterials[0]
+  const nextProgress = Math.min(100, Number(nextMaterial?.progress || 0))
   const todayWorkCount = activeAssignments.length + activeQuizzes.length
-  const subjectNames = uniqueSubjectNames(gradeMaterials)
-  const subjectTiles = (subjectNames.length ? subjectNames : highSchoolSubjectFolders.slice(0, 8)).slice(0, 12).map((subjectName, index) => {
-    const rows = gradeMaterials.filter((item) => sameSubjectName(item.subject, subjectName))
-    const visual = getStudentSubjectVisual(subjectName, index)
-    const totalProgress = rows.reduce((total, item) => total + Number(item.progress || 0), 0)
-    return {
-      ...visual,
-      name: subjectName,
-      shortName: getStudentSubjectShortLabel(subjectName),
-      count: rows.length,
-      progress: rows.length ? Math.round(totalProgress / rows.length) : 0,
-    }
-  })
 
   const priorityItems = [
     ...activeQuizzes.slice(0, 2).map((item) => ({
@@ -308,126 +296,140 @@ function SiswaDashboard({ user, notify }) {
 
   const featureTiles = [
     {
+      label: 'Belajar',
+      caption: `${gradeMaterials.length} materi kelasmu`,
+      icon: BookOpen,
+      path: '/siswa/materi',
+      tone: 'from-[#DCEEFF] to-[#F8FBFF] text-[#17446E] ring-[#B9D8F7]',
+    },
+    {
       label: 'Tugas',
       caption: `${activeAssignments.length} perlu dicek`,
       icon: ClipboardList,
       path: '/siswa/tugas',
-      tone: 'bg-[#FFF6DE] text-amber-800 ring-amber-100',
+      tone: 'from-[#FFF3D7] to-[#F8FBFF] text-amber-800 ring-amber-100',
     },
     {
       label: 'Kuis',
       caption: `${activeQuizzes.length} aktif`,
       icon: FileQuestion,
       path: '/siswa/kuis',
-      tone: 'bg-[#E8F8EF] text-emerald-800 ring-emerald-100',
-    },
-    {
-      label: 'Bank Soal',
-      caption: 'Latihan mandiri',
-      icon: FileQuestion,
-      path: '/siswa/kuis',
-      tone: 'bg-[#FFE9F1] text-rose-800 ring-rose-100',
+      tone: 'from-[#DCFCE7] to-[#F8FBFF] text-emerald-800 ring-emerald-100',
     },
     {
       label: 'Laporan Belajar',
       caption: average ? `Rata-rata ${average}` : `${learningProgress}% progres`,
       icon: LineChartIcon,
       path: '/siswa/progres',
-      tone: 'bg-[#E8F2FF] text-[#17446E] ring-[#B9D8F7]',
+      tone: 'from-[#E8F2FF] to-[#F8FBFF] text-[#17446E] ring-[#B9D8F7]',
     },
     {
       label: 'AI Tutor',
       caption: 'Tanya konsep sulit',
       icon: Bot,
       path: '/siswa/ai-tutor',
-      tone: 'bg-[#EEF2FF] text-indigo-800 ring-indigo-100',
+      tone: 'from-[#EEF7FF] to-[#F8FBFF] text-[#2F80D8] ring-[#B9D8F7]',
     },
     {
       label: 'Flashcard',
       caption: 'Review cepat',
       icon: Layers3,
       path: '/siswa/flashcard',
-      tone: 'bg-[#F1F5F9] text-slate-800 ring-slate-200',
+      tone: 'from-[#F1F5F9] to-[#F8FBFF] text-slate-800 ring-slate-200',
     },
   ]
 
   const metricItems = [
-    { label: 'Progres', value: `${learningProgress}%`, caption: `${completedMaterials.length} materi selesai`, icon: BarChart3, tone: 'blue' },
-    { label: 'Prioritas', value: todayWorkCount, caption: 'tugas/kuis aktif', icon: ClipboardCheck, tone: 'amber' },
-    { label: 'Aktivitas', value: practiceResults.length + quizResults.length + assignmentSubmissions.length, caption: 'latihan dan submission', icon: CalendarClock, tone: 'green' },
-    { label: 'Rata-rata', value: average || '-', caption: 'nilai tersimpan', icon: Award, tone: 'rose' },
-  ]
-
-  const quickActions = [
-    { label: 'Buka Belajar', icon: BookOpen, onClick: () => navigate('/siswa/materi') },
-    { label: 'Tugas', icon: ClipboardList, onClick: () => navigate('/siswa/tugas') },
-    { label: 'Kuis', icon: FileQuestion, onClick: () => navigate('/siswa/kuis') },
-    { label: 'Progres', icon: LineChartIcon, onClick: () => navigate('/siswa/progres') },
+    { label: 'Progres', value: `${normalizedProgress}%`, caption: `${completedMaterials.length} materi selesai`, icon: BarChart3 },
+    { label: 'Prioritas', value: todayWorkCount, caption: 'tugas/kuis aktif', icon: ClipboardCheck },
+    { label: 'Aktivitas', value: practiceResults.length + quizResults.length + assignmentSubmissions.length, caption: 'latihan dan submission', icon: CalendarClock },
+    { label: 'Rata-rata', value: average || '-', caption: 'nilai tersimpan', icon: Award },
   ]
 
   return (
     <div className="space-y-4">
-      <section className="grid gap-4 overflow-hidden rounded-[1.35rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_18px_52px_rgba(15,36,55,0.07)] lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="rounded-[1.1rem] bg-[#123B63] p-5 text-white">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-200">Ringkasan belajar</p>
-          <h2 className="mt-2 max-w-3xl text-balance text-3xl font-black leading-tight sm:text-4xl">
-            Halo, {firstName}. Ini kondisi belajarmu hari ini.
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-sky-100/82">
-            Dashboard dipakai untuk melihat progres, prioritas tugas, nilai, dan materi yang perlu dilanjutkan.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-2">
+      <section className="overflow-hidden rounded-[1.35rem] bg-white shadow-[0_18px_52px_rgba(15,36,55,0.07)] ring-1 ring-[#D9E6F5]">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="bg-[linear-gradient(135deg,#17446E_0%,#2F80D8_72%,#DDF2FF_100%)] p-5 text-white">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-xl bg-white/16 px-3 py-1.5 text-xs font-black ring-1 ring-white/18">{studentClassName}</span>
+              <span className="rounded-xl bg-white/16 px-3 py-1.5 text-xs font-black ring-1 ring-white/18">Kurikulum Merdeka</span>
+            </div>
+            <h2 className="mt-4 max-w-3xl text-balance text-3xl font-black leading-tight sm:text-[2.2rem]">
+              Halo, {firstName}. Cek progres dan lanjutkan yang penting dulu.
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-sky-100/88">
+              Dashboard ini untuk ringkasan. Pilih mapel dan daftar bab tetap ada di menu Belajar.
+            </p>
+            <div className="mt-5 grid gap-2 sm:grid-cols-3">
+              <div className="rounded-xl bg-white/14 px-3 py-2 ring-1 ring-white/18">
+                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-sky-100">Progres</p>
+                <p className="mt-1 font-mono text-2xl font-black">{normalizedProgress}%</p>
+              </div>
+              <div className="rounded-xl bg-white/14 px-3 py-2 ring-1 ring-white/18">
+                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-sky-100">Prioritas</p>
+                <p className="mt-1 font-mono text-2xl font-black">{todayWorkCount}</p>
+              </div>
+              <div className="rounded-xl bg-white/14 px-3 py-2 ring-1 ring-white/18">
+                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-sky-100">Rata-rata</p>
+                <p className="mt-1 font-mono text-2xl font-black">{average || '-'}</p>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                onClick={() => navigate('/siswa/materi')}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#123B63] shadow-[0_12px_24px_rgba(5,20,35,0.18)] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF] active:translate-y-0"
+              >
+                <BookOpen size={16} /> Buka Belajar
+              </button>
+              <button
+                onClick={() => navigate('/siswa/tugas')}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/18 transition hover:-translate-y-0.5 hover:bg-white/16 active:translate-y-0"
+              >
+                <ClipboardCheck size={16} /> Cek tugas
+              </button>
+            </div>
+          </div>
+
+          <article className="flex min-h-full flex-col justify-between bg-[#F8FBFF] p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">Lanjut terdekat</p>
+              <h3 className="mt-3 text-xl font-black leading-tight text-[#132437]">
+                {nextMaterial ? nextMaterial.title : 'Belum ada materi aktif'}
+              </h3>
+              <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 text-[#64748B]">
+                {nextMaterial ? `${nextMaterial.subject} · ${nextMaterial.topic || studentClassName}` : 'Materi akan muncul setelah guru mempublish bahan belajar.'}
+              </p>
+            </div>
+            <div className="mt-5">
+              <div className="flex items-center justify-between text-xs font-black text-[#64748B]">
+                <span>Progress materi</span>
+                <span>{nextProgress}%</span>
+              </div>
+              <div className="mt-2 h-3 overflow-hidden rounded-full bg-white ring-1 ring-[#D9E6F5]">
+                <div className="h-3 rounded-full bg-[#2F80D8]" style={{ width: `${nextProgress}%` }} />
+              </div>
+            </div>
             <button
               onClick={() => navigate('/siswa/materi')}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#123B63] shadow-[0_12px_24px_rgba(5,20,35,0.18)] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF] active:translate-y-0"
+              className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#17446E] px-4 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#2F80D8]"
             >
-              <BookOpen size={16} /> Lanjut belajar
+              <PlayCircle size={16} /> Buka materi
             </button>
-            <button
-              onClick={() => navigate('/siswa/tugas')}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/18 transition hover:-translate-y-0.5 hover:bg-white/16 active:translate-y-0"
-            >
-              <ClipboardCheck size={16} /> {todayWorkCount} prioritas
-            </button>
-          </div>
+          </article>
         </div>
-
-        <article className="flex min-h-full flex-col rounded-[1.1rem] border border-[#D9E6F5] bg-[#F8FBFF] p-5">
-          <div className="flex items-center justify-between gap-3">
-            <StatusBadge tone="teal">{studentClassName}</StatusBadge>
-            <span className="rounded-xl bg-white px-3 py-1 text-xs font-black text-[#64748B] ring-1 ring-[#D9E6F5]">{learningProgress}%</span>
-          </div>
-          <h3 className="mt-4 text-2xl font-black leading-tight text-[#132437]">Target belajar</h3>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">
-            {nextMaterial ? `Lanjutkan: ${nextMaterial.title}` : 'Belum ada materi untuk dilanjutkan.'}
-          </p>
-          <div className="mt-5">
-            <div className="flex items-center justify-between text-xs font-black text-[#64748B]">
-              <span>Progress materi</span>
-              <span>{Number(nextMaterial?.progress || 0)}%</span>
-            </div>
-            <div className="mt-2 h-3 rounded-full bg-white ring-1 ring-[#D9E6F5]">
-              <div className="h-3 rounded-full bg-[#2F80D8]" style={{ width: `${Math.min(100, Number(nextMaterial?.progress || 0))}%` }} />
-            </div>
-          </div>
-          <button
-            onClick={() => navigate('/siswa/materi')}
-            className="mt-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#17446E] px-4 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#2F80D8]"
-          >
-            <PlayCircle size={16} /> Buka halaman belajar
-          </button>
-        </article>
       </section>
 
-      <DashboardColorGrid items={metricItems} />
+      <MetricStrip items={metricItems} />
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <CompactList
-          title="Prioritas hari ini"
-          description="Tugas dan kuis terdekat ditaruh paling atas."
-          items={priorityItems}
-          emptyLabel="Belum ada tugas aktif. Kamu bisa lanjut belajar materi terakhir."
-        />
+      <div className={`grid gap-4 ${priorityItems.length > 0 && materialItems.length > 0 ? 'xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]' : ''}`}>
+        {priorityItems.length > 0 && (
+          <CompactList
+            title="Prioritas hari ini"
+            description="Tugas dan kuis terdekat ditaruh paling atas."
+            items={priorityItems}
+          />
+        )}
 
         <CompactList
           title="Lanjutkan materi"
@@ -436,100 +438,25 @@ function SiswaDashboard({ user, notify }) {
         />
       </div>
 
-      <DashboardActionGrid items={quickActions} title="Akses cepat" />
-    </div>
-  )
-
-  return (
-    <div className="space-y-4">
-      <section className="overflow-hidden rounded-[1.35rem] border border-[#D9E6F5] bg-[#EAF1F8] shadow-[0_18px_52px_rgba(15,36,55,0.08)]">
-        <div className="bg-gradient-to-r from-[#38BDF8] via-[#5B8DEF] to-[#7C6CF2] px-5 pb-16 pt-7 text-white">
-          <p className="text-sm font-black">Mau belajar apa hari ini, {firstName}?</p>
-          <h2 className="mt-2 max-w-3xl text-balance text-3xl font-black leading-tight sm:text-4xl">
-            Pilih mapel, lanjutkan materi, atau cek tugas dari satu ruang belajar.
-          </h2>
-        </div>
-
-        <div className="-mt-9 px-4 pb-4">
-          <div className="grid gap-3 rounded-[1.15rem] bg-white p-3 shadow-[0_16px_42px_rgba(15,36,55,0.12)] ring-1 ring-[#D9E6F5] lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-            <button
-              onClick={() => navigate('/siswa/materi')}
-              className="flex min-h-14 min-w-0 items-center gap-3 rounded-[0.95rem] bg-white px-4 text-left text-[#64748B] ring-1 ring-[#D9E6F5] transition hover:bg-[#F8FBFF] hover:text-[#17446E]"
-            >
-              <Search size={22} className="shrink-0 text-[#17446E]" />
-              <span className="truncate text-base font-bold">Coba cari materi belajarmu di sini</span>
-            </button>
-
-            <button
-              onClick={() => navigate('/siswa/materi')}
-              className="flex min-h-14 items-center justify-between gap-4 rounded-[0.95rem] border border-[#FF7A3D] bg-[#FFF7ED] px-4 text-sm font-black text-[#132437] transition hover:bg-white lg:min-w-[18rem]"
-            >
-              <span className="min-w-0 truncate">{studentClassName} · Kurikulum Merdeka</span>
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#FF7A3D] text-white">
-                <ChevronDown size={17} />
-              </span>
-            </button>
-          </div>
-
-          {nextMaterial && (
-            <button
-              onClick={() => navigate('/siswa/materi')}
-              className="mt-3 flex w-full flex-col gap-2 rounded-[1rem] bg-[#E5F3FF] px-4 py-3 text-left ring-1 ring-[#CFE6FF] transition hover:bg-white sm:flex-row sm:items-center sm:justify-between"
-            >
-              <span className="min-w-0">
-                <span className="block text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">Lanjutkan materi</span>
-                <span className="mt-1 block truncate text-sm font-black text-[#132437]">{nextMaterial.title}</span>
-              </span>
-              <span className="shrink-0 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5]">Buka</span>
-            </button>
-          )}
-        </div>
-      </section>
-
-      <section className="rounded-[1.35rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_12px_36px_rgba(15,36,55,0.055)]">
+      <section className="rounded-[1.15rem] bg-white p-3 shadow-[0_10px_28px_rgba(15,36,55,0.045)] ring-1 ring-[#D9E6F5]">
         <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-2xl font-black text-[#132437]">IsleBelajar</h2>
-            <p className="mt-1 text-sm font-semibold text-[#64748B]">Mapel untuk jenjang kelasmu.</p>
+            <h2 className="text-lg font-black text-[#132437]">Akses cepat siswa</h2>
+            <p className="mt-1 text-sm font-semibold text-[#64748B]">Menu utama tanpa mengulang daftar mapel.</p>
           </div>
-          <span className="text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">{subjectTiles.length} mapel</span>
+          <span className="text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">{featureTiles.length} menu</span>
         </div>
-
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
-          {subjectTiles.map((subject) => {
-            const Icon = subject.icon
-            return (
-              <button
-                key={subject.name}
-                onClick={() => navigate('/siswa/materi')}
-                className="group min-h-[8.75rem] rounded-[1rem] border border-[#E5EDF7] bg-white p-3 text-center shadow-[0_10px_24px_rgba(15,36,55,0.035)] transition hover:-translate-y-0.5 hover:border-[#B9D8F7] hover:shadow-[0_16px_34px_rgba(15,36,55,0.08)]"
-              >
-                <span className={`mx-auto grid h-14 w-14 place-items-center rounded-2xl ring-1 ${subject.tone}`}>
-                  <Icon size={26} />
-                </span>
-                <span className="mt-3 block min-h-[2.5rem] text-sm font-black leading-tight text-[#132437]">{subject.shortName}</span>
-                <span className="mt-2 inline-flex rounded-full bg-[#F8FBFF] px-2.5 py-1 text-[11px] font-black text-[#64748B] ring-1 ring-[#D9E6F5]">
-                  {subject.count || 0} materi
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </section>
-
-      <section className="rounded-[1.35rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_12px_36px_rgba(15,36,55,0.055)]">
-        <h2 className="text-xl font-black text-[#132437]">Lainnya di IsleLearn</h2>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {featureTiles.map((item) => {
             const Icon = item.icon
             return (
               <button
                 key={item.label}
                 onClick={() => navigate(item.path)}
-                className={`flex min-h-16 items-center gap-3 rounded-[0.95rem] px-4 text-left ring-1 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_12px_28px_rgba(15,36,55,0.08)] ${item.tone}`}
+                className={`group flex min-h-16 items-center gap-3 rounded-[0.95rem] bg-gradient-to-br px-3 py-2 text-left ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,36,55,0.08)] ${item.tone}`}
               >
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/82 shadow-sm ring-1 ring-white/80">
-                  <Icon size={21} />
+                  <Icon size={20} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-black">{item.label}</span>
@@ -540,21 +467,6 @@ function SiswaDashboard({ user, notify }) {
           })}
         </div>
       </section>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <CompactList
-          title="Prioritas hari ini"
-          description="Tugas dan kuis terdekat ditaruh paling atas."
-          items={priorityItems}
-          emptyLabel="Belum ada tugas aktif. Kamu bisa lanjut belajar materi terakhir."
-        />
-
-        <CompactList
-          title="Lanjutkan materi"
-          items={materialItems}
-          emptyLabel="Materi belum tersedia untuk kelas ini. Cek kembali nanti atau tanya guru."
-        />
-      </div>
     </div>
   )
 }
@@ -707,16 +619,16 @@ function LineChartIcon(props) {
 
 const studentSubjectVisualRules = [
   { match: 'matematika', icon: Calculator, tone: 'bg-[#E8F2FF] text-[#2563EB] ring-[#B9D8F7]' },
-  { match: 'bahasa indonesia', icon: BookOpen, tone: 'bg-[#FFE9F1] text-rose-700 ring-rose-100' },
-  { match: 'bahasa inggris', icon: Languages, tone: 'bg-[#EEF2FF] text-indigo-700 ring-indigo-100' },
+  { match: 'bahasa indonesia', icon: BookOpen, tone: 'bg-[#F0F7FF] text-[#17446E] ring-[#B9D8F7]' },
+  { match: 'bahasa inggris', icon: Languages, tone: 'bg-[#EEF7FF] text-[#2F80D8] ring-[#B9D8F7]' },
   { match: 'biologi', icon: Microscope, tone: 'bg-[#E8F8EF] text-emerald-700 ring-emerald-100' },
   { match: 'kimia', icon: FlaskConical, tone: 'bg-[#FFF6DE] text-amber-700 ring-amber-100' },
   { match: 'fisika', icon: Atom, tone: 'bg-[#ECFEFF] text-cyan-700 ring-cyan-100' },
-  { match: 'ekonomi', icon: BarChart3, tone: 'bg-[#FFF7ED] text-orange-700 ring-orange-100' },
+  { match: 'ekonomi', icon: BarChart3, tone: 'bg-[#FFF6DE] text-amber-800 ring-amber-100' },
   { match: 'geografi', icon: Globe2, tone: 'bg-[#DCFCE7] text-green-700 ring-green-100' },
-  { match: 'sejarah', icon: Landmark, tone: 'bg-[#F5F3FF] text-violet-700 ring-violet-100' },
+  { match: 'sejarah', icon: Landmark, tone: 'bg-[#F1F5F9] text-slate-700 ring-slate-200' },
   { match: 'pancasila', icon: Scale, tone: 'bg-[#E0F2FE] text-sky-700 ring-sky-100' },
-  { match: 'seni', icon: Palette, tone: 'bg-[#FAE8FF] text-fuchsia-700 ring-fuchsia-100' },
+  { match: 'seni', icon: Palette, tone: 'bg-[#FFF6DE] text-amber-800 ring-amber-100' },
   { match: 'jasmani', icon: Trophy, tone: 'bg-[#FEF3C7] text-yellow-800 ring-yellow-100' },
   { match: 'prakarya', icon: Handshake, tone: 'bg-[#F1F5F9] text-slate-700 ring-slate-200' },
   { match: 'informatika', icon: LaptopIcon, tone: 'bg-[#E0F2FE] text-[#0369A1] ring-sky-100' },
@@ -726,8 +638,8 @@ const studentSubjectFallbackTones = [
   'bg-[#E8F2FF] text-[#2563EB] ring-[#B9D8F7]',
   'bg-[#FFF6DE] text-amber-700 ring-amber-100',
   'bg-[#E8F8EF] text-emerald-700 ring-emerald-100',
-  'bg-[#FFE9F1] text-rose-700 ring-rose-100',
-  'bg-[#EEF2FF] text-indigo-700 ring-indigo-100',
+  'bg-[#F0F7FF] text-[#17446E] ring-[#B9D8F7]',
+  'bg-[#EEF7FF] text-[#2F80D8] ring-[#B9D8F7]',
   'bg-[#ECFEFF] text-cyan-700 ring-cyan-100',
 ]
 
@@ -1017,8 +929,8 @@ function MateriBelajar({ user, notify, appContext }) {
 
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-[1.35rem] border border-[#D9E6F5] bg-[#EAF1F8] shadow-[0_18px_52px_rgba(15,36,55,0.08)]">
-        <div className="bg-gradient-to-r from-[#38BDF8] via-[#5B8DEF] to-[#7C6CF2] px-5 pb-16 pt-7 text-white">
+      <section className="overflow-hidden rounded-[1.35rem] border border-[#D9E6F5] bg-white shadow-[0_18px_52px_rgba(15,36,55,0.08)]">
+        <div className="bg-[linear-gradient(135deg,#17446E_0%,#2F80D8_66%,#DDF2FF_100%)] px-5 pb-16 pt-7 text-white">
           <p className="text-sm font-black">Mau belajar apa hari ini?</p>
           <h1 className="mt-2 max-w-3xl text-balance text-3xl font-black leading-tight sm:text-4xl">
             Pilih mapel, lalu lanjutkan bab yang tersedia untuk kelasmu.
@@ -1039,10 +951,10 @@ function MateriBelajar({ user, notify, appContext }) {
 
             <button
               type="button"
-              className="flex min-h-14 items-center justify-between gap-4 rounded-[0.95rem] border border-[#FF7A3D] bg-[#FFF7ED] px-4 text-sm font-black text-[#132437] lg:min-w-[18rem]"
+              className="flex min-h-14 items-center justify-between gap-4 rounded-[0.95rem] border border-[#B9D8F7] bg-[#F8FBFF] px-4 text-sm font-black text-[#132437] lg:min-w-[18rem]"
             >
               <span className="min-w-0 truncate">{studentClassName || 'Kelas'} · Kurikulum Merdeka</span>
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#FF7A3D] text-white">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#2F80D8] text-white">
                 <ChevronDown size={17} />
               </span>
             </button>
@@ -1503,20 +1415,20 @@ const materialCardTones = [
     buttonHover: '#D97706',
   },
   {
-    background: 'linear-gradient(145deg, #F5F3FF 0%, #FFFFFF 58%, #EDE9FE 100%)',
-    border: '#DDD6FE',
-    accent: '#6D28D9',
-    accentSoft: '#EDE9FE',
-    button: '#4C1D95',
-    buttonHover: '#7C3AED',
+    background: 'linear-gradient(145deg, #F8FAFC 0%, #FFFFFF 58%, #EAF4FF 100%)',
+    border: '#D9E6F5',
+    accent: '#17446E',
+    accentSoft: '#EAF4FF',
+    button: '#17446E',
+    buttonHover: '#2F80D8',
   },
   {
-    background: 'linear-gradient(145deg, #FFF1F2 0%, #FFFFFF 58%, #FFE4E6 100%)',
-    border: '#FECDD3',
-    accent: '#BE123C',
-    accentSoft: '#FFE4E6',
-    button: '#9F1239',
-    buttonHover: '#E11D48',
+    background: 'linear-gradient(145deg, #EEF7FF 0%, #FFFFFF 58%, #DDF2FF 100%)',
+    border: '#B9D8F7',
+    accent: '#2F80D8',
+    accentSoft: '#E8F2FF',
+    button: '#0B3A5B',
+    buttonHover: '#2F80D8',
   },
   {
     background: 'linear-gradient(145deg, #ECFEFF 0%, #FFFFFF 58%, #CFFAFE 100%)',
@@ -4263,117 +4175,121 @@ function printAttendancePdf(report) {
 const teacherDashboardThresholds = {
   lowAttendanceRate: 85,
   lowGradeScore: 75,
-  minPublishedMaterials: 1,
 }
 
-const teacherDashboardDayLabels = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+const teacherWorkflowTones = [
+  'from-[#E0F2FE] to-[#F8FBFF] text-sky-800 ring-sky-100',
+  'from-[#DCFCE7] to-[#F8FBFF] text-emerald-800 ring-emerald-100',
+  'from-[#FEF3C7] to-[#F8FBFF] text-amber-800 ring-amber-100',
+  'from-[#F5F3FF] to-[#F8FBFF] text-violet-800 ring-violet-100',
+  'from-[#FFE4E6] to-[#F8FBFF] text-rose-800 ring-rose-100',
+  'from-[#ECFEFF] to-[#F8FBFF] text-cyan-800 ring-cyan-100',
+]
 
-function parseTeacherScheduleTime(value = '00:00') {
-  const [hour, minute] = String(value || '00:00').split(':').map(Number)
-  return {
-    hour: Number.isFinite(hour) ? hour : 0,
-    minute: Number.isFinite(minute) ? minute : 0,
-  }
+function isTeacherDashboardStatus(item, status) {
+  return normalizeLookupText(item?.status || '') === normalizeLookupText(status)
 }
 
-function formatTeacherScheduleTime(value = '') {
-  return String(value || '').replace(':', '.')
+function isTeacherDashboardPublished(item) {
+  return ['publish', 'published', 'aktif', 'active'].includes(normalizeLookupText(item?.status || ''))
 }
 
-function buildTeacherScheduleDate(meeting, timeValue, now = new Date()) {
-  const { hour, minute } = parseTeacherScheduleTime(timeValue)
-  const targetDay = Number(meeting?.day ?? now.getDay())
-  let dayOffset = (targetDay - now.getDay() + 7) % 7
-  const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, hour, minute, 0, 0)
-  return date
+function isTeacherDashboardDraft(item) {
+  const status = normalizeLookupText(item?.status || '')
+  return !status || ['draft', 'draf', 'belumpublish', 'belumterbit'].includes(status)
 }
 
-function getTeacherDashboardSchedule(user, subjectOptions = []) {
-  // TODO: sambungkan ke tabel jadwal mengajar permanen ketika data jadwal sudah tersedia.
-  const scopedSchedule = teacherDashboardMockSchedule.filter((item) => (
-    !subjectOptions.length || subjectOptions.some((subject) => sameSubjectName(subject, item.subject))
-  ))
-  if (scopedSchedule.length) return scopedSchedule
-  const fallbackSubject = subjectOptions[0] || getTeacherSubjectNames(user)[0] || 'Mata pelajaran'
-  return teacherDashboardMockSchedule.map((item) => ({ ...item, subject: fallbackSubject }))
+function getTeacherDashboardMaterials(user, subjectOptions = []) {
+  return filterRowsByTeacherSubjects(uniqueRowsById([
+    ...schoolMaterials,
+    ...readLocalRowsByPrefix('islelearn-teacher-materials-'),
+  ]).map((item) => ({
+    ...item,
+    subject: canonicalSubjectName(item.subject || item.mapel || item.category || 'Mata pelajaran'),
+    status: item.status || 'Publish',
+  })), user, subjectOptions)
 }
 
-function getNextTeacherMeeting(scheduleRows = [], now = new Date()) {
-  const meetings = scheduleRows.map((meeting) => {
-    let startDate = buildTeacherScheduleDate(meeting, meeting.start, now)
-    let endDate = buildTeacherScheduleDate(meeting, meeting.end, now)
-    if (endDate <= startDate) {
-      endDate = new Date(endDate.getTime() + 24 * 60 * 60 * 1000)
-    }
-    const isOngoing = startDate <= now && endDate > now
-    if (!isOngoing && endDate <= now) {
-      startDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000)
-      endDate = new Date(endDate.getTime() + 7 * 24 * 60 * 60 * 1000)
-    }
-    const startIso = toLocalIsoDate(startDate)
-    const nowIso = toLocalIsoDate(now)
-    const diffMinutes = Math.round((startDate.getTime() - now.getTime()) / 60000)
-    const dayLabel = teacherDashboardDayLabels[startDate.getDay()] || ''
-    const relativeLabel = isOngoing
-      ? 'Sedang berlangsung'
-      : startIso === nowIso
-        ? `${Math.max(1, diffMinutes)} menit lagi`
-        : startIso === addDaysIso(nowIso, 1)
-          ? 'Besok'
-          : dayLabel
+function getTeacherDashboardAssignments(user, subjectOptions = []) {
+  return filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-assignments-'), user, subjectOptions)
+}
 
-    return {
-      ...meeting,
-      startDate,
-      endDate,
-      dateIso: startIso,
-      dayLabel,
-      timeLabel: `${formatTeacherScheduleTime(meeting.start)} - ${formatTeacherScheduleTime(meeting.end)}`,
-      relativeLabel,
-      isOngoing,
-      isToday: startIso === nowIso,
-    }
-  })
+function getTeacherDashboardQuizzes(user, subjectOptions = []) {
+  return filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-quizzes-'), user, subjectOptions)
+}
 
-  return meetings.sort((left, right) => left.startDate - right.startDate)[0] || null
+function getTeacherDashboardQuestions(user, subjectOptions = []) {
+  return filterRowsByTeacherSubjects(getAllLocalTeacherQuestions(), user, subjectOptions)
 }
 
 function getTeacherClassStudentCount(roster = [], className = '') {
   const targetClass = promoteClassName(className)
   const count = roster.filter((student) => promoteClassName(student.className) === targetClass).length
-  return count || 24
+  return count
 }
 
-function buildTeacherAiBanner({ draftAssignments = [], draftQuizzes = [], publishedMaterials = [] } = {}) {
-  if (draftQuizzes.length > 0) {
-    return {
-      title: `${draftQuizzes.length} draft kuis belum dipublish`,
-      description: 'Selesaikan kuis yang sudah disiapkan agar siswa bisa mengerjakannya tepat waktu.',
-      actionLabel: 'Lanjutkan draft',
-      target: '/guru/kuis-live',
-    }
+function getTeacherAssignmentSubmissionCount(assignments = []) {
+  return assignments.reduce((sum, assignment) => sum + getLocalAssignmentSubmissions(assignment.id).length, 0)
+}
+
+function getTeacherDashboardTimestamp(row = {}) {
+  const value = row.updatedAt || row.updated_at || row.createdAt || row.created_at || row.submittedAt || row.date || row.deadline
+  const time = value ? new Date(value).getTime() : 0
+  return Number.isFinite(time) ? time : 0
+}
+
+function formatTeacherDashboardDate(value) {
+  const time = getTeacherDashboardTimestamp({ date: value })
+  if (!time) return 'Tanggal belum ada'
+  return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(time))
+}
+
+function getAssignmentDashboardClassNames(assignment = {}) {
+  const names = normalizeAssignmentClassNames(assignment)
+  return names.length ? names.map(promoteClassName) : [promoteClassName(assignment.className || 'Kelas umum')]
+}
+
+function buildTeacherAttentionItems({ draftMaterials = [], draftAssignments = [], draftQuizzes = [], activeAssignments = [], attendanceSessions = [], gradebookRows = [], questionRows = [] }) {
+  const items = []
+
+  if (draftMaterials.length > 0) {
+    items.push({
+      id: 'draft-materials',
+      type: 'materi',
+      priority: 10,
+      icon: BookOpen,
+      title: `${draftMaterials.length} materi masih draft`,
+      meta: 'Publish materi yang sudah siap agar bisa dibuka siswa.',
+      actionLabel: 'Buka materi',
+      target: '/guru/materi',
+    })
   }
+
   if (draftAssignments.length > 0) {
-    return {
-      title: `${draftAssignments.length} draft tugas belum aktif`,
-      description: 'Cek instruksi, target kelas, dan deadline sebelum tugas dibuka untuk siswa.',
+    items.push({
+      id: 'draft-assignments',
+      type: 'tugas',
+      priority: 20,
+      icon: ClipboardCheck,
+      title: `${draftAssignments.length} tugas belum aktif`,
+      meta: 'Lengkapi instruksi, target kelas, dan tenggat sebelum diterbitkan.',
       actionLabel: 'Cek tugas',
       target: '/guru/tugas',
-    }
+    })
   }
-  if (publishedMaterials.length < teacherDashboardThresholds.minPublishedMaterials) {
-    return {
-      title: 'Materi minggu ini belum siap',
-      description: 'Buat bahan ajar ringkas dari catatan, link, atau dokumen yang sudah dimiliki.',
-      actionLabel: 'Siapkan materi',
-      target: '/guru/studio-konten',
-    }
-  }
-  return null
-}
 
-function buildTeacherAttentionItems({ activeAssignments = [], attendanceSessions = [], gradebookRows = [], nextMeeting, todayDate }) {
-  const items = []
+  if (draftQuizzes.length > 0) {
+    items.push({
+      id: 'draft-quizzes',
+      type: 'kuis',
+      priority: 30,
+      icon: FileQuestion,
+      title: `${draftQuizzes.length} kuis masih draft`,
+      meta: 'Publish kuis saat soal dan durasi sudah siap.',
+      actionLabel: 'Cek kuis',
+      target: '/guru/kuis-live',
+    })
+  }
 
   activeAssignments.forEach((assignment) => {
     const submissionCount = getLocalAssignmentSubmissions(assignment.id).length
@@ -4381,7 +4297,7 @@ function buildTeacherAttentionItems({ activeAssignments = [], attendanceSessions
     items.push({
       id: `assignment-${assignment.id}`,
       type: 'tugas',
-      priority: 20,
+      priority: 40,
       icon: ClipboardCheck,
       title: `${submissionCount} submission perlu dinilai`,
       meta: `${assignment.title || 'Tugas'} · ${assignment.className || 'Kelas'}`,
@@ -4390,22 +4306,18 @@ function buildTeacherAttentionItems({ activeAssignments = [], attendanceSessions
     })
   })
 
-  if (nextMeeting?.isToday) {
-    const hasAttendance = attendanceSessions.some((session) => (
-      session.date === todayDate && promoteClassName(session.className) === promoteClassName(nextMeeting.className)
-    ))
-    if (!hasAttendance) {
-      items.push({
-        id: `attendance-${nextMeeting.className}-${todayDate}`,
-        type: 'absensi',
-        priority: nextMeeting.isOngoing ? 10 : 30,
-        icon: CalendarClock,
-        title: nextMeeting.isOngoing ? 'Absensi kelas sedang berjalan belum diisi' : 'Absensi kelas hari ini belum diisi',
-        meta: `${nextMeeting.className} · ${nextMeeting.timeLabel}`,
-        actionLabel: 'Mulai absensi',
-        target: '/guru/daftar-hadir',
-      })
-    }
+  const gradeSummary = summarizeGradebook(gradebookRows)
+  if (gradeSummary.total > 0 && gradeSummary.readyRate < 100) {
+    items.push({
+      id: 'gradebook-incomplete',
+      type: 'nilai',
+      priority: 50,
+      icon: BarChart3,
+      title: `${gradeSummary.total - gradeSummary.completed} nilai belum lengkap`,
+      meta: `${gradeSummary.completed}/${gradeSummary.total} nilai sudah terisi.`,
+      actionLabel: 'Isi nilai',
+      target: '/guru/daftar-nilai',
+    })
   }
 
   const lowGradeByClass = new Map()
@@ -4449,27 +4361,34 @@ function buildTeacherAttentionItems({ activeAssignments = [], attendanceSessions
     })
   })
 
-  if (!items.length && !activeAssignments.length && !attendanceSessions.length && !gradebookRows.length) {
-    return teacherDashboardMockAttention.map((item, index) => ({
-      ...item,
-      priority: 70 + index,
-      icon: item.type === 'nilai' ? BarChart3 : UsersRound,
-    }))
+  if (questionRows.length === 0) {
+    items.push({
+      id: 'bank-soal-empty',
+      type: 'soal',
+      priority: 90,
+      icon: FileQuestion,
+      title: 'Bank soal mapel belum berisi soal',
+      meta: 'Tambahkan atau impor soal agar tugas dan kuis lebih cepat dibuat.',
+      actionLabel: 'Buka bank soal',
+      target: '/guru/bank-soal',
+    })
   }
 
-  return items.sort((left, right) => left.priority - right.priority).slice(0, 5)
+  return items.sort((left, right) => left.priority - right.priority).slice(0, 6)
 }
 
-function buildTeacherClassOverview({ scheduleRows = [], gradebookRows = [], attendanceSessions = [], roster = [] }) {
-  const realClassNames = [
-    ...scheduleRows.map((row) => row.className),
+function collectTeacherDashboardClassNames({ assignments = [], gradebookRows = [], attendanceSessions = [] }) {
+  return Array.from(new Set([
+    ...assignments.flatMap(getAssignmentDashboardClassNames),
     ...gradebookRows.map((row) => row.className),
     ...attendanceSessions.map((row) => row.className),
-  ].filter(Boolean).map(promoteClassName)
-  const classNames = new Set(realClassNames.length ? realClassNames : teacherDashboardMockClassMetrics.map((row) => promoteClassName(row.className)))
+  ].filter(Boolean).map(promoteClassName))).filter((className) => className && className !== 'Kelas umum')
+}
 
-  return Array.from(classNames).slice(0, 6).map((className) => {
-    const mockMetric = teacherDashboardMockClassMetrics.find((item) => promoteClassName(item.className) === className)
+function buildTeacherClassOverview({ assignments = [], gradebookRows = [], attendanceSessions = [], roster = [] }) {
+  const classNames = collectTeacherDashboardClassNames({ assignments, gradebookRows, attendanceSessions })
+
+  return classNames.slice(0, 6).map((className) => {
     const classGrades = gradebookRows.filter((row) => promoteClassName(row.className) === className)
     const gradeSummary = summarizeGradebook(classGrades)
     const classAttendanceRows = attendanceSessions
@@ -4477,123 +4396,262 @@ function buildTeacherClassOverview({ scheduleRows = [], gradebookRows = [], atte
       .flatMap((session) => Array.isArray(session.rows) ? session.rows : [])
     const attendanceSummary = summarizeAttendanceRows(classAttendanceRows)
     const studentCount = getTeacherClassStudentCount(roster, className)
+    const classAssignments = assignments.filter((assignment) => getAssignmentDashboardClassNames(assignment).includes(className))
 
     return {
       className,
       studentCount,
-      average: gradeSummary.average || mockMetric?.average || 0,
-      attendanceRate: attendanceSummary.rate || mockMetric?.progress || 0,
-      note: gradeSummary.average ? `${gradeSummary.completed}/${gradeSummary.total} nilai terisi` : mockMetric?.note || 'Siap dikelola',
+      average: gradeSummary.average || 0,
+      attendanceRate: attendanceSummary.rate || 0,
+      assignmentCount: classAssignments.length,
+      note: gradeSummary.total
+        ? `${gradeSummary.completed}/${gradeSummary.total} nilai terisi`
+        : attendanceSummary.total
+          ? `${attendanceSummary.total} data absensi`
+          : `${classAssignments.length} tugas/kuis terkait`,
     }
   })
+}
+
+function buildTeacherSubjectWorkflowRows({ subjects = [], materials = [], assignments = [], quizzes = [], questions = [], gradebookRows = [], attendanceSessions = [] }) {
+  const subjectNames = subjects.length
+    ? subjects
+    : uniqueSubjectNames(
+      materials.map((item) => item.subject),
+      assignments.map((item) => item.subject),
+      quizzes.map((item) => item.subject),
+      questions.map((item) => item.subject),
+      gradebookRows.map((item) => item.subject),
+      attendanceSessions.map((item) => item.subject),
+    )
+
+  return subjectNames.map((subject, index) => {
+    const subjectMaterials = materials.filter((item) => sameSubjectName(item.subject, subject))
+    const subjectAssignments = assignments.filter((item) => sameSubjectName(item.subject, subject))
+    const subjectQuizzes = quizzes.filter((item) => sameSubjectName(item.subject, subject))
+    const subjectQuestions = questions.filter((item) => sameSubjectName(item.subject, subject))
+    const subjectGrades = gradebookRows.filter((item) => sameSubjectName(item.subject, subject))
+    const subjectAttendance = attendanceSessions.filter((item) => sameSubjectName(item.subject, subject))
+    const gradeSummary = summarizeGradebook(subjectGrades)
+    const attendanceSummary = summarizeAttendanceSessions(subjectAttendance)
+
+    return {
+      subject,
+      tone: teacherWorkflowTones[index % teacherWorkflowTones.length],
+      materials: subjectMaterials.length,
+      activeAssignments: subjectAssignments.filter((item) => isTeacherDashboardStatus(item, 'Aktif')).length,
+      quizzes: subjectQuizzes.filter((item) => isTeacherDashboardStatus(item, 'Publish')).length,
+      questions: subjectQuestions.length,
+      gradeReadyRate: gradeSummary.readyRate,
+      attendanceRate: attendanceSummary.rate,
+    }
+  })
+}
+
+function buildTeacherRecentActivities({ materials = [], assignments = [], quizzes = [], attendanceSessions = [], gradebookRows = [] }) {
+  const entries = [
+    ...materials
+      .filter((item) => getTeacherDashboardTimestamp(item))
+      .map((item) => ({
+        id: `material-${item.id}`,
+        type: 'Materi',
+        icon: BookOpen,
+        title: item.title || item.topic || 'Materi',
+        meta: `${item.subject || 'Mapel'} · ${item.status || 'Publish'}`,
+        target: '/guru/materi',
+        timestamp: getTeacherDashboardTimestamp(item),
+      })),
+    ...assignments.map((item) => ({
+      id: `assignment-${item.id}`,
+      type: 'Tugas',
+      icon: ClipboardCheck,
+      title: item.title || 'Tugas',
+      meta: `${item.subject || 'Mapel'} · ${item.status || 'Draft'}`,
+      target: '/guru/tugas',
+      timestamp: getTeacherDashboardTimestamp(item),
+    })),
+    ...quizzes.map((item) => ({
+      id: `quiz-${item.id}`,
+      type: 'Kuis',
+      icon: FileQuestion,
+      title: item.title || 'Kuis',
+      meta: `${item.subject || 'Mapel'} · ${item.status || 'Draft'}`,
+      target: '/guru/kuis-live',
+      timestamp: getTeacherDashboardTimestamp(item),
+    })),
+    ...attendanceSessions.map((item) => ({
+      id: `attendance-${item.id}`,
+      type: 'Absensi',
+      icon: CalendarClock,
+      title: item.className || 'Kelas',
+      meta: `${item.subject || 'Mapel'} · ${formatAttendanceDate(item.date)}`,
+      target: '/guru/daftar-hadir',
+      timestamp: getTeacherDashboardTimestamp(item),
+    })),
+    ...gradebookRows
+      .filter((item) => getTeacherDashboardTimestamp(item))
+      .map((item) => ({
+        id: `grade-${item.id}`,
+        type: 'Nilai',
+        icon: BarChart3,
+        title: item.name || 'Siswa',
+        meta: `${item.subject || 'Mapel'} · ${item.finalScore || 0}`,
+        target: '/guru/daftar-nilai',
+        timestamp: getTeacherDashboardTimestamp(item),
+      })),
+  ]
+
+  return entries
+    .filter((item) => item.timestamp)
+    .sort((left, right) => right.timestamp - left.timestamp)
+    .slice(0, 6)
 }
 
 function TeacherDashboardSkeleton() {
   return (
     <div className="space-y-5" aria-label="Memuat dashboard guru">
-      <div className="h-64 animate-pulse rounded-[1.35rem] bg-[#EAF4FF]" />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="h-72 animate-pulse rounded-[1.15rem] bg-white ring-1 ring-[#D9E6F5]" />
-        <div className="h-72 animate-pulse rounded-[1.15rem] bg-white ring-1 ring-[#D9E6F5]" />
+      <div className="h-56 animate-pulse rounded-[1.35rem] bg-[#EAF4FF]" />
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className="h-48 animate-pulse rounded-[1.15rem] bg-white ring-1 ring-[#D9E6F5]" />
+        <div className="h-48 animate-pulse rounded-[1.15rem] bg-white ring-1 ring-[#D9E6F5]" />
+        <div className="h-48 animate-pulse rounded-[1.15rem] bg-white ring-1 ring-[#D9E6F5]" />
       </div>
     </div>
   )
 }
 
-function HeroNextClassCard({ meeting, studentCount = 0, subjectLabel, onOpenMaterials, onStartAttendance }) {
+function TeacherWorkflowHero({ teacherFirstName, subjectLabel, summary, actions = [] }) {
   return (
-    <section className="overflow-hidden rounded-[1.35rem] bg-[#0B3A5B] text-white shadow-[0_22px_60px_rgba(11,58,91,0.22)]">
-      <div className="grid gap-4 bg-[radial-gradient(circle_at_82%_16%,rgba(77,184,255,0.28),transparent_32%),linear-gradient(135deg,#0B3A5B_0%,#145A86_48%,#0F766E_100%)] p-5 md:p-6 xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-end">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-xl bg-white/12 px-3 py-1.5 text-xs font-black text-white ring-1 ring-white/20">
-              <CalendarClock size={15} /> Kelas berikutnya
-            </span>
-            <span className="rounded-xl bg-[#F7C948] px-3 py-1.5 text-xs font-black text-[#102A43]">
-              {meeting?.relativeLabel || 'Belum ada jadwal'}
-            </span>
+    <section className="overflow-hidden rounded-[1.35rem] bg-[linear-gradient(135deg,#E0F2FE_0%,#F8FBFF_48%,#ECFDF5_100%)] p-4 shadow-[0_18px_52px_rgba(15,36,55,0.08)] ring-1 ring-[#D9E6F5]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)] xl:items-stretch">
+        <div className="rounded-[1.1rem] bg-white/78 p-4 ring-1 ring-white/80">
+          <div>
+            <p className="text-xs font-black uppercase text-[#2F80D8]">Ruang kerja guru</p>
+            <h2 className="mt-2 max-w-2xl text-balance text-3xl font-black leading-tight text-[#102A43] sm:text-[2.05rem]">
+              {teacherFirstName}, pilih pekerjaan utama hari ini.
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#52647A]">
+              Dashboard mengikuti data nyata yang guru buat. Tidak memakai jadwal tetap.
+            </p>
           </div>
-          <h2 className="mt-5 max-w-3xl text-balance text-3xl font-black leading-tight sm:text-4xl">
-            {meeting?.className || 'Tidak ada kelas terjadwal'}
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-white/78 sm:text-base">
-            {meeting
-              ? `${meeting.subject || subjectLabel} · ${meeting.dayLabel}, ${meeting.timeLabel}${meeting.room ? ` · ${meeting.room}` : ''}`
-              : 'Tambahkan jadwal mengajar agar dashboard bisa menampilkan kelas berikutnya secara otomatis.'}
-          </p>
-          <div className="mt-5 flex flex-wrap gap-2 text-xs font-black text-white/84">
-            <span className="rounded-xl bg-white/12 px-3 py-2 ring-1 ring-white/16">{studentCount} siswa</span>
-            <span className="rounded-xl bg-white/12 px-3 py-2 ring-1 ring-white/16">{subjectLabel}</span>
-            {meeting?.isOngoing && <span className="rounded-xl bg-emerald-300 px-3 py-2 text-emerald-950">Sedang mengajar</span>}
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <span className="truncate rounded-xl bg-white/82 px-3 py-2 text-xs font-black text-[#17446E] ring-1 ring-[#CDE4F8]">{subjectLabel}</span>
+            <span className="rounded-xl bg-white/82 px-3 py-2 text-xs font-black text-emerald-800 ring-1 ring-emerald-100">{summary.activeAssignments} tugas aktif</span>
+            <span className="rounded-xl bg-white/82 px-3 py-2 text-xs font-black text-amber-800 ring-1 ring-amber-100">{summary.submissions} submission</span>
           </div>
         </div>
-        <div className="grid gap-2">
-          <button onClick={onOpenMaterials} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[0.95rem] bg-white px-4 text-sm font-black text-[#0B3A5B] shadow-[0_16px_34px_rgba(3,18,34,0.18)] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF] active:translate-y-0">
-            <BookOpen size={18} /> Buka materi
-          </button>
-          <button onClick={onStartAttendance} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[0.95rem] bg-[#F7C948] px-4 text-sm font-black text-[#102A43] shadow-[0_16px_34px_rgba(3,18,34,0.16)] transition hover:-translate-y-0.5 hover:bg-[#FFD666] active:translate-y-0">
-            <CalendarClock size={18} /> Mulai absensi
-          </button>
+
+        <div className="rounded-[1.1rem] bg-white/78 p-3 ring-1 ring-white/80">
+          <div className="mb-3 flex items-center justify-between gap-3 px-1">
+            <p className="text-xs font-black uppercase text-[#17446E]">Fitur sering dibuka</p>
+            <span className="rounded-lg bg-[#EAF4FF] px-2.5 py-1 text-[11px] font-black text-[#2F80D8] ring-1 ring-[#CDE4F8]">Aksi utama</span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {actions.slice(0, 4).map((action, index) => {
+              const Icon = action.icon
+              return (
+                <button key={action.label} onClick={action.onClick} className={`group flex min-h-[5.1rem] items-center gap-2.5 rounded-[1rem] bg-gradient-to-br p-2.5 text-left shadow-[0_12px_28px_rgba(15,36,55,0.06)] ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,36,55,0.1)] ${teacherWorkflowTones[index % teacherWorkflowTones.length]}`}>
+                  <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-white/85 ring-1 ring-white/80">
+                    <Icon size={17} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black leading-tight">{action.label}</span>
+                    <span className="mt-1 block truncate text-xs font-bold opacity-75">{action.caption}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
     </section>
   )
 }
 
-function AIContextBanner({ banner, onAction }) {
-  if (!banner) return null
+function TeacherDashboardStatsStrip({ items = [] }) {
   return (
-    <section className="flex flex-col gap-3 rounded-[1.05rem] bg-[#F8FBFF] p-4 ring-1 ring-[#D9E6F5] sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-start gap-3">
-        <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
-          <Sparkles size={19} />
-        </span>
-        <div>
-          <h3 className="text-base font-black leading-tight text-[#132437]">{banner.title}</h3>
-          <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">{banner.description}</p>
-        </div>
+    <section className="rounded-[1.1rem] bg-white p-2 shadow-[0_10px_28px_rgba(15,36,55,0.045)] ring-1 ring-[#D9E6F5]" aria-label="Ringkasan statistik guru">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {items.map(({ label, value, caption, icon: Icon = Sparkles }) => (
+          <div key={label} className="flex min-h-16 items-center gap-3 rounded-[0.95rem] bg-[#F8FBFF] px-3 py-2 ring-1 ring-[#E5EDF7]">
+            <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-white text-[#2F80D8] ring-1 ring-[#D9E6F5]">
+              <Icon size={17} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-baseline gap-2">
+                <span className="font-mono text-xl font-black leading-none text-[#132437]">{value}</span>
+                <span className="truncate text-xs font-black text-[#64748B]">{label}</span>
+              </span>
+              <span className="mt-1 block truncate text-xs font-semibold text-[#64748B]">{caption}</span>
+            </span>
+          </div>
+        ))}
       </div>
-      <button onClick={onAction} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[0.85rem] bg-[#0B3A5B] px-4 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#145A86] active:translate-y-0">
-        <Sparkles size={15} /> {banner.actionLabel}
-      </button>
     </section>
   )
 }
 
-function AttentionSection({ items = [], onNavigate }) {
+function TeacherDashboardActionStrip({ actions = [] }) {
   return (
-    <DashboardPanel title="Perlu perhatian" description="Urutan dibuat berdasarkan hal yang paling cepat perlu tindakan.">
+    <section className="rounded-[1.1rem] bg-white p-2.5 shadow-[0_10px_28px_rgba(15,36,55,0.045)] ring-1 ring-[#D9E6F5]">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase text-[#17446E]">Aksi lanjutan</p>
+        <span className="rounded-lg bg-[#F8FBFF] px-2.5 py-1 text-[11px] font-black text-[#64748B] ring-1 ring-[#D9E6F5]">{actions.length} menu</span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {actions.map((action, index) => {
+          const Icon = action.icon
+          return (
+            <button key={action.label} onClick={action.onClick} className={`group flex min-h-14 items-center gap-2.5 rounded-[0.9rem] bg-gradient-to-br px-3 py-2 text-left ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,36,55,0.08)] ${teacherWorkflowTones[index % teacherWorkflowTones.length]}`}>
+              <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl bg-white/82 ring-1 ring-white/80">
+                <Icon size={16} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-black leading-tight">{action.label}</span>
+                <span className="mt-0.5 block truncate text-xs font-bold opacity-75">{action.caption}</span>
+              </span>
+              <span className="hidden rounded-lg bg-white/62 px-2 py-1 text-[10px] font-black ring-1 ring-white/70 2xl:inline-flex">{action.badge}</span>
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+function TeacherAttentionSection({ items = [], onNavigate }) {
+  const attentionGridClass = items.length > 1 ? 'grid gap-2 xl:grid-cols-2' : 'grid gap-2'
+
+  return (
+    <DashboardPanel title="Perlu dikerjakan" description="Dibaca dari data materi, tugas, kuis, absensi, nilai, dan bank soal guru.">
       {items.length ? (
-        <div className="space-y-2">
-          {items.map((item) => <AttentionItem key={item.id} item={item} onNavigate={onNavigate} />)}
+        <div className={attentionGridClass}>
+          {items.map((item) => <TeacherAttentionItem key={item.id} item={item} onNavigate={onNavigate} />)}
         </div>
       ) : (
         <div className="rounded-[1rem] bg-emerald-50 p-4 text-emerald-900 ring-1 ring-emerald-100">
-          <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-white text-emerald-700 ring-1 ring-emerald-100">
-              <ClipboardCheck size={18} />
-            </span>
-            <div>
-              <p className="text-sm font-black">Semua aman hari ini.</p>
-              <p className="mt-1 text-sm font-semibold leading-6 text-emerald-800/80">Belum ada tugas menunggu, absensi tertinggal, atau nilai yang perlu segera dicek.</p>
-            </div>
-          </div>
+          <p className="text-sm font-black">Belum ada pekerjaan tertunda dari data saat ini.</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-emerald-800/80">Gunakan tombol kerja cepat untuk membuat materi, tugas, kuis, absensi mapel, atau input nilai.</p>
         </div>
       )}
     </DashboardPanel>
   )
 }
 
-function AttentionItem({ item, onNavigate }) {
+function TeacherAttentionItem({ item, onNavigate }) {
   const Icon = item.icon || Megaphone
   const tones = {
     absensi: 'bg-rose-50 text-rose-700 ring-rose-100',
     siswa: 'bg-rose-50 text-rose-700 ring-rose-100',
     tugas: 'bg-amber-50 text-amber-700 ring-amber-100',
+    kuis: 'bg-violet-50 text-violet-700 ring-violet-100',
+    materi: 'bg-sky-50 text-sky-700 ring-sky-100',
     nilai: 'bg-slate-100 text-slate-700 ring-slate-200',
+    soal: 'bg-cyan-50 text-cyan-700 ring-cyan-100',
   }
   return (
-    <article className="grid gap-3 rounded-[1rem] bg-white p-3 ring-1 ring-[#D9E6F5] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+    <article className="grid gap-3 rounded-[1rem] bg-[#F8FBFF] p-3 ring-1 ring-[#D9E6F5] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
       <span className={`grid h-11 w-11 place-items-center rounded-[0.9rem] ring-1 ${tones[item.type] || tones.nilai}`}>
         <Icon size={18} />
       </span>
@@ -4608,28 +4666,132 @@ function AttentionItem({ item, onNavigate }) {
   )
 }
 
+function TeacherSubjectWorkflow({ rows = [], onNavigate }) {
+  return (
+    <DashboardPanel title="Mapel yang diampu" description="Mapel mengikuti data guru. Tidak perlu memilih mapel lagi di dashboard.">
+      {rows.length ? (
+        <div className="space-y-3">
+          {rows.map((row) => (
+            <article key={row.subject} className={`grid gap-4 rounded-[1rem] bg-gradient-to-br p-4 ring-1 md:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] md:items-center ${row.tone}`}>
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-xl bg-white/82 ring-1 ring-white/80">
+                  <BookOpen size={20} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-base font-black leading-tight">{row.subject}</span>
+                  <span className="mt-1 inline-flex rounded-lg bg-white/70 px-2.5 py-1 text-[11px] font-black ring-1 ring-white/70">{row.materials} materi publish</span>
+                </span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <button onClick={() => onNavigate('/guru/tugas')} className="rounded-xl bg-white/68 px-3 py-2 text-left text-xs font-black ring-1 ring-white/80">{row.activeAssignments} tugas aktif</button>
+                <button onClick={() => onNavigate('/guru/kuis-live')} className="rounded-xl bg-white/68 px-3 py-2 text-left text-xs font-black ring-1 ring-white/80">{row.quizzes} kuis publish</button>
+                <button onClick={() => onNavigate('/guru/bank-soal')} className="rounded-xl bg-white/68 px-3 py-2 text-left text-xs font-black ring-1 ring-white/80">{row.questions} soal</button>
+                <button onClick={() => onNavigate('/guru/daftar-nilai')} className="rounded-xl bg-white/68 px-3 py-2 text-left text-xs font-black ring-1 ring-white/80">{row.gradeReadyRate}% nilai</button>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <EmptyState title="Mapel guru belum terdeteksi" description="Admin dapat melengkapi mapel pada data guru agar dashboard hanya menampilkan alur kerja sesuai mapel yang diampu." />
+      )}
+    </DashboardPanel>
+  )
+}
+
 function ClassOverviewGrid({ rows = [], onOpen }) {
   return (
-    <DashboardPanel title="Kelas saya" description="Ringkasan rombel yang sering diajar.">
-      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-        {rows.map((row) => (
-          <button key={row.className} onClick={() => onOpen(row.className)} className="group rounded-[1rem] bg-[#F8FBFF] p-4 text-left ring-1 ring-[#D9E6F5] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_16px_34px_rgba(15,36,55,0.08)]">
-            <div className="flex items-start justify-between gap-3">
-              <span className="grid h-11 w-11 place-items-center rounded-[0.9rem] bg-white text-[#2F80D8] ring-1 ring-[#D9E6F5]">
-                <School size={19} />
-              </span>
-              <span className="font-mono text-2xl font-black text-[#132437]">{row.average || '-'}</span>
-            </div>
-            <h3 className="mt-4 text-base font-black leading-tight text-[#132437]">{row.className}</h3>
-            <p className="mt-1 text-xs font-semibold text-[#64748B]">{row.studentCount} siswa · rata-rata nilai</p>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#EAF4FF]">
-              <span className="block h-full rounded-full bg-[#2F80D8]" style={{ width: `${Math.min(100, row.attendanceRate || 0)}%` }} />
-            </div>
-            <p className="mt-2 text-xs font-bold text-[#64748B]">{row.attendanceRate || 0}% kehadiran · {row.note}</p>
-          </button>
-        ))}
-      </div>
+    <DashboardPanel title="Kelas yang sedang dikelola" description="Muncul hanya bila ada data tugas, absensi mapel, atau nilai yang terkait kelas.">
+      {rows.length ? (
+        <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+          {rows.map((row) => (
+            <button key={row.className} onClick={() => onOpen(row.className)} className="group rounded-[1rem] bg-[#F8FBFF] p-4 text-left ring-1 ring-[#D9E6F5] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_16px_34px_rgba(15,36,55,0.08)]">
+              <div className="flex items-start justify-between gap-3">
+                <span className="grid h-11 w-11 place-items-center rounded-[0.9rem] bg-white text-[#2F80D8] ring-1 ring-[#D9E6F5]">
+                  <School size={19} />
+                </span>
+                <span className="font-mono text-2xl font-black text-[#132437]">{row.average || '-'}</span>
+              </div>
+              <h3 className="mt-4 text-base font-black leading-tight text-[#132437]">{row.className}</h3>
+              <p className="mt-1 text-xs font-semibold text-[#64748B]">{row.studentCount || '-'} siswa · {row.assignmentCount} tugas</p>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#EAF4FF]">
+                <span className="block h-full rounded-full bg-[#2F80D8]" style={{ width: `${Math.min(100, row.attendanceRate || 0)}%` }} />
+              </div>
+              <p className="mt-2 text-xs font-bold text-[#64748B]">{row.attendanceRate || 0}% kehadiran · {row.note}</p>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <EmptyState title="Belum ada kelas aktif dari data guru" description="Kelas akan muncul setelah guru membuat tugas, mengisi absensi mapel, atau menginput daftar nilai." />
+      )}
     </DashboardPanel>
+  )
+}
+
+function TeacherActivityFeed({ rows = [], onNavigate }) {
+  return (
+    <DashboardPanel title="Aktivitas terakhir" description="Aktivitas tersimpan yang punya tanggal perubahan.">
+      {rows.length ? (
+        <div className="space-y-2">
+          {rows.map((row) => {
+            const Icon = row.icon
+            return (
+              <button key={row.id} onClick={() => onNavigate(row.target)} className="grid w-full gap-3 rounded-[1rem] bg-[#F8FBFF] p-3 text-left ring-1 ring-[#D9E6F5] transition hover:bg-white sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+                <span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-[#2F80D8] ring-1 ring-[#D9E6F5]">
+                  <Icon size={17} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-black text-[#132437]">{row.title}</span>
+                  <span className="mt-1 block truncate text-xs font-semibold text-[#64748B]">{row.type} · {row.meta}</span>
+                </span>
+                <span className="text-xs font-black text-[#64748B]">{formatTeacherDashboardDate(row.timestamp)}</span>
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="rounded-[1rem] bg-[#F8FBFF] p-4 text-sm font-semibold leading-6 text-[#64748B] ring-1 ring-[#D9E6F5]">
+          Belum ada aktivitas bertanggal dari materi, tugas, kuis, absensi, atau nilai.
+        </div>
+      )}
+    </DashboardPanel>
+  )
+}
+
+function TeacherDashboardGuideCard({ onNavigate }) {
+  const guideItems = [
+    { label: 'Publish materi', caption: 'Agar siswa punya bahan belajar.', icon: BookOpen, target: '/guru/materi' },
+    { label: 'Isi absensi', caption: 'Catat kehadiran saat mengajar.', icon: CalendarClock, target: '/guru/daftar-hadir' },
+    { label: 'Input nilai', caption: 'Nilai siswa langsung tersusun.', icon: BarChart3, target: '/guru/daftar-nilai' },
+  ]
+
+  return (
+    <section className="rounded-[1.1rem] bg-[#0B3A5B] p-4 text-white shadow-[0_16px_40px_rgba(11,58,91,0.18)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:items-center">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-100">Alur kerja</p>
+          <h2 className="mt-2 text-xl font-black leading-tight">Mulai dari satu pekerjaan utama.</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-sky-100/82">
+            Aktivitas dan kelas akan terisi otomatis setelah guru mulai menyimpan data.
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {guideItems.map((item) => {
+            const Icon = item.icon
+            return (
+              <button key={item.label} onClick={() => onNavigate(item.target)} className="flex min-h-16 items-center gap-3 rounded-[0.95rem] bg-white/10 px-3 text-left ring-1 ring-white/14 transition hover:-translate-y-0.5 hover:bg-white/16">
+                <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-white text-[#17446E]">
+                  <Icon size={17} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-black">{item.label}</span>
+                  <span className="mt-0.5 block truncate text-xs font-semibold text-sky-100/82">{item.caption}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -4650,40 +4812,72 @@ function GuruDashboard({ user }) {
     try {
       const hasAssignedSubjects = getTeacherSubjectNames(user).length > 0
       const teacherSubjectLabel = hasAssignedSubjects ? teacherSubjectOptions.join(', ') : 'Semua mapel'
-      const teacherMaterials = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-materials-'), user, teacherSubjectOptions)
-      const teacherAssignments = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-assignments-'), user, teacherSubjectOptions)
-      const teacherQuizzes = filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-quizzes-'), user, teacherSubjectOptions)
-      const attendanceSessions = filterAttendanceSessionsByMode(getAttendanceSessions(user), { type: 'daily' })
+      const teacherMaterials = getTeacherDashboardMaterials(user, teacherSubjectOptions)
+      const teacherAssignments = getTeacherDashboardAssignments(user, teacherSubjectOptions)
+      const teacherQuizzes = getTeacherDashboardQuizzes(user, teacherSubjectOptions)
+      const questionRows = getTeacherDashboardQuestions(user, teacherSubjectOptions)
+      const attendanceSessions = filterAttendanceSessionsByMode(getAttendanceSessions(user), { type: 'subject' })
       const gradebookRows = filterRowsByTeacherSubjects(getGradebookRows(user), user, teacherSubjectOptions)
       const roster = getAttendanceRoster()
-      const todayDate = toLocalIsoDate()
-      const isStatus = (item, status) => String(item?.status || '').toLowerCase() === status.toLowerCase()
-      const publishedMaterials = teacherMaterials.filter((item) => isStatus(item, 'Publish'))
-      const activeAssignments = teacherAssignments.filter((item) => isStatus(item, 'Aktif'))
-      const draftAssignments = teacherAssignments.filter((item) => !isStatus(item, 'Aktif'))
-      const draftQuizzes = teacherQuizzes.filter((item) => isStatus(item, 'Draft'))
-      const scheduleRows = getTeacherDashboardSchedule(user, teacherSubjectOptions)
-      const nextMeeting = getNextTeacherMeeting(scheduleRows)
+      const publishedMaterials = teacherMaterials.filter(isTeacherDashboardPublished)
+      const draftMaterials = teacherMaterials.filter(isTeacherDashboardDraft)
+      const activeAssignments = teacherAssignments.filter((item) => isTeacherDashboardStatus(item, 'Aktif'))
+      const draftAssignments = teacherAssignments.filter((item) => !isTeacherDashboardStatus(item, 'Aktif'))
+      const publishedQuizzes = teacherQuizzes.filter((item) => isTeacherDashboardStatus(item, 'Publish'))
+      const draftQuizzes = teacherQuizzes.filter((item) => isTeacherDashboardStatus(item, 'Draft'))
+      const monthRange = getAttendanceMonthRange(toLocalIsoDate())
+      const monthAttendanceSessions = attendanceSessions.filter((session) => isIsoDateInRange(session.date, monthRange))
+      const attendanceSummary = summarizeAttendanceSessions(monthAttendanceSessions)
+      const gradeSummary = summarizeGradebook(gradebookRows)
+      const submissions = getTeacherAssignmentSubmissionCount(teacherAssignments)
 
       return {
         error: null,
         teacherSubjectLabel,
-        teacherFirstName: user?.name?.split(' ')[0] || 'Guru',
-        nextMeeting,
-        nextMeetingStudentCount: getTeacherClassStudentCount(roster, nextMeeting?.className),
-        aiBanner: buildTeacherAiBanner({ draftAssignments, draftQuizzes, publishedMaterials }),
+        teacherFirstName: (user?.name?.split(' ')[0] || 'Guru').replace(/[,.]+$/, ''),
+        summary: {
+          materials: publishedMaterials.length,
+          activeAssignments: activeAssignments.length,
+          draftAssignments: draftAssignments.length,
+          publishedQuizzes: publishedQuizzes.length,
+          submissions,
+          questionRows: questionRows.length,
+          attendanceRate: attendanceSummary.rate,
+          attendanceRecorded: attendanceSummary.total,
+          gradeReadyRate: gradeSummary.readyRate,
+          gradeCompleted: gradeSummary.completed,
+          gradeTotal: gradeSummary.total,
+        },
         attentionItems: buildTeacherAttentionItems({
+          draftMaterials,
+          draftAssignments,
+          draftQuizzes,
           activeAssignments,
           attendanceSessions,
           gradebookRows,
-          nextMeeting,
-          todayDate,
+          questionRows,
+        }),
+        subjectRows: buildTeacherSubjectWorkflowRows({
+          subjects: hasAssignedSubjects ? teacherSubjectOptions : [],
+          materials: teacherMaterials,
+          assignments: teacherAssignments,
+          quizzes: teacherQuizzes,
+          questions: questionRows,
+          gradebookRows,
+          attendanceSessions,
         }),
         classRows: buildTeacherClassOverview({
-          scheduleRows,
+          assignments: teacherAssignments,
           gradebookRows,
           attendanceSessions,
           roster,
+        }),
+        activityRows: buildTeacherRecentActivities({
+          materials: teacherMaterials,
+          assignments: teacherAssignments,
+          quizzes: teacherQuizzes,
+          attendanceSessions,
+          gradebookRows,
         }),
       }
     } catch (error) {
@@ -4705,31 +4899,50 @@ function GuruDashboard({ user }) {
 
   return (
     <div className="space-y-5">
-      <section className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl">
-            <p className="text-xs font-black uppercase text-[#2F80D8]">Selamat mengajar, {dashboard.teacherFirstName}</p>
-            <h2 className="mt-1 text-balance text-3xl font-black leading-tight text-[#132437]">Mulai dari kelas terdekat.</h2>
-          </div>
-        </div>
-        <span className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#EAF4FF] px-3 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5]">
-          <BookOpen size={14} /> {dashboard.teacherSubjectLabel}
-        </span>
-      </section>
-
-      <HeroNextClassCard
-        meeting={dashboard.nextMeeting}
-        studentCount={dashboard.nextMeetingStudentCount}
+      <TeacherWorkflowHero
+        teacherFirstName={dashboard.teacherFirstName}
         subjectLabel={dashboard.teacherSubjectLabel}
-        onOpenMaterials={() => navigate('/guru/materi')}
-        onStartAttendance={() => navigate('/guru/daftar-hadir')}
+        summary={dashboard.summary}
+        actions={[
+          { label: 'Tulis materi', caption: `${dashboard.summary.materials} materi publish`, icon: PencilLine, onClick: () => navigate('/guru/materi') },
+          { label: 'Isi absensi mapel', caption: `${dashboard.summary.attendanceRecorded} data bulan ini`, icon: CalendarClock, onClick: () => navigate('/guru/daftar-hadir') },
+          { label: 'Input daftar nilai', caption: `${dashboard.summary.gradeReadyRate}% nilai terisi`, icon: BarChart3, onClick: () => navigate('/guru/daftar-nilai') },
+          { label: 'Buka bank soal', caption: `${dashboard.summary.questionRows} soal tersedia`, icon: FileQuestion, onClick: () => navigate('/guru/bank-soal') },
+        ]}
       />
 
-      <AIContextBanner banner={dashboard.aiBanner} onAction={() => navigate(dashboard.aiBanner.target)} />
+      <TeacherDashboardStatsStrip
+        items={[
+          { label: 'Materi publish', value: dashboard.summary.materials, caption: 'sesuai mapel guru', icon: BookOpen },
+          { label: 'Tugas aktif', value: dashboard.summary.activeAssignments, caption: `${dashboard.summary.draftAssignments} draft · ${dashboard.summary.submissions} submission`, icon: ClipboardCheck },
+          { label: 'Kuis publish', value: dashboard.summary.publishedQuizzes, caption: 'siap dikerjakan siswa', icon: FileQuestion },
+          { label: 'Nilai terisi', value: `${dashboard.summary.gradeReadyRate}%`, caption: `${dashboard.summary.gradeCompleted}/${dashboard.summary.gradeTotal} nilai`, icon: BarChart3 },
+        ]}
+      />
 
-      <AttentionSection items={dashboard.attentionItems} onNavigate={navigate} />
+      <TeacherDashboardActionStrip
+        actions={[
+          { label: 'Buat tugas', caption: 'Instruksi, deadline, rubrik', badge: 'Tugas', icon: ClipboardCheck, onClick: () => navigate('/guru/tugas') },
+          { label: 'Buat kuis', caption: 'Ambil dari bank soal', badge: 'Kuis', icon: FileQuestion, onClick: () => navigate('/guru/kuis-live') },
+          { label: 'Impor soal', caption: 'PDF, DOCX, HTML', badge: 'Bank soal', icon: Download, onClick: () => navigate('/guru/bank-soal') },
+          { label: 'Rekap absensi', caption: 'Mapel bulanan/semester', badge: 'Absensi', icon: CalendarClock, onClick: () => navigate('/guru/daftar-hadir') },
+          { label: 'Export nilai', caption: 'PDF atau Excel', badge: 'Nilai', icon: BarChart3, onClick: () => navigate('/guru/daftar-nilai') },
+          { label: 'Siapkan pembelajaran', caption: 'Bahan ajar, tugas, kuis', badge: 'Studio', icon: Sparkles, onClick: () => navigate('/guru/studio-konten') },
+        ]}
+      />
 
-      <ClassOverviewGrid rows={dashboard.classRows} onOpen={() => navigate('/guru/kelas')} />
+      <TeacherAttentionSection items={dashboard.attentionItems} onNavigate={navigate} />
+
+      <TeacherSubjectWorkflow rows={dashboard.subjectRows} onNavigate={navigate} />
+
+      {(dashboard.activityRows.length > 0 || dashboard.classRows.length > 0) ? (
+        <div className={`grid items-start gap-5 ${dashboard.activityRows.length > 0 && dashboard.classRows.length > 0 ? 'xl:grid-cols-2' : ''}`}>
+          {dashboard.activityRows.length > 0 && <TeacherActivityFeed rows={dashboard.activityRows} onNavigate={navigate} />}
+          {dashboard.classRows.length > 0 && <ClassOverviewGrid rows={dashboard.classRows} onOpen={() => navigate('/guru/kelas')} />}
+        </div>
+      ) : (
+        <TeacherDashboardGuideCard onNavigate={navigate} />
+      )}
     </div>
   )
 }
