@@ -821,6 +821,28 @@ textarea:focus-visible {
   margin: 0;
 }
 
+.assignment-attachment-frame {
+  border: 0;
+}
+
+@media (max-width: 640px) {
+  #main-content {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    padding-top: 1rem;
+  }
+
+  .glass-panel,
+  .liquid-glass-light {
+    border-radius: 1rem;
+  }
+
+  .assignment-attachment-frame {
+    height: 72dvh;
+    min-height: min(30rem, 78dvh);
+  }
+}
+
 @media print {
   body.is-printing-rapor {
     background: #fff !important;

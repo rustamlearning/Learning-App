@@ -964,75 +964,74 @@ function MateriBelajar({ user, notify, appContext }) {
 
       {error && <div className="rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data materi: {error}. Data lokal tetap ditampilkan.</div>}
 
-      <section className="rounded-[1.35rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_12px_36px_rgba(15,36,55,0.055)]">
-        <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-2xl font-black text-[#132437]">IsleBelajar</h2>
-            <p className="mt-1 text-sm font-semibold text-[#64748B]">Semua materi belajar dikelompokkan berdasarkan mapel.</p>
+      {!activeFolder ? (
+        <section className="rounded-[1.35rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_12px_36px_rgba(15,36,55,0.055)]">
+          <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-black text-[#132437]">IsleBelajar</h2>
+              <p className="mt-1 text-sm font-semibold text-[#64748B]">Pilih mapel seperti membuka folder belajar.</p>
+            </div>
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">{subjectTiles.length} mapel</span>
           </div>
-          <span className="text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">{subjectTiles.length} mapel</span>
-        </div>
 
-        {subjectTiles.length > 0 ? (
-          <StudentSubjectGrid
-            subjectTiles={subjectTiles}
-            activeSubjectKey={activeFolder?.key}
-            onSelect={(subject) => setActiveSubjectKey(subject.key)}
-          />
-        ) : (
-          <EmptyState title="Belum ada mapel." description="Materi yang dipublish guru akan muncul sebagai daftar mapel di sini." />
-        )}
-      </section>
-
-      {activeFolder ? (
+          {subjectTiles.length > 0 ? (
+            <StudentSubjectGrid
+              subjectTiles={subjectTiles}
+              activeSubjectKey=""
+              onSelect={(subject) => {
+                setActiveSubjectKey(subject.key)
+                setSearch('')
+                setFilter('Semua')
+              }}
+            />
+          ) : (
+            <EmptyState title="Belum ada mapel." description="Materi yang dipublish guru akan muncul sebagai daftar mapel di sini." />
+          )}
+        </section>
+      ) : (
         <section className="min-w-0 overflow-hidden rounded-[1.15rem] border border-[#D9E6F5] bg-white shadow-[0_14px_44px_rgba(15,31,42,0.065)]">
-          <header className="flex flex-col gap-3 border-b border-[#D9E6F5] bg-[#F8FAFC]/82 px-4 py-4 xl:flex-row xl:items-center xl:justify-between">
+          <header className="grid gap-4 border-b border-[#D9E6F5] bg-[#F8FAFC]/82 px-4 py-4 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,34rem)] xl:items-center">
             <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSubjectKey('')
+                  setSearch('')
+                  setFilter('Semua')
+                }}
+                className="mb-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#17446E] px-3 text-sm font-black text-white shadow-[0_10px_24px_rgba(23,68,110,0.16)] transition hover:bg-[#2F80D8]"
+              >
+                <ArrowLeft size={16} /> Kembali ke daftar mapel
+              </button>
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#2F80D8]">Folder mapel</p>
-              <h2 className="break-words text-2xl font-black leading-tight text-[#132437]">{activeFolder.name}</h2>
+              <h2 className="break-words text-2xl font-black leading-tight text-[#132437] sm:text-3xl">{activeFolder.name}</h2>
               <p className="mt-1 text-sm font-semibold text-[#64748B]">
-                {activeFolder.rows.length} materi tersedia untuk dibuka siswa.
+                {activeFolder.rows.length} materi tersedia untuk kelasmu.
               </p>
             </div>
-            <div className="min-w-0 xl:w-[34rem]">
+            <div className="min-w-0">
               <SearchFilterBar search={search} setSearch={setSearch} filters={statusFilters} activeFilter={filter} setActiveFilter={setFilter} />
             </div>
           </header>
 
           {loading ? <div className="p-4"><LoadingState label="Memuat materi dari Supabase..." /></div> : (
-            materialFolders.length > 0 ? (
-              visibleGradeFolders.length > 0 ? (
-                <div className="divide-y divide-[#D9E6F5]">
-                  {visibleGradeFolders.map((gradeFolder, index) => (
-                    <StudentMaterialGradeFolder
-                      key={gradeFolder.key}
-                      gradeFolder={gradeFolder}
-                      onOpen={setSelected}
-                      defaultOpen={index === 0}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="p-4">
-                  <EmptyState title="Materi tidak ditemukan." description="Coba ganti kata pencarian, status, atau pilih mapel lain." />
-                </div>
-              )
+            visibleGradeFolders.length > 0 ? (
+              <div className="divide-y divide-[#D9E6F5]">
+                {visibleGradeFolders.map((gradeFolder) => (
+                  <StudentMaterialGradeFolder
+                    key={gradeFolder.key}
+                    gradeFolder={gradeFolder}
+                    onOpen={setSelected}
+                    defaultOpen
+                  />
+                ))}
+              </div>
             ) : (
               <div className="p-4">
-                <EmptyState title="Belum ada materi." description="Materi yang dipublish guru akan muncul di sini." />
+                <EmptyState title="Materi tidak ditemukan." description="Coba ganti kata pencarian atau status filter." />
               </div>
             )
           )}
-        </section>
-      ) : (
-        <section className="rounded-[1.15rem] border border-dashed border-[#B9D8F7] bg-white/78 p-6 text-center shadow-[0_10px_28px_rgba(15,36,55,0.035)]">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[#E8F2FF] text-[#2F80D8] ring-1 ring-[#B9D8F7]">
-            <BookOpen size={22} />
-          </span>
-          <h2 className="mt-3 text-xl font-black text-[#132437]">Pilih salah satu mapel.</h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#64748B]">
-            Materi belajar dan daftar bab baru akan muncul setelah mapel dipilih.
-          </p>
         </section>
       )}
     </div>
@@ -1532,19 +1531,19 @@ function StudentMaterialRow({ item, onOpen }) {
 
   return (
     <article
-      className={`group relative flex min-h-[15.5rem] min-w-0 flex-col overflow-hidden rounded-[0.95rem] p-3 shadow-[0_12px_28px_rgba(15,31,42,0.045)] ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(15,31,42,0.085)] ${hasCover ? 'text-white' : ''}`}
+      className="group relative flex min-h-[15.5rem] min-w-0 flex-col overflow-hidden rounded-[0.95rem] p-3 shadow-[0_12px_28px_rgba(15,31,42,0.045)] ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(15,31,42,0.085)]"
       style={hasCover
         ? {
-          backgroundImage: `linear-gradient(145deg, rgba(10,31,51,0.88), rgba(23,68,110,0.58)), url("${coverImage}")`,
+          backgroundImage: `linear-gradient(145deg, rgba(255,255,255,0.92), rgba(248,251,255,0.78) 48%, ${tone.accentSoft}CC 100%), linear-gradient(135deg, ${tone.accentSoft}AA, rgba(250,204,21,0.25)), url("${coverImage}")`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          '--tw-ring-color': 'rgba(255,255,255,0.42)',
+          '--tw-ring-color': tone.border,
         }
         : { background: tone.background, '--tw-ring-color': tone.border }}
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
         <span
-          className={`inline-flex shrink-0 justify-center rounded-[0.7rem] px-2.5 py-1.5 font-mono text-xs font-black ring-1 ${hasCover ? 'bg-white/88 text-[#17446E] ring-white/50 backdrop-blur-xl' : ''}`}
+          className={`inline-flex shrink-0 justify-center rounded-[0.7rem] px-2.5 py-1.5 font-mono text-xs font-black ring-1 ${hasCover ? 'bg-white/94 shadow-sm ring-white/80 backdrop-blur-xl' : ''}`}
           style={hasCover ? undefined : { backgroundColor: tone.accentSoft, color: tone.accent, '--tw-ring-color': tone.border }}
         >
           {getChapterLabel(item.title)}
@@ -1555,17 +1554,17 @@ function StudentMaterialRow({ item, onOpen }) {
       </div>
 
       <div className="mt-3 min-w-0 flex-1">
-        <h3 className={`line-clamp-2 min-h-[2.35rem] break-words text-[0.96rem] font-black leading-snug ${hasCover ? 'text-white drop-shadow-sm' : 'text-[#13232d]'}`}>
+        <h3 className="line-clamp-2 min-h-[2.35rem] break-words text-[0.96rem] font-black leading-snug text-[#13232d]">
           {chapterTitle}
         </h3>
-        <p className={`mt-2 truncate text-[11px] font-black uppercase tracking-[0.08em] ${hasCover ? 'text-sky-100' : ''}`} style={hasCover ? undefined : { color: tone.accent }}>
+        <p className="mt-2 truncate text-[11px] font-black uppercase tracking-[0.08em]" style={{ color: tone.accent }}>
           {subjectLine || 'Materi'}
         </p>
-        <p className={`mt-2 line-clamp-2 min-h-[2.35rem] break-words text-[0.82rem] font-semibold leading-5 ${hasCover ? 'text-white/82' : 'text-slate-500'}`}>{item.description}</p>
-        <div className="mt-4 h-1.5 rounded-full" style={{ backgroundColor: hasCover ? 'rgba(255,255,255,0.24)' : tone.accentSoft }}>
-          <div className="h-1.5 rounded-full" style={{ width: `${item.progress}%`, backgroundColor: hasCover ? '#FACC15' : tone.accent }} />
+        <p className="mt-2 line-clamp-2 min-h-[2.35rem] break-words text-[0.82rem] font-semibold leading-5 text-slate-600">{item.description}</p>
+        <div className="mt-4 h-1.5 rounded-full" style={{ backgroundColor: hasCover ? 'rgba(255,255,255,0.78)' : tone.accentSoft }}>
+          <div className="h-1.5 rounded-full" style={{ width: `${item.progress}%`, backgroundColor: tone.accent }} />
         </div>
-        <div className={`mt-2 flex items-center justify-between gap-3 text-xs font-bold ${hasCover ? 'text-white/78' : 'text-slate-500'}`}>
+        <div className="mt-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
           <span>{Number(item.progress || 0)}% progress</span>
           <span>{item.type || 'Materi'}</span>
         </div>
@@ -1575,16 +1574,16 @@ function StudentMaterialRow({ item, onOpen }) {
         <button
           onClick={onOpen}
           className="inline-flex min-h-10 items-center justify-center rounded-[0.85rem] px-4 text-sm font-black text-white transition"
-          style={{ backgroundColor: hasCover ? 'rgba(255,255,255,0.18)' : tone.button, backdropFilter: hasCover ? 'blur(16px)' : undefined }}
-          onMouseEnter={(event) => { event.currentTarget.style.backgroundColor = hasCover ? 'rgba(255,255,255,0.26)' : tone.buttonHover }}
-          onMouseLeave={(event) => { event.currentTarget.style.backgroundColor = hasCover ? 'rgba(255,255,255,0.18)' : tone.button }}
+          style={{ backgroundColor: tone.button, backdropFilter: hasCover ? 'blur(16px)' : undefined }}
+          onMouseEnter={(event) => { event.currentTarget.style.backgroundColor = tone.buttonHover }}
+          onMouseLeave={(event) => { event.currentTarget.style.backgroundColor = tone.button }}
         >
           Buka
         </button>
         <button
           onClick={() => navigate('/siswa/ai-tutor')}
           aria-label="Tanya AI Tutor"
-          className={`inline-flex h-10 w-10 items-center justify-center rounded-[0.85rem] text-xs font-black ring-1 transition ${hasCover ? 'bg-white/16 text-white ring-white/30 backdrop-blur-xl hover:bg-white/25' : 'hover:bg-white'}`}
+          className={`inline-flex h-10 w-10 items-center justify-center rounded-[0.85rem] text-xs font-black ring-1 transition ${hasCover ? 'bg-white/86 shadow-sm ring-white/80 backdrop-blur-xl hover:bg-white' : 'hover:bg-white'}`}
           style={hasCover ? undefined : { backgroundColor: tone.accentSoft, color: tone.accent, '--tw-ring-color': tone.border }}
         >
           <Bot size={17} />
@@ -2288,8 +2287,8 @@ function SiswaTugas({ user, notify, appContext }) {
           action={<button onClick={() => setSelected(null)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Kembali</button>}
         />
 
-        <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
-          <SectionCard>
+        <div className="grid gap-4">
+          <SectionCard className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge tone={submission ? 'green' : 'amber'}>{submission ? 'Sudah submit' : 'Belum submit'}</StatusBadge>
               <StatusBadge tone={statusTone(selected.status)}>{selected.status}</StatusBadge>
@@ -2371,7 +2370,7 @@ function SiswaTugas({ user, notify, appContext }) {
             </button>
           </SectionCard>
 
-          <SectionCard>
+          <SectionCard className="min-w-0">
             <p className="text-sm font-extrabold text-gray-950">Status Submission</p>
             <div className="mt-4 space-y-3 text-sm text-slate-600">
               <p><b>Guru:</b> {selected.teacher || 'Guru'}</p>
@@ -7584,29 +7583,85 @@ function getClassRoster(className) {
 }
 
 function GuruKelas() {
-  const [selectedClass, setSelectedClass] = useState(classes[0] || null)
+  const [selectedClass, setSelectedClass] = useState(null)
   const selectedRoster = selectedClass ? getClassRoster(selectedClass.name) : []
+
+  if (selectedClass) {
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          eyebrow="Detail kelas"
+          title={selectedClass.name}
+          description={`${selectedRoster.length} siswa terdaftar pada kelas ini.`}
+          action={(
+            <button
+              type="button"
+              onClick={() => setSelectedClass(null)}
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#17446E] px-3 text-sm font-black text-white shadow-[0_10px_24px_rgba(23,68,110,0.16)] transition hover:bg-[#2F80D8]"
+            >
+              <ArrowLeft size={16} /> Kembali ke daftar kelas
+            </button>
+          )}
+        />
+
+        <section className="liquid-glass-light overflow-hidden rounded-[1.25rem]">
+          <header className="flex flex-col gap-3 border-b border-white/70 bg-white/40 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#2F80D8]">Folder kelas</p>
+              <h2 className="text-2xl font-black text-[#132437]">{selectedClass.name}</h2>
+              <p className="mt-1 text-sm font-semibold text-[#64748B]">
+                Daftar siswa muncul setelah kelas dibuka.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <StatusBadge tone={selectedRoster.length ? 'green' : 'gray'}>{selectedRoster.length || 0} siswa</StatusBadge>
+              <StatusBadge tone="teal">{selectedClass.progress || 0}% progress</StatusBadge>
+            </div>
+          </header>
+
+          {selectedRoster.length ? (
+            <div className="grid gap-2 p-3 sm:grid-cols-2 xl:grid-cols-3">
+              {selectedRoster.map((student, index) => (
+                <article key={student.id} className="liquid-glass-field flex min-w-0 items-center gap-3 rounded-[1rem] px-3 py-3">
+                  <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-[#EAF4FF] font-mono text-sm font-black text-[#2F80D8] ring-1 ring-white/70">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-black text-[#132437]">{student.name}</h3>
+                    <p className="truncate text-xs font-semibold text-[#64748B]">{student.gender === 'P' ? 'Perempuan' : 'Laki-laki'}{student.nis ? ` · NIS ${student.nis}` : ''}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="p-4">
+              <EmptyState title="Belum ada daftar siswa." description="Nama siswa akan muncul setelah data siswa tersimpan pada kelas ini." />
+            </div>
+          )}
+        </section>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
       <PageHeader
         eyebrow="Kelas"
-        title="Kelas yang diajar"
-        description="Pilih detail kelas untuk melihat daftar siswa dalam rombel."
+        title="Folder kelas"
+        description="Klik detail untuk membuka daftar siswa pada satu kelas penuh."
       />
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {classes.map((classItem, index) => {
           const tone = classCardTones[index % classCardTones.length]
           const roster = getClassRoster(classItem.name)
-          const active = selectedClass?.id === classItem.id
 
           return (
             <button
               key={classItem.id}
               type="button"
               onClick={() => setSelectedClass(classItem)}
-              className={`liquid-glass-light group min-h-[13rem] rounded-[1.15rem] bg-gradient-to-br p-4 text-left ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(15,36,55,0.10)] ${tone.surface} ${active ? 'ring-2 ring-[#2F80D8]' : tone.ring}`}
+              className={`liquid-glass-light group min-h-[13rem] rounded-[1.15rem] bg-gradient-to-br p-4 text-left ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(15,36,55,0.10)] ${tone.surface} ${tone.ring}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <span className={`grid h-12 w-12 place-items-center rounded-2xl shadow-[0_14px_30px_rgba(15,36,55,0.12)] ${tone.icon}`}>
@@ -7633,39 +7688,6 @@ function GuruKelas() {
             </button>
           )
         })}
-      </section>
-
-      <section className="liquid-glass-light overflow-hidden rounded-[1.25rem]">
-        <header className="flex flex-col gap-3 border-b border-white/70 bg-white/40 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#2F80D8]">Detail kelas</p>
-            <h2 className="text-2xl font-black text-[#132437]">{selectedClass?.name || 'Pilih kelas'}</h2>
-            <p className="mt-1 text-sm font-semibold text-[#64748B]">
-              {selectedRoster.length} siswa terdaftar pada kelas ini.
-            </p>
-          </div>
-          <StatusBadge tone={selectedRoster.length ? 'green' : 'gray'}>{selectedRoster.length || 0} siswa</StatusBadge>
-        </header>
-
-        {selectedRoster.length ? (
-          <div className="grid gap-2 p-3 sm:grid-cols-2 xl:grid-cols-3">
-            {selectedRoster.map((student, index) => (
-              <article key={student.id} className="liquid-glass-field flex items-center gap-3 rounded-[1rem] px-3 py-3">
-                <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-[#EAF4FF] font-mono text-sm font-black text-[#2F80D8] ring-1 ring-white/70">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-                <div className="min-w-0">
-                  <h3 className="truncate text-sm font-black text-[#132437]">{student.name}</h3>
-                  <p className="truncate text-xs font-semibold text-[#64748B]">{student.gender === 'P' ? 'Perempuan' : 'Laki-laki'}{student.nis ? ` · NIS ${student.nis}` : ''}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="p-4">
-            <EmptyState title="Belum ada daftar siswa." description="Nama siswa akan muncul setelah data siswa tersimpan pada kelas ini." />
-          </div>
-        )}
       </section>
     </div>
   )
@@ -11101,9 +11123,13 @@ function AssignmentAttachmentPreview({ attachment }) {
   const previewUrl = getAssignmentAttachmentPreviewUrl(attachment)
   if (!previewUrl) return null
   const isFrame = ['Video', 'PDF', 'Dokumen', 'Presentasi', 'Spreadsheet', 'Embed'].includes(attachment.type)
+  const isDocumentFrame = ['PDF', 'Dokumen', 'Presentasi', 'Spreadsheet'].includes(attachment.type)
+  const frameClass = isDocumentFrame
+    ? 'assignment-attachment-frame h-[72dvh] min-h-[34rem] w-full bg-white md:min-h-[42rem]'
+    : 'h-[56dvh] min-h-[18rem] w-full bg-white sm:aspect-video sm:h-auto'
   return (
-    <div className="overflow-hidden rounded-[1rem] border border-[#0B3A5B]/10 bg-white">
-      <div className="flex items-center justify-between gap-3 border-b border-[#0B3A5B]/8 px-3 py-2">
+    <div className="overflow-hidden rounded-[1.1rem] border border-[#0B3A5B]/10 bg-white shadow-[0_14px_34px_rgba(15,36,55,0.055)]">
+      <div className="flex flex-col gap-2 border-b border-[#0B3A5B]/8 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="truncate text-sm font-black text-[#13232d]">{attachment.title}</p>
           <p className="text-xs font-bold text-slate-500">{attachment.type}{attachment.size ? ` · ${formatFileSize(attachment.size)}` : ''}</p>
@@ -11115,13 +11141,15 @@ function AssignmentAttachmentPreview({ attachment }) {
         )}
       </div>
       {attachment.type === 'Gambar' ? (
-        <img src={previewUrl} alt={attachment.title} className="max-h-72 w-full object-contain bg-slate-50" />
+        <img src={previewUrl} alt={attachment.title} className="max-h-[76dvh] min-h-[18rem] w-full bg-slate-50 object-contain" />
       ) : attachment.type === 'Audio' ? (
         <div className="p-3"><audio controls src={previewUrl} className="w-full" /></div>
       ) : isFrame ? (
-        <iframe title={attachment.title} src={previewUrl} className="h-72 w-full bg-white" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+        <iframe title={attachment.title} src={previewUrl} className={frameClass} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
       ) : (
-        <div className="p-3 text-sm font-semibold text-slate-600">Lampiran siap dibuka oleh siswa.</div>
+        <div className="rounded-b-[1.1rem] bg-[#F8FBFF] p-5 text-sm font-semibold leading-6 text-slate-600">
+          Lampiran siap dibuka oleh siswa. Gunakan tombol Buka untuk melihat file penuh di tab baru.
+        </div>
       )}
     </div>
   )
