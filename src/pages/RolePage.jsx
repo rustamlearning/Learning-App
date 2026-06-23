@@ -1447,22 +1447,105 @@ function getMaterialCardTone(item) {
   return materialCardTones[Math.abs(index) % materialCardTones.length]
 }
 
+const materialCoverCache = new Map()
+
+function getMaterialLinkedUrl(item) {
+  const raw = cleanMaterialUrl(item?.content || item?.url || item?.href || '')
+  if (!raw) return ''
+  if (/^https?:\/\//i.test(raw) || raw.startsWith('/') || raw.startsWith('data:')) return raw
+  if (/\.html(?:[?#].*)?$/i.test(raw)) return raw.startsWith('materials/') ? `/${raw}` : raw
+  return ''
+}
+
+function resolveMaterialAssetUrl(assetUrl, baseUrl) {
+  if (!assetUrl) return ''
+  if (/^(data:|https?:\/\/|blob:)/i.test(assetUrl)) return assetUrl
+  try {
+    const base = /^https?:\/\//i.test(baseUrl)
+      ? baseUrl
+      : new URL(baseUrl || '/', window.location.origin).toString()
+    return new URL(assetUrl, base).toString()
+  } catch {
+    return assetUrl
+  }
+}
+
+function extractFirstImageFromHtml(html, baseUrl) {
+  const metaImage = String(html || '').match(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["']/i)?.[1]
+  if (metaImage) return resolveMaterialAssetUrl(metaImage, baseUrl)
+  const inlineImage = String(html || '').match(/<img[^>]+src=["']([^"']+)["']/i)?.[1]
+  if (inlineImage) return resolveMaterialAssetUrl(inlineImage, baseUrl)
+  const backgroundImage = String(html || '').match(/background(?:-image)?\s*:\s*url\((["']?)([^"')]+)\1\)/i)?.[2]
+  if (backgroundImage) return resolveMaterialAssetUrl(backgroundImage, baseUrl)
+  return ''
+}
+
+function useMaterialCoverImage(item) {
+  const explicitCover = item?.coverImage || item?.thumbnail || item?.image || item?.imageUrl || item?.heroImage || ''
+  const htmlUrl = getMaterialLinkedUrl(item)
+  const [cover, setCover] = useState(() => explicitCover || materialCoverCache.get(htmlUrl) || '')
+
+  useEffect(() => {
+    let active = true
+    if (explicitCover) {
+      setCover(explicitCover)
+      return undefined
+    }
+    if (!htmlUrl || !isHtmlMaterial(item)) {
+      setCover('')
+      return undefined
+    }
+    if (materialCoverCache.has(htmlUrl)) {
+      setCover(materialCoverCache.get(htmlUrl) || '')
+      return undefined
+    }
+
+    fetch(htmlUrl)
+      .then((response) => response.ok ? response.text() : '')
+      .then((html) => {
+        if (!active) return
+        const nextCover = extractFirstImageFromHtml(html, htmlUrl)
+        materialCoverCache.set(htmlUrl, nextCover)
+        setCover(nextCover)
+      })
+      .catch(() => {
+        materialCoverCache.set(htmlUrl, '')
+        if (active) setCover('')
+      })
+
+    return () => {
+      active = false
+    }
+  }, [explicitCover, htmlUrl, item])
+
+  return cover
+}
+
 function StudentMaterialRow({ item, onOpen }) {
   const navigate = useNavigate()
   const completed = item.status === 'Selesai' || Number(item.progress || 0) >= 100
   const chapterTitle = getChapterTitle(item.title)
   const subjectLine = [item.subject, item.className].filter(Boolean).join(' · ')
   const tone = getMaterialCardTone(item)
+  const coverImage = useMaterialCoverImage(item)
+  const hasCover = Boolean(coverImage)
 
   return (
     <article
-      className="group flex min-w-0 flex-col overflow-hidden rounded-[0.95rem] p-3 shadow-[0_12px_28px_rgba(15,31,42,0.045)] ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(15,31,42,0.085)]"
-      style={{ background: tone.background, '--tw-ring-color': tone.border }}
+      className={`group relative flex min-h-[15.5rem] min-w-0 flex-col overflow-hidden rounded-[0.95rem] p-3 shadow-[0_12px_28px_rgba(15,31,42,0.045)] ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(15,31,42,0.085)] ${hasCover ? 'text-white' : ''}`}
+      style={hasCover
+        ? {
+          backgroundImage: `linear-gradient(145deg, rgba(10,31,51,0.88), rgba(23,68,110,0.58)), url("${coverImage}")`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          '--tw-ring-color': 'rgba(255,255,255,0.42)',
+        }
+        : { background: tone.background, '--tw-ring-color': tone.border }}
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
         <span
-          className="inline-flex shrink-0 justify-center rounded-[0.7rem] px-2.5 py-1.5 font-mono text-xs font-black ring-1"
-          style={{ backgroundColor: tone.accentSoft, color: tone.accent, '--tw-ring-color': tone.border }}
+          className={`inline-flex shrink-0 justify-center rounded-[0.7rem] px-2.5 py-1.5 font-mono text-xs font-black ring-1 ${hasCover ? 'bg-white/88 text-[#17446E] ring-white/50 backdrop-blur-xl' : ''}`}
+          style={hasCover ? undefined : { backgroundColor: tone.accentSoft, color: tone.accent, '--tw-ring-color': tone.border }}
         >
           {getChapterLabel(item.title)}
         </span>
@@ -1472,17 +1555,17 @@ function StudentMaterialRow({ item, onOpen }) {
       </div>
 
       <div className="mt-3 min-w-0 flex-1">
-        <h3 className="line-clamp-2 min-h-[2.35rem] break-words text-[0.96rem] font-black leading-snug text-[#13232d]">
+        <h3 className={`line-clamp-2 min-h-[2.35rem] break-words text-[0.96rem] font-black leading-snug ${hasCover ? 'text-white drop-shadow-sm' : 'text-[#13232d]'}`}>
           {chapterTitle}
         </h3>
-        <p className="mt-2 truncate text-[11px] font-black uppercase tracking-[0.08em]" style={{ color: tone.accent }}>
+        <p className={`mt-2 truncate text-[11px] font-black uppercase tracking-[0.08em] ${hasCover ? 'text-sky-100' : ''}`} style={hasCover ? undefined : { color: tone.accent }}>
           {subjectLine || 'Materi'}
         </p>
-        <p className="mt-2 line-clamp-2 min-h-[2.35rem] break-words text-[0.82rem] font-semibold leading-5 text-slate-500">{item.description}</p>
-        <div className="mt-4 h-1.5 rounded-full" style={{ backgroundColor: tone.accentSoft }}>
-          <div className="h-1.5 rounded-full" style={{ width: `${item.progress}%`, backgroundColor: tone.accent }} />
+        <p className={`mt-2 line-clamp-2 min-h-[2.35rem] break-words text-[0.82rem] font-semibold leading-5 ${hasCover ? 'text-white/82' : 'text-slate-500'}`}>{item.description}</p>
+        <div className="mt-4 h-1.5 rounded-full" style={{ backgroundColor: hasCover ? 'rgba(255,255,255,0.24)' : tone.accentSoft }}>
+          <div className="h-1.5 rounded-full" style={{ width: `${item.progress}%`, backgroundColor: hasCover ? '#FACC15' : tone.accent }} />
         </div>
-        <div className="mt-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-500">
+        <div className={`mt-2 flex items-center justify-between gap-3 text-xs font-bold ${hasCover ? 'text-white/78' : 'text-slate-500'}`}>
           <span>{Number(item.progress || 0)}% progress</span>
           <span>{item.type || 'Materi'}</span>
         </div>
@@ -1492,17 +1575,17 @@ function StudentMaterialRow({ item, onOpen }) {
         <button
           onClick={onOpen}
           className="inline-flex min-h-10 items-center justify-center rounded-[0.85rem] px-4 text-sm font-black text-white transition"
-          style={{ backgroundColor: tone.button }}
-          onMouseEnter={(event) => { event.currentTarget.style.backgroundColor = tone.buttonHover }}
-          onMouseLeave={(event) => { event.currentTarget.style.backgroundColor = tone.button }}
+          style={{ backgroundColor: hasCover ? 'rgba(255,255,255,0.18)' : tone.button, backdropFilter: hasCover ? 'blur(16px)' : undefined }}
+          onMouseEnter={(event) => { event.currentTarget.style.backgroundColor = hasCover ? 'rgba(255,255,255,0.26)' : tone.buttonHover }}
+          onMouseLeave={(event) => { event.currentTarget.style.backgroundColor = hasCover ? 'rgba(255,255,255,0.18)' : tone.button }}
         >
           Buka
         </button>
         <button
           onClick={() => navigate('/siswa/ai-tutor')}
           aria-label="Tanya AI Tutor"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-[0.85rem] text-xs font-black ring-1 transition hover:bg-white"
-          style={{ backgroundColor: tone.accentSoft, color: tone.accent, '--tw-ring-color': tone.border }}
+          className={`inline-flex h-10 w-10 items-center justify-center rounded-[0.85rem] text-xs font-black ring-1 transition ${hasCover ? 'bg-white/16 text-white ring-white/30 backdrop-blur-xl hover:bg-white/25' : 'hover:bg-white'}`}
+          style={hasCover ? undefined : { backgroundColor: tone.accentSoft, color: tone.accent, '--tw-ring-color': tone.border }}
         >
           <Bot size={17} />
         </button>
@@ -7463,8 +7546,129 @@ function dottedLine() {
   return '........................................'
 }
 
+const classCardTones = [
+  {
+    surface: 'from-[#EAF4FF] via-white to-[#DDF2FF]',
+    icon: 'bg-[#17446E] text-white',
+    text: 'text-[#17446E]',
+    ring: 'ring-[#B9D8F7]',
+    accent: '#2F80D8',
+  },
+  {
+    surface: 'from-[#ECFDF5] via-white to-[#DCFCE7]',
+    icon: 'bg-emerald-700 text-white',
+    text: 'text-emerald-800',
+    ring: 'ring-emerald-100',
+    accent: '#15803D',
+  },
+  {
+    surface: 'from-[#FFFBEB] via-white to-[#FEF3C7]',
+    icon: 'bg-amber-700 text-white',
+    text: 'text-amber-800',
+    ring: 'ring-amber-100',
+    accent: '#B45309',
+  },
+  {
+    surface: 'from-[#F8FAFC] via-white to-[#E2E8F0]',
+    icon: 'bg-slate-700 text-white',
+    text: 'text-slate-800',
+    ring: 'ring-slate-200',
+    accent: '#334155',
+  },
+]
+
+function getClassRoster(className) {
+  return students
+    .filter((student) => sameAssignmentClassName(student.className, className))
+    .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'id', { sensitivity: 'base' }))
+}
+
 function GuruKelas() {
-  return <CardsPage eyebrow="Kelas" title="Kelas yang diajar" items={classes.map((c) => ({ title: c.name, meta: `${c.students} siswa · rata-rata ${c.average}`, value: `${c.progress}% progress`, status: `${Math.max(1, 6 - c.grade + 10)} remedial` }))} />
+  const [selectedClass, setSelectedClass] = useState(classes[0] || null)
+  const selectedRoster = selectedClass ? getClassRoster(selectedClass.name) : []
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        eyebrow="Kelas"
+        title="Kelas yang diajar"
+        description="Pilih detail kelas untuk melihat daftar siswa dalam rombel."
+      />
+
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {classes.map((classItem, index) => {
+          const tone = classCardTones[index % classCardTones.length]
+          const roster = getClassRoster(classItem.name)
+          const active = selectedClass?.id === classItem.id
+
+          return (
+            <button
+              key={classItem.id}
+              type="button"
+              onClick={() => setSelectedClass(classItem)}
+              className={`liquid-glass-light group min-h-[13rem] rounded-[1.15rem] bg-gradient-to-br p-4 text-left ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(15,36,55,0.10)] ${tone.surface} ${active ? 'ring-2 ring-[#2F80D8]' : tone.ring}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <span className={`grid h-12 w-12 place-items-center rounded-2xl shadow-[0_14px_30px_rgba(15,36,55,0.12)] ${tone.icon}`}>
+                  <School size={22} />
+                </span>
+                <span className="rounded-xl bg-white/76 px-3 py-1.5 text-xs font-black text-slate-600 ring-1 ring-white/70">
+                  Kelas {classItem.grade}
+                </span>
+              </div>
+              <h2 className="mt-5 line-clamp-2 min-h-[3rem] text-xl font-black leading-tight text-[#132437]">{classItem.name}</h2>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <span className="rounded-xl bg-white/72 px-3 py-2 ring-1 ring-white/70">
+                  <span className={`block font-mono text-xl font-black ${tone.text}`}>{roster.length || classItem.students || 0}</span>
+                  <span className="text-xs font-bold text-slate-500">siswa</span>
+                </span>
+                <span className="rounded-xl bg-white/72 px-3 py-2 ring-1 ring-white/70">
+                  <span className={`block font-mono text-xl font-black ${tone.text}`}>{classItem.progress || 0}%</span>
+                  <span className="text-xs font-bold text-slate-500">progress</span>
+                </span>
+              </div>
+              <span className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-white/80 px-3 py-2 text-sm font-black text-[#17446E] ring-1 ring-white/80 transition group-hover:bg-white">
+                Detail
+              </span>
+            </button>
+          )
+        })}
+      </section>
+
+      <section className="liquid-glass-light overflow-hidden rounded-[1.25rem]">
+        <header className="flex flex-col gap-3 border-b border-white/70 bg-white/40 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#2F80D8]">Detail kelas</p>
+            <h2 className="text-2xl font-black text-[#132437]">{selectedClass?.name || 'Pilih kelas'}</h2>
+            <p className="mt-1 text-sm font-semibold text-[#64748B]">
+              {selectedRoster.length} siswa terdaftar pada kelas ini.
+            </p>
+          </div>
+          <StatusBadge tone={selectedRoster.length ? 'green' : 'gray'}>{selectedRoster.length || 0} siswa</StatusBadge>
+        </header>
+
+        {selectedRoster.length ? (
+          <div className="grid gap-2 p-3 sm:grid-cols-2 xl:grid-cols-3">
+            {selectedRoster.map((student, index) => (
+              <article key={student.id} className="liquid-glass-field flex items-center gap-3 rounded-[1rem] px-3 py-3">
+                <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-[#EAF4FF] font-mono text-sm font-black text-[#2F80D8] ring-1 ring-white/70">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="truncate text-sm font-black text-[#132437]">{student.name}</h3>
+                  <p className="truncate text-xs font-semibold text-[#64748B]">{student.gender === 'P' ? 'Perempuan' : 'Laki-laki'}{student.nis ? ` · NIS ${student.nis}` : ''}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="p-4">
+            <EmptyState title="Belum ada daftar siswa." description="Nama siswa akan muncul setelah data siswa tersimpan pada kelas ini." />
+          </div>
+        )}
+      </section>
+    </div>
+  )
 }
 
 function teacherMaterialStorageKey(user, teacherSubject) {
@@ -7830,16 +8034,25 @@ function MaterialFolderRow({ row, onOpen, onEdit, onToggleStatus, onDelete }) {
   const tone = getMaterialCardTone(row)
   const chapterTitle = getChapterTitle(row.title || 'Tanpa judul')
   const chapterLabel = getChapterLabel([row.title, row.topic, row.content, row.id].filter(Boolean).join(' '))
+  const coverImage = useMaterialCoverImage(row)
+  const hasCover = Boolean(coverImage)
 
   return (
     <article
-      className="group flex min-w-0 flex-col overflow-hidden rounded-[0.9rem] p-3 shadow-[0_10px_24px_rgba(15,31,42,0.045)] ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(15,31,42,0.08)]"
-      style={{ background: tone.background, '--tw-ring-color': tone.border }}
+      className={`group relative flex min-h-[15rem] min-w-0 flex-col overflow-hidden rounded-[0.9rem] p-3 shadow-[0_10px_24px_rgba(15,31,42,0.045)] ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(15,31,42,0.08)] ${hasCover ? 'text-white' : ''}`}
+      style={hasCover
+        ? {
+          backgroundImage: `linear-gradient(145deg, rgba(10,31,51,0.90), rgba(23,68,110,0.60)), url("${coverImage}")`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          '--tw-ring-color': 'rgba(255,255,255,0.42)',
+        }
+        : { background: tone.background, '--tw-ring-color': tone.border }}
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
         <span
-          className="inline-flex shrink-0 justify-center rounded-[0.7rem] px-2.5 py-1.5 font-mono text-xs font-black ring-1"
-          style={{ backgroundColor: tone.accentSoft, color: tone.accent, '--tw-ring-color': tone.border }}
+          className={`inline-flex shrink-0 justify-center rounded-[0.7rem] px-2.5 py-1.5 font-mono text-xs font-black ring-1 ${hasCover ? 'bg-white/88 text-[#17446E] ring-white/50 backdrop-blur-xl' : ''}`}
+          style={hasCover ? undefined : { backgroundColor: tone.accentSoft, color: tone.accent, '--tw-ring-color': tone.border }}
         >
           {chapterLabel}
         </span>
@@ -7850,23 +8063,23 @@ function MaterialFolderRow({ row, onOpen, onEdit, onToggleStatus, onDelete }) {
       </div>
 
       <div className="mt-3 min-w-0 flex-1">
-        <h2 className="line-clamp-2 min-h-[2.35rem] break-words text-[0.96rem] font-black leading-snug text-[#13232d]">{chapterTitle}</h2>
-        <p className="mt-2 truncate text-[11px] font-black uppercase tracking-[0.08em]" style={{ color: tone.accent }}>
+        <h2 className={`line-clamp-2 min-h-[2.35rem] break-words text-[0.96rem] font-black leading-snug ${hasCover ? 'text-white drop-shadow-sm' : 'text-[#13232d]'}`}>{chapterTitle}</h2>
+        <p className={`mt-2 truncate text-[11px] font-black uppercase tracking-[0.08em] ${hasCover ? 'text-sky-100' : ''}`} style={hasCover ? undefined : { color: tone.accent }}>
           {materialSourceLabel(row.source)}
         </p>
-        <p className="mt-2 line-clamp-2 min-h-[2.35rem] break-words text-[0.82rem] font-semibold leading-5 text-slate-500">
+        <p className={`mt-2 line-clamp-2 min-h-[2.35rem] break-words text-[0.82rem] font-semibold leading-5 ${hasCover ? 'text-white/82' : 'text-slate-500'}`}>
           {row.topic || row.description || 'Belum ada topik.'}
         </p>
       </div>
 
       <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
-        <button onClick={onOpen} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[0.7rem] px-2.5 text-xs font-black text-white shadow-[0_8px_18px_rgba(15,31,42,0.12)] transition hover:opacity-90" style={{ backgroundColor: tone.button }}>
+        <button onClick={onOpen} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[0.7rem] px-2.5 text-xs font-black text-white shadow-[0_8px_18px_rgba(15,31,42,0.12)] transition hover:opacity-90" style={{ backgroundColor: hasCover ? 'rgba(255,255,255,0.18)' : tone.button, backdropFilter: hasCover ? 'blur(16px)' : undefined }}>
           <BookOpen size={14} /> Buka
         </button>
-        <button onClick={onEdit} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[0.7rem] bg-white/72 px-2.5 text-xs font-black ring-1 transition hover:bg-white" style={{ color: tone.accent, '--tw-ring-color': tone.border }}>
+        <button onClick={onEdit} className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[0.7rem] px-2.5 text-xs font-black ring-1 transition ${hasCover ? 'bg-white/16 text-white ring-white/30 backdrop-blur-xl hover:bg-white/25' : 'bg-white/72 hover:bg-white'}`} style={hasCover ? undefined : { color: tone.accent, '--tw-ring-color': tone.border }}>
           <PencilLine size={14} /> Edit
         </button>
-        <button onClick={onToggleStatus} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[0.7rem] bg-white/72 px-2.5 text-xs font-black ring-1 transition hover:bg-white sm:col-span-2" style={{ color: tone.accent, '--tw-ring-color': tone.border }}>
+        <button onClick={onToggleStatus} className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[0.7rem] px-2.5 text-xs font-black ring-1 transition sm:col-span-2 ${hasCover ? 'bg-white/16 text-white ring-white/30 backdrop-blur-xl hover:bg-white/25' : 'bg-white/72 hover:bg-white'}`} style={hasCover ? undefined : { color: tone.accent, '--tw-ring-color': tone.border }}>
           <Send size={14} /> {row.status === 'Publish' ? 'Jadikan draft' : 'Publish'}
         </button>
         {row.source !== 'school-content' && (
@@ -8498,8 +8711,8 @@ function MaterialForm({ material, lookups, subjectOptions = [], onCancel, onSave
   }
 
   return (
-    <section className="mb-5 overflow-hidden rounded-[1.2rem] border border-[#D9E6F5] bg-white shadow-[0_18px_52px_rgba(15,36,55,0.08)]">
-      <header className="flex flex-col gap-3 border-b border-[#D9E6F5] bg-[#F8FBFF] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <section className="liquid-glass-light mb-5 overflow-hidden rounded-[1.25rem]">
+      <header className="flex flex-col gap-3 border-b border-white/70 bg-white/45 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#E8F2FF] text-[#2F80D8] ring-1 ring-[#B9D8F7]">
             <BookOpen size={20} />
@@ -8522,9 +8735,9 @@ function MaterialForm({ material, lookups, subjectOptions = [], onCancel, onSave
         </div>
       </header>
 
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="space-y-4 p-4">
-          <section className="rounded-[1rem] bg-[#F8FBFF] p-4 ring-1 ring-[#D9E6F5]">
+      <div className="grid xl:grid-cols-[minmax(0,1fr)_25rem]">
+        <div className="space-y-4 p-4 lg:p-5">
+          <section className="glass-inset rounded-[1rem] p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#2F80D8]">Informasi materi</p>
@@ -8577,8 +8790,9 @@ function MaterialForm({ material, lookups, subjectOptions = [], onCancel, onSave
             </section>
           ) : (
             <>
-              <section className="rounded-[1rem] bg-white p-4 ring-1 ring-[#D9E6F5]">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <section className="glass-panel rounded-[1rem] p-4">
+                <div className="liquid-toolbar sticky top-3 z-20 mb-4 rounded-[1rem] p-3">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#2F80D8]">Editor teks</p>
                     <h3 className="text-lg font-black text-[#13232d]">Tulis isi materi</h3>
@@ -8610,18 +8824,19 @@ function MaterialForm({ material, lookups, subjectOptions = [], onCancel, onSave
                       </button>
                     ))}
                   </div>
+                  </div>
                 </div>
                 <textarea
                   ref={bodyRef}
                   value={draft.body}
                   onChange={(event) => updateDraft('body', event.target.value)}
-                  rows={13}
+                  rows={21}
                   placeholder="Tulis materi di sini. Gunakan toolbar untuk judul, daftar, callout, kode, pangkat, rumus, dan penekanan."
-                  className={`${materialInputClass} resize-y leading-7`}
+                  className={`${materialInputClass} min-h-[32rem] resize-y bg-white/88 leading-7 shadow-inner`}
                 />
               </section>
 
-              <section className="rounded-[1rem] bg-white p-4 ring-1 ring-[#D9E6F5]">
+              <section className="hidden">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">Matematika & science</p>
@@ -8679,7 +8894,7 @@ function MaterialForm({ material, lookups, subjectOptions = [], onCancel, onSave
                 </div>
               </section>
 
-              <section className="rounded-[1rem] bg-white p-4 ring-1 ring-[#D9E6F5]">
+              <section className="hidden">
                 <div className="mb-3">
                   <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#2F80D8]">Media & berkas</p>
                   <h3 className="text-lg font-black text-[#13232d]">Gambar, video, audio, PDF, dokumen, dan embed</h3>
@@ -8708,7 +8923,7 @@ function MaterialForm({ material, lookups, subjectOptions = [], onCancel, onSave
                 </div>
               </section>
 
-              <section className="rounded-[1rem] bg-white p-4 ring-1 ring-[#D9E6F5]">
+              <section className="hidden">
                 <div className="mb-3">
                   <p className="text-[11px] font-black uppercase tracking-[0.14em] text-violet-700">Evaluasi & pembahasan</p>
                   <h3 className="text-lg font-black text-[#13232d]">Kuis sela dan spoiler solusi</h3>
@@ -8746,7 +8961,7 @@ function MaterialForm({ material, lookups, subjectOptions = [], onCancel, onSave
           )}
         </div>
 
-        <aside className="space-y-4 border-t border-[#0B3A5B]/8 bg-[#F1F7FF]/58 p-4 lg:border-l lg:border-t-0">
+        <aside className="liquid-side-panel space-y-4 border-t border-white/70 p-4 xl:border-l xl:border-t-0">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0284c7]">Jenis materi</p>
             <div className="mt-2 grid grid-cols-2 gap-2">
@@ -8857,6 +9072,91 @@ function MaterialForm({ material, lookups, subjectOptions = [], onCancel, onSave
                   ))}
                 </div>
               </div>
+
+              <details className="glass-panel group rounded-2xl p-3" open>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-[#132437]">
+                  Rumus & sains
+                  <span className="rounded-lg bg-white/70 px-2 py-1 text-[11px] font-black text-[#2F80D8] ring-1 ring-white/70">Tools</span>
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <div className="grid gap-2">
+                    <input value={equationDraft.label} onChange={(event) => setEquationDraft((current) => ({ ...current, label: event.target.value }))} placeholder="Nama rumus" className={materialInputClass} />
+                    <input value={equationDraft.latex} onChange={(event) => setEquationDraft((current) => ({ ...current, latex: event.target.value }))} placeholder="LaTeX: F = m \\times a" className={materialInputClass} />
+                    <button type="button" onClick={addEquation} className="rounded-xl bg-emerald-700 px-3 py-2.5 text-sm font-black text-white">Sisipkan rumus</button>
+                  </div>
+                  <div>
+                    <p className="mb-2 text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">Simbol cepat</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {scienceSymbolGroups.flatMap(([, symbols]) => symbols).slice(0, 30).map((symbol) => (
+                        <button key={symbol} type="button" onClick={() => insertBodyText(symbol)} className="rounded-lg bg-white px-2.5 py-1.5 font-mono text-xs font-black text-slate-700 ring-1 ring-slate-100 hover:bg-sky-50">
+                          {symbol}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <input value={mediaDraft.type === 'Simulasi' ? mediaDraft.title : ''} onChange={(event) => setMediaDraft({ type: 'Simulasi', title: event.target.value, url: mediaDraft.url })} placeholder="Judul simulasi" className={materialInputClass} />
+                    <input value={mediaDraft.type === 'Simulasi' ? mediaDraft.url : ''} onChange={(event) => setMediaDraft({ type: 'Simulasi', title: mediaDraft.title, url: event.target.value })} placeholder="URL PhET, GeoGebra, Desmos" className={materialInputClass} />
+                    <button type="button" onClick={() => addMediaFromUrl('Simulasi')} className="rounded-xl bg-sky-700 px-3 py-2.5 text-sm font-black text-white">Tambahkan simulasi</button>
+                  </div>
+                </div>
+              </details>
+
+              <details className="glass-panel group rounded-2xl p-3">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-[#132437]">
+                  Media & lampiran
+                  <span className="rounded-lg bg-white/70 px-2 py-1 text-[11px] font-black text-[#2F80D8] ring-1 ring-white/70">Embed</span>
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <label
+                    className="grid min-h-[7rem] cursor-pointer place-items-center rounded-2xl border border-dashed border-sky-200 bg-white/60 p-4 text-center transition hover:bg-sky-50"
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={handleFileDrop}
+                  >
+                    <input type="file" multiple className="sr-only" onChange={handleFileUpload} accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv" />
+                    <span className="text-sm font-black text-slate-950">Upload / drop file</span>
+                    <span className="mt-1 text-xs font-semibold leading-5 text-slate-500">Gambar, video, audio, PDF, dokumen, atau spreadsheet.</span>
+                  </label>
+                  <div className="grid gap-2">
+                    <select value={mediaDraft.type} onChange={(event) => setMediaDraft((current) => ({ ...current, type: event.target.value }))} className={materialInputClass}>
+                      {['Gambar', 'Video', 'Audio', 'PDF', 'Dokumen', 'Presentasi', 'Spreadsheet', 'Embed'].map((type) => <option key={type}>{type}</option>)}
+                    </select>
+                    <input value={mediaDraft.title} onChange={(event) => setMediaDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Judul media" className={materialInputClass} />
+                    <input value={mediaDraft.url} onChange={(event) => setMediaDraft((current) => ({ ...current, url: event.target.value }))} placeholder="URL YouTube/Drive/PDF/embed" className={materialInputClass} />
+                    <button type="button" onClick={() => addMediaFromUrl(mediaDraft.type)} className="rounded-xl bg-[#0B3A5B] px-3 py-2.5 text-sm font-black text-white">Tambahkan media</button>
+                  </div>
+                </div>
+              </details>
+
+              <details className="glass-panel group rounded-2xl p-3">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-[#132437]">
+                  Tabel, kuis & pembahasan
+                  <span className="rounded-lg bg-white/70 px-2 py-1 text-[11px] font-black text-[#2F80D8] ring-1 ring-white/70">Interaktif</span>
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <div className="grid gap-2 rounded-2xl bg-white/62 p-2 ring-1 ring-white/70">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Tabel data</p>
+                    <input value={tableDraft.title} onChange={(event) => setTableDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Judul tabel" className={materialInputClass} />
+                    <input value={tableDraft.headers} onChange={(event) => setTableDraft((current) => ({ ...current, headers: event.target.value }))} placeholder="Kolom dipisahkan koma" className={materialInputClass} />
+                    <textarea value={tableDraft.rows} onChange={(event) => setTableDraft((current) => ({ ...current, rows: event.target.value }))} rows={3} placeholder="Satu baris data per baris" className={`${materialInputClass} resize-y`} />
+                    <button type="button" onClick={addTable} className="rounded-xl bg-amber-600 px-3 py-2.5 text-sm font-black text-white">Tambahkan tabel</button>
+                  </div>
+                  <div className="grid gap-2 rounded-2xl bg-white/62 p-2 ring-1 ring-white/70">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Kuis sela</p>
+                    <textarea value={quizDraft.question} onChange={(event) => setQuizDraft((current) => ({ ...current, question: event.target.value }))} rows={2} placeholder="Pertanyaan cek pemahaman" className={`${materialInputClass} resize-y`} />
+                    <textarea value={quizDraft.options} onChange={(event) => setQuizDraft((current) => ({ ...current, options: event.target.value }))} rows={3} placeholder="Pilihan jawaban, satu opsi per baris" className={`${materialInputClass} resize-y`} />
+                    <input value={quizDraft.answer} onChange={(event) => setQuizDraft((current) => ({ ...current, answer: event.target.value }))} placeholder="Jawaban benar" className={materialInputClass} />
+                    <textarea value={quizDraft.explanation} onChange={(event) => setQuizDraft((current) => ({ ...current, explanation: event.target.value }))} rows={2} placeholder="Pembahasan singkat" className={`${materialInputClass} resize-y`} />
+                    <button type="button" onClick={addQuiz} className="rounded-xl bg-sky-700 px-3 py-2.5 text-sm font-black text-white">Tambahkan kuis</button>
+                  </div>
+                  <div className="grid gap-2 rounded-2xl bg-white/62 p-2 ring-1 ring-white/70">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Spoiler pembahasan</p>
+                    <input value={spoilerDraft.title} onChange={(event) => setSpoilerDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Judul spoiler" className={materialInputClass} />
+                    <textarea value={spoilerDraft.body} onChange={(event) => setSpoilerDraft((current) => ({ ...current, body: event.target.value }))} rows={4} placeholder="Langkah penyelesaian tersembunyi." className={`${materialInputClass} resize-y`} />
+                    <button type="button" onClick={addSpoiler} className="rounded-xl bg-[#0B3A5B] px-3 py-2.5 text-sm font-black text-white">Tambahkan spoiler</button>
+                  </div>
+                </div>
+              </details>
 
               <div>
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -11028,8 +11328,8 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
   const rubricTotalIsIdeal = rubricTotal === 100
 
   return (
-    <section className="mb-5 overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/90 shadow-[0_16px_48px_rgba(15,31,42,0.07)]">
-      <header className="flex flex-col gap-3 border-b border-[#0B3A5B]/8 bg-[#F8FBFF] px-4 py-4 xl:flex-row xl:items-center xl:justify-between">
+    <section className="liquid-glass-light mb-5 overflow-hidden rounded-[1.25rem]">
+      <header className="flex flex-col gap-3 border-b border-white/70 bg-white/45 px-4 py-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-start gap-3">
           <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[0.9rem] bg-[#E0F2FE] text-[#0284c7] ring-1 ring-[#0284c7]/10">
             <ClipboardList size={20} />
@@ -11050,9 +11350,9 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
         </div>
       </header>
 
-      <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_23rem]">
-        <div className="space-y-4 p-4">
-          <div className="grid gap-3 lg:grid-cols-[1.25fr_0.75fr]">
+      <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
+        <div className="space-y-4 p-4 lg:p-5">
+          <div className="glass-inset grid gap-3 rounded-[1rem] p-4 lg:grid-cols-[1.25fr_0.75fr]">
             <label className={materialLabelClass}>Judul tugas
               <input value={form.title || ''} onChange={(event) => updateField('title', event.target.value)} placeholder="Contoh: Latihan 3: Hukum Newton" className={materialInputClass} />
             </label>
@@ -11071,7 +11371,7 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
             )}
           </div>
 
-          <div>
+          <div className="hidden">
             <p className="text-sm font-black text-[#13232d]">Target kelas</p>
             <p className="mt-1 text-xs font-semibold text-slate-500">Bisa memilih lebih dari satu kelas paralel.</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -11096,7 +11396,7 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
             </div>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="hidden">
             <section className="rounded-[1rem] border border-[#0B3A5B]/10 bg-[#F8FBFF] p-3">
               <p className="text-sm font-black text-[#13232d]">Metode pengumpulan</p>
               <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Pilih satu atau beberapa cara siswa mengirim jawaban.</p>
@@ -11133,8 +11433,9 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
             </section>
           </div>
 
-          <div className="rounded-[1rem] border border-[#0B3A5B]/10 bg-white p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="glass-panel rounded-[1rem] p-4">
+            <div className="liquid-toolbar sticky top-3 z-20 rounded-[1rem] p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-black text-[#13232d]">Instruksi tugas</p>
                 <p className="mt-1 text-xs font-semibold text-slate-500">Mendukung format cepat: heading, tebal, daftar, callout, dan code block.</p>
@@ -11152,11 +11453,12 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
                   </button>
                 ))}
               </div>
+              </div>
             </div>
-            <textarea value={form.description || ''} onChange={(event) => updateField('description', event.target.value)} rows={8} placeholder="Tulis detail pengerjaan, format jawaban, dan langkah-langkah yang harus diikuti siswa." className={`${materialInputClass} mt-3 resize-y leading-7`} />
+            <textarea value={form.description || ''} onChange={(event) => updateField('description', event.target.value)} rows={18} placeholder="Tulis detail pengerjaan, format jawaban, dan langkah-langkah yang harus diikuti siswa." className={`${materialInputClass} mt-4 min-h-[29rem] resize-y bg-white/88 leading-7 shadow-inner`} />
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="hidden">
             <div className="rounded-[1rem] border border-[#0B3A5B]/10 bg-[#F8FBFF] p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -11235,7 +11537,7 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
           )}
         </div>
 
-        <aside className="space-y-4 border-t border-[#0B3A5B]/8 bg-[#F1F7FF]/66 p-4 xl:border-l xl:border-t-0">
+        <aside className="liquid-side-panel space-y-4 border-t border-white/70 p-4 xl:border-l xl:border-t-0">
           <div className="grid gap-3">
             <label className={materialLabelClass}>Tanggal & jam rilis
               <input type="datetime-local" value={form.releaseAt || ''} onChange={(event) => updateField('releaseAt', event.target.value)} className={materialInputClass} />
@@ -11292,6 +11594,130 @@ function AssignmentForm({ assignment, lookups, subjectOptions = [], onCancel, on
               <input type="number" min="0" max="100" value={form.gradeWeight || 0} onChange={(event) => updateField('gradeWeight', event.target.value)} className={materialInputClass} />
             </label>
           </div>
+
+          <details className="glass-panel rounded-2xl p-3" open>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-[#132437]">
+              Target kelas
+              <span className="rounded-lg bg-white/70 px-2 py-1 text-[11px] font-black text-[#2F80D8] ring-1 ring-white/70">{normalizeAssignmentClassNames(form).length} kelas</span>
+            </summary>
+            <div className="mt-3 grid gap-2">
+              {classesList.map((classItem) => {
+                const active = normalizeAssignmentClassNames(form).some((name) => sameAssignmentClassName(name, classItem.name))
+                return (
+                  <button
+                    key={classOptionValue(classItem)}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => toggleClass(classItem)}
+                    className={`rounded-[0.9rem] px-3 py-2.5 text-left text-sm font-black ring-1 transition ${
+                      active
+                        ? 'bg-[#0B3A5B] text-white ring-[#0B3A5B]'
+                        : 'bg-white/78 text-slate-700 ring-white/70 hover:bg-[#E0F2FE] hover:text-[#0284c7]'
+                    }`}
+                  >
+                    {classItem.name}
+                  </button>
+                )
+              })}
+            </div>
+          </details>
+
+          <details className="glass-panel rounded-2xl p-3">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-[#132437]">
+              Pengumpulan
+              <span className="rounded-lg bg-white/70 px-2 py-1 text-[11px] font-black text-[#2F80D8] ring-1 ring-white/70">{prepared.submissionTypes.length} mode</span>
+            </summary>
+            <div className="mt-3 space-y-2">
+              {assignmentSubmissionTypeOptions.map((option) => {
+                const active = prepared.submissionTypes.includes(option.value)
+                return (
+                  <label key={option.value} className={`flex cursor-pointer gap-3 rounded-[0.9rem] px-3 py-2.5 ring-1 transition ${active ? 'bg-white text-[#13232d] ring-[#0284c7]/30' : 'bg-white/68 text-slate-500 ring-white/70'}`}>
+                    <input type="checkbox" checked={active} onChange={() => toggleSubmissionType(option.value)} className="mt-1 h-4 w-4 rounded border-slate-300 text-[#0284c7]" />
+                    <span>
+                      <span className="block text-sm font-black">{option.label}</span>
+                      <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{option.helper}</span>
+                    </span>
+                  </label>
+                )
+              })}
+              <div className="grid gap-2 pt-1">
+                {assignmentWorkModeOptions.map((option) => {
+                  const active = form.workMode === option.value
+                  return (
+                    <button key={option.value} type="button" onClick={() => updateField('workMode', option.value)} className={`rounded-[0.9rem] px-3 py-2.5 text-left ring-1 transition ${active ? 'bg-[#0B3A5B] text-white ring-[#0B3A5B]' : 'bg-white/78 text-slate-600 ring-white/70 hover:bg-[#E0F2FE]'}`}>
+                      <span className="block text-sm font-black">{option.label}</span>
+                      <span className={`mt-0.5 block text-xs font-semibold leading-5 ${active ? 'text-white/78' : 'text-slate-500'}`}>{option.helper}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </details>
+
+          <details className="glass-panel rounded-2xl p-3">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-[#132437]">
+              Lampiran & embed
+              <span className="rounded-lg bg-white/70 px-2 py-1 text-[11px] font-black text-[#2F80D8] ring-1 ring-white/70">{prepared.attachments.length}</span>
+            </summary>
+            <div className="mt-3 space-y-3">
+              <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-[0.9rem] bg-white/76 px-3 py-2.5 text-sm font-black text-[#0284c7] ring-1 ring-white/70">
+                <FileText size={14} /> Upload file
+                <input type="file" multiple onChange={addAttachmentFiles} className="hidden" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.html,.htm" />
+              </label>
+              <div className="grid gap-2">
+                <select value={attachmentDraft.type} onChange={(event) => setAttachmentDraft((current) => ({ ...current, type: event.target.value }))} className={materialInputClass}>
+                  {['Video', 'PDF', 'Dokumen', 'Presentasi', 'Spreadsheet', 'Gambar', 'Audio', 'Embed', 'Link'].map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+                <input value={attachmentDraft.title} onChange={(event) => setAttachmentDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Judul lampiran" className={materialInputClass} />
+                <input value={attachmentDraft.url} onChange={(event) => setAttachmentDraft((current) => ({ ...current, url: event.target.value }))} placeholder="URL YouTube, Drive, PDF, audio, atau embed" className={materialInputClass} />
+                <button type="button" onClick={addLinkAttachment} className="rounded-[0.85rem] bg-[#0B3A5B] px-4 py-2.5 text-sm font-black text-white">
+                  Tambahkan lampiran
+                </button>
+              </div>
+              {prepared.attachments.length > 0 && (
+                <div className="space-y-2">
+                  {prepared.attachments.map((attachment) => (
+                    <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-[0.85rem] bg-white/74 px-3 py-2 ring-1 ring-white/70">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-[#13232d]">{attachment.title}</p>
+                        <p className="text-xs font-bold text-slate-500">{attachment.type}{attachment.size ? ` · ${formatFileSize(attachment.size)}` : ''}</p>
+                      </div>
+                      <button type="button" onClick={() => removeAttachment(attachment.id)} className="rounded-[0.7rem] bg-rose-50 px-2.5 py-1.5 text-xs font-black text-rose-700 ring-1 ring-rose-100">
+                        Hapus
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </details>
+
+          <details className="glass-panel rounded-2xl p-3">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-[#132437]">
+              Rubrik penilaian
+              <StatusBadge tone={rubricTotalIsIdeal ? 'green' : 'amber'}>{rubricTotal}%</StatusBadge>
+            </summary>
+            <div className="mt-3 space-y-3">
+              {!rubricTotalIsIdeal && (
+                <div className="rounded-[0.85rem] bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-800 ring-1 ring-amber-100">
+                  Total bobot rubrik sebaiknya 100%.
+                </div>
+              )}
+              <button type="button" onClick={addRubricRow} className="rounded-[0.8rem] bg-[#E0F2FE] px-3 py-2 text-xs font-black text-[#0284c7]">Tambah komponen</button>
+              <div className="space-y-2">
+                {prepared.rubricRows.map((row) => (
+                  <div key={row.id} className="rounded-[0.9rem] bg-white/70 p-2 ring-1 ring-white/70">
+                    <div className="grid gap-2 sm:grid-cols-[1fr_4.5rem]">
+                      <input value={row.component} onChange={(event) => updateRubricRow(row.id, 'component', event.target.value)} className={materialInputClass} />
+                      <input type="number" min="0" max="100" value={row.weight} onChange={(event) => updateRubricRow(row.id, 'weight', event.target.value)} className={materialInputClass} />
+                    </div>
+                    <textarea value={row.description} onChange={(event) => updateRubricRow(row.id, 'description', event.target.value)} rows={2} placeholder="Deskripsi kriteria penilaian" className={`${materialInputClass} mt-2 resize-y leading-6`} />
+                    <button type="button" onClick={() => removeRubricRow(row.id)} className="mt-2 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100">Hapus</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </details>
 
           <button type="button" onClick={generateDraftWithAiHelper} className="inline-flex w-full items-center justify-center gap-2 rounded-[0.95rem] bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800 ring-1 ring-cyan-100 transition hover:bg-cyan-100">
             <Sparkles size={16} /> Bantuan AI Creator

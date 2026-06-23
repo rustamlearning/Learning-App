@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Inbox, Loader2, Search, Sparkles, X } from 'lucide-react'
 
-const panelClass = 'rounded-2xl border border-[#D9E6F5] bg-white shadow-[0_10px_28px_rgba(15,36,55,0.045)]'
-const insetPanelClass = 'rounded-xl border border-[#D9E6F5] bg-[#F8FBFF]'
+const panelClass = 'glass-panel rounded-2xl'
+const insetPanelClass = 'glass-inset rounded-xl'
 
 export function PageHeader({ eyebrow, title, description, action }) {
   return (
