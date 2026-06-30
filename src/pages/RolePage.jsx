@@ -1543,7 +1543,7 @@ function StudentMaterialRow({ item, onOpen }) {
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
         <span
-          className={`inline-flex shrink-0 justify-center rounded-[0.7rem] px-2.5 py-1.5 font-mono text-xs font-black ring-1 ${hasCover ? 'bg-white/94 shadow-sm ring-white/80 backdrop-blur-xl' : ''}`}
+          className={`inline-flex shrink-0 justify-center rounded-[0.7rem] px-2.5 py-1.5 font-mono text-xs font-black ring-1 ${hasCover ? 'bg-white text-[#0B3A5B] shadow-[0_8px_20px_rgba(15,31,42,0.18)] ring-white/80 backdrop-blur-xl' : ''}`}
           style={hasCover ? undefined : { backgroundColor: tone.accentSoft, color: tone.accent, '--tw-ring-color': tone.border }}
         >
           {getChapterLabel(item.title)}
@@ -8073,7 +8073,7 @@ function MaterialFolderRow({ row, onOpen, onEdit, onToggleStatus, onDelete }) {
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
         <span
-          className={`inline-flex shrink-0 justify-center rounded-[0.7rem] px-2.5 py-1.5 font-mono text-xs font-black ring-1 ${hasCover ? 'bg-white/88 text-[#17446E] ring-white/50 backdrop-blur-xl' : ''}`}
+          className={`inline-flex shrink-0 justify-center rounded-[0.7rem] px-3 py-1.5 font-mono text-xs font-black ring-1 ${hasCover ? 'bg-white text-[#0B3A5B] shadow-[0_8px_20px_rgba(15,31,42,0.2)] ring-white/80 backdrop-blur-xl' : ''}`}
           style={hasCover ? undefined : { backgroundColor: tone.accentSoft, color: tone.accent, '--tw-ring-color': tone.border }}
         >
           {chapterLabel}
