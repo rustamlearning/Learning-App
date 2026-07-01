@@ -66,6 +66,10 @@ function isDemoAuthEnabled() {
   return import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true'
 }
 
+function isRemoteDataEnabled() {
+  return import.meta.env.VITE_REMOTE_DATA_ENABLED === 'true'
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [session, setSession] = useState(null)
@@ -256,12 +260,13 @@ export function AuthProvider({ children }) {
     user,
     loading,
     session,
-    accessToken: session?.access_token,
+    accessToken: isRemoteDataEnabled() ? session?.access_token : null,
     loginAs,
     loginWithEmail,
     changeTeacherPassword,
     logout,
     supabaseEnabled: isSupabaseConfigured(),
+    remoteDataEnabled: isRemoteDataEnabled(),
     demoAuthEnabled: isDemoAuthEnabled(),
   }), [user, loading, session])
 

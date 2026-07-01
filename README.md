@@ -98,6 +98,8 @@ UPSTASH_REDIS_REST_TOKEN=
 
 Jika Supabase belum dikonfigurasi, aplikasi tetap bisa berjalan menggunakan mode demo.
 
+Secara default `VITE_REMOTE_DATA_ENABLED=false`, sehingga Supabase hanya dipakai untuk login dan role akun. Materi, soal, tugas, kuis, serta data pengelolaan sekolah memakai penyimpanan lokal browser. Aktifkan nilai tersebut hanya jika sinkronisasi data Supabase memang diperlukan.
+
 ## Fitur Supabase
 
 - Email/password login melalui Supabase Auth
