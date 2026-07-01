@@ -12951,6 +12951,7 @@ function ClassForm({ classItem, onCancel, onSave }) {
 
 function AdminMapel({ notify, appContext }) {
   const [rows, setRows] = useState([])
+  const [teacherOptions, setTeacherOptions] = useState([])
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
@@ -12961,10 +12962,19 @@ function AdminMapel({ notify, appContext }) {
     async function loadSubjects() {
       if (!appContext?.accessToken) {
         if (isLocalAdminPreview(appContext)) {
-          setRows(getLocalAdminCollection('subjects', subjects))
+          const localSubjects = getLocalAdminCollection('subjects', subjects)
+          const localTeachers = normalizeTeacherProfileRows(teachers)
+            .map((teacher) => ({
+              ...teacher,
+              teacherId: teacher.teacherId || teacher.id,
+              subjectIds: resolveTeacherSubjectIds(teacher, localSubjects),
+            }))
+          setTeacherOptions(localTeachers)
+          setRows(localSubjects.map((subject) => enrichAdminSubjectRow(subject, localTeachers)))
           setError('')
         } else {
           setRows([])
+          setTeacherOptions([])
           setError('Sesi admin Supabase tidak aktif. Silakan logout lalu login kembali.')
         }
         setLoading(false)
@@ -12972,14 +12982,20 @@ function AdminMapel({ notify, appContext }) {
       }
       try {
         setLoading(true)
-        const subjectRows = await fetchSubjects({ accessToken: appContext.accessToken })
+        const [subjectRows, teacherRows] = await Promise.all([
+          fetchSubjects({ accessToken: appContext.accessToken }),
+          fetchAdminTeachers({ accessToken: appContext.accessToken }),
+        ])
         if (active) {
-          setRows(subjectRows.map((item) => ({ ...item, teacher: item.users_profile?.name || '-' })))
+          const assignableTeachers = teacherRows.filter((teacher) => teacher.teacherId)
+          setTeacherOptions(assignableTeachers)
+          setRows(subjectRows.map((subject) => enrichAdminSubjectRow(subject, assignableTeachers)))
           setError(subjectRows.length === 0 ? 'Supabase mengembalikan 0 data mata pelajaran. Periksa isi tabel dan kebijakan RLS.' : '')
         }
       } catch (loadError) {
         if (active) {
           setRows([])
+          setTeacherOptions([])
           setError(loadError.message)
         }
       } finally {
@@ -12997,7 +13013,10 @@ function AdminMapel({ notify, appContext }) {
         return
       }
 
-      const localSubject = { ...subject, id: subject.id || `local-subject-${Date.now()}` }
+      const localSubject = enrichAdminSubjectRow(
+        { ...subject, id: subject.id || `local-subject-${Date.now()}` },
+        teacherOptions,
+      )
 
       setRows((current) => {
         const nextRows = subject.id
@@ -13013,7 +13032,10 @@ function AdminMapel({ notify, appContext }) {
     }
     try {
       const saved = await saveSubject({ accessToken: appContext.accessToken, subject })
-      setRows((current) => subject.id ? current.map((item) => item.id === subject.id ? saved : item) : [saved, ...current])
+      const enrichedSaved = enrichAdminSubjectRow(saved, teacherOptions)
+      setRows((current) => subject.id
+        ? current.map((item) => item.id === subject.id ? enrichedSaved : item)
+        : [enrichedSaved, ...current])
       setEditing(null)
       notify('Mapel berhasil disimpan di Supabase.')
     } catch (saveError) {
@@ -13059,7 +13081,7 @@ function AdminMapel({ notify, appContext }) {
     <div>
       <PageHeader eyebrow="Mapel" title="Mata Pelajaran" action={<QuickActionButton icon={Plus} label="Tambah mapel" onClick={() => setEditing({ name: '', code: '' })} />} />
       {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Tidak dapat menampilkan data mapel Supabase: {error}</div>}
-      {editing && <SubjectForm subject={editing} onCancel={() => setEditing(null)} onSave={handleSave} />}
+      {editing && <SubjectForm subject={editing} teachers={teacherOptions} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat mata pelajaran dari Supabase..." /> : (
         <DataTable columns={[
           { key: 'name', label: 'Nama Mapel' },
@@ -13073,8 +13095,38 @@ function AdminMapel({ notify, appContext }) {
   )
 }
 
-function SubjectForm({ subject, onCancel, onSave }) {
-  const [form, setForm] = useState(subject)
+function enrichAdminSubjectRow(subject, teacherRows = []) {
+  const explicitTeacherIds = Array.isArray(subject.teacherIds) ? subject.teacherIds : null
+  const linkedTeachers = explicitTeacherIds
+    ? teacherRows.filter((teacher) => explicitTeacherIds.includes(teacher.teacherId))
+    : teacherRows.filter((teacher) => (
+      (teacher.subjectIds || []).includes(subject.id)
+      || (subject.teacher_id && teacher.id === subject.teacher_id)
+    ))
+  const uniqueTeachers = [...new Map(linkedTeachers.map((teacher) => [teacher.teacherId, teacher])).values()]
+
+  return {
+    ...subject,
+    teacherIds: uniqueTeachers.map((teacher) => teacher.teacherId),
+    teacher: uniqueTeachers.map((teacher) => teacher.name).join('; ') || '-',
+  }
+}
+
+function SubjectForm({ subject, teachers: teacherRows, onCancel, onSave }) {
+  const [form, setForm] = useState(() => ({
+    ...subject,
+    teacherIds: Array.isArray(subject.teacherIds) ? subject.teacherIds : [],
+  }))
+
+  function toggleTeacher(teacherId) {
+    setForm((current) => {
+      const selectedIds = new Set(current.teacherIds || [])
+      if (selectedIds.has(teacherId)) selectedIds.delete(teacherId)
+      else selectedIds.add(teacherId)
+      return { ...current, teacherIds: [...selectedIds] }
+    })
+  }
+
   return (
     <SectionCard className="mb-4">
       <h2 className="text-lg font-black text-gray-950">{form.id ? 'Edit mapel' : 'Tambah mapel'}</h2>
@@ -13085,10 +13137,26 @@ function SubjectForm({ subject, onCancel, onSave }) {
         <label className="grid gap-1 text-sm font-bold text-gray-700">Kode
           <input value={form.code} onChange={(event) => setForm((current) => ({ ...current, code: event.target.value.toUpperCase() }))} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
+        <fieldset className="grid gap-2 md:col-span-2">
+          <legend className="text-sm font-bold text-gray-700">Guru pengampu</legend>
+          <div className="grid max-h-56 gap-2 overflow-y-auto rounded-xl border border-purple-100 bg-galaxy-surface p-3 sm:grid-cols-2 lg:grid-cols-3">
+            {teacherRows.map((teacher) => (
+              <label key={teacher.teacherId} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-700 ring-1 ring-purple-100">
+                <input
+                  type="checkbox"
+                  checked={(form.teacherIds || []).includes(teacher.teacherId)}
+                  onChange={() => toggleTeacher(teacher.teacherId)}
+                  className="h-4 w-4 accent-[#1677FF]"
+                />
+                <span>{teacher.name}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
       </div>
       <div className="mt-4 flex justify-end gap-2">
         <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form)} disabled={!form.name.trim() || !form.code.trim()} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
+        <button onClick={() => onSave(form)} disabled={!String(form.name || '').trim() || !String(form.code || '').trim()} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
       </div>
     </SectionCard>
   )

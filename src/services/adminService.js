@@ -234,15 +234,45 @@ export async function fetchSubjects({ accessToken }) {
 }
 
 export async function saveSubject({ accessToken, subject }) {
+  const teacherIds = [...new Set(
+    (Array.isArray(subject.teacherIds)
+      ? subject.teacherIds
+      : [subject.teacherRecordId]
+    ).filter(Boolean),
+  )]
+  const existingLinks = await fetchTeacherSubjectLinks({ accessToken })
+
+  if (existingLinks === null && teacherIds.length > 1) {
+    throw new Error('Fitur multi-guru belum diaktifkan di Supabase. Jalankan SQL teacher-subjects migration terlebih dahulu.')
+  }
+
+  const teacherRows = await listRows('teachers', {
+    select: 'id,user_id',
+    accessToken,
+  })
+  const primaryTeacher = teacherRows.find((teacher) => teacher.id === teacherIds[0])
   const payload = {
     name: subject.name,
     code: subject.code,
-    teacher_id: subject.teacherId || subject.teacher_id || null,
+    teacher_id: primaryTeacher?.user_id || null,
   }
   const rows = subject.id
     ? await updateRow('subjects', subject.id, payload, accessToken)
     : await createRow('subjects', payload, accessToken)
-  return rows[0]
+  const subjectId = rows[0]?.id || subject.id
+
+  if (existingLinks !== null && subjectId) {
+    await deleteRows('teacher_subjects', { subject_id: subjectId }, accessToken)
+    if (teacherIds.length) {
+      await createRow(
+        'teacher_subjects',
+        teacherIds.map((teacherId) => ({ teacher_id: teacherId, subject_id: subjectId })),
+        accessToken,
+      )
+    }
+  }
+
+  return { ...rows[0], teacherIds }
 }
 
 export async function removeSubject({ accessToken, id }) {
