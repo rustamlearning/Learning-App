@@ -88,7 +88,7 @@ export default function Login() {
               Selamat datang kembali.
             </h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Gunakan akun sekolah yang sudah terdaftar. Guru dapat memakai NIP sebagai username dan password.
+              Gunakan akun sekolah yang sudah terdaftar. Guru dapat memakai NIP sebagai username.
             </p>
           </header>
 

@@ -2,7 +2,7 @@ import { createRow, deleteRow, deleteRows, listRows, normalizeLoginIdentifier, u
 
 export async function fetchProfiles({ accessToken, role }) {
   return listRows('users_profile', {
-    select: 'id,name,email,role,status,created_at',
+    select: 'id,auth_user_id,name,email,role,status,created_at',
     filters: { role },
     accessToken,
   })
@@ -111,6 +111,7 @@ export async function saveAdminTeacher({ accessToken, teacher }) {
     ? await updateRow('teachers', teacher.teacherId, payload, accessToken)
     : await createRow('teachers', payload, accessToken)
   const teacherId = rows[0]?.id || teacher.teacherId
+  await saveTeacherLoginAlias({ accessToken, profile, nip: payload.nip })
 
   if (existingLinks !== null && teacherId) {
     await deleteRows('teacher_subjects', { teacher_id: teacherId }, accessToken)
@@ -157,6 +158,26 @@ async function fetchTeacherSubjectLinks({ accessToken }) {
   }
 }
 
+async function saveTeacherLoginAlias({ accessToken, profile, nip }) {
+  const username = normalizeLoginIdentifier(String(nip || '').replace(/\s+/g, ''))
+  if (!username || !profile?.id || !profile?.email) return
+
+  const payload = {
+    profile_id: profile.id,
+    username,
+    email: normalizeLoginIdentifier(profile.email),
+    role: 'guru',
+  }
+  const aliases = await listRows('login_aliases', {
+    select: 'id',
+    filters: { username },
+    accessToken,
+  })
+
+  if (aliases[0]) await updateRow('login_aliases', aliases[0].id, payload, accessToken)
+  else await createRow('login_aliases', payload, accessToken)
+}
+
 export async function saveProfile({ accessToken, profile }) {
   const payload = {
     name: profile.name,
@@ -192,7 +213,7 @@ async function saveLoginAlias({ accessToken, profile }) {
   }
   const aliases = await listRows('login_aliases', {
     select: 'id',
-    filters: { profile_id: profile.id },
+    filters: { username: payload.username },
     accessToken,
   })
 
@@ -277,6 +298,31 @@ export async function saveSubject({ accessToken, subject }) {
 
 export async function removeSubject({ accessToken, id }) {
   await deleteRow('subjects', id, accessToken)
+}
+
+export async function resetAdminTeacherPassword({ accessToken, teacher, password }) {
+  const resetResponse = await fetch('/api/admin-teacher-password', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ profileId: teacher.id, password }),
+  })
+  const text = await resetResponse.text()
+  let data = null
+
+  try {
+    data = text ? JSON.parse(text) : null
+  } catch (error) {
+    data = null
+  }
+
+  if (!resetResponse.ok) {
+    throw new Error(data?.error || 'Reset password guru gagal.')
+  }
+
+  return data
 }
 
 export async function exportBackupData({ accessToken }) {

@@ -12,6 +12,7 @@ const checks = []
 
 checkRequiredEnv('VITE_SUPABASE_URL', 'Supabase frontend URL wajib di production.')
 checkRequiredEnv('VITE_SUPABASE_ANON_KEY', 'Supabase anon key wajib di production.')
+checkRequiredEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_ROLE_KEY wajib untuk reset password guru oleh admin.')
 checkRequiredEnv('GROQ_API_KEY', 'GROQ_API_KEY tidak terlihat di env lokal; pastikan sudah ada di Vercel atau isi file env untuk audit lokal.')
 checkEnvValue('AI_REQUIRE_AUTH', 'true', 'AI_REQUIRE_AUTH tidak true di env lokal; production live tetap perlu dicek dengan audit:live.')
 

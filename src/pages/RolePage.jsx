@@ -19,6 +19,7 @@ import {
   FlaskConical,
   Globe2,
   Handshake,
+  KeyRound,
   Landmark,
   Languages,
   Layers3,
@@ -87,7 +88,7 @@ import { AIChatPanel, AIGeneratorPanel, BadgeCard, DailyMissionCard, FlashcardDe
 import { fetchMaterialLookups, fetchMaterials, fetchStudentMaterialProgress, markMaterialCompleted, removeMaterial, saveMaterial } from '../services/materialService.js'
 import { fetchQuestions, removeQuestion, saveQuestion } from '../services/questionService.js'
 import { fetchQuizAttempts, fetchQuizQuestions, fetchQuizzes, fetchStudentRecord, removeQuiz, saveQuiz, submitQuizAttempt } from '../services/quizService.js'
-import { exportBackupData, fetchAdminStudents, fetchAdminTeachers, fetchClasses, fetchSubjects, removeAdminStudent, removeAdminTeacher, removeClass, removeSubject, saveAdminStudent, saveAdminTeacher, saveClass, saveSubject } from '../services/adminService.js'
+import { exportBackupData, fetchAdminStudents, fetchAdminTeachers, fetchClasses, fetchSubjects, removeAdminStudent, removeAdminTeacher, removeClass, removeSubject, resetAdminTeacherPassword, saveAdminStudent, saveAdminTeacher, saveClass, saveSubject } from '../services/adminService.js'
 import { createAssignmentSubmission, fetchAssignmentSubmissions, fetchAssignments, removeAssignment, saveAssignment } from '../services/assignmentService.js'
 import {
   isExternalMaterialType,
@@ -3202,12 +3203,13 @@ function IsleClubPage() {
 }
 
 function ProfilPage({ user }) {
-  const { changeTeacherPassword } = useAuth()
+  const { accessToken, changeTeacherPassword } = useAuth()
   const [currentPassword, setCurrentPassword] = useState('')
   const [nextPassword, setNextPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
   const [passwordError, setPasswordError] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
   const isTeacher = user.role === 'guru'
   const profileDetails = [
     user.nip ? `NIP ${user.nip}` : '',
@@ -3217,7 +3219,7 @@ function ProfilPage({ user }) {
     user.email || '',
   ].filter(Boolean)
 
-  function submitPasswordChange(event) {
+  async function submitPasswordChange(event) {
     event.preventDefault()
     setPasswordMessage('')
     setPasswordError('')
@@ -3228,13 +3230,16 @@ function ProfilPage({ user }) {
     }
 
     try {
-      changeTeacherPassword(currentPassword, nextPassword)
+      setPasswordSaving(true)
+      await changeTeacherPassword(currentPassword, nextPassword)
       setCurrentPassword('')
       setNextPassword('')
       setConfirmPassword('')
       setPasswordMessage('Password berhasil diganti. Login berikutnya tetap memakai NIP sebagai username.')
     } catch (error) {
       setPasswordError(error.message || 'Password belum bisa diganti.')
+    } finally {
+      setPasswordSaving(false)
     }
   }
 
@@ -3259,10 +3264,10 @@ function ProfilPage({ user }) {
             <div>
               <h2 className="text-xl font-black text-gray-950">Keamanan akun</h2>
               <p className="mt-1 text-sm leading-6 text-gray-500">
-                Username guru tetap memakai NIP. Password awal adalah NIP, lalu bisa diganti dari sini.
+                Username guru tetap memakai NIP. Password akun dapat diganti setelah password saat ini diverifikasi.
               </p>
             </div>
-            <StatusBadge tone="cyan">NIP login</StatusBadge>
+            <StatusBadge tone="cyan">{accessToken ? 'Supabase Auth' : 'Mode preview'}</StatusBadge>
           </div>
 
           <form onSubmit={submitPasswordChange} className="mt-5 grid gap-4">
@@ -3271,26 +3276,29 @@ function ProfilPage({ user }) {
                 Password saat ini
                 <input
                   type="password"
+                  autoComplete="current-password"
                   value={currentPassword}
                   onChange={(event) => setCurrentPassword(event.target.value)}
                   className="rounded-xl border border-blue-100 bg-white px-3 py-2.5 outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
-                  placeholder="NIP atau password lama"
+                  placeholder="Masukkan password lama"
                 />
               </label>
               <label className="grid gap-2 text-sm font-bold text-gray-700">
                 Password baru
                 <input
                   type="password"
+                  autoComplete="new-password"
                   value={nextPassword}
                   onChange={(event) => setNextPassword(event.target.value)}
                   className="rounded-xl border border-blue-100 bg-white px-3 py-2.5 outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
-                  placeholder="Minimal 6 karakter"
+                  placeholder="Minimal 8 karakter"
                 />
               </label>
               <label className="grid gap-2 text-sm font-bold text-gray-700">
                 Konfirmasi
                 <input
                   type="password"
+                  autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   className="rounded-xl border border-blue-100 bg-white px-3 py-2.5 outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
@@ -3303,13 +3311,13 @@ function ProfilPage({ user }) {
               <p className="text-xs font-semibold leading-5 text-gray-500">
                 Setelah diganti, guru login dengan NIP sebagai username dan password baru.
               </p>
-              <button className="rounded-xl bg-galaxy-deep px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-blue-700">
-                Simpan password
+              <button type="submit" disabled={passwordSaving} className="rounded-xl bg-galaxy-deep px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+                {passwordSaving ? 'Menyimpan...' : 'Simpan password'}
               </button>
             </div>
 
-            {passwordMessage && <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 ring-1 ring-emerald-100">{passwordMessage}</p>}
-            {passwordError && <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 ring-1 ring-rose-100">{passwordError}</p>}
+            {passwordMessage && <p role="status" className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 ring-1 ring-emerald-100">{passwordMessage}</p>}
+            {passwordError && <p role="alert" className="rounded-xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 ring-1 ring-rose-100">{passwordError}</p>}
           </form>
         </SectionCard>
       )}
@@ -12517,6 +12525,8 @@ function AdminProfiles({ role, title, notify, appContext }) {
   const [lookups, setLookups] = useState({ classes: [], subjects: [] })
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)
+  const [resettingPassword, setResettingPassword] = useState(null)
+  const [passwordResetBusy, setPasswordResetBusy] = useState(false)
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
 
@@ -12653,11 +12663,45 @@ function AdminProfiles({ role, title, notify, appContext }) {
     }
   }
 
+  async function handleTeacherPasswordReset(password) {
+    if (!resettingPassword) return
+    if (!appContext?.accessToken) {
+      notify('Reset password guru hanya tersedia pada akun admin Supabase.')
+      return
+    }
+
+    try {
+      setPasswordResetBusy(true)
+      const result = await resetAdminTeacherPassword({
+        accessToken: appContext.accessToken,
+        teacher: resettingPassword,
+        password,
+      })
+      setRows((current) => current.map((row) => row.id === resettingPassword.id
+        ? { ...row, auth_user_id: result.authUserId }
+        : row))
+      setResettingPassword(null)
+      notify(result.message || 'Password guru berhasil direset.')
+    } catch (resetError) {
+      notify(`Gagal mereset password: ${resetError.message}`)
+    } finally {
+      setPasswordResetBusy(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader eyebrow="Data" title={title} description="Kelola profil dan detail akademik." action={<QuickActionButton icon={Plus} label={`Tambah ${role === 'guru' ? 'guru' : 'siswa'}`} onClick={() => setEditing({ name: '', email: '', role, status: 'Aktif', detailStatus: 'Aktif' })} />} />
       {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Tidak dapat menampilkan data Supabase: {error}</div>}
       {editing && <ProfileForm title={title} role={role} profile={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
+      {role === 'guru' && resettingPassword && (
+        <TeacherPasswordResetForm
+          teacher={resettingPassword}
+          busy={passwordResetBusy}
+          onCancel={() => setResettingPassword(null)}
+          onReset={handleTeacherPasswordReset}
+        />
+      )}
       {loading ? <LoadingState label={`Memuat ${title.toLowerCase()} dari Supabase...`} /> : (
         <DataTable columns={[
           { key: 'name', label: 'Nama' },
@@ -12666,7 +12710,7 @@ function AdminProfiles({ role, title, notify, appContext }) {
             ? [{ key: 'nip', label: 'NIP' }, { key: 'subject', label: 'Mapel' }]
             : [{ key: 'nis', label: 'NIS' }, { key: 'className', label: 'Kelas' }]),
           { key: 'status', label: 'Status' },
-          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
+          { key: 'action', label: 'Aksi', render: (row) => <div className="flex flex-wrap gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button>{role === 'guru' && <button onClick={() => setResettingPassword(row)} className="inline-flex items-center gap-1.5 rounded-xl bg-blue-50 px-3 py-2 text-xs font-extrabold text-blue-700"><KeyRound size={14} />Reset password</button>}<button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
         ]} rows={rows} />
       )}
       <ConfirmDialog open={Boolean(deleting)} title="Hapus data?" description={`Data "${deleting?.name || ''}" akan dihapus setelah konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
@@ -12792,6 +12836,57 @@ function ProfileForm({ title, role, profile, lookups, onCancel, onSave }) {
         <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
         <button onClick={() => onSave(form)} disabled={!String(form.name || '').trim() || !String(form.email || '').trim()} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
       </div>
+    </SectionCard>
+  )
+}
+
+function TeacherPasswordResetForm({ teacher, busy, onCancel, onReset }) {
+  const [password, setPassword] = useState('')
+  const [confirmation, setConfirmation] = useState('')
+  const [error, setError] = useState('')
+
+  function submit(event) {
+    event.preventDefault()
+    setError('')
+
+    if (password !== confirmation) {
+      setError('Konfirmasi password belum sama.')
+      return
+    }
+    if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+      setError('Password minimal 8 karakter dan harus memuat huruf serta angka.')
+      return
+    }
+    if (String(teacher.nip || '').replace(/\s+/g, '') === password) {
+      setError('Password tidak boleh sama dengan NIP.')
+      return
+    }
+
+    onReset(password)
+  }
+
+  return (
+    <SectionCard className="mb-4">
+      <div className="flex items-center gap-3">
+        <div className="grid h-10 w-10 place-items-center rounded-lg bg-blue-50 text-blue-700"><KeyRound size={19} /></div>
+        <div>
+          <h2 className="text-lg font-black text-gray-950">Reset password guru</h2>
+          <p className="text-sm font-semibold text-gray-500">{teacher.name} · NIP {teacher.nip || '-'}</p>
+        </div>
+      </div>
+      <form onSubmit={submit} className="mt-4 grid gap-3 md:grid-cols-2">
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Password baru
+          <input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Minimal 8 karakter" className="rounded-xl border border-blue-100 bg-white px-3 py-2.5 outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100" />
+        </label>
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Konfirmasi password
+          <input type="password" autoComplete="new-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Ulangi password baru" className="rounded-xl border border-blue-100 bg-white px-3 py-2.5 outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100" />
+        </label>
+        {error && <p role="alert" className="md:col-span-2 rounded-xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{error}</p>}
+        <div className="flex justify-end gap-2 md:col-span-2">
+          <button type="button" onClick={onCancel} disabled={busy} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50 disabled:opacity-50">Batal</button>
+          <button type="submit" disabled={busy} className="rounded-xl bg-galaxy-deep px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60">{busy ? 'Mereset...' : 'Reset password'}</button>
+        </div>
+      </form>
     </SectionCard>
   )
 }

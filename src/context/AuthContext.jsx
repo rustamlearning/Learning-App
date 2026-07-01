@@ -8,6 +8,7 @@ import {
   refreshSupabaseSession,
   signInWithPassword,
   signOut,
+  updateCurrentUserPassword,
 } from '../services/supabaseClient.js'
 import {
   AUTH_STORAGE_KEY,
@@ -237,7 +238,7 @@ export function AuthProvider({ children }) {
 
   async function loginWithEmail(identifier, password) {
     const normalized = normalizeLoginIdentifier(identifier)
-    const teacherByNip = findTeacherByNipCredentials(identifier, password)
+    const teacherByNip = isDemoAuthEnabled() ? findTeacherByNipCredentials(identifier, password) : null
 
     if (teacherByNip) {
       return loginLocalUser(teacherByNip)
@@ -282,27 +283,53 @@ export function AuthProvider({ children }) {
     throw new Error('Login production belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel.')
   }
 
-  function changeTeacherPassword(currentPassword, nextPassword) {
+  async function changeTeacherPassword(currentPassword, nextPassword) {
     if (!user || user.role !== 'guru') {
       throw new Error('Perubahan password hanya tersedia untuk akun guru.')
     }
 
-    const teacher = findTeacherByNip(user.nip)
-    const teacherNip = normalizeTeacherCredential(teacher?.nip || user.nip)
-    if (!teacherNip) {
-      throw new Error('NIP guru belum terdaftar. Hubungi admin untuk melengkapi data guru.')
+    const cleanPassword = normalizeTeacherPassword(nextPassword)
+    if (cleanPassword.length < 8 || !/[a-zA-Z]/.test(cleanPassword) || !/\d/.test(cleanPassword)) {
+      throw new Error('Password baru minimal 8 karakter dan harus memuat huruf serta angka.')
     }
 
-    if (!isTeacherPasswordValid(teacherNip, currentPassword)) {
+    const teacherNip = normalizeTeacherCredential(user.nip)
+    if (teacherNip && cleanPassword === teacherNip) {
+      throw new Error('Password baru tidak boleh sama dengan NIP.')
+    }
+
+    if (session?.access_token && isSupabaseConfigured()) {
+      if (!user.email) throw new Error('Email akun guru belum tersedia. Hubungi admin sekolah.')
+
+      let verifiedSession
+      try {
+        verifiedSession = await signInWithPassword(user.email, currentPassword)
+      } catch (error) {
+        throw new Error('Password saat ini belum sesuai.')
+      }
+
+      await updateCurrentUserPassword(verifiedSession.access_token, cleanPassword)
+      const nextSession = await signInWithPassword(user.email, cleanPassword)
+      localStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(nextSession))
+      setSession(nextSession)
+
+      const updatedUser = { ...user, passwordChangedAt: new Date().toISOString() }
+      setUser(updatedUser)
+      return true
+    }
+
+    if (!isDemoAuthEnabled()) {
+      throw new Error('Akun guru belum terhubung ke Supabase Auth. Minta admin mereset password terlebih dahulu.')
+    }
+
+    const teacher = findTeacherByNip(user.nip)
+    const previewNip = normalizeTeacherCredential(teacher?.nip || user.nip)
+    if (!previewNip) throw new Error('NIP guru belum terdaftar.')
+    if (!isTeacherPasswordValid(previewNip, currentPassword)) {
       throw new Error('Password saat ini belum sesuai.')
     }
 
-    const cleanPassword = normalizeTeacherPassword(nextPassword)
-    if (cleanPassword.length < 6) {
-      throw new Error('Password baru minimal 6 karakter.')
-    }
-
-    setStoredTeacherPassword(teacherNip, cleanPassword)
+    setStoredTeacherPassword(previewNip, cleanPassword)
     const updatedUser = {
       ...user,
       passwordChangedAt: new Date().toISOString(),

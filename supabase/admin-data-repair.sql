@@ -242,6 +242,17 @@ on conflict (user_id) do update set
   subject_id = excluded.subject_id,
   status = excluded.status;
 
+insert into public.login_aliases (profile_id, username, email, role)
+select profile.id, regexp_replace(teacher.nip, '\s+', '', 'g'), lower(profile.email), 'guru'
+from public.teachers teacher
+join public.users_profile profile on profile.id = teacher.user_id
+where teacher.nip is not null
+  and trim(teacher.nip) <> ''
+on conflict (username) do update set
+  profile_id = excluded.profile_id,
+  email = excluded.email,
+  role = excluded.role;
+
 with teacher_subject_seed (email, subject_code) as (
   values
   ('teacher-abd-asis-muslim@guru.islelearn.local', 'KIM'),

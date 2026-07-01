@@ -66,6 +66,14 @@ export async function getCurrentAuthUser(accessToken) {
   return request('/auth/v1/user', { accessToken })
 }
 
+export async function updateCurrentUserPassword(accessToken, password) {
+  return request('/auth/v1/user', {
+    method: 'PUT',
+    body: { password },
+    accessToken,
+  })
+}
+
 export async function getProfileByAuthUserId(authUserId, accessToken) {
   const query = new URLSearchParams({
     auth_user_id: `eq.${authUserId}`,

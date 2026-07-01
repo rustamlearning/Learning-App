@@ -95,6 +95,7 @@ UPSTASH_REDIS_REST_TOKEN=
 4. Jalankan file `supabase/seed.sql`.
 5. Buat Auth user di Supabase.
 6. Hubungkan Auth user ke tabel `users_profile` melalui kolom `auth_user_id`.
+7. Tambahkan `SUPABASE_SERVICE_ROLE_KEY` hanya pada environment server Vercel agar admin dapat membuat akun dan mereset password guru. Jangan gunakan prefix `VITE_` untuk key ini.
 
 Jika Supabase belum dikonfigurasi, aplikasi tetap bisa berjalan menggunakan mode demo.
 
@@ -110,6 +111,7 @@ Jika Supabase belum dikonfigurasi, aplikasi tetap bisa berjalan menggunakan mode
 - Data guru, siswa, kelas, dan mata pelajaran
 - Backup data admin
 - Login alias melalui tabel `login_aliases`
+- Guru mengganti password akun sendiri dan admin mereset password guru
 
 ## Fitur AI
 

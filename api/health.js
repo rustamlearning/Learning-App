@@ -19,6 +19,7 @@ export default function handler(request, response) {
     environment: process.env.VERCEL_ENV || 'local',
     supabase: {
       configured: supabaseConfigured,
+      adminAuthConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     },
     ai: {
       providerConfigured: groqConfigured || (openRouterEnabled && openRouterConfigured),
