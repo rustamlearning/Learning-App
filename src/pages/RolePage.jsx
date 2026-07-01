@@ -131,17 +131,17 @@ import {
 const ContentStudio = lazy(() => import('./ContentStudio.jsx'))
 
 export default function RolePage({ role, page }) {
-  const { user, accessToken, supabaseEnabled } = useAuth()
+  const { user, accessToken, supabaseEnabled, demoAuthEnabled } = useAuth()
   const [toast, setToast] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const notify = (message) => setToast(message)
 
   const content = useMemo(() => {
-    if (role === 'siswa') return renderSiswa(page, user, notify, { accessToken, supabaseEnabled })
-    if (role === 'guru') return renderGuru(page, user, notify, setConfirmOpen, { accessToken, supabaseEnabled })
-    if (role === 'admin') return renderAdmin(page, user, notify, setConfirmOpen, { accessToken, supabaseEnabled })
+    if (role === 'siswa') return renderSiswa(page, user, notify, { accessToken, supabaseEnabled, demoAuthEnabled })
+    if (role === 'guru') return renderGuru(page, user, notify, setConfirmOpen, { accessToken, supabaseEnabled, demoAuthEnabled })
+    if (role === 'admin') return renderAdmin(page, user, notify, setConfirmOpen, { accessToken, supabaseEnabled, demoAuthEnabled })
     return renderPimpinan(page, user, notify)
-  }, [role, page, user, accessToken, supabaseEnabled])
+  }, [role, page, user, accessToken, supabaseEnabled, demoAuthEnabled])
 
   return (
     <>
@@ -12506,6 +12506,10 @@ function getClassStudentCount(className) {
   return getGradeRosterForClass(getGradebookRoster(), className).filter((student) => student.className === className).length
 }
 
+function isLocalAdminPreview(appContext) {
+  return Boolean(appContext?.demoAuthEnabled && !appContext?.accessToken)
+}
+
 
 function AdminProfiles({ role, title, notify, appContext }) {
   const fallbackRows = role === 'guru' ? teachers.map((teacher) => ({ ...teacher, role: 'guru' })) : students.map((student) => ({ ...student, role: 'siswa' }))
@@ -12521,10 +12525,17 @@ function AdminProfiles({ role, title, notify, appContext }) {
 
     async function loadProfiles() {
       if (!appContext?.accessToken) {
-        const localRows = normalizeAdminProfileRows(role, getLocalAdminProfiles(role, fallbackRows))
-        setRows(localRows)
-        if (role === 'siswa') setLocalAdminProfiles(role, localRows)
-        setLookups({ classes: normalizeClassLookupRows(classes), subjects })
+        if (isLocalAdminPreview(appContext)) {
+          const localRows = normalizeAdminProfileRows(role, getLocalAdminProfiles(role, fallbackRows))
+          setRows(localRows)
+          if (role === 'siswa') setLocalAdminProfiles(role, localRows)
+          setLookups({ classes: normalizeClassLookupRows(classes), subjects })
+          setError('')
+        } else {
+          setRows([])
+          setLookups({ classes: [], subjects: [] })
+          setError('Sesi admin Supabase tidak aktif. Silakan logout lalu login kembali.')
+        }
         setLoading(false)
         return
       }
@@ -12537,16 +12548,16 @@ function AdminProfiles({ role, title, notify, appContext }) {
           fetchSubjects({ accessToken: appContext.accessToken }),
         ])
         if (active) {
-          setRows(normalizeAdminProfileRows(role, profileRows.length > 0 ? profileRows : fallbackRows))
-          setLookups({ classes: normalizeClassLookupRows(classRows.length > 0 ? classRows : classes), subjects: subjectRows })
-          setError('')
+          setRows(normalizeAdminProfileRows(role, profileRows))
+          setLookups({ classes: normalizeClassLookupRows(classRows), subjects: subjectRows })
+          setError(profileRows.length === 0
+            ? `Supabase mengembalikan 0 data ${role === 'guru' ? 'guru' : 'siswa'}. Periksa isi tabel dan kebijakan RLS.`
+            : '')
         }
       } catch (loadError) {
         if (active) {
-          const localRows = normalizeAdminProfileRows(role, getLocalAdminProfiles(role, fallbackRows))
-          setRows(localRows)
-          if (role === 'siswa') setLocalAdminProfiles(role, localRows)
-          setLookups({ classes: normalizeClassLookupRows(classes), subjects })
+          setRows([])
+          setLookups({ classes: [], subjects: [] })
           setError(loadError.message)
         }
       } finally {
@@ -12558,10 +12569,15 @@ function AdminProfiles({ role, title, notify, appContext }) {
     return () => {
       active = false
     }
-  }, [appContext?.accessToken, role])
+  }, [appContext?.accessToken, appContext?.demoAuthEnabled, role])
 
   async function handleSave(profile) {
     if (!appContext?.accessToken) {
+      if (!isLocalAdminPreview(appContext)) {
+        notify('Sesi admin tidak aktif. Logout lalu login kembali sebelum menyimpan data.')
+        return
+      }
+
       const lookupRows = {
         classes: normalizeClassLookupRows(lookups.classes.length > 0 ? lookups.classes : classes),
         subjects: lookups.subjects.length > 0 ? lookups.subjects : subjects,
@@ -12599,7 +12615,13 @@ function AdminProfiles({ role, title, notify, appContext }) {
 
   async function handleDelete() {
     if (!deleting) return
-    if (!appContext?.accessToken || !isUuid(deleting.id)) {
+    if (!appContext?.accessToken) {
+      if (!isLocalAdminPreview(appContext)) {
+        setDeleting(null)
+        notify('Sesi admin tidak aktif. Logout lalu login kembali sebelum menghapus data.')
+        return
+      }
+
       setRows((current) => {
         const nextRows = current.filter((item) => item.id !== deleting.id)
         const cleanedRows = normalizeAdminProfileRows(role, nextRows)
@@ -12608,6 +12630,12 @@ function AdminProfiles({ role, title, notify, appContext }) {
       })
       setDeleting(null)
       notify('Data lokal dihapus dan tersimpan di perangkat.')
+      return
+    }
+
+    if (!isUuid(deleting.id)) {
+      setDeleting(null)
+      notify('ID data Supabase tidak valid. Muat ulang halaman lalu coba lagi.')
       return
     }
 
@@ -12628,7 +12656,7 @@ function AdminProfiles({ role, title, notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Data" title={title} description="Kelola profil dan detail akademik." action={<QuickActionButton icon={Plus} label={`Tambah ${role === 'guru' ? 'guru' : 'siswa'}`} onClick={() => setEditing({ name: '', email: '', role, status: 'Aktif', detailStatus: 'Aktif' })} />} />
-      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data: {error}. Data lokal ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Tidak dapat menampilkan data Supabase: {error}</div>}
       {editing && <ProfileForm title={title} role={role} profile={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label={`Memuat ${title.toLowerCase()} dari Supabase...`} /> : (
         <DataTable columns={[
@@ -12736,9 +12764,15 @@ function AdminKelas({ notify, appContext }) {
     let active = true
     async function loadClasses() {
       if (!appContext?.accessToken) {
-        const localRows = normalizeClassLookupRows(getLocalAdminCollection('classes', classes))
-        setRows(localRows)
-        setLocalAdminCollection('classes', localRows)
+        if (isLocalAdminPreview(appContext)) {
+          const localRows = normalizeClassLookupRows(getLocalAdminCollection('classes', classes))
+          setRows(localRows)
+          setLocalAdminCollection('classes', localRows)
+          setError('')
+        } else {
+          setRows([])
+          setError('Sesi admin Supabase tidak aktif. Silakan logout lalu login kembali.')
+        }
         setLoading(false)
         return
       }
@@ -12746,14 +12780,12 @@ function AdminKelas({ notify, appContext }) {
         setLoading(true)
         const classRows = await fetchClasses({ accessToken: appContext.accessToken })
         if (active) {
-          setRows(normalizeClassLookupRows(classRows.length > 0 ? classRows : classes))
-          setError('')
+          setRows(normalizeClassLookupRows(classRows))
+          setError(classRows.length === 0 ? 'Supabase mengembalikan 0 data kelas. Periksa isi tabel dan kebijakan RLS.' : '')
         }
       } catch (loadError) {
         if (active) {
-          const localRows = normalizeClassLookupRows(getLocalAdminCollection('classes', classes))
-          setRows(localRows)
-          setLocalAdminCollection('classes', localRows)
+          setRows([])
           setError(loadError.message)
         }
       } finally {
@@ -12762,10 +12794,15 @@ function AdminKelas({ notify, appContext }) {
     }
     loadClasses()
     return () => { active = false }
-  }, [appContext?.accessToken])
+  }, [appContext?.accessToken, appContext?.demoAuthEnabled])
 
   async function handleSave(classItem) {
     if (!appContext?.accessToken) {
+      if (!isLocalAdminPreview(appContext)) {
+        notify('Sesi admin tidak aktif. Logout lalu login kembali sebelum menyimpan kelas.')
+        return
+      }
+
       const localClass = normalizeClassLookupRows([{ ...classItem, id: classItem.id || `local-class-${Date.now()}` }])[0]
         || { ...classItem, id: classItem.id || `local-class-${Date.now()}` }
 
@@ -12795,7 +12832,13 @@ function AdminKelas({ notify, appContext }) {
 
   async function handleDelete() {
     if (!deleting) return
-    if (!appContext?.accessToken || !isUuid(deleting.id)) {
+    if (!appContext?.accessToken) {
+      if (!isLocalAdminPreview(appContext)) {
+        setDeleting(null)
+        notify('Sesi admin tidak aktif. Logout lalu login kembali sebelum menghapus kelas.')
+        return
+      }
+
       setRows((current) => {
         const nextRows = normalizeClassLookupRows(current.filter((item) => item.id !== deleting.id))
         setLocalAdminCollection('classes', nextRows)
@@ -12803,6 +12846,12 @@ function AdminKelas({ notify, appContext }) {
       })
       setDeleting(null)
       notify('Kelas lokal dihapus dan tersimpan di perangkat.')
+      return
+    }
+
+    if (!isUuid(deleting.id)) {
+      setDeleting(null)
+      notify('ID kelas Supabase tidak valid. Muat ulang halaman lalu coba lagi.')
       return
     }
     try {
@@ -12818,7 +12867,7 @@ function AdminKelas({ notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Kelas" title="Kelola rombel" action={<QuickActionButton icon={Plus} label="Tambah kelas" onClick={() => setEditing({ name: '', grade: 10, academicYear: '2026/2027' })} />} />
-      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kelas: {error}. Data lokal ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Tidak dapat menampilkan data kelas Supabase: {error}</div>}
       {editing && <ClassForm classItem={editing} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat kelas dari Supabase..." /> : (
         <DataTable columns={[
@@ -12868,7 +12917,13 @@ function AdminMapel({ notify, appContext }) {
     let active = true
     async function loadSubjects() {
       if (!appContext?.accessToken) {
-        setRows(getLocalAdminCollection('subjects', subjects))
+        if (isLocalAdminPreview(appContext)) {
+          setRows(getLocalAdminCollection('subjects', subjects))
+          setError('')
+        } else {
+          setRows([])
+          setError('Sesi admin Supabase tidak aktif. Silakan logout lalu login kembali.')
+        }
         setLoading(false)
         return
       }
@@ -12876,12 +12931,12 @@ function AdminMapel({ notify, appContext }) {
         setLoading(true)
         const subjectRows = await fetchSubjects({ accessToken: appContext.accessToken })
         if (active) {
-          setRows(subjectRows.length > 0 ? subjectRows.map((item) => ({ ...item, teacher: item.users_profile?.name || '-' })) : subjects)
-          setError('')
+          setRows(subjectRows.map((item) => ({ ...item, teacher: item.users_profile?.name || '-' })))
+          setError(subjectRows.length === 0 ? 'Supabase mengembalikan 0 data mata pelajaran. Periksa isi tabel dan kebijakan RLS.' : '')
         }
       } catch (loadError) {
         if (active) {
-          setRows(getLocalAdminCollection('subjects', subjects))
+          setRows([])
           setError(loadError.message)
         }
       } finally {
@@ -12890,10 +12945,15 @@ function AdminMapel({ notify, appContext }) {
     }
     loadSubjects()
     return () => { active = false }
-  }, [appContext?.accessToken])
+  }, [appContext?.accessToken, appContext?.demoAuthEnabled])
 
   async function handleSave(subject) {
     if (!appContext?.accessToken) {
+      if (!isLocalAdminPreview(appContext)) {
+        notify('Sesi admin tidak aktif. Logout lalu login kembali sebelum menyimpan mapel.')
+        return
+      }
+
       const localSubject = { ...subject, id: subject.id || `local-subject-${Date.now()}` }
 
       setRows((current) => {
@@ -12920,7 +12980,13 @@ function AdminMapel({ notify, appContext }) {
 
   async function handleDelete() {
     if (!deleting) return
-    if (!appContext?.accessToken || !isUuid(deleting.id)) {
+    if (!appContext?.accessToken) {
+      if (!isLocalAdminPreview(appContext)) {
+        setDeleting(null)
+        notify('Sesi admin tidak aktif. Logout lalu login kembali sebelum menghapus mapel.')
+        return
+      }
+
       setRows((current) => {
         const nextRows = current.filter((item) => item.id !== deleting.id)
         setLocalAdminCollection('subjects', nextRows)
@@ -12928,6 +12994,12 @@ function AdminMapel({ notify, appContext }) {
       })
       setDeleting(null)
       notify('Mapel lokal dihapus dan tersimpan di perangkat.')
+      return
+    }
+
+    if (!isUuid(deleting.id)) {
+      setDeleting(null)
+      notify('ID mapel Supabase tidak valid. Muat ulang halaman lalu coba lagi.')
       return
     }
     try {
@@ -12943,7 +13015,7 @@ function AdminMapel({ notify, appContext }) {
   return (
     <div>
       <PageHeader eyebrow="Mapel" title="Mata Pelajaran" action={<QuickActionButton icon={Plus} label="Tambah mapel" onClick={() => setEditing({ name: '', code: '' })} />} />
-      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data mapel: {error}. Data lokal ditampilkan.</div>}
+      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Tidak dapat menampilkan data mapel Supabase: {error}</div>}
       {editing && <SubjectForm subject={editing} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label="Memuat mata pelajaran dari Supabase..." /> : (
         <DataTable columns={[

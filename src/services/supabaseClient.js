@@ -46,6 +46,15 @@ export async function signInWithPassword(email, password) {
   })
 }
 
+export async function refreshSupabaseSession(refreshToken) {
+  if (!refreshToken) throw new Error('Refresh token Supabase tidak tersedia.')
+
+  return request('/auth/v1/token?grant_type=refresh_token', {
+    method: 'POST',
+    body: { refresh_token: refreshToken },
+  })
+}
+
 export async function signOut(accessToken) {
   return request('/auth/v1/logout', {
     method: 'POST',
