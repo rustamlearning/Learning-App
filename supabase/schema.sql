@@ -48,6 +48,26 @@ create table if not exists teachers (
   created_at timestamptz not null default now()
 );
 
+create table if not exists teacher_subjects (
+  teacher_id uuid not null references teachers(id) on delete cascade,
+  subject_id uuid not null references subjects(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (teacher_id, subject_id)
+);
+
+insert into teacher_subjects (teacher_id, subject_id)
+select id, subject_id
+from teachers
+where subject_id is not null
+on conflict (teacher_id, subject_id) do nothing;
+
+insert into teacher_subjects (teacher_id, subject_id)
+select teacher.id, subject.id
+from subjects subject
+join teachers teacher on teacher.user_id = subject.teacher_id
+where subject.teacher_id is not null
+on conflict (teacher_id, subject_id) do nothing;
+
 create table if not exists materials (
   id uuid primary key default gen_random_uuid(),
   title text not null,
@@ -178,6 +198,7 @@ create unique index if not exists quizzes_title_subject_class_uidx on quizzes (t
 create unique index if not exists quiz_questions_quiz_question_uidx on quiz_questions (quiz_id, question_id);
 create unique index if not exists students_user_uidx on students (user_id);
 create unique index if not exists teachers_user_uidx on teachers (user_id);
+create index if not exists teacher_subjects_subject_idx on teacher_subjects (subject_id);
 create unique index if not exists progress_student_material_uidx on progress (student_id, material_id);
 create unique index if not exists assignments_title_subject_class_uidx on assignments (title, subject_id, class_id);
 
@@ -196,6 +217,7 @@ alter table classes enable row level security;
 alter table subjects enable row level security;
 alter table students enable row level security;
 alter table teachers enable row level security;
+alter table teacher_subjects enable row level security;
 alter table materials enable row level security;
 alter table questions enable row level security;
 alter table quizzes enable row level security;
@@ -239,6 +261,8 @@ drop policy if exists "Admins can manage classes" on classes;
 drop policy if exists "Admins can manage subjects" on subjects;
 drop policy if exists "Admins can manage students" on students;
 drop policy if exists "Admins can manage teachers" on teachers;
+drop policy if exists "Authenticated users can read teacher subjects" on teacher_subjects;
+drop policy if exists "Admins can manage teacher subjects" on teacher_subjects;
 drop policy if exists "Admins can read submissions" on submissions;
 drop policy if exists "Students can insert own submissions" on submissions;
 drop policy if exists "Students and owners can read submissions" on submissions;
@@ -370,6 +394,24 @@ create policy "Admins can manage students" on students
   with check (current_user_role() = 'admin');
 
 create policy "Admins can manage teachers" on teachers
+  for all to authenticated
+  using (current_user_role() = 'admin')
+  with check (current_user_role() = 'admin');
+
+create policy "Authenticated users can read teacher subjects" on teacher_subjects
+  for select to authenticated
+  using (
+    current_user_role() in ('admin', 'pimpinan')
+    or exists (
+      select 1
+      from teachers teacher
+      join users_profile profile on profile.id = teacher.user_id
+      where teacher.id = teacher_subjects.teacher_id
+        and profile.auth_user_id = auth.uid()
+    )
+  );
+
+create policy "Admins can manage teacher subjects" on teacher_subjects
   for all to authenticated
   using (current_user_role() = 'admin')
   with check (current_user_role() = 'admin');

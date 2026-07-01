@@ -1,4 +1,4 @@
-import { createRow, deleteRow, listRows, normalizeLoginIdentifier, updateRow } from './supabaseClient.js'
+import { createRow, deleteRow, deleteRows, listRows, normalizeLoginIdentifier, updateRow } from './supabaseClient.js'
 
 export async function fetchProfiles({ accessToken, role }) {
   return listRows('users_profile', {
@@ -55,45 +55,106 @@ export async function removeAdminStudent({ accessToken, student }) {
 }
 
 export async function fetchAdminTeachers({ accessToken }) {
-  const [profileRows, teacherRows, subjectRows] = await Promise.all([
+  const [profileRows, teacherRows, subjectRows, teacherSubjectRows] = await Promise.all([
     fetchProfiles({ accessToken, role: 'guru' }),
     listRows('teachers', { select: 'id,user_id,nip,subject_id,status', accessToken }),
     fetchSubjects({ accessToken }),
+    fetchTeacherSubjectLinks({ accessToken }),
   ])
   const subjectMap = new Map(subjectRows.map((item) => [item.id, item]))
+  const safeTeacherSubjectRows = teacherSubjectRows || []
 
   return profileRows.map((profile) => {
     const detail = teacherRows.find((teacher) => teacher.user_id === profile.id)
-    const subject = detail?.subject_id ? subjectMap.get(detail.subject_id) : null
+    const linkedSubjectIds = safeTeacherSubjectRows
+      .filter((link) => link.teacher_id === detail?.id)
+      .map((link) => link.subject_id)
+    const subjectIds = [...new Set([
+      ...linkedSubjectIds,
+      ...(detail?.subject_id ? [detail.subject_id] : []),
+    ])]
+    const subjectNames = subjectIds.map((subjectId) => subjectMap.get(subjectId)?.name).filter(Boolean)
+
     return {
       ...profile,
       teacherId: detail?.id,
       nip: detail?.nip || '',
-      subjectId: detail?.subject_id || '',
-      subject: subject?.name || '-',
+      subjectId: subjectIds[0] || '',
+      subjectIds,
+      subject: subjectNames.join('; ') || '-',
       detailStatus: detail?.status || profile.status,
     }
   })
 }
 
 export async function saveAdminTeacher({ accessToken, teacher }) {
+  const subjectIds = [...new Set(
+    (Array.isArray(teacher.subjectIds)
+      ? teacher.subjectIds
+      : [teacher.subjectId || teacher.subject_id]
+    ).filter(Boolean),
+  )]
+  const existingLinks = await fetchTeacherSubjectLinks({ accessToken })
+
+  if (existingLinks === null && subjectIds.length > 1) {
+    throw new Error('Fitur multi-mapel belum diaktifkan di Supabase. Jalankan SQL teacher-subjects migration terlebih dahulu.')
+  }
+
   const profile = await saveProfile({ accessToken, profile: { ...teacher, role: 'guru' } })
   const payload = {
     user_id: profile.id,
     nip: teacher.nip || null,
-    subject_id: teacher.subjectId || teacher.subject_id || null,
+    subject_id: subjectIds[0] || null,
     status: teacher.detailStatus || teacher.status || 'Aktif',
   }
   const rows = teacher.teacherId
     ? await updateRow('teachers', teacher.teacherId, payload, accessToken)
     : await createRow('teachers', payload, accessToken)
+  const teacherId = rows[0]?.id || teacher.teacherId
 
-  return { ...profile, teacherId: rows[0]?.id, ...payload }
+  if (existingLinks !== null && teacherId) {
+    await deleteRows('teacher_subjects', { teacher_id: teacherId }, accessToken)
+    if (subjectIds.length) {
+      await createRow(
+        'teacher_subjects',
+        subjectIds.map((subjectId) => ({ teacher_id: teacherId, subject_id: subjectId })),
+        accessToken,
+      )
+    }
+  }
+
+  const subjectRows = await fetchSubjects({ accessToken })
+  const subjectMap = new Map(subjectRows.map((subject) => [subject.id, subject.name]))
+  const subjectNames = subjectIds.map((subjectId) => subjectMap.get(subjectId)).filter(Boolean)
+
+  return {
+    ...profile,
+    teacherId,
+    ...payload,
+    subjectId: subjectIds[0] || '',
+    subjectIds,
+    subject: subjectNames.join('; ') || '-',
+  }
 }
 
 export async function removeAdminTeacher({ accessToken, teacher }) {
   if (teacher.teacherId) await deleteRow('teachers', teacher.teacherId, accessToken)
   await removeProfile({ accessToken, id: teacher.id })
+}
+
+async function fetchTeacherSubjectLinks({ accessToken }) {
+  try {
+    return await listRows('teacher_subjects', {
+      select: 'teacher_id,subject_id',
+      accessToken,
+    })
+  } catch (error) {
+    const message = String(error?.message || '').toLowerCase()
+    const missingTable = message.includes('teacher_subjects')
+      && (message.includes('schema cache') || message.includes('does not exist') || message.includes('not find'))
+    if (missingTable) return null
+    throw error
+  }
 }
 
 export async function saveProfile({ accessToken, profile }) {

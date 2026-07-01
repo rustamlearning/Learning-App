@@ -12676,9 +12676,16 @@ function AdminProfiles({ role, title, notify, appContext }) {
 
 function enrichAdminProfileRow(row, role, lookups) {
   if (role === 'guru') {
-    const subjectId = row.subjectId || row.subject_id
-    const subject = lookups.subjects.find((item) => item.id === subjectId)
-    return { ...row, subjectId, subject: subject?.name || row.subject || '-' }
+    const subjectIds = resolveTeacherSubjectIds(row, lookups.subjects)
+    const subjectNames = subjectIds
+      .map((subjectId) => lookups.subjects.find((item) => item.id === subjectId)?.name)
+      .filter(Boolean)
+    return {
+      ...row,
+      subjectId: subjectIds[0] || '',
+      subjectIds,
+      subject: subjectNames.join('; ') || row.subject || '-',
+    }
   }
 
   const classId = row.classId || row.class_id
@@ -12686,11 +12693,37 @@ function enrichAdminProfileRow(row, role, lookups) {
   return { ...row, classId, className: classItem?.name || promoteClassName(row.className || row.class || row.class_name || '-') }
 }
 
+function resolveTeacherSubjectIds(profile, lookupSubjects = []) {
+  const explicitIds = Array.isArray(profile?.subjectIds)
+    ? profile.subjectIds
+    : [profile?.subjectId || profile?.subject_id].filter(Boolean)
+  const subjectNames = String(profile?.subject || '')
+    .split(';')
+    .map((name) => name.trim())
+    .filter(Boolean)
+  const matchedIds = lookupSubjects
+    .filter((subject) => subjectNames.some((name) => sameSubjectName(subject.name, name)))
+    .map((subject) => subject.id)
+
+  return [...new Set([...explicitIds, ...matchedIds].filter(Boolean))]
+}
+
 function ProfileForm({ title, role, profile, lookups, onCancel, onSave }) {
-  const [form, setForm] = useState(profile)
+  const [form, setForm] = useState(() => role === 'guru'
+    ? { ...profile, subjectIds: resolveTeacherSubjectIds(profile, lookups.subjects) }
+    : profile)
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function toggleTeacherSubject(subjectId) {
+    setForm((current) => {
+      const selectedIds = new Set(current.subjectIds || [])
+      if (selectedIds.has(subjectId)) selectedIds.delete(subjectId)
+      else selectedIds.add(subjectId)
+      return { ...current, subjectIds: [...selectedIds] }
+    })
   }
 
   return (
@@ -12736,18 +12769,28 @@ function ProfileForm({ title, role, profile, lookups, onCancel, onSave }) {
             <label className="grid gap-1 text-sm font-bold text-gray-700">NIP
               <input value={form.nip || ''} onChange={(event) => updateField('nip', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
             </label>
-            <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
-              <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-                <option value="">Pilih mapel</option>
-                {lookups.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
-              </select>
-            </label>
+            <fieldset className="grid gap-2 md:col-span-2">
+              <legend className="text-sm font-bold text-gray-700">Mata pelajaran yang diampu</legend>
+              <div className="grid max-h-56 gap-2 overflow-y-auto rounded-xl border border-purple-100 bg-galaxy-surface p-3 sm:grid-cols-2 lg:grid-cols-3">
+                {lookups.subjects.map((subject) => (
+                  <label key={subject.id} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-700 ring-1 ring-purple-100">
+                    <input
+                      type="checkbox"
+                      checked={(form.subjectIds || []).includes(subject.id)}
+                      onChange={() => toggleTeacherSubject(subject.id)}
+                      className="h-4 w-4 accent-[#1677FF]"
+                    />
+                    <span>{subject.name}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
           </>
         )}
       </div>
       <div className="mt-4 flex justify-end gap-2">
         <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form)} disabled={!form.name.trim() || !form.email.trim()} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
+        <button onClick={() => onSave(form)} disabled={!String(form.name || '').trim() || !String(form.email || '').trim()} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
       </div>
     </SectionCard>
   )

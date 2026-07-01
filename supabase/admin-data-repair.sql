@@ -30,17 +30,26 @@ $$;
 grant execute on function public.current_user_role() to anon, authenticated;
 grant execute on function public.resolve_login_email(text) to anon, authenticated;
 
+create table if not exists public.teacher_subjects (
+  teacher_id uuid not null references public.teachers(id) on delete cascade,
+  subject_id uuid not null references public.subjects(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (teacher_id, subject_id)
+);
+
 alter table public.users_profile enable row level security;
 alter table public.classes enable row level security;
 alter table public.subjects enable row level security;
 alter table public.students enable row level security;
 alter table public.teachers enable row level security;
+alter table public.teacher_subjects enable row level security;
 alter table public.login_aliases enable row level security;
 
 create unique index if not exists classes_name_academic_year_uidx on public.classes (name, academic_year);
 create unique index if not exists subjects_code_uidx on public.subjects (code);
 create unique index if not exists students_user_uidx on public.students (user_id);
 create unique index if not exists teachers_user_uidx on public.teachers (user_id);
+create index if not exists teacher_subjects_subject_idx on public.teacher_subjects (subject_id);
 create unique index if not exists login_aliases_username_uidx on public.login_aliases (username);
 
 drop policy if exists "Authenticated users can read profiles" on public.users_profile;
@@ -52,6 +61,8 @@ drop policy if exists "Admins can manage classes" on public.classes;
 drop policy if exists "Admins can manage subjects" on public.subjects;
 drop policy if exists "Admins can manage students" on public.students;
 drop policy if exists "Admins can manage teachers" on public.teachers;
+drop policy if exists "Authenticated users can read teacher subjects" on public.teacher_subjects;
+drop policy if exists "Admins can manage teacher subjects" on public.teacher_subjects;
 drop policy if exists "Admins can manage login aliases" on public.login_aliases;
 
 create policy "Authenticated users can read profiles" on public.users_profile
@@ -101,6 +112,24 @@ create policy "Admins can manage students" on public.students
   with check (public.current_user_role() = 'admin');
 
 create policy "Admins can manage teachers" on public.teachers
+  for all to authenticated
+  using (public.current_user_role() = 'admin')
+  with check (public.current_user_role() = 'admin');
+
+create policy "Authenticated users can read teacher subjects" on public.teacher_subjects
+  for select to authenticated
+  using (
+    public.current_user_role() in ('admin', 'pimpinan')
+    or exists (
+      select 1
+      from public.teachers teacher
+      join public.users_profile profile on profile.id = teacher.user_id
+      where teacher.id = teacher_subjects.teacher_id
+        and profile.auth_user_id = auth.uid()
+    )
+  );
+
+create policy "Admins can manage teacher subjects" on public.teacher_subjects
   for all to authenticated
   using (public.current_user_role() = 'admin')
   with check (public.current_user_role() = 'admin');
@@ -168,7 +197,8 @@ values
   ('Antropologi', 'ANT'),
   ('Matematika Tingkat Lanjut', 'MTK-L'),
   ('Bahasa Indonesia Tingkat Lanjut', 'BIN-L'),
-  ('Bahasa Inggris Tingkat Lanjut', 'BIG-L')
+  ('Bahasa Inggris Tingkat Lanjut', 'BIG-L'),
+  ('Bimbingan dan Konseling', 'BK')
 on conflict (code) do update set
   name = excluded.name;
 
@@ -211,6 +241,43 @@ on conflict (user_id) do update set
   nip = excluded.nip,
   subject_id = excluded.subject_id,
   status = excluded.status;
+
+with teacher_subject_seed (email, subject_code) as (
+  values
+  ('teacher-abd-asis-muslim@guru.islelearn.local', 'KIM'),
+  ('guru@sea-learning.local', 'BIG'),
+  ('teacher-sayid-achmad-azwar-anwar-bagdadi@guru.islelearn.local', 'PJOK'),
+  ('teacher-belotani@guru.islelearn.local', 'BIG'),
+  ('teacher-belotani@guru.islelearn.local', 'BIG-L'),
+  ('teacher-m-basri@guru.islelearn.local', 'BIN'),
+  ('teacher-sofyan@guru.islelearn.local', 'SOS'),
+  ('teacher-shalihan@guru.islelearn.local', 'PAI-BP'),
+  ('teacher-shalihan@guru.islelearn.local', 'SEJ'),
+  ('teacher-ahmadi@guru.islelearn.local', 'MTK-U'),
+  ('teacher-ahmadi@guru.islelearn.local', 'MTK-L'),
+  ('teacher-rosita-hadiing@guru.islelearn.local', 'PKWU'),
+  ('teacher-rosita-hadiing@guru.islelearn.local', 'EKO'),
+  ('teacher-sapari@guru.islelearn.local', 'FIS'),
+  ('teacher-nurhidayati@guru.islelearn.local', 'PP'),
+  ('teacher-amru-ichwan-luthfi@guru.islelearn.local', 'KIM'),
+  ('teacher-amru-ichwan-luthfi@guru.islelearn.local', 'INF'),
+  ('teacher-amru-ichwan-luthfi@guru.islelearn.local', 'SEJ'),
+  ('teacher-syamsuryani@guru.islelearn.local', 'BIO'),
+  ('teacher-khaerunnisa@guru.islelearn.local', 'GEO'),
+  ('teacher-khaerunnisa@guru.islelearn.local', 'SBD'),
+  ('teacher-khaerunnisa@guru.islelearn.local', 'SEJ'),
+  ('teacher-sudirman@guru.islelearn.local', 'PAI-BP'),
+  ('teacher-sudirman@guru.islelearn.local', 'MULOK'),
+  ('teacher-mursalim-evendy@guru.islelearn.local', 'BK'),
+  ('teacher-hj-husnaeni@guru.islelearn.local', 'BK')
+)
+insert into public.teacher_subjects (teacher_id, subject_id)
+select teacher.id, subject.id
+from teacher_subject_seed seed
+join public.users_profile profile on profile.email = seed.email
+join public.teachers teacher on teacher.user_id = profile.id
+join public.subjects subject on subject.code = seed.subject_code
+on conflict (teacher_id, subject_id) do nothing;
 
 with student_seed (name, email, class_name, gender) as (
   values
@@ -353,6 +420,8 @@ union all
 select 'subjects', null, count(*) from public.subjects
 union all
 select 'teachers', null, count(*) from public.teachers
+union all
+select 'teacher_subjects', null, count(*) from public.teacher_subjects
 union all
 select 'students', null, count(*) from public.students
 order by table_name, role;
