@@ -21,9 +21,30 @@ security definer
 stable
 set search_path = public
 as $$
-  select aliases.email
-  from public.login_aliases aliases
-  where aliases.username = lower(trim(regexp_replace(coalesce(login_identifier, ''), '\s+', ' ', 'g')))
+  with normalized as (
+    select
+      lower(trim(regexp_replace(coalesce(login_identifier, ''), '\s+', ' ', 'g'))) as alias_username,
+      lower(regexp_replace(coalesce(login_identifier, ''), '\s+', '', 'g')) as teacher_nip
+  ),
+  candidates as (
+    select aliases.email as resolved_email, 0 as priority
+    from public.login_aliases aliases
+    cross join normalized
+    where aliases.username = normalized.alias_username
+
+    union all
+
+    select profile.email as resolved_email, 1 as priority
+    from public.teachers teacher
+    join public.users_profile profile on profile.id = teacher.user_id
+    cross join normalized
+    where profile.role = 'guru'
+      and lower(regexp_replace(coalesce(teacher.nip, ''), '\s+', '', 'g')) = normalized.teacher_nip
+  )
+  select candidates.resolved_email
+  from candidates
+  where candidates.resolved_email is not null
+  order by candidates.priority
   limit 1;
 $$;
 

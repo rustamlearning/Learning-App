@@ -97,7 +97,9 @@ export async function getLoginEmailByIdentifier(identifier) {
     limit: '1',
   })
   const rows = await request(`/rest/v1/login_aliases?${query.toString()}`)
-  return rows?.[0]?.email || normalized
+  if (rows?.[0]?.email) return rows[0].email
+
+  throw new Error('NIP atau username belum ditautkan ke akun sekolah. Hubungi admin untuk mereset password guru.')
 }
 
 async function resolveLoginEmailAlias(identifier) {
