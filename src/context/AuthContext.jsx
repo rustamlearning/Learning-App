@@ -5,10 +5,8 @@ import {
   getProfileByAuthUserId,
   isSupabaseConfigured,
   normalizeLoginIdentifier,
-  refreshSupabaseSession,
   signInWithPassword,
   signOut,
-  updateCurrentUserPassword,
 } from '../services/supabaseClient.js'
 import {
   AUTH_STORAGE_KEY,
@@ -31,8 +29,6 @@ const LEGACY_DEMO_PURGE_KEY = LEGACY_DEMO_PURGE_STORAGE_KEY
 const LEGACY_DEMO_KEYS = [LEGACY_AUTH_STORAGE_KEY, LEGACY_SUPABASE_SESSION_STORAGE_KEY]
 const LEGACY_DEMO_PREFIXES = Object.values(STORAGE_SUFFIX).map((suffix) => legacyStorageKey(suffix))
 const TEACHER_PASSWORD_STORAGE_KEY = 'islelearn-teacher-passwords-v1'
-const SESSION_REFRESH_MARGIN_MS = 2 * 60 * 1000
-const SESSION_REFRESH_FALLBACK_MS = 55 * 60 * 1000
 const LOCAL_PREVIEW_USERS = {
   siswa: {
     id: 'local-preview-siswa',
@@ -70,46 +66,6 @@ function isDemoAuthEnabled() {
   return import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true'
 }
 
-function getSessionExpiryMs(session) {
-  const explicitExpiry = Number(session?.expires_at)
-  if (Number.isFinite(explicitExpiry) && explicitExpiry > 0) return explicitExpiry * 1000
-
-  try {
-    const payload = session?.access_token?.split('.')[1]
-    if (!payload) return Date.now() + SESSION_REFRESH_FALLBACK_MS
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
-    const decoded = JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')))
-    const tokenExpiry = Number(decoded?.exp)
-    return Number.isFinite(tokenExpiry) && tokenExpiry > 0
-      ? tokenExpiry * 1000
-      : Date.now() + SESSION_REFRESH_FALLBACK_MS
-  } catch (error) {
-    return Date.now() + SESSION_REFRESH_FALLBACK_MS
-  }
-}
-
-function isSessionExpiringSoon(session) {
-  return getSessionExpiryMs(session) <= Date.now() + SESSION_REFRESH_MARGIN_MS
-}
-
-async function restoreSupabaseSession(storedSession) {
-  let activeSession = storedSession
-
-  if (isSessionExpiringSoon(activeSession) && activeSession?.refresh_token) {
-    activeSession = await refreshSupabaseSession(activeSession.refresh_token)
-  }
-
-  try {
-    const authUser = await getCurrentAuthUser(activeSession.access_token)
-    return { activeSession, authUser }
-  } catch (error) {
-    if (!activeSession?.refresh_token || activeSession !== storedSession) throw error
-    activeSession = await refreshSupabaseSession(activeSession.refresh_token)
-    const authUser = await getCurrentAuthUser(activeSession.access_token)
-    return { activeSession, authUser }
-  }
-}
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [session, setSession] = useState(null)
@@ -127,16 +83,15 @@ export function AuthProvider({ children }) {
 
           if (rawSession) {
             const storedSession = JSON.parse(rawSession)
-            const { activeSession, authUser } = await restoreSupabaseSession(storedSession)
-            const profile = await getProfileByAuthUserId(authUser.id, activeSession.access_token)
+            const authUser = await getCurrentAuthUser(storedSession.access_token)
+            const profile = await getProfileByAuthUserId(authUser.id, storedSession.access_token)
 
             if (!profile && !isDemoAuthEnabled()) {
               throw new Error('Profil pengguna belum terdaftar di database sekolah.')
             }
 
             if (active) {
-              localStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(activeSession))
-              setSession(activeSession)
+              setSession(storedSession)
               setUser(toAppUser(authUser, profile))
             }
 
@@ -172,46 +127,6 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  useEffect(() => {
-    if (!session?.refresh_token || !isSupabaseConfigured()) return undefined
-
-    let active = true
-    const refreshDelay = Math.max(
-      1000,
-      getSessionExpiryMs(session) - Date.now() - SESSION_REFRESH_MARGIN_MS,
-    )
-
-    const timer = window.setTimeout(async () => {
-      try {
-        const refreshedSession = await refreshSupabaseSession(session.refresh_token)
-        const authUser = refreshedSession.user || await getCurrentAuthUser(refreshedSession.access_token)
-        const profile = await getProfileByAuthUserId(authUser.id, refreshedSession.access_token)
-
-        if (!profile && !isDemoAuthEnabled()) {
-          throw new Error('Profil pengguna tidak lagi tersedia di database sekolah.')
-        }
-
-        if (active) {
-          localStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(refreshedSession))
-          setSession(refreshedSession)
-          setUser(toAppUser(authUser, profile))
-        }
-      } catch (error) {
-        console.error('[auth] Gagal memperbarui sesi Supabase.', error)
-        if (active) {
-          localStorage.removeItem(SUPABASE_SESSION_KEY)
-          setSession(null)
-          setUser(null)
-        }
-      }
-    }, refreshDelay)
-
-    return () => {
-      active = false
-      window.clearTimeout(timer)
-    }
-  }, [session?.access_token, session?.expires_at, session?.refresh_token])
-
   function loginAs(role) {
     if (!isDemoAuthEnabled()) {
       throw new Error('Akses demo hanya aktif di mode pengembangan.')
@@ -238,7 +153,7 @@ export function AuthProvider({ children }) {
 
   async function loginWithEmail(identifier, password) {
     const normalized = normalizeLoginIdentifier(identifier)
-    const teacherByNip = isDemoAuthEnabled() ? findTeacherByNipCredentials(identifier, password) : null
+    const teacherByNip = findTeacherByNipCredentials(identifier, password)
 
     if (teacherByNip) {
       return loginLocalUser(teacherByNip)
@@ -283,53 +198,27 @@ export function AuthProvider({ children }) {
     throw new Error('Login production belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel.')
   }
 
-  async function changeTeacherPassword(currentPassword, nextPassword) {
+  function changeTeacherPassword(currentPassword, nextPassword) {
     if (!user || user.role !== 'guru') {
       throw new Error('Perubahan password hanya tersedia untuk akun guru.')
     }
 
-    const cleanPassword = normalizeTeacherPassword(nextPassword)
-    if (cleanPassword.length < 8 || !/[a-zA-Z]/.test(cleanPassword) || !/\d/.test(cleanPassword)) {
-      throw new Error('Password baru minimal 8 karakter dan harus memuat huruf serta angka.')
-    }
-
-    const teacherNip = normalizeTeacherCredential(user.nip)
-    if (teacherNip && cleanPassword === teacherNip) {
-      throw new Error('Password baru tidak boleh sama dengan NIP.')
-    }
-
-    if (session?.access_token && isSupabaseConfigured()) {
-      if (!user.email) throw new Error('Email akun guru belum tersedia. Hubungi admin sekolah.')
-
-      let verifiedSession
-      try {
-        verifiedSession = await signInWithPassword(user.email, currentPassword)
-      } catch (error) {
-        throw new Error('Password saat ini belum sesuai.')
-      }
-
-      await updateCurrentUserPassword(verifiedSession.access_token, cleanPassword)
-      const nextSession = await signInWithPassword(user.email, cleanPassword)
-      localStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(nextSession))
-      setSession(nextSession)
-
-      const updatedUser = { ...user, passwordChangedAt: new Date().toISOString() }
-      setUser(updatedUser)
-      return true
-    }
-
-    if (!isDemoAuthEnabled()) {
-      throw new Error('Akun guru belum terhubung ke Supabase Auth. Minta admin mereset password terlebih dahulu.')
-    }
-
     const teacher = findTeacherByNip(user.nip)
-    const previewNip = normalizeTeacherCredential(teacher?.nip || user.nip)
-    if (!previewNip) throw new Error('NIP guru belum terdaftar.')
-    if (!isTeacherPasswordValid(previewNip, currentPassword)) {
+    const teacherNip = normalizeTeacherCredential(teacher?.nip || user.nip)
+    if (!teacherNip) {
+      throw new Error('NIP guru belum terdaftar. Hubungi admin untuk melengkapi data guru.')
+    }
+
+    if (!isTeacherPasswordValid(teacherNip, currentPassword)) {
       throw new Error('Password saat ini belum sesuai.')
     }
 
-    setStoredTeacherPassword(previewNip, cleanPassword)
+    const cleanPassword = normalizeTeacherPassword(nextPassword)
+    if (cleanPassword.length < 6) {
+      throw new Error('Password baru minimal 6 karakter.')
+    }
+
+    setStoredTeacherPassword(teacherNip, cleanPassword)
     const updatedUser = {
       ...user,
       passwordChangedAt: new Date().toISOString(),

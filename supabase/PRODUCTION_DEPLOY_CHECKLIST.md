@@ -23,7 +23,6 @@ Isi di Vercel > Project > Settings > Environment Variables:
 
 - [ ] `VITE_SUPABASE_URL`
 - [ ] `VITE_SUPABASE_ANON_KEY`
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` (server-only, jangan diberi prefix `VITE_`)
 
 Jangan isi di production:
 
@@ -39,8 +38,6 @@ Jangan isi di production:
 
 - [ ] Login admin
 - [ ] Login guru
-- [ ] Admin mereset password guru, lalu guru login memakai NIP dan password baru
-- [ ] Guru mengganti password dari halaman Profil
 - [ ] Login siswa
 - [ ] Login pimpinan
 - [ ] Login sembarang ditolak

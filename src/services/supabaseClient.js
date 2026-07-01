@@ -46,15 +46,6 @@ export async function signInWithPassword(email, password) {
   })
 }
 
-export async function refreshSupabaseSession(refreshToken) {
-  if (!refreshToken) throw new Error('Refresh token Supabase tidak tersedia.')
-
-  return request('/auth/v1/token?grant_type=refresh_token', {
-    method: 'POST',
-    body: { refresh_token: refreshToken },
-  })
-}
-
 export async function signOut(accessToken) {
   return request('/auth/v1/logout', {
     method: 'POST',
@@ -64,14 +55,6 @@ export async function signOut(accessToken) {
 
 export async function getCurrentAuthUser(accessToken) {
   return request('/auth/v1/user', { accessToken })
-}
-
-export async function updateCurrentUserPassword(accessToken, password) {
-  return request('/auth/v1/user', {
-    method: 'PUT',
-    body: { password },
-    accessToken,
-  })
 }
 
 export async function getProfileByAuthUserId(authUserId, accessToken) {
@@ -97,9 +80,7 @@ export async function getLoginEmailByIdentifier(identifier) {
     limit: '1',
   })
   const rows = await request(`/rest/v1/login_aliases?${query.toString()}`)
-  if (rows?.[0]?.email) return rows[0].email
-
-  throw new Error('NIP atau username belum ditautkan ke akun sekolah. Hubungi admin untuk mereset password guru.')
+  return rows?.[0]?.email || normalized
 }
 
 async function resolveLoginEmailAlias(identifier) {
