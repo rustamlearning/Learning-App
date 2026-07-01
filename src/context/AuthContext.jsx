@@ -36,7 +36,7 @@ const LOCAL_PREVIEW_USERS = {
     email: 'siswa@local.preview',
     role: 'siswa',
     avatar: 'S',
-    className: 'XI Pangeran Diponegoro',
+    className: 'XI Utsman Bin Affan',
   },
   guru: {
     id: 'local-preview-guru',

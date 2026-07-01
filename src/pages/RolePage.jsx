@@ -125,6 +125,7 @@ import {
   getHomeroomAssignments,
   getHomeroomClassesForUser,
   isTeacherHomeroom,
+  promoteHomeroomClassName,
   setHomeroomAssignments,
 } from '../utils/homeroomAccess.js'
 
@@ -237,7 +238,7 @@ function SiswaDashboard({ user, notify }) {
   const firstName = user?.name?.split(' ')[0] || 'Siswa'
   const navigate = useNavigate()
   const userId = user?.id || 'demo'
-  const studentClassName = user?.className || (user?.id === 'local-preview-siswa' ? 'XI Pangeran Diponegoro' : 'Kelas XI')
+  const studentClassName = user?.className || (user?.id === 'local-preview-siswa' ? 'XI Utsman Bin Affan' : 'Kelas XI')
   const studentGrade = extractGrade(studentClassName)
   const completedMaterials = getCompletedMaterials(userId)
   const availableMaterials = getAvailablePublishedMaterials()
@@ -847,7 +848,7 @@ function MateriBelajar({ user, notify, appContext }) {
     }
   }, [appContext?.accessToken, user?.id])
 
-  const studentClassName = user?.className || (user?.id === 'local-preview-siswa' ? 'XI Pangeran Diponegoro' : '')
+  const studentClassName = user?.className || (user?.id === 'local-preview-siswa' ? 'XI Utsman Bin Affan' : '')
   const studentGrade = extractGrade(studentClassName)
   const data = getAvailablePublishedMaterials(remoteMaterials)
     .filter((item) => !studentGrade || extractGrade(item.className) === studentGrade)
@@ -3336,7 +3337,7 @@ const attendanceTypeOptions = [
 ]
 
 const gradeFormatClassRoster = {
-  'XI Pangeran Diponegoro': [
+  'XI Utsman Bin Affan': [
     ['ABD. WAHAB', 'L'], ['ADAM PUTRA PERDANA', 'L'], ['AL HUSNA', 'P'], ['ANDI NUR SALAM', 'L'],
     ['ASLAM', 'L'], ['BERLIAN', 'P'], ['DANDI BARATA', 'L'], ['KRISDAYANTI', 'P'],
     ['MUH. ALI RAHMAT', 'L'], ['MUH. YAZIN', 'L'], ['MUH. FAJRI', 'L'], ['MUHAMMAD YASIN', 'L'],
@@ -3344,7 +3345,7 @@ const gradeFormatClassRoster = {
     ['RAMLI', 'L'], ['RICO SUKARNO', 'L'], ['SAKINAH', 'P'], ['SALMAN ALFAREZY', 'L'],
     ['SALMAN ALFARISI', 'L'], ['SALSABILAH', 'P'], ['SITI AINUN NISYA', 'P'], ['ZAHIRA', 'P'],
   ],
-  'XI Soeharto': [
+  'XI Ali Bin Abi Thalib': [
     ['ABD. HAMID SATRIADI', 'L'], ['ABD. KARIM', 'L'], ['ADHA NOVIANA', 'L'], ['ARIFIN', 'L'],
     ['ARYADITYA PUTRA', 'L'], ['AYATUL HUSNA', 'P'], ['DZUL JALALI WALIQRAM', 'L'], ['ERNA', 'P'],
     ['FAUZI TEGUH', 'L'], ['FERDI', 'L'], ['HALIDAH', 'P'], ['HARIANDI', 'L'],
@@ -3353,7 +3354,7 @@ const gradeFormatClassRoster = {
     ['SAHARUDDIN', 'L'], ['SUCI SETIAWATI', 'P'], ['SYAHRINI', 'P'], ['NUR SALEH', 'L'],
     ['MAGFIRA ZASKIA', 'P'],
   ],
-  'XII Jenderal Sudirman': [
+  'XII Abu Bakar Ash Siddiq': [
     ['ACHMAD', 'L'], ['AJIE SAPUTRA', 'L'], ['ALGAZALI', 'L'], ['ALIF HALIL', 'L'],
     ['ANDIRA FALDIA', 'P'], ['FERDY PRANANDA', 'L'], ['HENRIK SAPUTRA', 'L'], ['INGGI ADITYA', 'L'],
     ['ISDA DAHLIA', 'P'], ['JULIANI', 'P'], ['LASTRIANI', 'P'], ['M. FACHMI', 'L'],
@@ -3362,7 +3363,7 @@ const gradeFormatClassRoster = {
     ['RAY LALO MAULANA', 'L'], ['RESKI ADITIA', 'L'], ['REZA ADITYA', 'L'], ['SITI KHUMAIRAH', 'P'],
     ['SULAEMAN', 'L'], ['WAHYUNI', 'P'], ['WINDI MAJID', 'P'],
   ],
-  'XII B.J. Habibie': [
+  'XII Umar Bin Khattab': [
     ['ABDAN SYAKUR', 'L'], ['ADITIA', 'L'], ['AHMAD DANI', 'L'], ['AHMAD FAJRI', 'L'],
     ['AMEL SINTIA', 'P'], ['ANDIKA', 'L'], ['ARYA', 'L'], ['ASMADI', 'L'],
     ['ASMAUL HUSNA', 'P'], ['DEWI ASRIANI', 'P'], ['EKA MARLISA', 'P'], ['ENDANG PURWANTI', 'P'],
@@ -3378,12 +3379,7 @@ function makeGradeRosterId(className, index) {
 }
 
 function promoteClassName(className = '') {
-  const normalizedClass = String(className || '').trim()
-  if (normalizedClass === 'X Pangeran Diponegoro') return 'XI Pangeran Diponegoro'
-  if (normalizedClass === 'X Soeharto') return 'XI Soeharto'
-  if (normalizedClass === 'XI Jenderal Sudirman') return 'XII Jenderal Sudirman'
-  if (normalizedClass === 'XI B.J. Habibie') return 'XII B.J. Habibie'
-  return normalizedClass || 'Kelas umum'
+  return promoteHomeroomClassName(className) || 'Kelas umum'
 }
 
 function isLegacyPreviewClassName(className = '') {

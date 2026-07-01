@@ -2,6 +2,29 @@ import { safeReadLocalJson, safeWriteLocalJson } from './localLearningStore.js'
 
 export const HOMEROOM_ASSIGNMENTS_KEY = 'islelearn-homeroom-assignments'
 
+const CURRENT_CLASS_NAMES = Object.freeze({
+  'X.1': 'X Aisyah Binti Abu Bakar',
+  'X 1': 'X Aisyah Binti Abu Bakar',
+  'X.2': 'X Khadijah Binti Khuwailid',
+  'X 2': 'X Khadijah Binti Khuwailid',
+  'XI.1': 'XI Utsman Bin Affan',
+  'XI 1': 'XI Utsman Bin Affan',
+  'XI.2': 'XI Ali Bin Abi Thalib',
+  'XI 2': 'XI Ali Bin Abi Thalib',
+  'XII.1': 'XII Abu Bakar Ash Siddiq',
+  'XII 1': 'XII Abu Bakar Ash Siddiq',
+  'XII.2': 'XII Umar Bin Khattab',
+  'XII 2': 'XII Umar Bin Khattab',
+  'X Pangeran Diponegoro': 'XI Utsman Bin Affan',
+  'X Soeharto': 'XI Ali Bin Abi Thalib',
+  'XI Jenderal Sudirman': 'XII Abu Bakar Ash Siddiq',
+  'XI B.J. Habibie': 'XII Umar Bin Khattab',
+  'XI Pangeran Diponegoro': 'XI Utsman Bin Affan',
+  'XI Soeharto': 'XI Ali Bin Abi Thalib',
+  'XII Jenderal Sudirman': 'XII Abu Bakar Ash Siddiq',
+  'XII B.J. Habibie': 'XII Umar Bin Khattab',
+})
+
 export function getHomeroomAssignments() {
   return normalizeHomeroomAssignments(safeReadLocalJson(HOMEROOM_ASSIGNMENTS_KEY, []))
 }
@@ -79,11 +102,7 @@ export function getUserHomeroomKeys(user) {
 
 export function promoteHomeroomClassName(className = '') {
   const normalizedClass = String(className || '').trim()
-  if (normalizedClass === 'X Pangeran Diponegoro') return 'XI Pangeran Diponegoro'
-  if (normalizedClass === 'X Soeharto') return 'XI Soeharto'
-  if (normalizedClass === 'XI Jenderal Sudirman') return 'XII Jenderal Sudirman'
-  if (normalizedClass === 'XI B.J. Habibie') return 'XII B.J. Habibie'
-  return normalizedClass
+  return CURRENT_CLASS_NAMES[normalizedClass] || normalizedClass
 }
 
 export function normalizeHomeroomCredential(value) {
