@@ -129,6 +129,7 @@ import {
   promoteHomeroomClassName,
   setHomeroomAssignments,
 } from '../utils/homeroomAccess.js'
+import { buildClassRoster } from '../utils/classRoster.js'
 
 const ContentStudio = lazy(() => import('./ContentStudio.jsx'))
 
@@ -177,7 +178,7 @@ function renderSiswa(page, user, notify, appContext) {
 
 function renderGuru(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'dashboard') return <GuruDashboard user={user} notify={notify} />
-  if (page === 'kelas') return <GuruKelas />
+  if (page === 'kelas') return <GuruKelas appContext={appContext} />
   if (page === 'materi') return <GuruMateri user={user} notify={notify} appContext={appContext} />
   if (page === 'bank-soal') return <BankSoal user={user} notify={notify} appContext={appContext} />
   if (page === 'tugas') return <GuruTugas user={user} notify={notify} appContext={appContext} />
@@ -7743,15 +7744,63 @@ const classCardTones = [
   },
 ]
 
-function getClassRoster(className) {
-  return students
-    .filter((student) => sameAssignmentClassName(student.className, className))
-    .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'id', { sensitivity: 'base' }))
-}
-
-function GuruKelas() {
+function GuruKelas({ appContext }) {
   const [selectedClass, setSelectedClass] = useState(null)
-  const selectedRoster = selectedClass ? getClassRoster(selectedClass.name) : []
+  const [classRows, setClassRows] = useState([])
+  const [studentRows, setStudentRows] = useState([])
+  const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
+  const [error, setError] = useState('')
+  const selectedRoster = selectedClass ? buildClassRoster(studentRows, selectedClass) : []
+
+  useEffect(() => {
+    let active = true
+
+    async function loadClassRoster() {
+      const localClasses = normalizeClassLookupRows(getLocalAdminCollection('classes', classes))
+      const localStudents = normalizeAdminProfileRows('siswa', getLocalAdminProfiles('siswa', students))
+
+      if (!appContext?.accessToken) {
+        setClassRows(localClasses)
+        setStudentRows(localStudents)
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        const [serverClasses, serverStudents] = await Promise.all([
+          fetchClasses({ accessToken: appContext.accessToken }),
+          fetchAdminStudents({ accessToken: appContext.accessToken }),
+        ])
+        if (active) {
+          setClassRows(normalizeClassLookupRows(serverClasses))
+          setStudentRows(normalizeAdminProfileRows('siswa', serverStudents))
+          setError('')
+        }
+      } catch (loadError) {
+        if (active) {
+          setClassRows(localClasses)
+          setStudentRows(localStudents)
+          setError(loadError.message)
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadClassRoster()
+    return () => {
+      active = false
+    }
+  }, [appContext?.accessToken])
+
+  useEffect(() => {
+    if (!selectedClass) return
+    const currentClass = classRows.find((classItem) => classItem.id === selectedClass.id)
+    if (!currentClass) setSelectedClass(null)
+  }, [classRows, selectedClass])
+
+  if (loading) return <LoadingState label="Memuat kelas dan siswa dari Supabase..." />
 
   if (selectedClass) {
     return (
@@ -7818,10 +7867,12 @@ function GuruKelas() {
         description="Klik detail untuk membuka daftar siswa pada satu kelas penuh."
       />
 
+      {error && <div className="rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data kelas: {error}. Data lokal ditampilkan.</div>}
+
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {classes.map((classItem, index) => {
+        {classRows.map((classItem, index) => {
           const tone = classCardTones[index % classCardTones.length]
-          const roster = getClassRoster(classItem.name)
+          const roster = buildClassRoster(studentRows, classItem)
 
           return (
             <button
