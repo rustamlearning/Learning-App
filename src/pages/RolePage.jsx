@@ -119,6 +119,7 @@ import {
   setLocalTeacherAssignments,
   setLocalTeacherQuestions,
   setLocalTeacherQuizzes,
+  subscribeToSharedSchoolDataChanges,
 } from '../utils/localLearningStore.js'
 import {
   getHomeroomAssignmentForUser,
@@ -135,18 +136,23 @@ export default function RolePage({ role, page }) {
   const { user, accessToken, supabaseEnabled } = useAuth()
   const [toast, setToast] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [schoolDataRevision, setSchoolDataRevision] = useState(0)
   const notify = (message) => setToast(message)
+
+  useEffect(() => subscribeToSharedSchoolDataChanges(() => {
+    setSchoolDataRevision((revision) => revision + 1)
+  }), [])
 
   const content = useMemo(() => {
     if (role === 'siswa') return renderSiswa(page, user, notify, { accessToken, supabaseEnabled })
     if (role === 'guru') return renderGuru(page, user, notify, setConfirmOpen, { accessToken, supabaseEnabled })
     if (role === 'admin') return renderAdmin(page, user, notify, setConfirmOpen, { accessToken, supabaseEnabled })
     return renderPimpinan(page, user, notify)
-  }, [role, page, user, accessToken, supabaseEnabled])
+  }, [role, page, user, accessToken, supabaseEnabled, schoolDataRevision])
 
   return (
     <>
-      {content}
+      <Fragment key={`${role}-${page}-${schoolDataRevision}`}>{content}</Fragment>
       <Toast message={toast} onClose={() => setToast('')} />
       <ConfirmDialog open={confirmOpen} title="Konfirmasi aksi" description="Aksi penting membutuhkan konfirmasi agar data tidak berubah tanpa sengaja." onCancel={() => setConfirmOpen(false)} onConfirm={() => { setConfirmOpen(false); notify('Aksi dikonfirmasi.') }} />
     </>
@@ -12527,7 +12533,7 @@ function AdminWaliKelas({ notify }) {
 
   function saveAssignments() {
     setHomeroomAssignments(rows)
-    notify('Penugasan wali kelas tersimpan. Guru wali kelas sekarang dapat membuka Rapor.')
+    notify('Penugasan wali kelas tersimpan dan langsung tersinkron ke akun guru di perangkat ini.')
   }
 
   function clearAssignment(className) {
@@ -12747,7 +12753,7 @@ function AdminProfiles({ role, title, notify, appContext }) {
       })
 
       setEditing(null)
-      notify(`${title} tersimpan lokal di perangkat.`)
+      notify(`${title} tersimpan dan tersinkron ke semua akun di perangkat ini.`)
       return
     }
 
@@ -12774,7 +12780,7 @@ function AdminProfiles({ role, title, notify, appContext }) {
         return cleanedRows
       })
       setDeleting(null)
-      notify('Data lokal dihapus dan tersimpan di perangkat.')
+      notify('Data dihapus dan perubahan tersinkron ke semua akun di perangkat ini.')
       return
     }
 
@@ -13003,7 +13009,7 @@ function AdminKelas({ notify, appContext }) {
       })
 
       setEditing(null)
-      notify('Kelas tersimpan lokal di perangkat.')
+      notify('Kelas tersimpan dan tersinkron ke semua akun di perangkat ini.')
       return
     }
     try {
@@ -13026,7 +13032,7 @@ function AdminKelas({ notify, appContext }) {
         return nextRows
       })
       setDeleting(null)
-      notify('Kelas lokal dihapus dan tersimpan di perangkat.')
+      notify('Kelas dihapus dan perubahan tersinkron ke semua akun di perangkat ini.')
       return
     }
     try {

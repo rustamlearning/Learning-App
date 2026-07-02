@@ -19,8 +19,13 @@ import {
   migrateLegacyStorageKey,
   migrateLegacyStoragePrefixes,
 } from '../utils/storageKeys.js'
-import { teachers } from '../data/dummyData.js'
-import { getLocalAdminProfiles, safeReadLocalJson, safeWriteLocalJson } from '../utils/localLearningStore.js'
+import { students, teachers } from '../data/dummyData.js'
+import {
+  getLocalAdminProfiles,
+  safeReadLocalJson,
+  safeWriteLocalJson,
+  subscribeToSharedSchoolDataChanges,
+} from '../utils/localLearningStore.js'
 
 const AuthContext = createContext(null)
 const STORAGE_KEY = AUTH_STORAGE_KEY
@@ -96,7 +101,7 @@ export function AuthProvider({ children }) {
 
             if (active) {
               setSession(storedSession)
-              setUser(toAppUser(authUser, profile))
+              setUser(hydrateUserFromSharedSchoolData(toAppUser(authUser, profile)))
             }
 
             return
@@ -106,7 +111,7 @@ export function AuthProvider({ children }) {
         const rawDemoUser = localStorage.getItem(STORAGE_KEY)
 
         if (rawDemoUser && isDemoAuthEnabled() && active) {
-          setUser(JSON.parse(rawDemoUser))
+          setUser(hydrateUserFromSharedSchoolData(JSON.parse(rawDemoUser)))
         } else {
           localStorage.removeItem(STORAGE_KEY)
         }
@@ -115,7 +120,7 @@ export function AuthProvider({ children }) {
 
         const rawDemoUser = localStorage.getItem(STORAGE_KEY)
         if (rawDemoUser && isDemoAuthEnabled() && active) {
-          setUser(JSON.parse(rawDemoUser))
+          setUser(hydrateUserFromSharedSchoolData(JSON.parse(rawDemoUser)))
         } else {
           localStorage.removeItem(STORAGE_KEY)
         }
@@ -130,6 +135,19 @@ export function AuthProvider({ children }) {
       active = false
     }
   }, [])
+
+  useEffect(() => subscribeToSharedSchoolDataChanges(() => {
+    setUser((currentUser) => {
+      const nextUser = hydrateUserFromSharedSchoolData(currentUser)
+      if (!nextUser || nextUser === currentUser) return currentUser
+
+      if (!localStorage.getItem(SUPABASE_SESSION_KEY)) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser))
+      }
+
+      return nextUser
+    })
+  }), [])
 
   function loginAs(role) {
     if (!isDemoAuthEnabled()) {
@@ -148,11 +166,12 @@ export function AuthProvider({ children }) {
   }
 
   function loginLocalUser(appUser) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appUser))
+    const hydratedUser = hydrateUserFromSharedSchoolData(appUser)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(hydratedUser))
     localStorage.removeItem(SUPABASE_SESSION_KEY)
     setSession(null)
-    setUser(appUser)
-    return appUser
+    setUser(hydratedUser)
+    return hydratedUser
   }
 
   async function loginWithEmail(identifier, password) {
@@ -173,7 +192,7 @@ export function AuthProvider({ children }) {
           throw new Error('Akun berhasil login, tetapi profil sekolah belum dibuat. Hubungi admin sekolah.')
         }
 
-        const appUser = toAppUser(supabaseSession.user, profile)
+        const appUser = hydrateUserFromSharedSchoolData(toAppUser(supabaseSession.user, profile))
         localStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(supabaseSession))
         localStorage.removeItem(STORAGE_KEY)
         setSession(supabaseSession)
@@ -312,6 +331,54 @@ function normalizeTeacherPassword(value) {
 
 function getTeacherRows() {
   return getLocalAdminProfiles('guru', teachers.map((teacher) => ({ ...teacher, role: 'guru' })))
+}
+
+function getStudentRows() {
+  return getLocalAdminProfiles('siswa', students.map((student) => ({ ...student, role: 'siswa' })))
+}
+
+function hydrateUserFromSharedSchoolData(user) {
+  if (!user || !['guru', 'siswa'].includes(user.role)) return user
+
+  const rows = user.role === 'guru' ? getTeacherRows() : getStudentRows()
+  const profile = rows.find((row) => sharedProfileMatchesUser(row, user))
+  if (!profile) return user
+
+  const name = profile.name || profile.fullName || user.name
+  const nextUser = {
+    ...user,
+    name,
+    avatar: getInitials(name),
+    ...(profile.email ? { email: profile.email } : {}),
+    ...(profile.status ? { status: profile.status } : {}),
+  }
+
+  if (user.role === 'guru') {
+    nextUser.nip = profile.nip || profile.username || user.nip
+    nextUser.subject = profile.subject || profile.subjectNames?.join('; ') || user.subject || ''
+    nextUser.subjectNames = Array.isArray(profile.subjectNames) ? profile.subjectNames : user.subjectNames
+    nextUser.subjectIds = Array.isArray(profile.subjectIds) ? profile.subjectIds : user.subjectIds
+  } else {
+    nextUser.nis = profile.nis || user.nis
+    nextUser.className = profile.className || profile.class || profile.class_name || user.className
+  }
+
+  return JSON.stringify(nextUser) === JSON.stringify(user) ? user : nextUser
+}
+
+function sharedProfileMatchesUser(profile, user) {
+  const profileKeys = [profile?.id, profile?.authUserId, profile?.auth_user_id, profile?.email, profile?.nip, profile?.nis, profile?.name, profile?.fullName]
+    .map(normalizeSharedProfileKey)
+    .filter(Boolean)
+  const userKeys = new Set([user?.id, user?.authUserId, user?.email, user?.nip, user?.nis, user?.name]
+    .map(normalizeSharedProfileKey)
+    .filter(Boolean))
+
+  return profileKeys.some((key) => userKeys.has(key))
+}
+
+function normalizeSharedProfileKey(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 function findTeacherByNip(nip) {

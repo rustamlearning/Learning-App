@@ -1,3 +1,11 @@
+export const SCHOOL_DATA_CHANGE_EVENT = 'islelearn:school-data-change'
+
+const SHARED_SCHOOL_DATA_KEYS = [
+  'islelearn-admin-profiles-',
+  'islelearn-admin-',
+  'islelearn-homeroom-assignments',
+]
+
 export function readLocalRowsByPrefix(prefix) {
   if (typeof localStorage === 'undefined') return []
 
@@ -45,11 +53,44 @@ export function safeWriteLocalJson(key, value) {
   if (typeof localStorage === 'undefined') return false
 
   try {
-    localStorage.setItem(key, JSON.stringify(value))
+    const serializedValue = JSON.stringify(value)
+    if (localStorage.getItem(key) === serializedValue) return true
+
+    localStorage.setItem(key, serializedValue)
+    notifySharedSchoolDataChange(key)
     return true
   } catch (error) {
     return false
   }
+}
+
+export function isSharedSchoolDataKey(key) {
+  return SHARED_SCHOOL_DATA_KEYS.some((prefix) => String(key || '').startsWith(prefix))
+}
+
+export function subscribeToSharedSchoolDataChanges(callback) {
+  if (typeof window === 'undefined' || typeof callback !== 'function') return () => {}
+
+  const handleLocalChange = (event) => callback(event?.detail?.key || '')
+  const handleStorageChange = (event) => {
+    if (isSharedSchoolDataKey(event?.key)) callback(event.key)
+  }
+
+  window.addEventListener(SCHOOL_DATA_CHANGE_EVENT, handleLocalChange)
+  window.addEventListener('storage', handleStorageChange)
+
+  return () => {
+    window.removeEventListener(SCHOOL_DATA_CHANGE_EVENT, handleLocalChange)
+    window.removeEventListener('storage', handleStorageChange)
+  }
+}
+
+function notifySharedSchoolDataChange(key) {
+  if (typeof window === 'undefined' || !isSharedSchoolDataKey(key)) return
+
+  window.dispatchEvent(new CustomEvent(SCHOOL_DATA_CHANGE_EVENT, {
+    detail: { key, updatedAt: Date.now() },
+  }))
 }
 
 export function getCompletedMaterials(userId) {
