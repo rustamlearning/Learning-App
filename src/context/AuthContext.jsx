@@ -26,6 +26,7 @@ import {
   safeWriteLocalJson,
   subscribeToSharedSchoolDataChanges,
 } from '../utils/localLearningStore.js'
+import { isPersistedLocalSchoolUser } from '../utils/authSession.js'
 
 const AuthContext = createContext(null)
 const STORAGE_KEY = AUTH_STORAGE_KEY
@@ -108,20 +109,20 @@ export function AuthProvider({ children }) {
           }
         }
 
-        const rawDemoUser = localStorage.getItem(STORAGE_KEY)
+        const restoredLocalUser = getPersistedLocalUser()
 
-        if (rawDemoUser && isDemoAuthEnabled() && active) {
-          setUser(hydrateUserFromSharedSchoolData(JSON.parse(rawDemoUser)))
-        } else {
+        if (restoredLocalUser && active) {
+          setUser(hydrateUserFromSharedSchoolData(restoredLocalUser))
+        } else if (!restoredLocalUser) {
           localStorage.removeItem(STORAGE_KEY)
         }
       } catch (error) {
         localStorage.removeItem(SUPABASE_SESSION_KEY)
 
-        const rawDemoUser = localStorage.getItem(STORAGE_KEY)
-        if (rawDemoUser && isDemoAuthEnabled() && active) {
-          setUser(hydrateUserFromSharedSchoolData(JSON.parse(rawDemoUser)))
-        } else {
+        const restoredLocalUser = getPersistedLocalUser()
+        if (restoredLocalUser && active) {
+          setUser(hydrateUserFromSharedSchoolData(restoredLocalUser))
+        } else if (!restoredLocalUser) {
           localStorage.removeItem(STORAGE_KEY)
         }
       } finally {
@@ -335,6 +336,19 @@ function getTeacherRows() {
 
 function getStudentRows() {
   return getLocalAdminProfiles('siswa', students.map((student) => ({ ...student, role: 'siswa' })))
+}
+
+function getPersistedLocalUser() {
+  const rawUser = localStorage.getItem(STORAGE_KEY)
+  if (!rawUser) return null
+
+  try {
+    const storedUser = JSON.parse(rawUser)
+    if (isDemoAuthEnabled()) return storedUser
+    return isPersistedLocalSchoolUser(storedUser, getTeacherRows()) ? storedUser : null
+  } catch (error) {
+    return null
+  }
 }
 
 function hydrateUserFromSharedSchoolData(user) {
