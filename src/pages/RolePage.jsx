@@ -87,7 +87,7 @@ import { AIChatPanel, AIGeneratorPanel, BadgeCard, DailyMissionCard, FlashcardDe
 import { fetchMaterialLookups, fetchMaterials, fetchStudentMaterialProgress, markMaterialCompleted, removeMaterial, saveMaterial } from '../services/materialService.js'
 import { fetchQuestions, removeQuestion, saveQuestion } from '../services/questionService.js'
 import { fetchQuizAttempts, fetchQuizQuestions, fetchQuizzes, fetchStudentRecord, removeQuiz, saveQuiz, submitQuizAttempt } from '../services/quizService.js'
-import { exportBackupData, fetchAdminStudents, fetchAdminTeachers, fetchClasses, fetchSubjects, removeAdminStudent, removeAdminTeacher, removeClass, removeSubject, saveAdminStudent, saveAdminTeacher, saveClass, saveSubject } from '../services/adminService.js'
+import { exportBackupData, fetchAdminStudents, fetchAdminTeachers, fetchClasses, fetchSubjects, removeAdminStudent, removeAdminTeacher, removeClass, saveAdminStudent, saveAdminTeacher, saveClass } from '../services/adminService.js'
 import { createAssignmentSubmission, fetchAssignmentSubmissions, fetchAssignments, removeAssignment, saveAssignment } from '../services/assignmentService.js'
 import {
   isExternalMaterialType,
@@ -1174,7 +1174,6 @@ const highSchoolSubjectFolders = [
   'Sejarah',
   'Seni Budaya',
   'Prakarya dan Kewirausahaan',
-  'Muatan Lokal',
   'Informatika',
   'Fisika',
   'Kimia',
@@ -1182,9 +1181,6 @@ const highSchoolSubjectFolders = [
   'Ekonomi',
   'Geografi',
   'Sosiologi',
-  'Antropologi',
-  'Matematika Tingkat Lanjut',
-  'Bahasa Indonesia Tingkat Lanjut',
   'Bahasa Inggris Tingkat Lanjut',
 ]
 
@@ -1194,7 +1190,7 @@ const subjectAliasMap = {
   [normalizeLookupText('PJOK')]: 'Pendidikan Jasmani, Olahraga, dan Kesehatan',
   [normalizeLookupText('Pendidikan Jasmani Olahraga dan Kesehatan')]: 'Pendidikan Jasmani, Olahraga, dan Kesehatan',
   [normalizeLookupText('Matematika')]: 'Matematika Umum',
-  [normalizeLookupText('Matematika Peminatan')]: 'Matematika Tingkat Lanjut',
+  [normalizeLookupText('Matematika Peminatan')]: 'Matematika Umum',
   [normalizeLookupText('Sejarah Indonesia')]: 'Sejarah',
   [normalizeLookupText('Mulok')]: 'Muatan Lokal',
 }
@@ -1247,6 +1243,53 @@ function uniqueSubjectNames(...collections) {
   })
 
   return names
+}
+
+const materialSubjectNames = Object.freeze(uniqueSubjectNames(schoolMaterials))
+const materialSubjectKeys = new Set(materialSubjectNames.map(normalizeLookupText))
+
+function isMaterialSubjectName(value) {
+  return materialSubjectKeys.has(normalizeLookupText(canonicalSubjectName(value)))
+}
+
+function normalizeMaterialSubjectRows(rows = []) {
+  const sourceRows = Array.isArray(rows) ? rows : []
+  const byName = new Map()
+
+  ;[...sourceRows, ...subjects].forEach((row) => {
+    const name = canonicalSubjectName(row?.name || row?.subject)
+    const key = normalizeLookupText(name)
+    if (!key || !materialSubjectKeys.has(key) || byName.has(key)) return
+    byName.set(key, row)
+  })
+
+  return materialSubjectNames.map((name, index) => {
+    const key = normalizeLookupText(name)
+    const saved = byName.get(key) || {}
+    const fallback = subjects.find((item) => sameSubjectName(item.name, name)) || {}
+    return {
+      ...saved,
+      ...fallback,
+      id: fallback.id || saved.id || `subject-material-${index + 1}`,
+      name,
+      code: fallback.code || saved.code || `MP-${String(index + 1).padStart(2, '0')}`,
+    }
+  })
+}
+
+function getTeacherProfileSubjectNames(row = {}, lookupSubjects = normalizeMaterialSubjectRows(subjects)) {
+  const subjectIds = Array.isArray(row.subjectIds)
+    ? row.subjectIds
+    : Array.isArray(row.subject_ids)
+      ? row.subject_ids
+      : [row.subjectId || row.subject_id].filter(Boolean)
+  const namesFromIds = subjectIds
+    .map((subjectId) => lookupSubjects.find((item) => item.id === subjectId)?.name)
+    .filter(Boolean)
+  const names = Array.isArray(row.subjectNames) ? row.subjectNames : []
+
+  return uniqueSubjectNames(names, namesFromIds, splitSubjectNames(row.subject || row.mapel))
+    .filter(isMaterialSubjectName)
 }
 
 function getMaterialSubjectFolders(rows = [], lookupSubjects = []) {
@@ -3421,6 +3464,7 @@ function normalizeClassLookupRows(rows = []) {
 
 function normalizeAdminProfileRows(role, rows = []) {
   const normalizedRows = Array.isArray(rows) ? rows : []
+  if (role === 'guru') return normalizeTeacherProfileRows(normalizedRows)
   if (role !== 'siswa') return normalizedRows
 
   return normalizedRows
@@ -3584,15 +3628,15 @@ function getGradebookClassOptions(roster) {
 }
 
 function getRosterForClass(roster, className) {
-  const rows = roster.filter((item) => item.className === className)
-  return rows.length ? rows : roster
+  const targetClass = promoteClassName(className)
+  return roster.filter((item) => promoteClassName(item.className) === targetClass)
 }
 
 function getGradeRosterForClass(roster, className) {
-  const rows = roster.filter((item) => item.className === className)
+  const targetClass = promoteClassName(className)
+  const rows = roster.filter((item) => promoteClassName(item.className) === targetClass)
   if (rows.length) return rows
-  const formatRows = getGradeFormatRoster().filter((item) => item.className === className)
-  return formatRows.length ? formatRows : roster
+  return getGradeFormatRoster().filter((item) => promoteClassName(item.className) === targetClass)
 }
 
 function getAttendanceSession(sessions, date, className, options = {}) {
@@ -3601,7 +3645,7 @@ function getAttendanceSession(sessions, date, className, options = {}) {
 
 function buildAttendanceRows(roster, savedRows = []) {
   const savedById = new Map(savedRows.map((item) => [item.studentId || item.id || item.name, item]))
-  const rosterRows = roster.map((student) => {
+  return roster.map((student) => {
     const saved = savedById.get(student.id) || savedById.get(student.name) || {}
     return {
       studentId: student.id,
@@ -3612,19 +3656,6 @@ function buildAttendanceRows(roster, savedRows = []) {
       note: saved.note || '',
     }
   })
-  const rosterIds = new Set(rosterRows.map((item) => item.studentId))
-  const extraRows = savedRows
-    .filter((item) => item && !rosterIds.has(item.studentId || item.id))
-    .map((item, index) => ({
-      studentId: item.studentId || item.id || `saved-${index}`,
-      name: item.name || 'Siswa',
-      nis: item.nis || '',
-      className: item.className || 'Kelas umum',
-      status: attendanceStatuses.includes(item.status) ? item.status : 'Hadir',
-      note: item.note || '',
-    }))
-
-  return [...rosterRows, ...extraRows]
 }
 
 function summarizeAttendanceRows(rows = []) {
@@ -4030,6 +4061,121 @@ function buildDigitalMonthRows(students = [], sessions = [], selectedDate = toLo
       rate: terisi ? Math.round((hadir / terisi) * 100) : 0,
     }
   })
+}
+
+function getAttendanceMatrixDates(type, sessions = [], selectedDate = toLocalIsoDate()) {
+  if (normalizeAttendanceType(type) === 'daily') return getMonthDates(selectedDate)
+  const monthRange = getAttendanceMonthRange(selectedDate)
+  return Array.from(new Set(
+    sessions
+      .map((session) => session.date)
+      .filter((date) => date && isIsoDateInRange(date, monthRange)),
+  )).sort()
+}
+
+function attendanceStatusInitial(status = '') {
+  if (status === 'Hadir') return 'H'
+  if (status === 'Izin') return 'I'
+  if (status === 'Sakit') return 'S'
+  if (status === 'Alpa' || status === 'Alfa') return 'A'
+  return '-'
+}
+
+function attendanceMatrixCellClass(status = '') {
+  if (status === 'Hadir') return 'bg-emerald-50 text-emerald-700'
+  if (status === 'Izin') return 'bg-amber-50 text-amber-700'
+  if (status === 'Sakit') return 'bg-sky-50 text-sky-700'
+  if (status === 'Alpa' || status === 'Alfa') return 'bg-rose-50 text-rose-700'
+  return 'bg-white text-slate-300'
+}
+
+function AttendanceMonthMatrix({ type, students = [], sessions = [], selectedDate, onSelectDate }) {
+  const dates = getAttendanceMatrixDates(type, sessions, selectedDate)
+  const mode = getAttendanceTypeMeta(type)
+
+  if (!students.length) {
+    return (
+      <DashboardPanel title={`Tabel ${mode.shortLabel.toLowerCase()}`} description="Siswa selalu dipisahkan berdasarkan rombel yang dipilih.">
+        <EmptyState title="Belum ada siswa di kelas ini." description="Tambahkan atau pindahkan siswa melalui Data Siswa pada akun admin." />
+      </DashboardPanel>
+    )
+  }
+
+  if (normalizeAttendanceType(type) === 'subject' && !dates.length) {
+    return (
+      <DashboardPanel title="Tabel pertemuan mapel" description="Kolom tanggal muncul setelah guru menyimpan absensi pertemuan.">
+        <EmptyState title="Belum ada tanggal pertemuan." description="Pilih tanggal mengajar, isi kehadiran, lalu tekan Simpan." />
+      </DashboardPanel>
+    )
+  }
+
+  const rowData = students.map((student, index) => {
+    const statuses = dates.map((date) => getStudentStatusOnDate(sessions, date, student))
+    return {
+      student,
+      no: index + 1,
+      statuses,
+      hadir: statuses.filter((status) => status === 'Hadir').length,
+      izin: statuses.filter((status) => status === 'Izin').length,
+      sakit: statuses.filter((status) => status === 'Sakit').length,
+      alpa: statuses.filter((status) => status === 'Alfa').length,
+    }
+  })
+  const tableWidth = Math.max(860, 300 + dates.length * 46)
+
+  return (
+    <DashboardPanel
+      title={type === 'daily' ? 'Absensi wali kelas sebulan penuh' : 'Absensi mapel per tanggal mengajar'}
+      description={type === 'daily'
+        ? `${getAttendanceMonthRange(selectedDate).label}. Semua tanggal ditampilkan, termasuk tanggal yang belum diisi.`
+        : `${getAttendanceMonthRange(selectedDate).label}. Hanya tanggal pertemuan yang sudah disimpan guru yang ditampilkan.`}
+    >
+      <div className="overflow-x-auto rounded-xl border border-[#D9E6F5]">
+        <table className="text-left text-xs" style={{ minWidth: `${tableWidth}px`, width: '100%' }}>
+          <thead className="bg-[#F8FBFF] text-[#64748B]">
+            <tr className="border-b border-[#D9E6F5]">
+              <th className="sticky left-0 z-20 w-12 bg-[#F8FBFF] px-2 py-3 text-center font-black">No</th>
+              <th className="sticky left-12 z-20 min-w-48 bg-[#F8FBFF] px-3 py-3 font-black">Nama siswa</th>
+              {dates.map((date) => {
+                const active = date === selectedDate
+                return (
+                  <th key={date} className={`min-w-11 px-1 py-2 text-center font-black ${active ? 'bg-[#DDF2FF] text-[#17446E]' : ''}`}>
+                    <button type="button" onClick={() => onSelectDate(date)} className="w-full rounded-md py-1 hover:bg-white" title={`Buka ${formatAttendanceDate(date, { day: '2-digit', month: 'long', year: 'numeric' })}`}>
+                      <span className="block text-[9px] uppercase">{formatAttendanceDate(date, { weekday: 'short' })}</span>
+                      <span className="mt-0.5 block font-mono text-sm">{parseIsoDate(date).getDate()}</span>
+                    </button>
+                  </th>
+                )
+              })}
+              {['H', 'I', 'S', 'A'].map((label) => <th key={label} className="min-w-10 bg-[#EEF7FF] px-1 py-3 text-center font-black text-[#17446E]">{label}</th>)}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#D9E6F5] bg-white">
+            {rowData.map((row) => (
+              <tr key={row.student.id}>
+                <td className="sticky left-0 z-10 bg-white px-2 py-2 text-center font-mono font-black text-[#64748B]">{row.no}</td>
+                <td className="sticky left-12 z-10 bg-white px-3 py-2">
+                  <p className="font-black text-[#132437]">{row.student.name}</p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-[#64748B]">{row.student.nis || row.student.className}</p>
+                </td>
+                {row.statuses.map((status, index) => (
+                  <td key={`${row.student.id}-${dates[index]}`} className="p-1 text-center">
+                    <span title={status || 'Belum diisi'} className={`grid h-7 min-w-7 place-items-center rounded-md font-mono text-[11px] font-black ${attendanceMatrixCellClass(status)}`}>
+                      {attendanceStatusInitial(status)}
+                    </span>
+                  </td>
+                ))}
+                {[row.hadir, row.izin, row.sakit, row.alpa].map((value, index) => (
+                  <td key={`${row.student.id}-summary-${index}`} className="bg-[#F8FBFF] px-1 py-2 text-center font-mono font-black text-[#17446E]">{value}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-xs font-semibold text-[#64748B]">H = Hadir, I = Izin, S = Sakit, A = Alpa. Klik tanggal pada kepala tabel untuk membuka pengisian tanggal tersebut.</p>
+    </DashboardPanel>
+  )
 }
 
 function buildDigitalSemesterRows(students = [], sessions = []) {
@@ -5066,7 +5212,6 @@ function GuruDaftarHadir({ user, notify }) {
     : { type: recapType }
   const savedSession = getAttendanceSession(sessions, selectedDate, selectedClass, sessionScope)
   const [rows, setRows] = useState(() => buildAttendanceRows(rosterForClass, savedSession?.rows || []))
-  const calendarDays = Array.from({ length: 7 }, (_, index) => addDaysIso(selectedDate, index - 3))
   const draftSession = {
     ...(savedSession || {}),
     type: attendanceType,
@@ -5078,19 +5223,26 @@ function GuruDaftarHadir({ user, notify }) {
     rows,
     createdBy: user?.id || 'demo',
   }
-  const previewSessions = upsertAttendanceSession(sessions, draftSession)
-  const selectedClassPreviewSessions = filterAttendanceSessionsByMode(previewSessions, { className: selectedClass, ...recapScope })
-  const weeklyAttendanceData = buildWeeklyAttendanceData(selectedClassPreviewSessions, selectedDate)
-  const monthlyAttendanceData = buildMonthlyAttendanceData(selectedClassPreviewSessions, selectedDate)
   const monthRange = getAttendanceMonthRange(selectedDate)
+  const attendanceMonthScope = attendanceType === 'subject'
+    ? { type: 'subject', subject: selectedSubject }
+    : { type: 'daily' }
+  const attendanceMonthlySessions = getAttendanceSessionsForRange(sessions, selectedClass, monthRange, attendanceMonthScope)
+  const attendanceCalendarDays = attendanceType === 'daily'
+    ? getMonthDates(selectedDate)
+    : Array.from(new Set([...getAttendanceMatrixDates('subject', attendanceMonthlySessions, selectedDate), selectedDate])).sort()
+  const selectedAttendanceSessions = filterAttendanceSessionsByMode(sessions, { className: selectedClass, ...attendanceMonthScope })
+  const selectedClassSessions = filterAttendanceSessionsByMode(sessions, { className: selectedClass, ...recapScope })
+  const weeklyAttendanceData = buildWeeklyAttendanceData(selectedClassSessions, selectedDate)
+  const monthlyAttendanceData = buildMonthlyAttendanceData(selectedClassSessions, selectedDate)
   const semesterRange = getAttendanceSemesterRange(selectedDate)
-  const monthlySessions = getAttendanceSessionsForRange(previewSessions, selectedClass, monthRange, recapScope)
-  const semesterSessions = getAttendanceSessionsForRange(previewSessions, selectedClass, semesterRange, recapScope)
+  const monthlySessions = getAttendanceSessionsForRange(sessions, selectedClass, monthRange, recapScope)
+  const semesterSessions = getAttendanceSessionsForRange(sessions, selectedClass, semesterRange, recapScope)
   const monthlySummary = summarizeAttendanceSessions(monthlySessions)
   const semesterSummary = summarizeAttendanceSessions(semesterSessions)
   const monthlyStudentRows = buildStudentAttendanceRecap(rosterForClass, monthlySessions)
   const semesterStudentRows = buildStudentAttendanceRecap(rosterForClass, semesterSessions)
-  const semesterMonthRows = buildSemesterMonthRecap(previewSessions, selectedClass, selectedDate, recapScope)
+  const semesterMonthRows = buildSemesterMonthRecap(sessions, selectedClass, selectedDate, recapScope)
   const summary = summarizeAttendanceRows(rows)
   const unsavedAttendanceMessage = 'Perubahan absensi belum disimpan. Simpan dulu agar data tidak hilang.'
 
@@ -5292,9 +5444,9 @@ function GuruDaftarHadir({ user, notify }) {
       <section className="overflow-hidden rounded-2xl border border-[#D9E6F5] bg-white shadow-[0_10px_28px_rgba(15,36,55,0.045)]">
         <div className="grid gap-4 border-b border-[#D9E6F5] bg-[#F8FBFF] p-4 xl:grid-cols-[1fr_14rem_14rem_16rem_13rem] xl:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F80D8]">Kalender hadir</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F80D8]">{attendanceType === 'daily' ? 'Tanggal bulan berjalan' : 'Tanggal pertemuan mapel'}</p>
             <h2 className="mt-1 text-xl font-black text-[#132437]">
-              {formatAttendanceDate(selectedDate, { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+              {attendanceType === 'daily' ? monthRange.label : `${selectedSubject} · ${monthRange.label}`}
             </h2>
           </div>
 
@@ -5336,10 +5488,10 @@ function GuruDaftarHadir({ user, notify }) {
           )}
         </div>
 
-        <div className="grid grid-cols-7 gap-1.5 p-3">
-          {calendarDays.map((date) => {
+        <div className="grid grid-cols-4 gap-1.5 p-3 sm:grid-cols-7">
+          {attendanceCalendarDays.map((date) => {
             const active = date === selectedDate
-            const daySummary = summarizeAttendanceSessions(selectedClassPreviewSessions.filter((item) => item.date === date))
+            const daySummary = summarizeAttendanceSessions(selectedAttendanceSessions.filter((item) => item.date === date))
             return (
               <button
                 key={date}
@@ -5361,6 +5513,11 @@ function GuruDaftarHadir({ user, notify }) {
             )
           })}
         </div>
+        <p className="border-t border-[#D9E6F5] px-4 py-3 text-xs font-semibold text-[#64748B]">
+          {attendanceType === 'daily'
+            ? 'Mode wali kelas menampilkan seluruh tanggal pada bulan yang dipilih.'
+            : 'Mode mapel menampilkan tanggal pertemuan yang tersimpan, ditambah tanggal yang sedang diisi.'}
+        </p>
       </section>
 
       <DashboardPanel title={`Daftar hadir ${selectedClass}`} description={`${rows.length} siswa pada tanggal terpilih.`}>
@@ -5465,6 +5622,14 @@ function GuruDaftarHadir({ user, notify }) {
           </table>
         </div>
       </DashboardPanel>
+
+      <AttendanceMonthMatrix
+        type={attendanceType}
+        students={rosterForClass}
+        sessions={attendanceMonthlySessions}
+        selectedDate={selectedDate}
+        onSelectDate={changeSelectedDate}
+      />
 
       <MetricStrip
         items={[
@@ -5635,7 +5800,7 @@ function getSavedGradeMaterialScopes(scopeState, context, savedRows = []) {
 }
 
 function getGradeSubjectOptions() {
-  const localSubjects = getLocalAdminCollection('subjects', subjects)
+  const localSubjects = normalizeMaterialSubjectRows(getLocalAdminCollection('subjects', subjects))
     .flatMap((item) => splitSubjectNames(item?.name || item?.subject))
     .filter(isGradeSubjectOption)
   const teacherSubjects = teachers
@@ -5645,7 +5810,7 @@ function getGradeSubjectOptions() {
 }
 
 function getTeacherSubjectNames(user) {
-  return uniqueSubjectNames(splitSubjectNames(user?.subject))
+  return getTeacherProfileSubjectNames(user)
 }
 
 function getTeacherSubjectOptions(user, fallbackOptions = []) {
@@ -12455,17 +12620,23 @@ function AdminWaliKelas({ notify }) {
 }
 
 function normalizeTeacherProfileRows(rows = []) {
+  const subjectRows = normalizeMaterialSubjectRows(subjects)
   return (Array.isArray(rows) ? rows : [])
     .filter((row) => row && (row.name || row.fullName))
     .map((row, index) => {
       const name = row.name || row.fullName || `Guru ${index + 1}`
       const nip = String(row.nip || row.username || '').trim()
+      const subjectNames = getTeacherProfileSubjectNames(row, subjectRows)
       return {
         ...row,
         id: row.id || (nip ? `teacher-${nip}` : `teacher-${index + 1}`),
         name,
+        email: row.email || '',
         nip,
-        subject: row.subject || row.mapel || '-',
+        subjectIds: subjectNames.map((subjectName) => subjectRows.find((item) => sameSubjectName(item.name, subjectName))?.id).filter(Boolean),
+        subjectNames,
+        subject: subjectNames.join('; '),
+        status: row.status || 'Aktif',
         role: 'guru',
       }
     })
@@ -12519,8 +12690,8 @@ function AdminProfiles({ role, title, notify, appContext }) {
       if (!appContext?.accessToken) {
         const localRows = normalizeAdminProfileRows(role, getLocalAdminProfiles(role, fallbackRows))
         setRows(localRows)
-        if (role === 'siswa') setLocalAdminProfiles(role, localRows)
-        setLookups({ classes: normalizeClassLookupRows(classes), subjects })
+        setLocalAdminProfiles(role, localRows)
+        setLookups({ classes: normalizeClassLookupRows(classes), subjects: normalizeMaterialSubjectRows(getLocalAdminCollection('subjects', subjects)) })
         setLoading(false)
         return
       }
@@ -12534,15 +12705,15 @@ function AdminProfiles({ role, title, notify, appContext }) {
         ])
         if (active) {
           setRows(normalizeAdminProfileRows(role, profileRows.length > 0 ? profileRows : fallbackRows))
-          setLookups({ classes: normalizeClassLookupRows(classRows.length > 0 ? classRows : classes), subjects: subjectRows })
+          setLookups({ classes: normalizeClassLookupRows(classRows.length > 0 ? classRows : classes), subjects: normalizeMaterialSubjectRows(subjectRows) })
           setError('')
         }
       } catch (loadError) {
         if (active) {
           const localRows = normalizeAdminProfileRows(role, getLocalAdminProfiles(role, fallbackRows))
           setRows(localRows)
-          if (role === 'siswa') setLocalAdminProfiles(role, localRows)
-          setLookups({ classes: normalizeClassLookupRows(classes), subjects })
+          setLocalAdminProfiles(role, localRows)
+          setLookups({ classes: normalizeClassLookupRows(classes), subjects: normalizeMaterialSubjectRows(getLocalAdminCollection('subjects', subjects)) })
           setError(loadError.message)
         }
       } finally {
@@ -12625,13 +12796,13 @@ function AdminProfiles({ role, title, notify, appContext }) {
     <div>
       <PageHeader eyebrow="Data" title={title} description="Kelola profil dan detail akademik." action={<QuickActionButton icon={Plus} label={`Tambah ${role === 'guru' ? 'guru' : 'siswa'}`} onClick={() => setEditing({ name: '', email: '', role, status: 'Aktif', detailStatus: 'Aktif' })} />} />
       {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data: {error}. Data lokal ditampilkan.</div>}
-      {editing && <ProfileForm title={title} role={role} profile={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
+      {editing && <ProfileForm key={editing.id || `new-${role}`} title={title} role={role} profile={editing} lookups={lookups} onCancel={() => setEditing(null)} onSave={handleSave} />}
       {loading ? <LoadingState label={`Memuat ${title.toLowerCase()} dari Supabase...`} /> : (
         <DataTable columns={[
           { key: 'name', label: 'Nama' },
           { key: 'email', label: 'Email' },
           ...(role === 'guru'
-            ? [{ key: 'nip', label: 'NIP' }, { key: 'subject', label: 'Mapel' }]
+            ? [{ key: 'nip', label: 'NIP' }, { key: 'subject', label: 'Mapel', render: (row) => row.subject || '-' }]
             : [{ key: 'nis', label: 'NIS' }, { key: 'className', label: 'Kelas' }]),
           { key: 'status', label: 'Status' },
           { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
@@ -12644,9 +12815,18 @@ function AdminProfiles({ role, title, notify, appContext }) {
 
 function enrichAdminProfileRow(row, role, lookups) {
   if (role === 'guru') {
-    const subjectId = row.subjectId || row.subject_id
-    const subject = lookups.subjects.find((item) => item.id === subjectId)
-    return { ...row, subjectId, subject: subject?.name || row.subject || '-' }
+    const subjectRows = normalizeMaterialSubjectRows(lookups.subjects)
+    const subjectNames = getTeacherProfileSubjectNames(row, subjectRows)
+    const subjectIds = subjectNames
+      .map((subjectName) => subjectRows.find((item) => sameSubjectName(item.name, subjectName))?.id)
+      .filter(Boolean)
+    return {
+      ...row,
+      subjectId: subjectIds[0] || '',
+      subjectIds,
+      subjectNames,
+      subject: subjectNames.join('; '),
+    }
   }
 
   const classId = row.classId || row.class_id
@@ -12655,10 +12835,48 @@ function enrichAdminProfileRow(row, role, lookups) {
 }
 
 function ProfileForm({ title, role, profile, lookups, onCancel, onSave }) {
-  const [form, setForm] = useState(profile)
+  const subjectRows = normalizeMaterialSubjectRows(lookups.subjects)
+  const [form, setForm] = useState(() => ({
+    ...profile,
+    name: profile.name || profile.fullName || '',
+    email: profile.email || '',
+    status: profile.status || 'Aktif',
+    subjectNames: role === 'guru' ? getTeacherProfileSubjectNames(profile, subjectRows) : [],
+  }))
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function toggleSubject(subjectName) {
+    setForm((current) => {
+      const selected = Array.isArray(current.subjectNames) ? current.subjectNames : []
+      return {
+        ...current,
+        subjectNames: selected.some((item) => sameSubjectName(item, subjectName))
+          ? selected.filter((item) => !sameSubjectName(item, subjectName))
+          : [...selected, subjectName],
+      }
+    })
+  }
+
+  function submitForm() {
+    if (role !== 'guru') {
+      onSave(form)
+      return
+    }
+
+    const subjectNames = uniqueSubjectNames(form.subjectNames).filter(isMaterialSubjectName)
+    const subjectIds = subjectNames
+      .map((subjectName) => subjectRows.find((item) => sameSubjectName(item.name, subjectName))?.id)
+      .filter(Boolean)
+    onSave({
+      ...form,
+      subjectId: subjectIds[0] || '',
+      subjectIds,
+      subjectNames,
+      subject: subjectNames.join('; '),
+    })
   }
 
   return (
@@ -12666,10 +12884,10 @@ function ProfileForm({ title, role, profile, lookups, onCancel, onSave }) {
       <h2 className="text-lg font-black text-gray-950">{profile.id ? `Edit ${title}` : `Tambah ${title}`}</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="grid gap-1 text-sm font-bold text-gray-700">Nama
-          <input value={form.name} onChange={(event) => updateField('name', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
+          <input value={form.name || ''} onChange={(event) => updateField('name', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Email
-          <input value={form.email} onChange={(event) => updateField('email', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
+        <label className="grid gap-1 text-sm font-bold text-gray-700">Email <span className="font-semibold text-gray-400">(opsional)</span>
+          <input type="email" value={form.email || ''} onChange={(event) => updateField('email', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
         </label>
         <label className="grid gap-1 text-sm font-bold text-gray-700">Status
           <select value={form.status || 'Aktif'} onChange={(event) => updateField('status', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
@@ -12704,18 +12922,28 @@ function ProfileForm({ title, role, profile, lookups, onCancel, onSave }) {
             <label className="grid gap-1 text-sm font-bold text-gray-700">NIP
               <input value={form.nip || ''} onChange={(event) => updateField('nip', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
             </label>
-            <label className="grid gap-1 text-sm font-bold text-gray-700">Mata pelajaran
-              <select value={form.subjectId || ''} onChange={(event) => updateField('subjectId', event.target.value)} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300">
-                <option value="">Pilih mapel</option>
-                {lookups.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
-              </select>
-            </label>
+            <fieldset className="md:col-span-2">
+              <legend className="text-sm font-bold text-gray-700">Mata pelajaran yang diampu</legend>
+              <p className="mt-1 text-xs font-semibold text-gray-500">Pilih satu atau beberapa mapel yang memiliki materi di IsleLearn.</p>
+              <div className="mt-2 grid max-h-64 gap-2 overflow-y-auto rounded-xl border border-purple-100 bg-galaxy-surface p-3 sm:grid-cols-2 lg:grid-cols-3">
+                {subjectRows.map((subject) => {
+                  const checked = (form.subjectNames || []).some((item) => sameSubjectName(item, subject.name))
+                  return (
+                    <label key={subject.id} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold ring-1 transition ${checked ? 'bg-blue-50 text-[#17446E] ring-blue-200' : 'bg-white text-gray-600 ring-gray-200 hover:bg-gray-50'}`}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleSubject(subject.name)} className="h-4 w-4 accent-[#17446E]" />
+                      <span>{subject.name}</span>
+                    </label>
+                  )
+                })}
+              </div>
+              <p className="mt-2 text-xs font-black text-[#2F80D8]">{(form.subjectNames || []).length} mapel dipilih</p>
+            </fieldset>
           </>
         )}
       </div>
       <div className="mt-4 flex justify-end gap-2">
         <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form)} disabled={!form.name.trim() || !form.email.trim()} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
+        <button onClick={submitForm} disabled={!String(form.name || '').trim()} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
       </div>
     </SectionCard>
   )
@@ -12853,125 +13081,40 @@ function ClassForm({ classItem, onCancel, onSave }) {
   )
 }
 
-function AdminMapel({ notify, appContext }) {
-  const [rows, setRows] = useState([])
-  const [editing, setEditing] = useState(null)
-  const [deleting, setDeleting] = useState(null)
-  const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let active = true
-    async function loadSubjects() {
-      if (!appContext?.accessToken) {
-        setRows(getLocalAdminCollection('subjects', subjects))
-        setLoading(false)
-        return
-      }
-      try {
-        setLoading(true)
-        const subjectRows = await fetchSubjects({ accessToken: appContext.accessToken })
-        if (active) {
-          setRows(subjectRows.length > 0 ? subjectRows.map((item) => ({ ...item, teacher: item.users_profile?.name || '-' })) : subjects)
-          setError('')
-        }
-      } catch (loadError) {
-        if (active) {
-          setRows(getLocalAdminCollection('subjects', subjects))
-          setError(loadError.message)
-        }
-      } finally {
-        if (active) setLoading(false)
-      }
+function AdminMapel() {
+  const navigate = useNavigate()
+  const teacherRows = normalizeTeacherProfileRows(getLocalAdminProfiles('guru', teachers.map((teacher) => ({ ...teacher, role: 'guru' }))))
+  const materialCountBySubject = schoolMaterials.reduce((counts, material) => {
+    const key = normalizeLookupText(canonicalSubjectName(material.subject))
+    counts.set(key, (counts.get(key) || 0) + 1)
+    return counts
+  }, new Map())
+  const rows = normalizeMaterialSubjectRows(getLocalAdminCollection('subjects', subjects)).map((subject) => {
+    const assignedTeachers = teacherRows
+      .filter((teacher) => getTeacherProfileSubjectNames(teacher).some((teacherSubject) => sameSubjectName(teacherSubject, subject.name)))
+      .map((teacher) => teacher.name)
+    return {
+      ...subject,
+      materialCount: materialCountBySubject.get(normalizeLookupText(subject.name)) || 0,
+      teacher: assignedTeachers.join(', ') || '-',
     }
-    loadSubjects()
-    return () => { active = false }
-  }, [appContext?.accessToken])
-
-  async function handleSave(subject) {
-    if (!appContext?.accessToken) {
-      const localSubject = { ...subject, id: subject.id || `local-subject-${Date.now()}` }
-
-      setRows((current) => {
-        const nextRows = subject.id
-          ? current.map((item) => item.id === subject.id ? localSubject : item)
-          : [localSubject, ...current]
-        setLocalAdminCollection('subjects', nextRows)
-        return nextRows
-      })
-
-      setEditing(null)
-      notify('Mapel tersimpan lokal di perangkat.')
-      return
-    }
-    try {
-      const saved = await saveSubject({ accessToken: appContext.accessToken, subject })
-      setRows((current) => subject.id ? current.map((item) => item.id === subject.id ? saved : item) : [saved, ...current])
-      setEditing(null)
-      notify('Mapel berhasil disimpan di Supabase.')
-    } catch (saveError) {
-      notify(`Gagal menyimpan mapel: ${saveError.message}`)
-    }
-  }
-
-  async function handleDelete() {
-    if (!deleting) return
-    if (!appContext?.accessToken || !isUuid(deleting.id)) {
-      setRows((current) => {
-        const nextRows = current.filter((item) => item.id !== deleting.id)
-        setLocalAdminCollection('subjects', nextRows)
-        return nextRows
-      })
-      setDeleting(null)
-      notify('Mapel lokal dihapus dan tersimpan di perangkat.')
-      return
-    }
-    try {
-      await removeSubject({ accessToken: appContext.accessToken, id: deleting.id })
-      setRows((current) => current.filter((item) => item.id !== deleting.id))
-      setDeleting(null)
-      notify('Mapel berhasil dihapus.')
-    } catch (deleteError) {
-      notify(`Gagal menghapus mapel: ${deleteError.message}`)
-    }
-  }
+  })
 
   return (
     <div>
-      <PageHeader eyebrow="Mapel" title="Mata Pelajaran" action={<QuickActionButton icon={Plus} label="Tambah mapel" onClick={() => setEditing({ name: '', code: '' })} />} />
-      {error && <div className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim data mapel: {error}. Data lokal ditampilkan.</div>}
-      {editing && <SubjectForm subject={editing} onCancel={() => setEditing(null)} onSave={handleSave} />}
-      {loading ? <LoadingState label="Memuat mata pelajaran dari Supabase..." /> : (
-        <DataTable columns={[
-          { key: 'name', label: 'Nama Mapel' },
-          { key: 'code', label: 'Kode' },
-          { key: 'teacher', label: 'Guru Pengampu' },
-          { key: 'action', label: 'Aksi', render: (row) => <div className="flex gap-2"><button onClick={() => setEditing(row)} className="rounded-xl bg-galaxy-surface px-3 py-2 text-xs font-extrabold text-galaxy-purple">Edit</button><button onClick={() => setDeleting(row)} className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Hapus</button></div> },
-        ]} rows={rows} />
-      )}
-      <ConfirmDialog open={Boolean(deleting)} title="Hapus mapel?" description={`Mapel "${deleting?.name || ''}" akan dihapus setelah konfirmasi.`} onCancel={() => setDeleting(null)} onConfirm={handleDelete} />
+      <PageHeader
+        eyebrow="Mapel"
+        title="Mata Pelajaran"
+        description="Daftar mapel mengikuti katalog materi IsleLearn. Guru pengampu diatur melalui Data Guru."
+        action={<QuickActionButton icon={UsersRound} label="Atur guru" onClick={() => navigate('/admin/guru')} />}
+      />
+      <DataTable columns={[
+        { key: 'name', label: 'Nama Mapel' },
+        { key: 'code', label: 'Kode' },
+        { key: 'materialCount', label: 'Materi', render: (row) => `${row.materialCount} materi` },
+        { key: 'teacher', label: 'Guru Pengampu' },
+      ]} rows={rows} />
     </div>
-  )
-}
-
-function SubjectForm({ subject, onCancel, onSave }) {
-  const [form, setForm] = useState(subject)
-  return (
-    <SectionCard className="mb-4">
-      <h2 className="text-lg font-black text-gray-950">{form.id ? 'Edit mapel' : 'Tambah mapel'}</h2>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Nama mapel
-          <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-gray-700">Kode
-          <input value={form.code} onChange={(event) => setForm((current) => ({ ...current, code: event.target.value.toUpperCase() }))} className="rounded-xl border border-purple-100 bg-galaxy-surface px-3 py-2.5 outline-none focus:border-purple-300" />
-        </label>
-      </div>
-      <div className="mt-4 flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded-xl px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Batal</button>
-        <button onClick={() => onSave(form)} disabled={!form.name.trim() || !form.code.trim()} className="rounded-xl bg-galaxy-action px-4 py-2.5 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">Simpan</button>
-      </div>
-    </SectionCard>
   )
 }
 

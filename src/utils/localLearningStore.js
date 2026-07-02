@@ -165,6 +165,20 @@ export function getLocalAdminCollection(collection, fallbackRows) {
   const storedRows = safeReadLocalJson(key, null)
 
   if (Array.isArray(storedRows)) {
+    if (collection === 'subjects' && safeFallbackRows.length) {
+      const storedByName = new Map()
+      storedRows.forEach((row) => {
+        const nameKey = normalizeCollectionName(row?.name || row?.subject)
+        if (nameKey && !storedByName.has(nameKey)) storedByName.set(nameKey, row)
+      })
+      const canonicalRows = safeFallbackRows.map((fallbackRow) => ({
+        ...(storedByName.get(normalizeCollectionName(fallbackRow?.name)) || {}),
+        ...fallbackRow,
+      }))
+      safeWriteLocalJson(key, canonicalRows)
+      return canonicalRows
+    }
+
     if (!storedRows.length && safeFallbackRows.length) {
       safeWriteLocalJson(key, safeFallbackRows)
       return safeFallbackRows
@@ -195,4 +209,8 @@ function assignmentSubmissionStorageKey(assignmentId) {
 
 function teacherStorageKey(collection, user, teacherSubject) {
   return `islelearn-teacher-${collection}-${user?.id || teacherSubject || 'demo'}`
+}
+
+function normalizeCollectionName(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '')
 }

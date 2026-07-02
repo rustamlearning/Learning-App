@@ -226,7 +226,6 @@ export const subjects = [
   { id: 'subject-sejarah', code: 'SEJ', name: 'Sejarah' },
   { id: 'subject-seni-budaya', code: 'SBD', name: 'Seni Budaya' },
   { id: 'subject-prakarya-kewirausahaan', code: 'PKWU', name: 'Prakarya dan Kewirausahaan' },
-  { id: 'subject-muatan-lokal', code: 'MULOK', name: 'Muatan Lokal' },
   { id: 'subject-informatika', code: 'INF', name: 'Informatika' },
   { id: 'subject-fisika', code: 'FIS', name: 'Fisika' },
   { id: 'subject-kimia', code: 'KIM', name: 'Kimia' },
@@ -234,9 +233,6 @@ export const subjects = [
   { id: 'subject-ekonomi', code: 'EKO', name: 'Ekonomi' },
   { id: 'subject-geografi', code: 'GEO', name: 'Geografi' },
   { id: 'subject-sosiologi', code: 'SOS', name: 'Sosiologi' },
-  { id: 'subject-antropologi', code: 'ANT', name: 'Antropologi' },
-  { id: 'subject-matematika-tingkat-lanjut', code: 'MTK-L', name: 'Matematika Tingkat Lanjut' },
-  { id: 'subject-bahasa-indonesia-tingkat-lanjut', code: 'BIN-L', name: 'Bahasa Indonesia Tingkat Lanjut' },
   { id: 'subject-bahasa-inggris-tingkat-lanjut', code: 'BIG-L', name: 'Bahasa Inggris Tingkat Lanjut' },
 ]
 export const materials = []
