@@ -130,6 +130,7 @@ import {
   setHomeroomAssignments,
 } from '../utils/homeroomAccess.js'
 import { buildClassRoster } from '../utils/classRoster.js'
+import { loadBuiltInQuestionBank, mergeQuestionBankRows, sortQuestionBankRows } from '../utils/questionBank.js'
 
 const ContentStudio = lazy(() => import('./ContentStudio.jsx'))
 
@@ -9871,7 +9872,7 @@ function parseQuestionsFromImportedText(text, context) {
 
 function groupQuestionsByTopic(rows) {
   const map = new Map()
-  rows.forEach((row) => {
+  sortQuestionBankRows(rows).forEach((row) => {
     const topic = String(row.topic || 'Topik umum').trim() || 'Topik umum'
     if (!map.has(topic)) map.set(topic, [])
     map.get(topic).push(row)
@@ -9906,8 +9907,11 @@ function BankSoal({ user, notify, appContext }) {
     let active = true
 
     async function loadQuestions() {
+      setLoading(true)
+      const builtInRows = await loadBuiltInQuestionBank(teacherSubjectOptions)
+      if (!active) return
       if (!appContext?.accessToken || !isUuid(user?.id)) {
-        setRows(getLocalTeacherQuestions(user, teacherSubject))
+        setRows(mergeQuestionBankRows(builtInRows, getLocalTeacherQuestions(user, teacherSubject)))
         setLoading(false)
         return
       }
@@ -9919,13 +9923,13 @@ function BankSoal({ user, notify, appContext }) {
           fetchMaterialLookups({ accessToken: appContext.accessToken }),
         ])
         if (active) {
-          setRows(questionRows)
+          setRows(mergeQuestionBankRows(builtInRows, questionRows))
           setLookups(lookupRows)
           setError('')
         }
       } catch (loadError) {
         if (active) {
-          setRows(getLocalTeacherQuestions(user, teacherSubject))
+          setRows(mergeQuestionBankRows(builtInRows, getLocalTeacherQuestions(user, teacherSubject)))
           setError(loadError.message)
         }
       } finally {
@@ -9937,7 +9941,7 @@ function BankSoal({ user, notify, appContext }) {
     return () => {
       active = false
     }
-  }, [appContext?.accessToken, teacherSubject, user?.id])
+  }, [appContext?.accessToken, teacherSubject, teacherSubjectOptions, user?.id])
 
   async function handleSave(question) {
     if (!appContext?.accessToken || !isUuid(user?.id)) {
@@ -10333,6 +10337,12 @@ function QuestionPreviewLine({ row }) {
 
 function QuestionRowCard({ row, onEdit, onDelete }) {
   const media = normalizeQuestionMedia(row.media)
+  const builtInQuestion = row.source === 'school-content'
+  const sourceLabel = row.source === 'supabase'
+    ? 'Tersimpan server'
+    : builtInQuestion
+      ? 'Dari materi HTML'
+      : 'Tersimpan perangkat'
   return (
     <article className="grid gap-3 border-b border-[#0B3A5B]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
       <div className="min-w-0">
@@ -10341,7 +10351,7 @@ function QuestionRowCard({ row, onEdit, onDelete }) {
           <StatusBadge tone="teal">{row.type || 'Jenis belum diisi'}</StatusBadge>
           {row.needsReview && <StatusBadge tone="amber">Perlu review</StatusBadge>}
           {media.length > 0 && <StatusBadge tone="cyan">{media.length} media</StatusBadge>}
-          <span className="text-xs font-bold text-slate-400">{row.source === 'supabase' ? 'Tersimpan server' : 'Tersimpan perangkat'}</span>
+          <span className="text-xs font-bold text-slate-400">{sourceLabel}</span>
         </div>
         <h2 className="line-clamp-2 text-base font-black leading-6 text-[#13232d]">{row.questionText || 'Pertanyaan belum diisi'}</h2>
         <p className="mt-2 text-xs font-bold text-slate-500">
@@ -10362,9 +10372,11 @@ function QuestionRowCard({ row, onEdit, onDelete }) {
         <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-[#F1F7FF] px-3 py-2 text-xs font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/8 transition hover:bg-[#E0F2FE]">
           <PencilLine size={14} /> Edit
         </button>
-        <button onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
-          <Trash2 size={14} /> Hapus
-        </button>
+        {!builtInQuestion && (
+          <button onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
+            <Trash2 size={14} /> Hapus
+          </button>
+        )}
       </div>
     </article>
   )
@@ -12031,9 +12043,12 @@ function KuisLive({ user, notify, appContext }) {
     let active = true
 
     async function loadTeacherQuizzes() {
+      setLoading(true)
+      const builtInRows = await loadBuiltInQuestionBank(teacherSubjectOptions)
+      if (!active) return
       if (!appContext?.accessToken || !isUuid(user?.id)) {
         setQuizRows(getLocalTeacherQuizzes(user, teacherSubject))
-        setQuestionRows(getLocalTeacherQuestions(user, teacherSubject))
+        setQuestionRows(mergeQuestionBankRows(builtInRows, getLocalTeacherQuestions(user, teacherSubject)))
         setLoading(false)
         return
       }
@@ -12048,7 +12063,7 @@ function KuisLive({ user, notify, appContext }) {
         ])
         if (active) {
           setQuizRows(quizData)
-          setQuestionRows(questionData)
+          setQuestionRows(mergeQuestionBankRows(builtInRows, questionData))
           setLookups(lookupRows)
           setAttempts(attemptRows)
           setError('')
@@ -12056,7 +12071,7 @@ function KuisLive({ user, notify, appContext }) {
       } catch (loadError) {
         if (active) {
           setQuizRows(getLocalTeacherQuizzes(user, teacherSubject))
-          setQuestionRows(getLocalTeacherQuestions(user, teacherSubject))
+          setQuestionRows(mergeQuestionBankRows(builtInRows, getLocalTeacherQuestions(user, teacherSubject)))
           setError(loadError.message)
         }
       } finally {
@@ -12068,7 +12083,7 @@ function KuisLive({ user, notify, appContext }) {
     return () => {
       active = false
     }
-  }, [appContext?.accessToken, teacherSubject, user?.id])
+  }, [appContext?.accessToken, teacherSubject, teacherSubjectOptions, user?.id])
 
   async function handleSave(quiz, selectedQuestionIds) {
     if (!appContext?.accessToken || !isUuid(user?.id)) {
