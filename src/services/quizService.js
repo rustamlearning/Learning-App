@@ -1,6 +1,6 @@
 import { createRow, deleteRow, deleteRows, listRows, updateRow } from './supabaseClient.js'
 
-const QUIZ_SELECT = '*,subjects(id,name,code),classes(id,name),users_profile(id,name)'
+const QUIZ_SELECT = '*,subjects(id,name,code),classes(id,name),users_profile(id,name),quiz_questions(question_id)'
 const QUIZ_QUESTION_SELECT = '*,questions(*)'
 
 export async function fetchQuizzes({ accessToken, teacherId, publishedOnly = false } = {}) {
@@ -34,15 +34,15 @@ export async function saveQuiz({ accessToken, teacherId, quiz, questionIds = [] 
     : await createRow('quizzes', payload, accessToken)
   const saved = rows[0]
 
+  await deleteRows('quiz_questions', { quiz_id: saved.id }, accessToken)
   if (questionIds.length > 0) {
-    await deleteRows('quiz_questions', { quiz_id: saved.id }, accessToken)
     await Promise.all(questionIds.map((questionId) => createRow('quiz_questions', {
       quiz_id: saved.id,
       question_id: questionId,
     }, accessToken)))
   }
 
-  return toQuizItem(saved)
+  return { ...toQuizItem(saved), questionIds: [...questionIds], questionCount: questionIds.length }
 }
 
 export async function removeQuiz({ accessToken, id }) {
@@ -117,6 +117,8 @@ function toQuizItem(row) {
     date: row.start_time ? new Date(row.start_time).toLocaleDateString('id-ID') : 'Belum dijadwalkan',
     startTime: row.start_time,
     endTime: row.end_time,
+    questionIds: Array.isArray(row.quiz_questions) ? row.quiz_questions.map((item) => item.question_id).filter(Boolean) : [],
+    questionCount: Array.isArray(row.quiz_questions) ? row.quiz_questions.length : 0,
     source: 'supabase',
   }
 }

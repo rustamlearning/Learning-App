@@ -131,6 +131,7 @@ import {
 } from '../utils/homeroomAccess.js'
 import { buildClassRoster } from '../utils/classRoster.js'
 import { loadBuiltInQuestionBank, mergeQuestionBankRows, sortQuestionBankRows } from '../utils/questionBank.js'
+import { buildQuizQuestionSnapshots, normalizeQuestionOptions, resolveQuizQuestionSet } from '../utils/quizQuestions.js'
 
 const ContentStudio = lazy(() => import('./ContentStudio.jsx'))
 
@@ -2708,17 +2709,12 @@ function PracticeDetail({ practice, onBack, notify }) {
   )
 }
 
-function getQuizQuestionSet(quiz) {
-  const allQuestions = uniqueRowsById([...questions, ...getAllLocalTeacherQuestions()])
-
-  if (Array.isArray(quiz.questionIds) && quiz.questionIds.length > 0) {
-    const selectedQuestions = allQuestions.filter((item) => quiz.questionIds.includes(item.id))
-    if (selectedQuestions.length > 0) return selectedQuestions
-  }
-
-  const bySubject = allQuestions.filter((item) => item.subject === quiz.subject)
-  if (bySubject.length > 0) return bySubject.slice(0, 8)
-  return allQuestions.slice(0, 8)
+async function getQuizQuestionSet(quiz) {
+  const builtInRows = await loadBuiltInQuestionBank([quiz?.subject])
+  return resolveQuizQuestionSet(
+    quiz,
+    uniqueRowsById([...builtInRows, ...questions, ...getAllLocalTeacherQuestions()]),
+  )
 }
 
 function KuisPage({ user, notify, appContext }) {
@@ -2774,16 +2770,16 @@ function KuisPage({ user, notify, appContext }) {
     setResult(getQuizResult(quiz.id, user?.id))
 
     if (!appContext?.accessToken || quiz.source !== 'supabase') {
-      setQuizQuestions(getQuizQuestionSet(quiz))
+      setQuizQuestions(await getQuizQuestionSet(quiz))
       return
     }
 
     try {
       const rows = await fetchQuizQuestions({ accessToken: appContext.accessToken, quizId: quiz.id })
-      setQuizQuestions(rows.length > 0 ? rows : getQuizQuestionSet(quiz))
+      setQuizQuestions(rows.length > 0 ? rows : await getQuizQuestionSet(quiz))
     } catch (loadError) {
       notify(`Gagal membuka soal kuis: ${loadError.message}`)
-      setQuizQuestions(getQuizQuestionSet(quiz))
+      setQuizQuestions(await getQuizQuestionSet(quiz))
     }
   }
 
@@ -10337,6 +10333,7 @@ function QuestionPreviewLine({ row }) {
 
 function QuestionRowCard({ row, onEdit, onDelete }) {
   const media = normalizeQuestionMedia(row.media)
+  const answerOptions = normalizeQuestionOptions(row)
   const builtInQuestion = row.source === 'school-content'
   const sourceLabel = row.source === 'supabase'
     ? 'Tersimpan server'
@@ -10357,6 +10354,25 @@ function QuestionRowCard({ row, onEdit, onDelete }) {
         <p className="mt-2 text-xs font-bold text-slate-500">
           {(row.subject || 'Mapel belum dipilih')} · {(row.className || 'Semua kelas')} · {(row.topic || 'Tanpa topik')}
         </p>
+        {answerOptions.length > 0 && (
+          <div className="mt-3 rounded-[0.9rem] bg-[#F8FBFF] p-3 ring-1 ring-[#D9E6F5]">
+            <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#0284c7]">Pilihan jawaban</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {answerOptions.map((option, index) => {
+                const correct = option === row.correctAnswer
+                return (
+                  <div key={`${row.id}-option-${index}`} className={`flex items-start gap-2 rounded-xl px-3 py-2 text-sm font-semibold ring-1 ${correct ? 'bg-emerald-50 text-emerald-800 ring-emerald-200' : 'bg-white text-slate-700 ring-[#0B3A5B]/8'}`}>
+                    <span className={`grid h-6 w-6 flex-shrink-0 place-items-center rounded-lg text-[11px] font-black ${correct ? 'bg-emerald-600 text-white' : 'bg-[#E0F2FE] text-[#0284c7]'}`}>
+                      {optionLetters[index] || index + 1}
+                    </span>
+                    <span className="min-w-0 leading-6">{option}</span>
+                    {correct && <span className="ml-auto flex-shrink-0 rounded-lg bg-emerald-100 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-700">Kunci</span>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
         {media.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {media.slice(0, 4).map((item) => (
@@ -12030,6 +12046,7 @@ function KuisLive({ user, notify, appContext }) {
   const [lookups, setLookups] = useState({ subjects: [], classes: [] })
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)
+  const [expandedQuizId, setExpandedQuizId] = useState(null)
   const [attempts, setAttempts] = useState([])
   const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
   const [error, setError] = useState('')
@@ -12086,6 +12103,7 @@ function KuisLive({ user, notify, appContext }) {
   }, [appContext?.accessToken, teacherSubject, teacherSubjectOptions, user?.id])
 
   async function handleSave(quiz, selectedQuestionIds) {
+    const selectedQuestionItems = buildQuizQuestionSnapshots(questionRows, selectedQuestionIds)
     if (!appContext?.accessToken || !isUuid(user?.id)) {
       const localQuiz = {
         ...quiz,
@@ -12096,6 +12114,7 @@ function KuisLive({ user, notify, appContext }) {
         source: 'local',
         questionIds: selectedQuestionIds,
         questionCount: selectedQuestionIds.length,
+        questionItems: selectedQuestionItems,
       }
 
       setQuizRows((current) => {
@@ -12112,7 +12131,37 @@ function KuisLive({ user, notify, appContext }) {
     }
 
     try {
-      const saved = await saveQuiz({ accessToken: appContext.accessToken, teacherId: user.id, quiz, questionIds: selectedQuestionIds })
+      const remoteQuestionIds = []
+      const createdQuestionRows = []
+      for (const question of selectedQuestionItems) {
+        if (question.source === 'supabase' && isUuid(question.id)) {
+          remoteQuestionIds.push(question.id)
+          continue
+        }
+
+        const existingRemote = questionRows.find((item) => (
+          item.source === 'supabase'
+          && isUuid(item.id)
+          && String(item.questionText || '').trim() === question.questionText
+        ))
+        if (existingRemote) {
+          remoteQuestionIds.push(existingRemote.id)
+          continue
+        }
+
+        const created = await saveQuestion({
+          accessToken: appContext.accessToken,
+          teacherId: user.id,
+          question: { ...question, id: undefined },
+        })
+        createdQuestionRows.push(created)
+        remoteQuestionIds.push(created.id)
+      }
+
+      const saved = await saveQuiz({ accessToken: appContext.accessToken, teacherId: user.id, quiz, questionIds: remoteQuestionIds })
+      if (createdQuestionRows.length > 0) {
+        setQuestionRows((current) => mergeQuestionBankRows(current, createdQuestionRows))
+      }
       setQuizRows((current) => quiz.id ? current.map((item) => item.id === quiz.id ? saved : item) : [saved, ...current])
       setEditing(null)
       notify(quiz.id ? 'Kuis berhasil diperbarui di Supabase.' : 'Kuis berhasil dibuat di Supabase.')
@@ -12174,7 +12223,10 @@ function KuisLive({ user, notify, appContext }) {
       {loading ? <LoadingState label="Memuat kuis guru dari Supabase..." /> : (
         scopedQuizRows.length > 0 ? (
           <section className="overflow-hidden rounded-[1.15rem] border border-[#0B3A5B]/10 bg-white/86 shadow-[0_14px_44px_rgba(15,31,42,0.06)]">
-            {scopedQuizRows.map((quiz) => (
+            {scopedQuizRows.map((quiz) => {
+              const selectedQuizQuestions = resolveQuizQuestionSet(quiz, scopedQuestionRows)
+              const expanded = expandedQuizId === quiz.id
+              return (
               <article key={quiz.id} className="grid gap-3 border-b border-[#0B3A5B]/8 p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                 <div className="min-w-0">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -12189,6 +12241,9 @@ function KuisLive({ user, notify, appContext }) {
                 </div>
 
                 <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <button aria-expanded={expanded} onClick={() => setExpandedQuizId(expanded ? null : quiz.id)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 ring-1 ring-emerald-100 transition hover:bg-emerald-100">
+                    <FileQuestion size={14} /> {expanded ? 'Tutup soal' : 'Lihat soal'}
+                  </button>
                   <button onClick={() => setEditing(quiz)} className="inline-flex items-center gap-1.5 rounded-[0.8rem] bg-[#F1F7FF] px-3 py-2 text-xs font-black text-[#0284c7] ring-1 ring-[#0B3A5B]/8 transition hover:bg-[#E0F2FE]">
                     <PencilLine size={14} /> Edit
                   </button>
@@ -12199,8 +12254,33 @@ function KuisLive({ user, notify, appContext }) {
                     <Trash2 size={14} /> Hapus
                   </button>
                 </div>
+
+                {expanded && (
+                  <div className="space-y-3 rounded-[1rem] bg-[#F8FBFF] p-3 ring-1 ring-[#D9E6F5] lg:col-span-2">
+                    {selectedQuizQuestions.length > 0 ? selectedQuizQuestions.map((question, questionIndex) => {
+                      const options = normalizeQuestionOptions(question)
+                      return (
+                        <div key={`${quiz.id}-${question.id}`} className="rounded-[0.9rem] bg-white p-3 ring-1 ring-[#0B3A5B]/8">
+                          <p className="text-sm font-black leading-6 text-[#13232d]">{questionIndex + 1}. {question.questionText}</p>
+                          {options.length > 0 && (
+                            <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                              {options.map((option, optionIndex) => (
+                                <p key={`${question.id}-${optionIndex}`} className={`rounded-lg px-2.5 py-2 text-xs font-semibold ${option === question.correctAnswer ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100' : 'bg-[#F1F7FF] text-slate-600'}`}>
+                                  <span className="mr-1.5 font-black">{optionLetters[optionIndex] || optionIndex + 1}.</span>{option}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }) : (
+                      <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 ring-1 ring-amber-100">Soal kuis belum dapat ditemukan. Edit kuis dan pilih ulang soal dari Bank Soal.</p>
+                    )}
+                  </div>
+                )}
               </article>
-            ))}
+              )
+            })}
           </section>
         ) : (
           !editing && (
@@ -12301,6 +12381,7 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, subjectOptions
                   <button
                     key={question.id}
                     type="button"
+                    aria-pressed={selected}
                     onClick={() => toggleQuestion(question.id)}
                     className={`rounded-[0.95rem] p-3 text-left text-sm font-semibold ring-1 transition ${
                       selected
@@ -12310,6 +12391,15 @@ function QuizForm({ quiz, lookups, questions: availableQuestions, subjectOptions
                   >
                     <span className="line-clamp-2 font-black">{question.questionText}</span>
                     <span className="mt-2 block text-xs opacity-75">{question.topic || 'Tanpa topik'} · {question.difficulty || 'Mudah'}</span>
+                    {selected && normalizeQuestionOptions(question).length > 0 && (
+                      <span className="mt-2 grid gap-1 border-t border-white/15 pt-2 text-xs">
+                        {normalizeQuestionOptions(question).map((option, optionIndex) => (
+                          <span key={`${question.id}-selected-${optionIndex}`} className="block opacity-90">
+                            <b>{optionLetters[optionIndex] || optionIndex + 1}.</b> {option}
+                          </span>
+                        ))}
+                      </span>
+                    )}
                   </button>
                 )
               }) : (

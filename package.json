@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node scripts/check-app.mjs && node scripts/check-school-sync.mjs && node scripts/check-class-roster.mjs && node scripts/check-english-question-bank.mjs && node scripts/check-auth-session.mjs",
+    "test": "node scripts/check-app.mjs && node scripts/check-school-sync.mjs && node scripts/check-class-roster.mjs && node scripts/check-english-question-bank.mjs && node scripts/check-auth-session.mjs && node scripts/check-quiz-questions.mjs",
     "check": "npm run test && npm run build",
     "audit:production": "node scripts/check-production.mjs",
     "audit:production:strict": "node scripts/check-production.mjs --strict",
