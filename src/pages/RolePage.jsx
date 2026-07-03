@@ -4142,9 +4142,14 @@ function AttendanceMonthMatrix({ type, students = [], sessions = [], selectedDat
               <th className="sticky left-12 z-20 min-w-48 bg-[#F8FBFF] px-3 py-3 font-black">Nama siswa</th>
               {dates.map((date) => {
                 const active = date === selectedDate
+                const sunday = normalizeAttendanceType(type) === 'daily' && parseIsoDate(date).getDay() === 0
                 return (
-                  <th key={date} className={`min-w-11 px-1 py-2 text-center font-black ${active ? 'bg-[#DDF2FF] text-[#17446E]' : ''}`}>
-                    <button type="button" onClick={() => onSelectDate(date)} className="w-full rounded-md py-1 hover:bg-white" title={`Buka ${formatAttendanceDate(date, { day: '2-digit', month: 'long', year: 'numeric' })}`}>
+                  <th key={date} className={`min-w-11 px-1 py-2 text-center font-black ${
+                    sunday
+                      ? active ? 'bg-rose-200 text-rose-900' : 'bg-rose-50 text-rose-700'
+                      : active ? 'bg-[#DDF2FF] text-[#17446E]' : ''
+                  }`}>
+                    <button type="button" onClick={() => onSelectDate(date)} className={`w-full rounded-md py-1 ${sunday ? 'hover:bg-rose-100' : 'hover:bg-white'}`} title={`Buka ${formatAttendanceDate(date, { day: '2-digit', month: 'long', year: 'numeric' })}`}>
                       <span className="block text-[9px] uppercase">{formatAttendanceDate(date, { weekday: 'short' })}</span>
                       <span className="mt-0.5 block font-mono text-sm">{parseIsoDate(date).getDate()}</span>
                     </button>
@@ -5495,22 +5500,31 @@ function GuruDaftarHadir({ user, notify }) {
         <div className="grid grid-cols-4 gap-1.5 p-3 sm:grid-cols-7">
           {attendanceCalendarDays.map((date) => {
             const active = date === selectedDate
+            const sunday = attendanceType === 'daily' && parseIsoDate(date).getDay() === 0
             const daySummary = summarizeAttendanceSessions(selectedAttendanceSessions.filter((item) => item.date === date))
             return (
               <button
                 key={date}
                 onClick={() => changeSelectedDate(date)}
                 className={`min-h-[4.5rem] rounded-xl px-2 py-2 text-center transition ring-1 ${
-                  active
-                    ? 'bg-[#17446E] text-white ring-[#17446E]'
-                    : 'bg-white text-[#132437] ring-[#D9E6F5] hover:bg-[#EAF4FF]'
+                  sunday
+                    ? active
+                      ? 'bg-rose-700 text-white ring-rose-700'
+                      : 'bg-rose-50 text-rose-800 ring-rose-300 hover:bg-rose-100'
+                    : active
+                      ? 'bg-[#17446E] text-white ring-[#17446E]'
+                      : 'bg-white text-[#132437] ring-[#D9E6F5] hover:bg-[#EAF4FF]'
                 }`}
               >
-                <span className={`block text-[10px] font-black uppercase ${active ? 'text-sky-100' : 'text-[#64748B]'}`}>
+                <span className={`block text-[10px] font-black uppercase ${
+                  sunday ? active ? 'text-rose-100' : 'text-rose-700' : active ? 'text-sky-100' : 'text-[#64748B]'
+                }`}>
                   {formatAttendanceDate(date, { weekday: 'short' })}
                 </span>
                 <span className="mt-1 block font-mono text-xl font-black">{parseIsoDate(date).getDate()}</span>
-                <span className={`mt-1 block text-[10px] font-black ${active ? 'text-sky-100' : 'text-[#2F80D8]'}`}>
+                <span className={`mt-1 block text-[10px] font-black ${
+                  sunday ? active ? 'text-rose-100' : 'text-rose-700' : active ? 'text-sky-100' : 'text-[#2F80D8]'
+                }`}>
                   {daySummary.total ? `${daySummary.rate}%` : '-'}
                 </span>
               </button>
