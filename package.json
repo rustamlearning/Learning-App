@@ -12,7 +12,8 @@
     "audit:production": "node scripts/check-production.mjs",
     "audit:production:strict": "node scripts/check-production.mjs --strict",
     "audit:live": "node scripts/check-live.mjs",
-    "questions:english": "node scripts/import-english-html-questions.mjs"
+    "questions:english": "node scripts/import-english-html-questions.mjs",
+    "questions:all": "node scripts/import-english-html-questions.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",

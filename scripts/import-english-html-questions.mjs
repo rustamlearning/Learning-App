@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { schoolMaterials } from '../src/data/englishMaterials.js'
 
 const projectRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
-const outputPath = join(projectRoot, 'src/data/englishQuestionBank.js')
+const outputPath = join(projectRoot, 'src/data/htmlQuestionBank.js')
 const optionLetters = ['A', 'B', 'C', 'D', 'E']
 const voidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])
 
@@ -83,6 +83,10 @@ function hasClass(node, className) {
   return classTokens(node).includes(className)
 }
 
+function hasOptionClass(node) {
+  return classTokens(node).some((token) => /(?:^|-)(?:option|opt|choice|answer)s?$/.test(token))
+}
+
 function descendants(node, predicate, rows = []) {
   for (const child of node?.children || []) {
     if (child.tag !== '#text' && predicate(child)) rows.push(child)
@@ -111,7 +115,12 @@ function cleanOptionText(value = '') {
 function getHtmlOptions(card) {
   const optionNodes = descendants(card, (node) => {
     if (!['button', 'label'].includes(node.tag)) return false
-    if (node.tag === 'button' && hasClass(node, 'option')) return true
+    if (node.tag === 'button' && (
+      hasOptionClass(node)
+      || node.attrs['data-correct'] !== undefined
+      || node.attrs['data-answer'] !== undefined
+      || hasOptionClass(node.parent)
+    )) return true
     if (node.tag === 'label' && descendants(node, (child) => child.tag === 'input' && child.attrs.type === 'radio').length) return true
     return false
   })
@@ -122,11 +131,16 @@ function getHtmlOptions(card) {
   })).filter((item) => item.text)
 }
 
+function isQuestionMetadata(value = '') {
+  return /^(?:(?:LOTS|MOTS|HOTS)\s*)?(?:(?:Soal|Formatif|Sumatif)\s*)?\d+$/i.test(normalizeText(value))
+}
+
 function getHtmlQuestionText(card) {
-  const preferredClasses = ['quiz-q', 'q-text', 'question-text', 'prompt', 'stem']
+  const preferredClasses = ['quiz-question', 'quiz-q', 'q-text', 'qtext', 'q-title', 'question-text', 'question-title', 'quiz-title', 'prompt', 'stem']
   for (const className of preferredClasses) {
     const node = descendants(card, (item) => hasClass(item, className))[0]
-    if (nodeText(node)) return nodeText(node).replace(/^\d+[.)]\s*/, '')
+    const text = nodeText(node)
+    if (text && !isQuestionMetadata(text)) return text.replace(/^\d+[.)]\s*/, '')
   }
 
   const paragraphs = descendants(card, (node) => node.tag === 'p' && !hasClass(node, 'feedback') && !hasClass(node, 'q-feedback'))
@@ -134,12 +148,16 @@ function getHtmlQuestionText(card) {
   const paragraph = paragraphs.find((node) => nodeText(node).length > 15)
   if (paragraph) return nodeText(paragraph).replace(/^\d+[.)]\s*/, '')
 
-  const strong = descendants(card, (node) => node.tag === 'strong')
-    .find((node) => !isInsideOption(node, card) && nodeText(node).length > 15)
+  const strong = descendants(card, (node) => ['strong', 'b'].includes(node.tag))
+    .find((node) => (
+      !isInsideOption(node, card)
+      && nodeText(node).length > 15
+      && !isQuestionMetadata(nodeText(node))
+    ))
   if (strong) return nodeText(strong).replace(/^\d+[.)]\s*/, '')
 
   const heading = descendants(card, (node) => ['h3', 'h4', 'h5'].includes(node.tag))
-    .find((node) => !isInsideOption(node, card) && nodeText(node).length > 8)
+    .find((node) => !isInsideOption(node, card) && nodeText(node).length > 8 && !isQuestionMetadata(nodeText(node)))
   return nodeText(heading).replace(/^\d+[.)]\s*/, '')
 }
 
@@ -157,8 +175,28 @@ function getHtmlDifficulty(card) {
   return difficultyFromLevel(nodeText(levelNode))
 }
 
-function getHtmlCorrectIndex(card, optionRows) {
-  const rawAnswer = String(card.attrs['data-answer'] || card.attrs['data-practice'] || '').trim()
+function getOptionInput(optionRow) {
+  return descendants(optionRow?.node, (node) => node.tag === 'input')[0]
+}
+
+function getExternalCardAnswer(card, optionRows, answerSources) {
+  const input = optionRows.map(getOptionInput).find(Boolean)
+  const firstOptionNode = optionRows[0]?.node
+  const name = String(input?.attrs?.name || card?.attrs?.id || '')
+  if (name && Object.prototype.hasOwnProperty.call(answerSources.byName, name)) return answerSources.byName[name]
+  const dataQuestionIndex = Number(firstOptionNode?.attrs?.['data-q'])
+  if (Number.isInteger(dataQuestionIndex) && dataQuestionIndex >= 0 && dataQuestionIndex < answerSources.byIndex.length) {
+    return answerSources.byIndex[dataQuestionIndex]
+  }
+  const number = Number(name.match(/(\d+)$/)?.[1] || 0)
+  if (number > 0 && number <= answerSources.byIndex.length) return answerSources.byIndex[number - 1]
+  return undefined
+}
+
+function getHtmlCorrectIndex(card, optionRows, answerSources) {
+  const externalAnswer = getExternalCardAnswer(card, optionRows, answerSources)
+  const cardAnswer = card.attrs['data-answer'] || card.attrs['data-correct'] || card.attrs['data-practice']
+  const rawAnswer = String(cardAnswer || cardAnswer === 0 ? cardAnswer : externalAnswer ?? '').trim()
   if (/^[A-E]$/i.test(rawAnswer)) return rawAnswer.toUpperCase().charCodeAt(0) - 65
   if (/^\d+$/.test(rawAnswer)) {
     const matchingInputIndex = optionRows.findIndex(({ node }) => descendants(node, (child) => child.tag === 'input' && child.attrs.value === rawAnswer).length > 0)
@@ -166,21 +204,36 @@ function getHtmlCorrectIndex(card, optionRows) {
     const numericIndex = Number(rawAnswer)
     if (numericIndex >= 0 && numericIndex < optionRows.length) return numericIndex
   }
-  return optionRows.findIndex(({ node }) => node.attrs['data-correct'] === 'true' || descendants(node, (child) => child.attrs['data-correct'] === 'true').length > 0)
+  if (rawAnswer) {
+    const textIndex = optionRows.findIndex((item) => normalizeQuestionKey(item.text) === normalizeQuestionKey(rawAnswer))
+    if (textIndex >= 0) return textIndex
+  }
+  return optionRows.findIndex(({ node }) => (
+    ['true', '1', 'correct', 'benar'].includes(String(node.attrs['data-correct'] || node.attrs['data-answer'] || '').toLowerCase())
+    || descendants(node, (child) => ['true', '1', 'correct', 'benar'].includes(String(child.attrs['data-correct'] || child.attrs['data-answer'] || '').toLowerCase())).length > 0
+  ))
 }
 
 function extractHtmlQuestions(html) {
   const tree = parseHtml(html)
+  const answerSources = extractAnswerSources(html)
   const candidates = descendants(tree, (node) => {
     const classes = classTokens(node)
-    return Boolean(node.attrs['data-answer'] || node.attrs['data-practice'])
-      || (classes.some((item) => ['quiz-card', 'question-card', 'q-card', 'q'].includes(item))
-        && descendants(node, (child) => child.attrs['data-correct'] === 'true').length > 0)
+    const optionRows = getHtmlOptions(node)
+    if (optionRows.length < 3) return false
+    const hasCorrectMarker = descendants(node, (child) => child.attrs['data-correct'] !== undefined || child.attrs['data-answer'] !== undefined).length > 0
+    const knownQuestionClass = classes.some((item) => ['quiz-card', 'question-card', 'q-card', 'qcard', 'quiz-item', 'question-item', 'soal-card', 'mcq', 'q'].includes(item))
+    const hasExternalAnswer = getExternalCardAnswer(node, optionRows, answerSources) !== undefined
+    return Boolean(node.attrs['data-answer'] || node.attrs['data-correct'] || node.attrs['data-practice'])
+      || (knownQuestionClass && hasCorrectMarker)
+      || (knownQuestionClass && hasExternalAnswer)
+      || (node.tag === 'article' && hasCorrectMarker)
+      || (node.tag === 'article' && hasExternalAnswer)
   })
 
   return candidates.map((card) => {
     const optionRows = getHtmlOptions(card)
-    const correctIndex = getHtmlCorrectIndex(card, optionRows)
+    const correctIndex = getHtmlCorrectIndex(card, optionRows, answerSources)
     const feedback = descendants(card, (node) => hasClass(node, 'feedback') || hasClass(node, 'q-feedback'))[0]
     return {
       questionText: getHtmlQuestionText(card),
@@ -189,10 +242,14 @@ function extractHtmlQuestions(html) {
       explanation: normalizeText(card.attrs['data-exp'] || card.attrs['data-explain'] || feedback?.attrs?.['data-exp'] || nodeText(feedback)),
       difficulty: getHtmlDifficulty(card),
     }
-  }).filter((row) => row.questionText && row.options.length >= 2 && row.correctIndex >= 0 && row.correctIndex < row.options.length)
+  }).filter((row) => row.questionText && row.options.length >= 3 && row.correctIndex >= 0 && row.correctIndex < row.options.length)
 }
 
 function extractArrayLiteral(source, startIndex) {
+  return extractBalancedLiteral(source, startIndex, '[', ']')
+}
+
+function extractBalancedLiteral(source, startIndex, openCharacter, closeCharacter) {
   let depth = 0
   let quote = ''
   let escaped = false
@@ -208,8 +265,8 @@ function extractArrayLiteral(source, startIndex) {
       quote = char
       continue
     }
-    if (char === '[') depth += 1
-    if (char === ']') {
+    if (char === openCharacter) depth += 1
+    if (char === closeCharacter) {
       depth -= 1
       if (depth === 0) return source.slice(startIndex, index + 1)
     }
@@ -217,19 +274,60 @@ function extractArrayLiteral(source, startIndex) {
   return ''
 }
 
+function extractAnswerSources(html) {
+  const byName = {}
+  let byIndex = []
+  const pattern = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([\[{])/gi
+  let match
+  while ((match = pattern.exec(html))) {
+    if (!/(?:answer|key|correct|ans)/i.test(match[1])) continue
+    const openCharacter = match[2]
+    const closeCharacter = openCharacter === '[' ? ']' : '}'
+    const startIndex = html.indexOf(openCharacter, match.index)
+    const literal = extractBalancedLiteral(html, startIndex, openCharacter, closeCharacter)
+    if (!literal) continue
+    try {
+      const value = vm.runInNewContext(`(${literal})`, Object.create(null), { timeout: 1000 })
+      if (Array.isArray(value) && value.length > byIndex.length && value.every((item) => ['string', 'number'].includes(typeof item))) {
+        byIndex = value
+      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+        Object.entries(value).forEach(([key, answer]) => {
+          if (['string', 'number'].includes(typeof answer)) byName[key] = answer
+        })
+      }
+    } catch {
+      // Ignore answer helpers that depend on browser variables.
+    }
+    pattern.lastIndex = startIndex + literal.length
+  }
+  return { byName, byIndex }
+}
+
 function normalizeArrayQuestion(row) {
   if (row && !Array.isArray(row) && typeof row === 'object') {
-    const options = row.options || row.opts || []
-    const answer = row.answer ?? row.ans ?? row.a
+    const rawOptions = row.options || row.opts || row.o || row.pilihan || row.choices || row.answers || (Array.isArray(row.a) ? row.a : [])
+    const options = Array.isArray(rawOptions)
+      ? rawOptions
+      : rawOptions && typeof rawOptions === 'object' ? Object.values(rawOptions) : []
+    const answer = row.answer
+      ?? row.ans
+      ?? (!Array.isArray(row.a) ? row.a : undefined)
+      ?? row.correct
+      ?? row.correctAnswer
+      ?? row.c
+      ?? row.k
+      ?? row.key
+      ?? row.kunci
+      ?? row.jawaban
     const correctIndex = typeof answer === 'number'
       ? answer
       : /^[A-E]$/i.test(String(answer || '')) ? String(answer).toUpperCase().charCodeAt(0) - 65 : options.indexOf(answer)
     return {
-      questionText: row.q || row.question || row.questionText || '',
+      questionText: row.q || row.question || row.questionText || row.soal || row.prompt || row.stem || row.text || '',
       options,
       correctIndex,
-      explanation: row.exp || row.ex || row.explain || row.explanation || '',
-      difficulty: difficultyFromLevel(row.level || ''),
+      explanation: row.exp || row.ex || row.e || row.explain || row.explanation || row.pembahasan || row.alasan || '',
+      difficulty: difficultyFromLevel(row.level || row.difficulty || row.tingkat || ''),
     }
   }
 
@@ -254,17 +352,34 @@ function normalizeArrayQuestion(row) {
 
 function extractScriptQuestions(html) {
   const rows = []
-  const pattern = /\b(?:const|let|var)\s+(?:quizData|quiz|QUIZ)\s*=\s*\[/g
+  const pattern = /\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*\[/g
   let match
   while ((match = pattern.exec(html))) {
     const startIndex = html.indexOf('[', match.index)
     const literal = extractArrayLiteral(html, startIndex)
     if (!literal) continue
-    const data = vm.runInNewContext(`(${literal})`, Object.create(null), { timeout: 1000 })
-    if (Array.isArray(data)) rows.push(...data.map(normalizeArrayQuestion).filter(Boolean))
+    try {
+      const data = vm.runInNewContext(`(${literal})`, Object.create(null), { timeout: 1000 })
+      if (Array.isArray(data)) rows.push(...data.map(normalizeArrayQuestion).filter(Boolean))
+    } catch {
+      // Ignore UI/config arrays that depend on browser variables.
+    }
     pattern.lastIndex = startIndex + literal.length
   }
-  return rows.filter((row) => row.questionText && Array.isArray(row.options) && row.options.length >= 2 && row.correctIndex >= 0 && row.correctIndex < row.options.length)
+  const nestedPattern = /\b[A-Za-z_$][\w$]*\s*:\s*\[/g
+  while ((match = nestedPattern.exec(html))) {
+    const startIndex = html.indexOf('[', match.index)
+    const literal = extractArrayLiteral(html, startIndex)
+    if (!literal) continue
+    try {
+      const data = vm.runInNewContext(`(${literal})`, Object.create(null), { timeout: 1000 })
+      if (Array.isArray(data)) rows.push(...data.map(normalizeArrayQuestion).filter(Boolean))
+    } catch {
+      // Ignore nested UI/config arrays that depend on browser variables.
+    }
+    nestedPattern.lastIndex = startIndex + literal.length
+  }
+  return rows.filter((row) => row.questionText && Array.isArray(row.options) && row.options.length >= 3 && row.correctIndex >= 0 && row.correctIndex < row.options.length)
 }
 
 function slugify(value = '') {
@@ -292,8 +407,9 @@ function questionDifficulty(row) {
 }
 
 const materials = schoolMaterials
-  .filter((item) => item.subject === 'Bahasa Inggris' && item.type === 'HTML')
+  .filter((item) => item.type === 'HTML')
   .sort((left, right) => gradeNumber(left.className) - gradeNumber(right.className)
+    || left.subject.localeCompare(right.subject, 'id-ID', { numeric: true })
     || chapterNumber(left) - chapterNumber(right)
     || left.title.localeCompare(right.title, 'id-ID', { numeric: true }))
 
@@ -311,17 +427,18 @@ for (const [materialIndex, material] of materials.entries()) {
     return true
   })
 
+  const questionStartIndex = questions.length
   uniqueRows.forEach((row, questionIndex) => {
     const options = row.options.map(normalizeText).filter(Boolean).slice(0, optionLetters.length)
     const correctAnswer = options[row.correctIndex]
     if (!correctAnswer) return
     questions.push({
-      id: `english-html-${slugify(material.id.replace(/^school-bahasa-inggris-/, ''))}-${String(questionIndex + 1).padStart(3, '0')}`,
+      id: `school-html-question-${slugify(material.id.replace(/^school-/, ''))}-${String(questionIndex + 1).padStart(3, '0')}`,
       questionText: normalizeText(row.questionText),
       options,
       correctAnswer,
       explanation: normalizeText(row.explanation) || 'Pembahasan mengikuti materi HTML sumber.',
-      subject: 'Bahasa Inggris',
+      subject: material.subject,
       className: material.className,
       topic: `${material.className} · ${material.title}`,
       difficulty: questionDifficulty(row),
@@ -337,19 +454,27 @@ for (const [materialIndex, material] of materials.entries()) {
   })
 
   summary.push({
+    subject: material.subject,
     className: material.className,
     materialId: material.id,
     materialTitle: material.title,
     chapter: chapterNumber(material),
-    questionCount: uniqueRows.length,
+    questionCount: questions.length - questionStartIndex,
   })
 }
 
 const output = `// Generated by scripts/import-english-html-questions.mjs. Do not edit manually.\n`
-  + `export const englishHtmlQuestionSummary = ${JSON.stringify(summary, null, 2)}\n\n`
-  + `export const englishHtmlQuestionBank = ${JSON.stringify(questions, null, 2)}\n`
+  + `export const htmlQuestionSummary = ${JSON.stringify(summary, null, 2)}\n\n`
+  + `export const htmlQuestionBank = ${JSON.stringify(questions, null, 2)}\n`
 
 await writeFile(outputPath, output)
 
-console.log(`Imported ${questions.length} English multiple-choice questions from ${materials.length} HTML materials.`)
-summary.forEach((item) => console.log(`${item.className}\tChapter ${item.chapter}\t${item.questionCount}\t${item.materialTitle}`))
+console.log(`Imported ${questions.length} multiple-choice questions from ${materials.length} HTML materials.`)
+const subjectCounts = questions.reduce((counts, question) => {
+  counts[question.subject] = (counts[question.subject] || 0) + 1
+  return counts
+}, {})
+Object.entries(subjectCounts).forEach(([subject, count]) => console.log(`${subject}\t${count}`))
+const emptyMaterials = summary.filter((item) => item.questionCount === 0)
+console.log(`Materials without extracted questions: ${emptyMaterials.length}`)
+emptyMaterials.forEach((item) => console.log(`EMPTY\t${item.className}\t${item.materialTitle}\t${item.materialId}`))

@@ -2,15 +2,21 @@ function normalizeSubjectKey(value = '') {
   return String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, '')
 }
 
-function hasEnglishSubject(subjects = []) {
+function normalizeSubjectList(subjects = []) {
   const rows = Array.isArray(subjects) ? subjects : [subjects]
-  return rows.some((subject) => normalizeSubjectKey(subject) === 'bahasainggris')
+  return new Set(rows.map(normalizeSubjectKey).filter(Boolean))
+}
+
+export function filterQuestionBankBySubjects(rows = [], subjects = []) {
+  const subjectKeys = normalizeSubjectList(subjects)
+  if (subjectKeys.size === 0) return []
+  return (Array.isArray(rows) ? rows : []).filter((row) => subjectKeys.has(normalizeSubjectKey(row?.subject)))
 }
 
 export async function loadBuiltInQuestionBank(subjects = []) {
-  if (!hasEnglishSubject(subjects)) return []
-  const { englishHtmlQuestionBank } = await import('../data/englishQuestionBank.js')
-  return englishHtmlQuestionBank
+  if (normalizeSubjectList(subjects).size === 0) return []
+  const { htmlQuestionBank } = await import('../data/htmlQuestionBank.js')
+  return filterQuestionBankBySubjects(htmlQuestionBank, subjects)
 }
 
 function questionSortValue(row = {}) {
