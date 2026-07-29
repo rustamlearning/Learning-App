@@ -177,17 +177,18 @@ export function AuthProvider({ children }) {
 
   async function loginWithEmail(identifier, password) {
     const normalized = normalizeLoginIdentifier(identifier)
-    const teacherByNip = findTeacherByNipCredentials(identifier, password)
+    const teacherByNip = findTeacherByNip(identifier)
+    const localTeacherByNip = findTeacherByNipCredentials(identifier, password)
     const preferRemoteAuth = isSupabaseConfigured() && isRemoteDataEnabled()
 
-    if (teacherByNip && !preferRemoteAuth) {
-      return loginLocalUser(teacherByNip)
+    if (localTeacherByNip && !preferRemoteAuth) {
+      return loginLocalUser(localTeacherByNip)
     }
 
     if (isSupabaseConfigured()) {
       try {
-        const authEmail = await getLoginEmailByIdentifier(normalized)
-        const supabaseSession = await signInWithPassword(authEmail, password)
+        const authEmails = await getRemoteLoginEmailCandidates(normalized, teacherByNip)
+        const supabaseSession = await signInWithFirstWorkingEmail(authEmails, password)
         const profile = await getProfileByAuthUserId(supabaseSession.user.id, supabaseSession.access_token)
 
         if (!profile && !isDemoAuthEnabled()) {
@@ -292,6 +293,50 @@ export function AuthProvider({ children }) {
   }), [user, loading, session])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+async function getRemoteLoginEmailCandidates(identifier, teacherByNip) {
+  const candidates = []
+
+  try {
+    candidates.push(await getLoginEmailByIdentifier(identifier))
+  } catch (error) {
+    if (!teacherByNip) throw error
+  }
+
+  candidates.push(identifier)
+
+  if (teacherByNip) {
+    candidates.push(teacherByNip.email)
+    candidates.push('guru@islelearn.local')
+  }
+
+  return uniqueLoginCandidates(candidates)
+}
+
+async function signInWithFirstWorkingEmail(authEmails, password) {
+  let lastError = null
+
+  for (const authEmail of authEmails) {
+    try {
+      return await signInWithPassword(authEmail, password)
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw lastError || new Error('Login gagal. Periksa username dan password.')
+}
+
+function uniqueLoginCandidates(candidates) {
+  const seen = new Set()
+  return candidates
+    .map((candidate) => String(candidate || '').trim().toLowerCase())
+    .filter((candidate) => {
+      if (!candidate || seen.has(candidate)) return false
+      seen.add(candidate)
+      return true
+    })
 }
 
 function findDemoUser(identifier, password = '') {
