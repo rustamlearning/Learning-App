@@ -185,7 +185,7 @@ function renderGuru(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'bank-soal') return <BankSoal user={user} notify={notify} appContext={appContext} />
   if (page === 'tugas') return <GuruTugas user={user} notify={notify} appContext={appContext} />
   if (page === 'kuis-live') return <KuisLive user={user} notify={notify} appContext={appContext} />
-  if (page === 'daftar-hadir') return <GuruDaftarHadir user={user} notify={notify} />
+  if (page === 'daftar-hadir') return <GuruDaftarHadir user={user} notify={notify} appContext={appContext} />
   if (page === 'studio-konten') {
     return (
       <Suspense fallback={<div className="rounded-2xl border border-[#D9E6F5] bg-white p-4 text-sm font-bold text-slate-500 shadow-[0_10px_28px_rgba(15,36,55,0.045)]">Memuat Siapkan Pembelajaran...</div>}>
@@ -226,7 +226,7 @@ function renderAdmin(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'kelas') return <AdminKelas notify={notify} appContext={appContext} />
   if (page === 'wali-kelas') return <AdminWaliKelas notify={notify} />
   if (page === 'mapel') return <AdminMapel notify={notify} appContext={appContext} />
-  if (page === 'daftar-hadir') return <GuruDaftarHadir user={user} notify={notify} />
+  if (page === 'daftar-hadir') return <GuruDaftarHadir user={user} notify={notify} appContext={appContext} />
   if (page === 'pengaturan') return <Pengaturan notify={notify} />
   if (page === 'laporan') return <LaporanSekolah notify={notify} />
   if (page === 'backup') return <BackupPage notify={notify} setConfirmOpen={setConfirmOpen} appContext={appContext} />
@@ -3401,7 +3401,7 @@ const gradeFormatClassRoster = {
     ['SAHARUDDIN', 'L'], ['SUCI SETIAWATI', 'P'], ['SYAHRINI', 'P'], ['NUR SALEH', 'L'],
     ['MAGFIRA ZASKIA', 'P'],
   ],
-  'XII Abu Bakar Ash Siddiq': [
+  'XII Abu Bakar As Siddiq': [
     ['ACHMAD', 'L'], ['AJIE SAPUTRA', 'L'], ['ALGAZALI', 'L'], ['ALIF HALIL', 'L'],
     ['ANDIRA FALDIA', 'P'], ['FERDY PRANANDA', 'L'], ['HENRIK SAPUTRA', 'L'], ['INGGI ADITYA', 'L'],
     ['ISDA DAHLIA', 'P'], ['JULIANI', 'P'], ['LASTRIANI', 'P'], ['M. FACHMI', 'L'],
@@ -3590,21 +3590,33 @@ function formatAttendanceDate(isoDate, options = { day: '2-digit', month: 'short
 }
 
 function getAttendanceRoster() {
-  const savedStudents = getLocalAdminProfiles('siswa', students)
-    .filter((item) => !isLegacyPreviewStudentRow(item))
-    .filter((item) => item && (item.name || item.fullName))
-    .map((item, index) => ({
-      id: item.id || `student-${index}`,
-      name: item.name || item.fullName,
-      className: promoteClassName(item.className || item.class || item.class_name || 'Kelas umum'),
-      nis: item.nis || item.studentNumber || item.email || '',
-    }))
+  const savedStudents = normalizeAttendanceRosterRows(getLocalAdminProfiles('siswa', students))
 
   return savedStudents.length ? savedStudents : getGradeFormatRoster()
 }
 
-function getAttendanceClassOptions(roster) {
-  const adminClasses = normalizeClassLookupRows(getLocalAdminCollection('classes', classes)).map((item) => item.name)
+function normalizeAttendanceRosterRows(rows = []) {
+  return normalizeAdminProfileRows('siswa', rows)
+    .filter((item) => !isLegacyPreviewStudentRow(item))
+    .filter((item) => item && (item.name || item.fullName))
+    .map((item, index) => ({
+      id: item.studentId || item.id || `student-${index}`,
+      profileId: item.id || '',
+      studentId: item.studentId || '',
+      name: item.name || item.fullName,
+      classId: item.classId || item.class_id || '',
+      className: promoteClassName(item.className || item.class || item.class_name || 'Kelas umum'),
+      nis: item.nis || item.studentNumber || item.email || '',
+      gender: item.gender || item.sex || item.jk || '',
+    }))
+    .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'id-ID', { sensitivity: 'base' }))
+}
+
+function getAttendanceClassOptions(roster, classRows = []) {
+  const adminClasses = normalizeClassLookupRows([
+    ...getLocalAdminCollection('classes', classes),
+    ...(Array.isArray(classRows) ? classRows : []),
+  ]).map((item) => item.name)
   const rosterClasses = roster.map((item) => item.className).filter(Boolean)
   return Array.from(new Set([...adminClasses, ...rosterClasses])).sort((a, b) => a.localeCompare(b, 'id-ID'))
 }
@@ -5180,9 +5192,14 @@ function GuruDashboard({ user }) {
   )
 }
 
-function GuruDaftarHadir({ user, notify }) {
-  const roster = useMemo(() => getAttendanceRoster(), [])
-  const classOptions = useMemo(() => getAttendanceClassOptions(roster), [roster])
+function GuruDaftarHadir({ user, notify, appContext }) {
+  const localAttendanceRoster = useMemo(() => getAttendanceRoster(), [])
+  const localAttendanceClasses = useMemo(() => normalizeClassLookupRows(getLocalAdminCollection('classes', classes)), [])
+  const [roster, setRoster] = useState(localAttendanceRoster)
+  const [attendanceClassRows, setAttendanceClassRows] = useState(localAttendanceClasses)
+  const [loadingRoster, setLoadingRoster] = useState(Boolean(appContext?.accessToken))
+  const [rosterError, setRosterError] = useState('')
+  const classOptions = useMemo(() => getAttendanceClassOptions(roster, attendanceClassRows), [attendanceClassRows, roster])
   const teacherSubjectOptions = useMemo(() => getTeacherSubjectNames(user), [user])
   const subjectOptionsForAttendance = useMemo(() => (
     teacherSubjectOptions.length ? teacherSubjectOptions : subjects.map((subject) => subject.name)
@@ -5254,6 +5271,47 @@ function GuruDaftarHadir({ user, notify }) {
   const semesterMonthRows = buildSemesterMonthRecap(sessions, selectedClass, selectedDate, recapScope)
   const summary = summarizeAttendanceRows(rows)
   const unsavedAttendanceMessage = 'Perubahan absensi belum disimpan. Simpan dulu agar data tidak hilang.'
+
+  useEffect(() => {
+    let active = true
+
+    async function loadAttendanceRoster() {
+      if (!appContext?.accessToken) {
+        setRoster(localAttendanceRoster)
+        setAttendanceClassRows(localAttendanceClasses)
+        setLoadingRoster(false)
+        setRosterError('')
+        return
+      }
+
+      try {
+        setLoadingRoster(true)
+        const [serverClasses, serverStudents] = await Promise.all([
+          fetchClasses({ accessToken: appContext.accessToken }),
+          fetchAdminStudents({ accessToken: appContext.accessToken }),
+        ])
+
+        if (active) {
+          setAttendanceClassRows(normalizeClassLookupRows(serverClasses.length > 0 ? serverClasses : localAttendanceClasses))
+          setRoster(normalizeAttendanceRosterRows(serverStudents.length > 0 ? serverStudents : localAttendanceRoster))
+          setRosterError('')
+        }
+      } catch (loadError) {
+        if (active) {
+          setAttendanceClassRows(localAttendanceClasses)
+          setRoster(localAttendanceRoster)
+          setRosterError(loadError.message)
+        }
+      } finally {
+        if (active) setLoadingRoster(false)
+      }
+    }
+
+    loadAttendanceRoster()
+    return () => {
+      active = false
+    }
+  }, [appContext?.accessToken, localAttendanceClasses, localAttendanceRoster])
 
   useEffect(() => {
     if (!availableAttendanceTypes.some((option) => option.value === attendanceType) && availableAttendanceTypes[0]) {
@@ -5412,6 +5470,8 @@ function GuruDaftarHadir({ user, notify }) {
     notify('Dialog cetak dibuka. Pilih Save as PDF untuk menyimpan rekap absensi.')
   }
 
+  if (loadingRoster) return <LoadingState label="Memuat siswa absensi dari Supabase..." />
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -5425,6 +5485,12 @@ function GuruDaftarHadir({ user, notify }) {
           </div>
         }
       />
+
+      {rosterError && (
+        <div className="rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
+          Supabase belum mengirim data siswa absensi: {rosterError}. Data lokal ditampilkan sementara.
+        </div>
+      )}
 
       <section className={`grid gap-3 rounded-2xl border border-[#D9E6F5] bg-white p-3 shadow-[0_10px_28px_rgba(15,36,55,0.045)] ${availableAttendanceTypes.length > 1 ? 'lg:grid-cols-2' : ''}`}>
         {availableAttendanceTypes.map((option) => {
