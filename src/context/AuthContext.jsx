@@ -73,6 +73,7 @@ const DEFAULT_LOGIN_EMAILS = {
   siswa: 'siswa@islelearn.local',
   pimpinan: 'pimpinan@islelearn.local',
 }
+const PRIMARY_TEACHER_NIP = '198503112011011007'
 
 function isDemoAuthEnabled() {
   return import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true'
@@ -313,8 +314,8 @@ async function getRemoteLoginEmailCandidates(identifier, teacherByNip) {
   candidates.push(DEFAULT_LOGIN_EMAILS[identifier])
 
   if (teacherByNip) {
-    candidates.push(teacherByNip.email)
-    candidates.push('guru@islelearn.local')
+    candidates.push(getTeacherAuthEmail(teacherByNip))
+    candidates.push(DEFAULT_LOGIN_EMAILS.guru)
   }
 
   if (identifier.includes('@')) {
@@ -322,6 +323,12 @@ async function getRemoteLoginEmailCandidates(identifier, teacherByNip) {
   }
 
   return uniqueLoginCandidates(candidates)
+}
+
+function getTeacherAuthEmail(teacher) {
+  const nip = normalizeTeacherCredential(teacher?.nip || teacher?.username || teacher?.id)
+  if (!nip) return teacher?.email || ''
+  return teacher?.email || (nip === PRIMARY_TEACHER_NIP ? DEFAULT_LOGIN_EMAILS.guru : `guru.${nip}@islelearn.local`)
 }
 
 async function signInWithFirstWorkingEmail(authEmails, password) {
