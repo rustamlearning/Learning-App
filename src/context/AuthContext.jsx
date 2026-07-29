@@ -178,8 +178,9 @@ export function AuthProvider({ children }) {
   async function loginWithEmail(identifier, password) {
     const normalized = normalizeLoginIdentifier(identifier)
     const teacherByNip = findTeacherByNipCredentials(identifier, password)
+    const preferRemoteAuth = isSupabaseConfigured() && isRemoteDataEnabled()
 
-    if (teacherByNip) {
+    if (teacherByNip && !preferRemoteAuth) {
       return loginLocalUser(teacherByNip)
     }
 

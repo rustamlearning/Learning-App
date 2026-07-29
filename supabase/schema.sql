@@ -247,6 +247,8 @@ drop policy if exists "Admins can read progress" on progress;
 drop policy if exists "Admins can read student badges" on student_badges;
 drop policy if exists "Admins can read announcements" on announcements;
 drop policy if exists "Students can read own student row" on students;
+drop policy if exists "Teachers can read student profiles" on users_profile;
+drop policy if exists "Teachers and leaders can read student rows" on students;
 drop policy if exists "Teachers can manage assignments" on assignments;
 drop policy if exists "Students can manage own progress" on progress;
 drop policy if exists "Students can read own progress" on progress;
@@ -348,6 +350,17 @@ create policy "Students can read own student row" on students
         and profile.auth_user_id = auth.uid()
     )
   );
+
+create policy "Teachers can read student profiles" on users_profile
+  for select to authenticated
+  using (
+    role = 'siswa'
+    and current_user_role() = 'guru'
+  );
+
+create policy "Teachers and leaders can read student rows" on students
+  for select to authenticated
+  using (current_user_role() in ('guru', 'pimpinan'));
 
 create policy "Admins can manage profiles" on users_profile
   for all to authenticated
