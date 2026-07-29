@@ -67,6 +67,12 @@ const LOCAL_PREVIEW_USERS = {
     avatar: 'P',
   },
 }
+const DEFAULT_LOGIN_EMAILS = {
+  admin: 'admin@islelearn.local',
+  guru: 'guru@islelearn.local',
+  siswa: 'siswa@islelearn.local',
+  pimpinan: 'pimpinan@islelearn.local',
+}
 
 function isDemoAuthEnabled() {
   return import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true'
@@ -304,11 +310,15 @@ async function getRemoteLoginEmailCandidates(identifier, teacherByNip) {
     if (!teacherByNip) throw error
   }
 
-  candidates.push(identifier)
+  candidates.push(DEFAULT_LOGIN_EMAILS[identifier])
 
   if (teacherByNip) {
     candidates.push(teacherByNip.email)
     candidates.push('guru@islelearn.local')
+  }
+
+  if (identifier.includes('@')) {
+    candidates.push(identifier)
   }
 
   return uniqueLoginCandidates(candidates)
@@ -333,7 +343,7 @@ function uniqueLoginCandidates(candidates) {
   return candidates
     .map((candidate) => String(candidate || '').trim().toLowerCase())
     .filter((candidate) => {
-      if (!candidate || seen.has(candidate)) return false
+      if (!candidate || !candidate.includes('@') || seen.has(candidate)) return false
       seen.add(candidate)
       return true
     })
