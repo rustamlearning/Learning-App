@@ -67,33 +67,50 @@ export async function getProfileByAuthUserId(authUserId, accessToken) {
   return rows?.[0] || null
 }
 
-export async function getLoginEmailByIdentifier(identifier) {
+export async function getLoginEmailsByIdentifier(identifier) {
   const normalized = normalizeLoginIdentifier(identifier)
-  if (!normalized || normalized.includes('@')) return normalized
+  if (!normalized) return []
+  if (normalized.includes('@')) return [normalized]
 
-  const resolvedEmail = await resolveLoginEmailAlias(normalized)
-  if (resolvedEmail) return resolvedEmail
+  const resolvedEmails = await resolveLoginEmailAliases(normalized)
+  if (resolvedEmails.length) return uniqueLoginEmails(resolvedEmails)
 
   const query = new URLSearchParams({
     username: `eq.${normalized}`,
     select: 'email',
-    limit: '1',
   })
   const rows = await request(`/rest/v1/login_aliases?${query.toString()}`)
-  return rows?.[0]?.email || normalized
+  const aliasEmails = rows?.map((row) => row.email).filter(Boolean) || []
+  return uniqueLoginEmails(aliasEmails.length ? aliasEmails : [normalized])
 }
 
-async function resolveLoginEmailAlias(identifier) {
+export async function getLoginEmailByIdentifier(identifier) {
+  const emails = await getLoginEmailsByIdentifier(identifier)
+  return emails[0] || normalizeLoginIdentifier(identifier)
+}
+
+async function resolveLoginEmailAliases(identifier) {
   try {
     const rows = await request('/rest/v1/rpc/resolve_login_email', {
       method: 'POST',
       body: { login_identifier: identifier },
     })
 
-    return rows?.[0]?.email || null
+    return rows?.map((row) => row.email).filter(Boolean) || []
   } catch (error) {
-    return null
+    return []
   }
+}
+
+function uniqueLoginEmails(emails) {
+  const seen = new Set()
+  return emails
+    .map((email) => String(email || '').trim().toLowerCase())
+    .filter((email) => {
+      if (!email || !email.includes('@') || seen.has(email)) return false
+      seen.add(email)
+      return true
+    })
 }
 
 export async function listRows(tableName, { select = '*', filters = {}, accessToken } = {}) {

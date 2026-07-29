@@ -262,10 +262,31 @@ security definer
 stable
 set search_path = public
 as $$
-  select aliases.email
-  from login_aliases aliases
-  where aliases.username = lower(trim(regexp_replace(coalesce(login_identifier, ''), '\s+', ' ', 'g')))
-  limit 1;
+  with normalized_input as (
+    select lower(trim(regexp_replace(coalesce(login_identifier, ''), '\s+', ' ', 'g'))) as value
+  ),
+  matches as (
+    select aliases.email, 0 as priority
+    from login_aliases aliases
+    cross join normalized_input input
+    where aliases.username = input.value
+
+    union all
+
+    select profile.email, 1 as priority
+    from users_profile profile
+    join students student
+      on student.user_id = profile.id
+    cross join normalized_input input
+    where profile.role = 'siswa'
+      and profile.status = 'Aktif'
+      and student.status = 'Aktif'
+      and lower(trim(regexp_replace(profile.name, '\s+', ' ', 'g'))) = input.value
+  )
+  select matches.email
+  from matches
+  group by matches.email
+  order by min(matches.priority), matches.email;
 $$;
 
 grant execute on function resolve_login_email(text) to anon, authenticated;

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   getCurrentAuthUser,
-  getLoginEmailByIdentifier,
+  getLoginEmailsByIdentifier,
   getProfileByAuthUserId,
   isSupabaseConfigured,
   normalizeLoginIdentifier,
@@ -306,7 +306,7 @@ async function getRemoteLoginEmailCandidates(identifier, teacherByNip) {
   const candidates = []
 
   try {
-    candidates.push(await getLoginEmailByIdentifier(identifier))
+    candidates.push(...await getLoginEmailsByIdentifier(identifier))
   } catch (error) {
     if (!teacherByNip) throw error
   }
