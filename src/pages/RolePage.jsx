@@ -3707,6 +3707,10 @@ function upsertAttendanceSession(sessions, session) {
     : [nextSession, ...sessions]
 }
 
+function removeAttendanceSession(sessions, session) {
+  return sessions.filter((item) => !attendanceSessionMatchesScope(item, session))
+}
+
 function summarizeAttendanceSessions(sessions) {
   return summarizeAttendanceRows(sessions.flatMap((item) => Array.isArray(item.rows) ? item.rows : []))
 }
@@ -5445,6 +5449,43 @@ function GuruDaftarHadir({ user, notify, appContext }) {
     notify('Daftar hadir berhasil disimpan.')
   }
 
+  function restoreSavedAttendance() {
+    if (!attendanceDirty) return
+    const confirmed = window.confirm('Kembalikan daftar hadir ke data terakhir tersimpan? Perubahan yang belum disimpan akan dibuang.')
+    if (!confirmed) return
+
+    setRows(buildAttendanceRows(rosterForClass, savedSession?.rows || []))
+    setAttendanceDirty(false)
+    notify(savedSession ? 'Perubahan dibatalkan. Daftar hadir kembali ke data terakhir tersimpan.' : 'Perubahan dibatalkan. Daftar hadir kembali kosong.')
+  }
+
+  function deleteSavedAttendance() {
+    if (!canEditCurrentAttendance) {
+      notify('Akun ini hanya dapat melihat rekap kehadiran, bukan menghapus daftar hadir pada mode ini.')
+      return
+    }
+
+    if (!savedSession) {
+      setRows(buildAttendanceRows(rosterForClass, []))
+      setAttendanceDirty(false)
+      notify('Belum ada daftar hadir tersimpan pada tanggal ini.')
+      return
+    }
+
+    const scopeLabel = attendanceType === 'subject'
+      ? `${selectedClass}, ${selectedSubject}, ${lessonTime}, ${formatAttendanceDate(selectedDate, { day: '2-digit', month: 'long', year: 'numeric' })}`
+      : `${selectedClass}, ${formatAttendanceDate(selectedDate, { day: '2-digit', month: 'long', year: 'numeric' })}`
+    const confirmed = window.confirm(`Hapus daftar hadir untuk ${scopeLabel}?\n\nData tanggal ini akan kembali kosong dan dapat diisi ulang.`)
+    if (!confirmed) return
+
+    const nextSessions = removeAttendanceSession(sessions, draftSession)
+    setAttendanceSessions(user, nextSessions)
+    setSessions(nextSessions)
+    setRows(buildAttendanceRows(rosterForClass, []))
+    setAttendanceDirty(false)
+    notify('Daftar hadir pada tanggal ini sudah dihapus. Silakan isi ulang bila diperlukan.')
+  }
+
   function exportAttendance(format) {
     const report = buildAttendanceExportReport({
       type: recapType,
@@ -5616,8 +5657,18 @@ function GuruDaftarHadir({ user, notify, appContext }) {
             Semua hadir
           </button>
           <button onClick={() => markAll('Alpa')} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-[#64748B] ring-1 ring-[#D9E6F5] transition hover:bg-[#F8FBFF]">
-            Reset status
+            Semua alpa
           </button>
+          {attendanceDirty && (
+            <button onClick={restoreSavedAttendance} className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5] transition hover:bg-[#EEF7FF]">
+              <X size={14} /> Batalkan perubahan
+            </button>
+          )}
+          {savedSession && (
+            <button onClick={deleteSavedAttendance} className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-50">
+              <Trash2 size={14} /> Hapus isian tanggal
+            </button>
+          )}
           <button onClick={saveAttendance} className="inline-flex items-center gap-1.5 rounded-xl bg-[#17446E] px-3 py-2 text-xs font-black text-white shadow-[0_10px_20px_rgba(23,68,110,0.18)] transition hover:bg-[#2F80D8]">
             <Save size={14} /> Simpan
           </button>
