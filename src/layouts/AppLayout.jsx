@@ -34,7 +34,7 @@ export default function AppLayout() {
       <Sidebar user={user} items={items} open={mobileOpen} setOpen={setMobileOpen} onLogout={handleLogout} />
 
       <div className="lg:pl-[17rem]">
-        <Topbar user={user} title={title} showMenuButton={!hasBottomNav} onMenu={() => setMobileOpen(true)} />
+        <Topbar user={user} title={title} showMenuButton onMenu={() => setMobileOpen(true)} />
 
         <main id="main-content" className={`mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8 ${hasBottomNav ? 'pb-28 lg:pb-8' : 'pb-24'}`}>
           <Outlet />
