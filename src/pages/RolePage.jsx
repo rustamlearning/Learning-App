@@ -3889,7 +3889,11 @@ function buildSemesterMonthRecap(sessions, className, anchorDate = toLocalIsoDat
     const monthSessions = getAttendanceSessionsForRange(sessions, className, monthRange, options)
     const summary = summarizeAttendanceSessions(monthSessions)
     return {
+      value: monthRange.startIso,
+      startIso: monthRange.startIso,
+      endIso: monthRange.endIso,
       label: formatAttendanceDate(monthRange.startIso, { month: 'short' }),
+      fullLabel: monthRange.label,
       sessionCount: monthSessions.length,
       ...summary,
     }
@@ -4017,19 +4021,32 @@ function AttendanceRecapTable({ monthlyRows, semesterRows, leftTitle = 'Bulan in
   )
 }
 
-function SemesterMonthRecap({ rows }) {
+function SemesterMonthRecap({ rows, activeMonth, onSelectMonth }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
-      {rows.map((row) => (
-        <div key={row.label} className="rounded-xl border border-[#D9E6F5] bg-white px-3 py-3">
+      {rows.map((row) => {
+        const active = row.startIso === activeMonth
+        return (
+        <button
+          key={row.startIso}
+          type="button"
+          onClick={() => onSelectMonth?.(row.startIso)}
+          className={`rounded-xl border px-3 py-3 text-left transition ${
+            active
+              ? 'border-[#17446E] bg-[#17446E] text-white shadow-[0_12px_26px_rgba(23,68,110,0.18)]'
+              : 'border-[#D9E6F5] bg-white text-[#132437] hover:border-[#B9D4F0] hover:bg-[#F8FBFF]'
+          }`}
+        >
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-black uppercase text-[#64748B]">{row.label}</p>
-            <span className="rounded-lg bg-[#EAF4FF] px-2 py-0.5 text-[10px] font-black text-[#2F80D8]">{row.sessionCount} hari</span>
+            <p className={`text-xs font-black uppercase ${active ? 'text-sky-100' : 'text-[#64748B]'}`}>{row.label}</p>
+            <span className={`rounded-lg px-2 py-0.5 text-[10px] font-black ${active ? 'bg-white/14 text-white ring-1 ring-white/18' : 'bg-[#EAF4FF] text-[#2F80D8]'}`}>{row.sessionCount} hari</span>
           </div>
-          <p className="mt-2 font-mono text-2xl font-black text-[#132437]">{row.rate}%</p>
-          <p className="mt-1 text-[11px] font-semibold text-[#64748B]">H {row.hadir} · I {row.izin} · S {row.sakit} · A {row.alpa}</p>
-        </div>
-      ))}
+          <p className={`mt-2 font-mono text-2xl font-black ${active ? 'text-white' : 'text-[#132437]'}`}>{row.rate}%</p>
+          <p className={`mt-1 text-[11px] font-semibold ${active ? 'text-sky-100/86' : 'text-[#64748B]'}`}>H {row.hadir} · I {row.izin} · S {row.sakit} · A {row.alpa}</p>
+          <p className={`mt-2 text-[10px] font-black uppercase tracking-[0.12em] ${active ? 'text-sky-100' : 'text-[#2F80D8]'}`}>Buka rekap</p>
+        </button>
+        )
+      })}
     </div>
   )
 }
@@ -5268,6 +5285,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
   }), [user?.role])
   const defaultSubject = subjectOptionsForAttendance[0] || 'Mata pelajaran'
   const [selectedDate, setSelectedDate] = useState(toLocalIsoDate())
+  const [selectedRecapMonth, setSelectedRecapMonth] = useState(() => getAttendanceMonthRange(toLocalIsoDate()).startIso)
   const [selectedClass, setSelectedClass] = useState((homeroomClasses[0] || classOptions[0]) || 'Kelas umum')
   const [attendanceType, setAttendanceType] = useState(canFillDailyAttendance ? 'daily' : 'subject')
   const [recapType, setRecapType] = useState(canFillDailyAttendance ? 'daily' : 'subject')
@@ -5314,13 +5332,17 @@ function GuruDaftarHadir({ user, notify, appContext }) {
   const weeklyAttendanceData = buildWeeklyAttendanceData(selectedClassSessions, selectedDate)
   const monthlyAttendanceData = buildMonthlyAttendanceData(selectedClassSessions, selectedDate)
   const semesterRange = getAttendanceSemesterRange(selectedDate)
-  const monthlySessions = getAttendanceSessionsForRange(sessions, selectedClass, monthRange, recapScope)
   const semesterSessions = getAttendanceSessionsForRange(sessions, selectedClass, semesterRange, recapScope)
-  const monthlySummary = summarizeAttendanceSessions(monthlySessions)
   const semesterSummary = summarizeAttendanceSessions(semesterSessions)
-  const monthlyStudentRows = buildStudentAttendanceRecap(rosterForClass, monthlySessions)
   const semesterStudentRows = buildStudentAttendanceRecap(rosterForClass, semesterSessions)
   const semesterMonthRows = buildSemesterMonthRecap(sessions, selectedClass, selectedDate, recapScope)
+  const activeSemesterMonth = semesterMonthRows.find((row) => row.startIso === selectedRecapMonth) || semesterMonthRows[0]
+  const activeRecapMonthRange = activeSemesterMonth
+    ? { startIso: activeSemesterMonth.startIso, endIso: activeSemesterMonth.endIso, label: activeSemesterMonth.fullLabel }
+    : monthRange
+  const monthlySessions = getAttendanceSessionsForRange(sessions, selectedClass, activeRecapMonthRange, recapScope)
+  const monthlySummary = summarizeAttendanceSessions(monthlySessions)
+  const monthlyStudentRows = buildStudentAttendanceRecap(rosterForClass, monthlySessions)
   const summary = summarizeAttendanceRows(rows)
   const unsavedAttendanceMessage = 'Perubahan absensi belum disimpan. Simpan dulu agar data tidak hilang.'
 
@@ -5376,6 +5398,11 @@ function GuruDaftarHadir({ user, notify, appContext }) {
       setRecapType(recapAttendanceTypes[0].value)
     }
   }, [recapAttendanceTypes, recapType])
+
+  useEffect(() => {
+    if (selectedRecapMonth >= semesterRange.startIso && selectedRecapMonth <= semesterRange.endIso) return
+    setSelectedRecapMonth(monthRange.startIso)
+  }, [monthRange.startIso, selectedRecapMonth, semesterRange.endIso, semesterRange.startIso])
 
   useEffect(() => {
     if (!fillClassOptions.includes(selectedClass) && fillClassOptions[0]) {
@@ -5541,7 +5568,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
       subject: recapType === 'subject' ? selectedSubject : '',
       lessonTime: recapType === 'subject' ? 'Semua pertemuan' : '',
       teacherName: user?.name || recapMode.actor,
-      selectedDate,
+      selectedDate: activeRecapMonthRange.startIso,
       monthlySessions,
       monthlySummary,
       semesterSessions,
@@ -5851,7 +5878,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
 
       <DashboardPanel
         title="Rekap bulan dan semester"
-        description={`Membaca ${recapMode.label.toLowerCase()} ${selectedClass} pada ${monthRange.label} dan ${semesterRange.label}.`}
+        description={`Membaca ${recapMode.label.toLowerCase()} ${selectedClass} per bulan dalam ${semesterRange.label}, lalu merangkum seluruh semester.`}
       >
         {recapAttendanceTypes.length > 1 && (
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -5875,22 +5902,32 @@ function GuruDaftarHadir({ user, notify, appContext }) {
           </div>
         )}
 
-        <div className="grid gap-3 xl:grid-cols-2">
-          <AttendanceRecapCard title="Rekap bulanan" subtitle={monthRange.label} summary={monthlySummary} sessionCount={monthlySessions.length} />
+        <div>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]">Buka rekap per bulan</p>
+            <span className="rounded-xl bg-[#EAF4FF] px-3 py-1.5 text-[11px] font-black text-[#17446E]">
+              {semesterRange.label}
+            </span>
+          </div>
+          <SemesterMonthRecap rows={semesterMonthRows} activeMonth={activeSemesterMonth?.startIso} onSelectMonth={setSelectedRecapMonth} />
+        </div>
+
+        <div className="mt-4 grid gap-3 xl:grid-cols-2">
+          <AttendanceRecapCard title={`Rekap ${activeSemesterMonth?.fullLabel || activeRecapMonthRange.label}`} subtitle="Bulan yang sedang dibuka" summary={monthlySummary} sessionCount={monthlySessions.length} />
           <AttendanceRecapCard title="Rekap semester" subtitle={semesterRange.label} summary={semesterSummary} sessionCount={semesterSessions.length} />
         </div>
 
-        <div className="mt-4">
-          <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#64748B]">Ringkasan bulan dalam semester</p>
-          <SemesterMonthRecap rows={semesterMonthRows} />
-        </div>
-
-        <details className="mt-4 rounded-2xl border border-[#D9E6F5] bg-[#F8FBFF]">
+        <details open className="mt-4 rounded-2xl border border-[#D9E6F5] bg-[#F8FBFF]">
           <summary className="cursor-pointer list-none px-4 py-3 text-sm font-black text-[#17446E]">
-            Lihat rekap per siswa
+            Rincian siswa untuk {activeSemesterMonth?.fullLabel || activeRecapMonthRange.label} dan rekap semester
           </summary>
           <div className="border-t border-[#D9E6F5] bg-white p-3">
-            <AttendanceRecapTable monthlyRows={monthlyStudentRows} semesterRows={semesterStudentRows} leftTitle="Bulan ini" rightTitle="Semester ini" />
+            <AttendanceRecapTable
+              monthlyRows={monthlyStudentRows}
+              semesterRows={semesterStudentRows}
+              leftTitle={activeSemesterMonth?.label || 'Bulan'}
+              rightTitle="Semester"
+            />
           </div>
         </details>
       </DashboardPanel>
