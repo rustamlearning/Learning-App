@@ -193,8 +193,8 @@ function renderGuru(page, user, notify, setConfirmOpen, appContext) {
       </Suspense>
     )
   }
-  if (page === 'daftar-nilai') return <GuruDaftarNilai user={user} notify={notify} />
-  if (page === 'tugas-harian') return <GuruTugasHarian user={user} notify={notify} />
+  if (page === 'daftar-nilai') return <GuruDaftarNilai user={user} notify={notify} appContext={appContext} />
+  if (page === 'tugas-harian') return <GuruTugasHarian user={user} notify={notify} appContext={appContext} />
   if (page === 'rapor') {
     if (!isTeacherHomeroom(user)) {
       return <GuruRaporAccessDenied />
@@ -3622,26 +3622,65 @@ function getAttendanceClassOptions(roster, classRows = []) {
   return Array.from(new Set([...adminClasses, ...rosterClasses])).sort((a, b) => a.localeCompare(b, 'id-ID'))
 }
 
-function getGradebookRoster() {
-  const savedStudents = getLocalAdminProfiles('siswa', students)
-    .filter((item) => !isLegacyPreviewStudentRow(item))
-    .filter((item) => item && (item.name || item.fullName))
-    .map((item, index) => ({
-      id: item.id || `student-${index}`,
-      name: item.name || item.fullName,
-      className: promoteClassName(item.className || item.class || item.class_name || 'Kelas umum'),
-      nis: item.nis || item.studentNumber || item.email || '',
-      gender: item.gender || item.sex || item.jk || '',
-    }))
+function useAttendanceRosterReference(appContext) {
+  const localAttendanceRoster = useMemo(() => getAttendanceRoster(), [])
+  const localAttendanceClasses = useMemo(() => normalizeClassLookupRows(getLocalAdminCollection('classes', classes)), [])
+  const [roster, setRoster] = useState(localAttendanceRoster)
+  const [classRows, setClassRows] = useState(localAttendanceClasses)
+  const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
+  const [error, setError] = useState('')
 
-  return savedStudents.length ? savedStudents : getGradeFormatRoster()
+  useEffect(() => {
+    let active = true
+
+    async function loadRoster() {
+      if (!appContext?.accessToken) {
+        setRoster(localAttendanceRoster)
+        setClassRows(localAttendanceClasses)
+        setLoading(false)
+        setError('')
+        return
+      }
+
+      try {
+        setLoading(true)
+        const [serverClasses, serverStudents] = await Promise.all([
+          fetchClasses({ accessToken: appContext.accessToken }),
+          fetchAdminStudents({ accessToken: appContext.accessToken }),
+        ])
+
+        if (active) {
+          setClassRows(normalizeClassLookupRows(serverClasses.length > 0 ? serverClasses : localAttendanceClasses))
+          setRoster(normalizeAttendanceRosterRows(serverStudents.length > 0 ? serverStudents : localAttendanceRoster))
+          setError('')
+        }
+      } catch (loadError) {
+        if (active) {
+          setClassRows(localAttendanceClasses)
+          setRoster(localAttendanceRoster)
+          setError(loadError.message)
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadRoster()
+    return () => {
+      active = false
+    }
+  }, [appContext?.accessToken, localAttendanceClasses, localAttendanceRoster])
+
+  const classOptions = useMemo(() => getAttendanceClassOptions(roster, classRows), [classRows, roster])
+  return { roster, classRows, classOptions, loading, error }
+}
+
+function getGradebookRoster() {
+  return getAttendanceRoster()
 }
 
 function getGradebookClassOptions(roster) {
-  const adminClasses = normalizeClassLookupRows(getLocalAdminCollection('classes', classes)).map((item) => item.name)
-  const formatClasses = Object.keys(gradeFormatClassRoster)
-  const rosterClasses = roster.map((item) => item.className).filter(Boolean)
-  return Array.from(new Set([...formatClasses, ...adminClasses, ...rosterClasses]))
+  return getAttendanceClassOptions(roster)
 }
 
 function getRosterForClass(roster, className) {
@@ -5996,7 +6035,7 @@ function buildDailyTaskRows(roster = [], savedRows = [], maxScore = 100) {
     }, student.className, maxScore)
   })
   const rosterIds = new Set(rows.map((row) => row.studentId))
-  const extraRows = savedRows.filter((row) => !rosterIds.has(row.studentId))
+  const extraRows = rows.length ? [] : savedRows.filter((row) => !rosterIds.has(row.studentId))
   return [...rows, ...extraRows.map((row) => normalizeDailyTaskRow(row, row.className, maxScore))]
 }
 
@@ -6095,9 +6134,8 @@ function buildDailyTaskReportHtml({ title, metaRows, rows, recapRows }, { print 
     </html>`
 }
 
-function GuruTugasHarian({ user, notify }) {
-  const roster = useMemo(() => getGradebookRoster(), [])
-  const classOptions = useMemo(() => getGradebookClassOptions(roster), [roster])
+function GuruTugasHarian({ user, notify, appContext }) {
+  const { roster, classOptions, loading: loadingRoster, error: rosterError } = useAttendanceRosterReference(appContext)
   const allSubjectOptions = useMemo(() => getGradeSubjectOptions(), [])
   const subjectOptions = useMemo(() => getTeacherSubjectOptions(user, allSubjectOptions), [allSubjectOptions, user])
   const [sessions, setSessions] = useState(() => getDailyTaskSessions(user))
@@ -6268,8 +6306,12 @@ function GuruTugasHarian({ user, notify }) {
       />
 
       <div className="rounded-2xl border border-[#D9E6F5] bg-white p-4 text-sm font-semibold leading-6 text-[#64748B] shadow-[0_10px_28px_rgba(15,36,55,0.035)]">
-        Mapel yang tersedia untuk akun ini:
-        <span className="ml-1 font-black text-[#2F80D8]">{teacherSubjectLabel}.</span>
+        Nama siswa mengikuti roster Absensi agar Daftar Nilai, Tugas Harian, dan Absensi tetap sama.
+        <span className="mt-2 block">Mapel yang tersedia untuk akun ini:
+          <span className="ml-1 font-black text-[#2F80D8]">{teacherSubjectLabel}.</span>
+        </span>
+        {loadingRoster && <span className="mt-2 block font-black text-[#17446E]">Memuat roster Absensi...</span>}
+        {rosterError && <span className="mt-2 block font-black text-amber-700">Roster live belum terbaca, data lokal Absensi dipakai: {rosterError}</span>}
       </div>
 
       <section className="rounded-2xl border border-[#D9E6F5] bg-white p-4 shadow-[0_10px_28px_rgba(15,36,55,0.045)]">
@@ -6617,7 +6659,7 @@ function buildGradebookRows(roster, savedRows, context, materialScopes = []) {
 
   const rosterIds = new Set(rows.map((row) => row.studentId))
   const rosterNames = new Set(rows.map((row) => normalizeLookupText(row.name)))
-  const extraRows = contextRows.filter((row) => !rosterIds.has(row.studentId) && !rosterNames.has(normalizeLookupText(row.name)))
+  const extraRows = rows.length ? [] : contextRows.filter((row) => !rosterIds.has(row.studentId) && !rosterNames.has(normalizeLookupText(row.name)))
   return [...rows, ...extraRows.map(normalizeGradebookRow)]
 }
 
@@ -6940,10 +6982,9 @@ function printGradebookPdf(report) {
   setTimeout(() => printWindow.print(), 250)
 }
 
-function GuruDaftarNilai({ user, notify }) {
+function GuruDaftarNilai({ user, notify, appContext }) {
   const navigate = useNavigate()
-  const roster = useMemo(() => getGradebookRoster(), [])
-  const classOptions = useMemo(() => getGradebookClassOptions(roster), [roster])
+  const { roster, classOptions, loading: loadingRoster, error: rosterError } = useAttendanceRosterReference(appContext)
   const allSubjectOptions = useMemo(() => getGradeSubjectOptions(), [])
   const subjectOptions = useMemo(() => getTeacherSubjectOptions(user, allSubjectOptions), [allSubjectOptions, user?.subject])
   const teacherSubjectLabel = getTeacherSubjectNames(user).length > 0 ? subjectOptions.join(', ') : 'Semua mapel'
@@ -7078,10 +7119,20 @@ function GuruDaftarNilai({ user, notify }) {
       />
 
       <div className="rounded-2xl border border-[#D9E6F5] bg-white p-4 text-sm font-semibold leading-6 text-[#64748B] shadow-[0_10px_28px_rgba(15,36,55,0.035)]">
-        Guru mapel mengisi nilai di halaman ini. Nilai akhir dan capaian kompetensi otomatis menjadi sumber Rapor, sedangkan akses membuka dan mencetak Rapor hanya diberikan kepada wali kelas yang ditetapkan Admin.
+        Guru mapel mengisi nilai di halaman ini. Nama siswa mengikuti roster Absensi agar Daftar Nilai, Tugas Harian, dan Absensi tetap sama.
         <span className="mt-2 block font-black text-[#2F80D8]">
           Mapel yang tersedia untuk akun ini: {teacherSubjectLabel}.
         </span>
+        {loadingRoster && (
+          <span className="mt-2 block font-black text-[#17446E]">
+            Memuat roster Absensi...
+          </span>
+        )}
+        {rosterError && (
+          <span className="mt-2 block font-black text-amber-700">
+            Roster live belum terbaca, data lokal Absensi dipakai: {rosterError}
+          </span>
+        )}
         {hasRaporAccess && (
           <span className="mt-2 block font-black text-[#17446E]">
             Akses wali kelas aktif: {homeroomClasses.join(', ')}.
