@@ -4,6 +4,7 @@ const SHARED_SCHOOL_DATA_KEYS = [
   'islelearn-admin-profiles-',
   'islelearn-admin-',
   'islelearn-homeroom-assignments',
+  'islelearn-daily-tasks-',
 ]
 
 export function readLocalRowsByPrefix(prefix) {
@@ -88,9 +89,18 @@ export function subscribeToSharedSchoolDataChanges(callback) {
 function notifySharedSchoolDataChange(key) {
   if (typeof window === 'undefined' || !isSharedSchoolDataKey(key)) return
 
-  window.dispatchEvent(new CustomEvent(SCHOOL_DATA_CHANGE_EVENT, {
-    detail: { key, updatedAt: Date.now() },
-  }))
+  const dispatchChange = () => {
+    window.dispatchEvent(new CustomEvent(SCHOOL_DATA_CHANGE_EVENT, {
+      detail: { key, updatedAt: Date.now() },
+    }))
+  }
+
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(dispatchChange)
+    return
+  }
+
+  window.setTimeout(dispatchChange, 0)
 }
 
 export function getCompletedMaterials(userId) {

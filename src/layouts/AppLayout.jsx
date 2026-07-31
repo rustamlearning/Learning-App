@@ -167,7 +167,7 @@ function groupNavItems(role, items) {
     ],
     guru: [
       ['Mengajar', ['/dashboard', '/kelas', '/materi', '/bank-soal', '/tugas', '/kuis-live']],
-      ['Kelola', ['/daftar-nilai', '/daftar-hadir']],
+      ['Kelola', ['/daftar-nilai', '/tugas-harian', '/daftar-hadir']],
     ],
     admin: [
       ['Konsol', ['/dashboard']],
@@ -208,6 +208,7 @@ function getPageTitle(role, pathname, items) {
       '/guru/tugas': 'Tugas',
       '/guru/kuis-live': 'Kuis',
       '/guru/studio-konten': 'Siapkan Pembelajaran',
+      '/guru/tugas-harian': 'Tugas Harian',
       '/guru/rapor': 'Rapor',
       '/guru/analisis-nilai': 'Analisis Nilai',
       '/guru/remedial': 'Remedial',

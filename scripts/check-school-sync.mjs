@@ -44,15 +44,23 @@ const {
 
 const changedKeys = []
 const unsubscribe = subscribeToSharedSchoolDataChanges((key) => changedKeys.push(key))
+const flushEvents = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 setLocalAdminProfiles('guru', [{ id: 'teacher-1', name: 'Guru Satu' }])
+await flushEvents()
 assert.deepEqual(changedKeys, ['islelearn-admin-profiles-guru'])
 
 setLocalAdminProfiles('guru', [{ id: 'teacher-1', name: 'Guru Satu' }])
+await flushEvents()
 assert.equal(changedKeys.length, 1, 'Data yang sama tidak boleh memicu sinkronisasi ulang.')
 
 safeWriteLocalJson('islelearn-quiz-result-student-1', { score: 90 })
+await flushEvents()
 assert.equal(changedKeys.length, 1, 'Data belajar pribadi tidak boleh me-refresh semua akun.')
+
+safeWriteLocalJson('islelearn-daily-tasks-school', [{ id: 'daily-task-1', title: 'Praktek' }])
+await flushEvents()
+assert.equal(changedKeys.at(-1), 'islelearn-daily-tasks-school', 'Tugas harian sekolah harus memicu sinkronisasi akun lokal.')
 
 const storageEvent = new Event('storage')
 Object.defineProperty(storageEvent, 'key', { value: 'islelearn-admin-classes' })

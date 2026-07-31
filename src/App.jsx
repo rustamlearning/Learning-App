@@ -13,7 +13,7 @@ import { EmptyState } from './components/ui.jsx'
 
 const rolePages = {
   siswa: ['dashboard', 'kelas', 'materi', 'tugas', 'latihan', 'kuis', 'flashcard', 'ai-tutor', 'progres', 'leaderboard', 'profil', 'isleclub'],
-  guru: ['dashboard', 'kelas', 'materi', 'bank-soal', 'tugas', 'kuis-live', 'daftar-hadir', 'studio-konten', 'daftar-nilai', 'rapor', 'analisis-nilai', 'remedial', 'ai-generator', 'laporan', 'profil'],
+  guru: ['dashboard', 'kelas', 'materi', 'bank-soal', 'tugas', 'kuis-live', 'daftar-hadir', 'studio-konten', 'daftar-nilai', 'tugas-harian', 'rapor', 'analisis-nilai', 'remedial', 'ai-generator', 'laporan', 'profil'],
   admin: ['dashboard', 'guru', 'siswa', 'kelas', 'wali-kelas', 'mapel', 'daftar-hadir', 'pengaturan', 'laporan', 'backup'],
   pimpinan: ['dashboard', 'monitoring-kelas', 'monitoring-guru', 'monitoring-siswa', 'laporan-akademik', 'laporan-aktivitas'],
 }

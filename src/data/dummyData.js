@@ -4,6 +4,7 @@ import {
   BookOpen,
   Bot,
   Brain,
+  ClipboardCheck,
   CalendarClock,
   ClipboardList,
   DatabaseBackup,
@@ -61,6 +62,7 @@ export const navItems = {
     { label: 'Tugas', path: '/guru/tugas', icon: ClipboardList },
     { label: 'Kuis', path: '/guru/kuis-live', icon: FlaskConical },
     { label: 'Daftar Nilai', path: '/guru/daftar-nilai', icon: BarChart3 },
+    { label: 'Tugas Harian', path: '/guru/tugas-harian', icon: ClipboardCheck },
     { label: 'Absensi', path: '/guru/daftar-hadir', icon: CalendarClock },
   ],
   admin: [

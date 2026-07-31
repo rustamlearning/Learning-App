@@ -194,6 +194,7 @@ function renderGuru(page, user, notify, setConfirmOpen, appContext) {
     )
   }
   if (page === 'daftar-nilai') return <GuruDaftarNilai user={user} notify={notify} />
+  if (page === 'tugas-harian') return <GuruTugasHarian user={user} notify={notify} />
   if (page === 'rapor') {
     if (!isTeacherHomeroom(user)) {
       return <GuruRaporAccessDenied />
@@ -4463,6 +4464,10 @@ function getTeacherDashboardAssignments(user, subjectOptions = []) {
   return filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-assignments-'), user, subjectOptions)
 }
 
+function getTeacherDashboardDailyTasks(user, subjectOptions = []) {
+  return filterRowsByTeacherSubjects(dedupeDailyTaskSessions(readLocalRowsByPrefix('islelearn-daily-tasks-')), user, subjectOptions)
+}
+
 function getTeacherDashboardQuizzes(user, subjectOptions = []) {
   return filterRowsByTeacherSubjects(readLocalRowsByPrefix('islelearn-teacher-quizzes-'), user, subjectOptions)
 }
@@ -5063,6 +5068,7 @@ function GuruDashboard({ user }) {
       const teacherSubjectLabel = hasAssignedSubjects ? teacherSubjectOptions.join(', ') : 'Semua mapel'
       const teacherMaterials = getTeacherDashboardMaterials(user, teacherSubjectOptions)
       const teacherAssignments = getTeacherDashboardAssignments(user, teacherSubjectOptions)
+      const teacherDailyTasks = getTeacherDashboardDailyTasks(user, teacherSubjectOptions)
       const teacherQuizzes = getTeacherDashboardQuizzes(user, teacherSubjectOptions)
       const questionRows = getTeacherDashboardQuestions(user, teacherSubjectOptions)
       const attendanceSessions = filterAttendanceSessionsByMode(getAttendanceSessions(user), { type: 'subject' })
@@ -5076,6 +5082,7 @@ function GuruDashboard({ user }) {
       const draftQuizzes = teacherQuizzes.filter((item) => isTeacherDashboardStatus(item, 'Draft'))
       const monthRange = getAttendanceMonthRange(toLocalIsoDate())
       const monthAttendanceSessions = attendanceSessions.filter((session) => isIsoDateInRange(session.date, monthRange))
+      const monthDailyTasks = teacherDailyTasks.filter((session) => isIsoDateInRange(session.date, monthRange))
       const attendanceSummary = summarizeAttendanceSessions(monthAttendanceSessions)
       const gradeSummary = summarizeGradebook(gradebookRows)
       const submissions = getTeacherAssignmentSubmissionCount(teacherAssignments)
@@ -5090,6 +5097,7 @@ function GuruDashboard({ user }) {
           draftAssignments: draftAssignments.length,
           publishedQuizzes: publishedQuizzes.length,
           submissions,
+          dailyTasks: monthDailyTasks.length,
           questionRows: questionRows.length,
           attendanceRate: attendanceSummary.rate,
           attendanceRecorded: attendanceSummary.total,
@@ -5172,6 +5180,7 @@ function GuruDashboard({ user }) {
       <TeacherDashboardActionStrip
         actions={[
           { label: 'Buat tugas', caption: 'Instruksi, deadline, rubrik', badge: 'Tugas', icon: ClipboardCheck, onClick: () => navigate('/guru/tugas') },
+          { label: 'Tugas harian', caption: `${dashboard.summary.dailyTasks} aktivitas bulan ini`, badge: 'Harian', icon: ClipboardList, onClick: () => navigate('/guru/tugas-harian') },
           { label: 'Buat kuis', caption: 'Ambil dari bank soal', badge: 'Kuis', icon: FileQuestion, onClick: () => navigate('/guru/kuis-live') },
           { label: 'Impor soal', caption: 'PDF, DOCX, HTML', badge: 'Bank soal', icon: Download, onClick: () => navigate('/guru/bank-soal') },
           { label: 'Rekap absensi', caption: 'Mapel bulanan/semester', badge: 'Absensi', icon: CalendarClock, onClick: () => navigate('/guru/daftar-hadir') },
@@ -5845,6 +5854,612 @@ function GuruDaftarHadir({ user, notify, appContext }) {
             <AttendanceRecapTable monthlyRows={monthlyStudentRows} semesterRows={semesterStudentRows} leftTitle="Bulan ini" rightTitle="Semester ini" />
           </div>
         </details>
+      </DashboardPanel>
+    </div>
+  )
+}
+
+const dailyTaskTypes = ['Nilai Harian', 'Tugas', 'Praktek', 'Proyek', 'LKPD', 'Kuis Singkat', 'Portofolio']
+const dailyTaskKktp = 75
+const dailyTaskSchoolStorageKey = 'islelearn-daily-tasks-school'
+
+function dailyTaskStorageKey(user) {
+  return `islelearn-daily-tasks-${user?.id || 'demo'}`
+}
+
+function normalizeDailyTaskType(value) {
+  const normalizedValue = normalizeLookupText(value)
+  return dailyTaskTypes.find((type) => normalizeLookupText(type) === normalizedValue) || String(value || dailyTaskTypes[0]).trim()
+}
+
+function isDailyTaskScoreFilled(score) {
+  return score !== '' && score !== null && score !== undefined
+}
+
+function getDailyTaskScorePercent(score, maxScore = 100) {
+  if (!isDailyTaskScoreFilled(score)) return 0
+  const safeMaxScore = Number(maxScore) > 0 ? Number(maxScore) : 100
+  return Math.round((Number(score) / safeMaxScore) * 100)
+}
+
+function getDailyTaskStatus(score, maxScore = 100) {
+  if (!isDailyTaskScoreFilled(score)) return 'Belum Diisi'
+  return getDailyTaskScorePercent(score, maxScore) >= dailyTaskKktp ? 'Tuntas' : 'Perlu Penguatan'
+}
+
+function normalizeDailyTaskRow(row = {}, className = '', maxScore = 100) {
+  const score = normalizeScoreValue(row.score)
+  const name = row.name || row.fullName || 'Siswa'
+  return {
+    ...row,
+    studentId: row.studentId || row.id || normalizeLookupText(name),
+    name,
+    nis: row.nis || row.studentNumber || '',
+    gender: row.gender || row.sex || row.jk || '',
+    className: promoteClassName(row.className || className),
+    score,
+    note: row.note || '',
+    status: getDailyTaskStatus(score, maxScore),
+  }
+}
+
+function normalizeDailyTaskSession(session = {}) {
+  const maxScore = Number(session.maxScore || 100)
+  const safeMaxScore = Number.isFinite(maxScore) && maxScore > 0 ? maxScore : 100
+  const type = normalizeDailyTaskType(session.type)
+  const title = String(session.title || session.topic || type || 'Tugas harian').trim()
+  const className = promoteClassName(session.className || 'Kelas umum')
+  return {
+    ...session,
+    id: session.id || `daily-task-${Date.now()}`,
+    date: session.date || toLocalIsoDate(),
+    className,
+    subject: canonicalSubjectName(session.subject || 'Mata pelajaran'),
+    type,
+    title,
+    maxScore: safeMaxScore,
+    semester: session.semester || 'Genap',
+    academicYear: session.academicYear || '2026/2027',
+    teacherId: session.teacherId || '',
+    teacherName: session.teacherName || '',
+    rows: Array.isArray(session.rows)
+      ? session.rows.map((row) => normalizeDailyTaskRow(row, className, safeMaxScore))
+      : [],
+    updatedAt: session.updatedAt || session.date || toLocalIsoDate(),
+  }
+}
+
+function dedupeDailyTaskSessions(rows = []) {
+  const byId = new Map()
+  rows.forEach((row) => {
+    const session = normalizeDailyTaskSession(row)
+    if (isLegacyPreviewClassName(session.className)) return
+    byId.set(session.id, session)
+  })
+  return Array.from(byId.values()).sort((left, right) => String(right.updatedAt || right.date || '').localeCompare(String(left.updatedAt || left.date || '')))
+}
+
+function getDailyTaskSessions(user) {
+  return dedupeDailyTaskSessions([
+    ...safeReadLocalJson(dailyTaskSchoolStorageKey, []),
+    ...safeReadLocalJson(dailyTaskStorageKey(user), []),
+  ])
+}
+
+function setDailyTaskSessions(user, rows) {
+  const normalizedRows = dedupeDailyTaskSessions(Array.isArray(rows) ? rows : [])
+  safeWriteLocalJson(dailyTaskSchoolStorageKey, normalizedRows)
+  safeWriteLocalJson(dailyTaskStorageKey(user), normalizedRows)
+}
+
+function dailyTaskContextKey(context = {}) {
+  return [
+    context.date,
+    promoteClassName(context.className),
+    canonicalSubjectName(context.subject || ''),
+    normalizeDailyTaskType(context.type),
+    String(context.title || '').trim(),
+    context.semester,
+    context.academicYear,
+  ].map((item) => normalizeLookupText(item)).join('|')
+}
+
+function sameDailyTaskContext(session, context) {
+  return dailyTaskContextKey(session) === dailyTaskContextKey(context)
+}
+
+function findDailyTaskSession(sessions = [], context = {}) {
+  return sessions.find((session) => sameDailyTaskContext(session, context)) || null
+}
+
+function upsertDailyTaskSession(sessions = [], session = {}) {
+  const normalized = normalizeDailyTaskSession(session)
+  return dedupeDailyTaskSessions([
+    normalized,
+    ...sessions.filter((item) => item.id !== normalized.id),
+  ])
+}
+
+function buildDailyTaskRows(roster = [], savedRows = [], maxScore = 100) {
+  const savedByStudentId = new Map(savedRows.map((row) => [row.studentId, row]))
+  const savedByName = new Map(savedRows.map((row) => [normalizeLookupText(row.name), row]))
+  const rows = roster.map((student, index) => {
+    const saved = savedByStudentId.get(student.id) || savedByName.get(normalizeLookupText(student.name)) || {}
+    return normalizeDailyTaskRow({
+      ...saved,
+      studentId: student.id,
+      name: student.name,
+      nis: saved.nis || student.nis || '',
+      gender: saved.gender || student.gender || '',
+      className: student.className,
+      order: saved.order ?? index,
+    }, student.className, maxScore)
+  })
+  const rosterIds = new Set(rows.map((row) => row.studentId))
+  const extraRows = savedRows.filter((row) => !rosterIds.has(row.studentId))
+  return [...rows, ...extraRows.map((row) => normalizeDailyTaskRow(row, row.className, maxScore))]
+}
+
+function summarizeDailyTaskRows(rows = [], maxScore = 100) {
+  const completedRows = rows.filter((row) => isDailyTaskScoreFilled(row.score))
+  const averageScore = completedRows.length
+    ? Math.round(completedRows.reduce((sum, row) => sum + Number(row.score || 0), 0) / completedRows.length)
+    : 0
+  const averagePercent = completedRows.length ? getDailyTaskScorePercent(averageScore, maxScore) : 0
+  return {
+    averageScore,
+    averagePercent,
+    completed: completedRows.length,
+    total: rows.length,
+    readyRate: rows.length ? Math.round((completedRows.length / rows.length) * 100) : 0,
+    needSupport: completedRows.filter((row) => getDailyTaskScorePercent(row.score, maxScore) < dailyTaskKktp).length,
+    highest: completedRows.length ? Math.max(...completedRows.map((row) => Number(row.score || 0))) : 0,
+    lowest: completedRows.length ? Math.min(...completedRows.map((row) => Number(row.score || 0))) : 0,
+  }
+}
+
+function buildDailyTaskStudentRecap(roster = [], sessions = []) {
+  return roster.map((student, index) => {
+    const studentScores = sessions.flatMap((session) => {
+      const row = Array.isArray(session.rows)
+        ? session.rows.find((item) => item.studentId === student.id || normalizeLookupText(item.name) === normalizeLookupText(student.name))
+        : null
+      if (!row || !isDailyTaskScoreFilled(row.score)) return []
+      return [{
+        score: Number(row.score),
+        percent: getDailyTaskScorePercent(row.score, session.maxScore),
+        type: session.type,
+        title: session.title,
+      }]
+    })
+    const averagePercent = studentScores.length
+      ? Math.round(studentScores.reduce((sum, item) => sum + item.percent, 0) / studentScores.length)
+      : 0
+    return {
+      No: index + 1,
+      Nama: student.name,
+      Kelas: promoteClassName(student.className),
+      'Nilai Masuk': studentScores.length,
+      'Rata-rata': studentScores.length ? `${averagePercent}%` : '-',
+      Terendah: studentScores.length ? `${Math.min(...studentScores.map((item) => item.percent))}%` : '-',
+      Tertinggi: studentScores.length ? `${Math.max(...studentScores.map((item) => item.percent))}%` : '-',
+      Status: studentScores.length ? (averagePercent >= dailyTaskKktp ? 'Tuntas' : 'Perlu Penguatan') : 'Belum Diisi',
+    }
+  })
+}
+
+function buildDailyTaskExportRows(rows = [], maxScore = 100) {
+  return rows.map((row, index) => ({
+    No: index + 1,
+    NIS: row.nis || '',
+    Nama: row.name,
+    Kelas: promoteClassName(row.className),
+    Nilai: isDailyTaskScoreFilled(row.score) ? `${row.score}/${maxScore}` : '',
+    Persen: isDailyTaskScoreFilled(row.score) ? `${getDailyTaskScorePercent(row.score, maxScore)}%` : '',
+    Status: getDailyTaskStatus(row.score, maxScore),
+    Catatan: row.note || '',
+  }))
+}
+
+function buildDailyTaskReportHtml({ title, metaRows, rows, recapRows }, { print = false } = {}) {
+  const style = `
+    <style>
+      body { font-family: Arial, sans-serif; color: #132437; margin: ${print ? '24px' : '16px'}; }
+      h1 { margin: 0; font-size: 20px; }
+      h2 { margin: 18px 0 8px; font-size: 14px; color: #17446E; }
+      p { margin: 4px 0; color: #44546A; font-size: 12px; }
+      .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; margin: 12px 0; }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+      th, td { border: 1px solid #C9D8E8; padding: 6px 7px; font-size: 11px; vertical-align: top; }
+      th { background: #D9EBFF; color: #132437; text-align: center; }
+      .no-print { margin-bottom: 14px; padding: 10px 14px; border-radius: 10px; border: 0; background: #17446E; color: white; font-weight: 700; }
+      .empty { border: 1px dashed #C9D8E8; padding: 12px; border-radius: 10px; }
+      @media print { .no-print { display: none; } body { margin: 12mm; } }
+    </style>
+  `
+  return `<!doctype html>
+    <html>
+      <head><meta charset="utf-8" />${style}</head>
+      <body>
+        ${print ? '<button class="no-print" onclick="window.print()">Cetak / Simpan PDF</button>' : ''}
+        <h1>${escapeReportHtml(title)}</h1>
+        <p>${escapeReportHtml(school.name)}</p>
+        <div class="meta">
+          ${metaRows.map(([label, value]) => `<p><b>${escapeReportHtml(label)}:</b> ${escapeReportHtml(value)}</p>`).join('')}
+        </div>
+        <h2>Daftar Nilai Tugas Harian</h2>
+        ${tableRowsToHtml(rows)}
+        <h2>Rekap Per Siswa</h2>
+        ${tableRowsToHtml(recapRows)}
+      </body>
+    </html>`
+}
+
+function GuruTugasHarian({ user, notify }) {
+  const roster = useMemo(() => getGradebookRoster(), [])
+  const classOptions = useMemo(() => getGradebookClassOptions(roster), [roster])
+  const allSubjectOptions = useMemo(() => getGradeSubjectOptions(), [])
+  const subjectOptions = useMemo(() => getTeacherSubjectOptions(user, allSubjectOptions), [allSubjectOptions, user])
+  const [sessions, setSessions] = useState(() => getDailyTaskSessions(user))
+  const [selectedSessionId, setSelectedSessionId] = useState('')
+  const [selectedDate, setSelectedDate] = useState(toLocalIsoDate())
+  const [selectedClass, setSelectedClass] = useState(classOptions[0] || 'Kelas umum')
+  const [selectedSubject, setSelectedSubject] = useState(() => preferredSubjectOption(user?.subject, subjectOptions))
+  const [activityType, setActivityType] = useState(dailyTaskTypes[0])
+  const [title, setTitle] = useState('Tugas Harian')
+  const [maxScore, setMaxScore] = useState(100)
+  const [semester, setSemester] = useState('Genap')
+  const [academicYear, setAcademicYear] = useState('2026/2027')
+  const rosterForClass = useMemo(() => getGradeRosterForClass(roster, selectedClass), [roster, selectedClass])
+  const context = { date: selectedDate, className: selectedClass, subject: selectedSubject, type: activityType, title, semester, academicYear }
+  const selectedSession = selectedSessionId
+    ? sessions.find((session) => session.id === selectedSessionId)
+    : findDailyTaskSession(sessions, context)
+  const [rows, setRows] = useState(() => buildDailyTaskRows(rosterForClass, selectedSession?.rows || [], maxScore))
+  const monthRange = getAttendanceMonthRange(selectedDate)
+  const teacherSessions = useMemo(() => filterRowsByTeacherSubjects(sessions, user, subjectOptions, { keepUnscoped: true }), [sessions, subjectOptions, user])
+  const monthSessions = teacherSessions.filter((session) => (
+    promoteClassName(session.className) === promoteClassName(selectedClass)
+    && sameSubjectName(session.subject, selectedSubject)
+    && isIsoDateInRange(session.date, monthRange)
+  ))
+  const recentSessions = teacherSessions.slice(0, 8)
+  const summary = summarizeDailyTaskRows(rows, maxScore)
+  const recapRows = buildDailyTaskStudentRecap(rosterForClass, monthSessions)
+  const teacherSubjectLabel = getTeacherSubjectNames(user).length ? subjectOptions.join(', ') : 'Semua mapel'
+
+  useEffect(() => {
+    if (!classOptions.includes(selectedClass) && classOptions[0]) setSelectedClass(classOptions[0])
+  }, [classOptions, selectedClass])
+
+  useEffect(() => {
+    if (!subjectOptions.some((subject) => sameSubjectName(subject, selectedSubject))) {
+      setSelectedSubject(preferredSubjectOption(user?.subject, subjectOptions))
+    }
+  }, [selectedSubject, subjectOptions, user?.subject])
+
+  useEffect(() => {
+    setRows(buildDailyTaskRows(rosterForClass, selectedSession?.rows || [], maxScore))
+  }, [rosterForClass, selectedSession?.id, selectedSession?.updatedAt, maxScore])
+
+  function updateRow(studentId, patch) {
+    setRows((currentRows) => currentRows.map((row) => (
+      row.studentId === studentId ? normalizeDailyTaskRow({ ...row, ...patch }, selectedClass, maxScore) : row
+    )))
+  }
+
+  function saveDailyTask() {
+    const cleanTitle = title.trim() || `${activityType} ${formatAttendanceDate(selectedDate)}`
+    const now = new Date().toISOString()
+    const session = normalizeDailyTaskSession({
+      id: selectedSession?.id || `daily-task-${Date.now()}`,
+      date: selectedDate,
+      className: selectedClass,
+      subject: selectedSubject,
+      type: activityType,
+      title: cleanTitle,
+      maxScore,
+      semester,
+      academicYear,
+      teacherId: user?.id || 'demo',
+      teacherName: user?.name || 'Guru',
+      rows: rows.map((row) => ({
+        studentId: row.studentId,
+        name: row.name,
+        nis: row.nis,
+        gender: row.gender,
+        className: selectedClass,
+        score: row.score,
+        note: row.note,
+      })),
+      updatedAt: now,
+    })
+    const nextSessions = upsertDailyTaskSession(sessions, session)
+    setDailyTaskSessions(user, nextSessions)
+    setSessions(nextSessions)
+    setSelectedSessionId(session.id)
+    setTitle(cleanTitle)
+    notify('Tugas harian tersimpan.')
+  }
+
+  function openDailyTask(session) {
+    setSelectedSessionId(session.id)
+    setSelectedDate(session.date)
+    setSelectedClass(session.className)
+    setSelectedSubject(session.subject)
+    setActivityType(session.type)
+    setTitle(session.title)
+    setMaxScore(session.maxScore || 100)
+    setSemester(session.semester || 'Genap')
+    setAcademicYear(session.academicYear || '2026/2027')
+  }
+
+  function startNewDailyTask() {
+    setSelectedSessionId('')
+    setTitle(activityType)
+    setRows(buildDailyTaskRows(rosterForClass, [], maxScore))
+  }
+
+  function removeDailyTask(sessionId) {
+    const nextSessions = sessions.filter((session) => session.id !== sessionId)
+    setDailyTaskSessions(user, nextSessions)
+    setSessions(nextSessions)
+    if (selectedSessionId === sessionId) {
+      setSelectedSessionId('')
+      setRows(buildDailyTaskRows(rosterForClass, [], maxScore))
+    }
+    notify('Tugas harian dihapus.')
+  }
+
+  function getCurrentDailyTaskReport() {
+    return {
+      title: `${activityType} ${selectedSubject} ${promoteClassName(selectedClass)}`,
+      metaRows: [
+        ['Tanggal', formatAttendanceDate(selectedDate, { day: '2-digit', month: 'long', year: 'numeric' })],
+        ['Kelas', promoteClassName(selectedClass)],
+        ['Mata Pelajaran', selectedSubject],
+        ['Jenis', activityType],
+        ['Judul', title],
+        ['Guru', user?.name || '-'],
+        ['Semester', semester],
+        ['Tahun Ajaran', academicYear],
+      ],
+      rows: buildDailyTaskExportRows(rows, maxScore),
+      recapRows,
+    }
+  }
+
+  function exportDailyTask(format) {
+    const report = getCurrentDailyTaskReport()
+    const html = buildDailyTaskReportHtml(report, { print: format === 'pdf' })
+    const filename = `${slugFileName(report.title)}-${selectedDate}`
+
+    if (format === 'excel') {
+      downloadTextFile(`${filename}.xls`, '\ufeff' + html, 'application/vnd.ms-excel;charset=utf-8')
+      notify('Export Excel tugas harian disiapkan.')
+      return
+    }
+
+    const printWindow = window.open('', '_blank', 'width=1100,height=800')
+    if (!printWindow) {
+      downloadTextFile(`${filename}.html`, html, 'text/html;charset=utf-8')
+      return
+    }
+    printWindow.document.write(html)
+    printWindow.document.close()
+    printWindow.focus()
+    setTimeout(() => printWindow.print(), 250)
+    notify('Jendela cetak PDF tugas harian dibuka.')
+  }
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        eyebrow="Tugas Harian"
+        title="Input nilai aktivitas harian."
+        description="Catat nilai harian, tugas, praktek, proyek, LKPD, kuis singkat, dan portofolio per kelas."
+        action={
+          <div className="flex flex-wrap gap-2">
+            <QuickActionButton icon={Plus} label="Tugas Baru" onClick={startNewDailyTask} />
+            <QuickActionButton icon={Printer} label="PDF" onClick={() => exportDailyTask('pdf')} />
+            <QuickActionButton icon={Download} label="Excel" onClick={() => exportDailyTask('excel')} />
+          </div>
+        }
+      />
+
+      <div className="rounded-2xl border border-[#D9E6F5] bg-white p-4 text-sm font-semibold leading-6 text-[#64748B] shadow-[0_10px_28px_rgba(15,36,55,0.035)]">
+        Mapel yang tersedia untuk akun ini:
+        <span className="ml-1 font-black text-[#2F80D8]">{teacherSubjectLabel}.</span>
+      </div>
+
+      <section className="rounded-2xl border border-[#D9E6F5] bg-white p-4 shadow-[0_10px_28px_rgba(15,36,55,0.045)]">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <label className={materialLabelClass}>Tanggal
+            <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className={materialInputClass} />
+          </label>
+          <label className={materialLabelClass}>Kelas
+            <select value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)} className={materialInputClass}>
+              {classOptions.map((className) => <option key={className} value={className}>{className}</option>)}
+            </select>
+          </label>
+          {subjectOptions.length <= 1 ? (
+            <div className={materialLabelClass}>Mata pelajaran
+              <div className={`${materialInputClass} flex min-h-[2.75rem] items-center bg-[#EEF7FF] text-[#17446E]`}>
+                {selectedSubject}
+              </div>
+            </div>
+          ) : (
+            <label className={materialLabelClass}>Mata pelajaran diampu
+              <select value={selectedSubject} onChange={(event) => setSelectedSubject(event.target.value)} className={materialInputClass}>
+                {subjectOptions.map((subject) => <option key={subject} value={subject}>{subject}</option>)}
+              </select>
+            </label>
+          )}
+          <label className={materialLabelClass}>Jenis penilaian
+            <select value={activityType} onChange={(event) => setActivityType(event.target.value)} className={materialInputClass}>
+              {dailyTaskTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+            </select>
+          </label>
+          <label className={materialLabelClass}>Judul aktivitas
+            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Contoh: Praktik dialog / latihan bab 2" className={materialInputClass} />
+          </label>
+          <label className={materialLabelClass}>Nilai maksimal
+            <input type="number" min="1" max="1000" value={maxScore} onChange={(event) => setMaxScore(Math.max(1, Number(event.target.value || 100)))} className={materialInputClass} />
+          </label>
+          <label className={materialLabelClass}>Semester
+            <select value={semester} onChange={(event) => setSemester(event.target.value)} className={materialInputClass}>
+              <option>Ganjil</option>
+              <option>Genap</option>
+            </select>
+          </label>
+          <label className={materialLabelClass}>Tahun ajaran
+            <input value={academicYear} onChange={(event) => setAcademicYear(event.target.value)} className={materialInputClass} />
+          </label>
+        </div>
+      </section>
+
+      <MetricStrip items={[
+        { label: 'Rata-rata', value: summary.completed ? `${summary.averageScore}/${maxScore}` : '-', caption: `${summary.averagePercent || 0}% capaian`, icon: BarChart3 },
+        { label: 'Terisi', value: `${summary.completed}/${summary.total}`, caption: `${summary.readyRate}% siswa`, icon: ClipboardCheck },
+        { label: 'Perlu penguatan', value: summary.needSupport, caption: `di bawah ${dailyTaskKktp}%`, icon: Target },
+        { label: 'Bulan ini', value: monthSessions.length, caption: monthRange.label, icon: CalendarClock },
+      ]} />
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <DashboardPanel title={`${activityType} ${selectedClass}`} description={`${selectedSubject} · ${formatAttendanceDate(selectedDate, { day: '2-digit', month: 'long', year: 'numeric' })}`}>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <button onClick={saveDailyTask} className="inline-flex items-center gap-1.5 rounded-xl bg-[#17446E] px-3 py-2 text-xs font-black text-white shadow-[0_10px_20px_rgba(23,68,110,0.18)] transition hover:bg-[#2F80D8]">
+              <Save size={14} /> Simpan Tugas Harian
+            </button>
+            {selectedSessionId && (
+              <button onClick={startNewDailyTask} className="rounded-xl bg-[#EAF4FF] px-3 py-2 text-xs font-black text-[#2F80D8] ring-1 ring-[#D9E6F5] transition hover:bg-white">
+                Buat Baru
+              </button>
+            )}
+          </div>
+
+          {rows.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[62rem] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[#D9E6F5] text-xs uppercase tracking-[0.12em] text-[#64748B]">
+                    <th className="py-3 pr-3 font-black">No</th>
+                    <th className="py-3 pr-3 font-black">Siswa</th>
+                    <th className="py-3 pr-3 font-black">NIS</th>
+                    <th className="py-3 pr-3 font-black">Nilai</th>
+                    <th className="py-3 pr-3 font-black">Status</th>
+                    <th className="py-3 pr-3 font-black">Catatan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#D9E6F5]">
+                  {rows.map((row, index) => (
+                    <tr key={row.studentId}>
+                      <td className="py-3 pr-3 align-top font-mono text-sm font-black text-[#64748B]">{index + 1}</td>
+                      <td className="py-3 pr-3 align-top">
+                        <p className="min-w-[14rem] font-black text-[#132437]">{row.name}</p>
+                        <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{row.gender || '-'} · {row.className}</p>
+                      </td>
+                      <td className="py-3 pr-3 align-top">
+                        <input
+                          value={row.nis || ''}
+                          onChange={(event) => updateRow(row.studentId, { nis: event.target.value })}
+                          placeholder="-"
+                          className="w-32 rounded-xl border border-[#D9E6F5] bg-[#F8FBFF] px-3 py-2 text-sm font-black text-[#132437] outline-none focus:border-[#2F80D8] focus:bg-white"
+                        />
+                      </td>
+                      <td className="py-3 pr-3 align-top">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max={maxScore}
+                            value={row.score ?? ''}
+                            onChange={(event) => updateRow(row.studentId, { score: event.target.value })}
+                            className="w-20 rounded-xl border border-[#D9E6F5] bg-[#FFFDF4] px-2 py-2 text-center text-sm font-black text-[#132437] outline-none focus:border-[#2F80D8] focus:bg-white"
+                          />
+                          <span className="text-xs font-black text-[#64748B]">/ {maxScore}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 pr-3 align-top">
+                        <StatusBadge tone={!isDailyTaskScoreFilled(row.score) ? 'gray' : getDailyTaskScorePercent(row.score, maxScore) >= dailyTaskKktp ? 'green' : 'amber'}>
+                          {getDailyTaskStatus(row.score, maxScore)}
+                        </StatusBadge>
+                      </td>
+                      <td className="py-3 pr-3 align-top">
+                        <input
+                          value={row.note || ''}
+                          onChange={(event) => updateRow(row.studentId, { note: event.target.value })}
+                          placeholder="Catatan singkat"
+                          className="w-full min-w-[18rem] rounded-xl border border-[#D9E6F5] bg-[#F8FBFF] px-3 py-2 text-sm font-semibold text-[#132437] outline-none focus:border-[#2F80D8] focus:bg-white"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState title="Belum ada siswa." description="Tambahkan siswa pada kelas ini melalui data siswa admin." />
+          )}
+        </DashboardPanel>
+
+        <DashboardPanel title="Riwayat" description="Aktivitas terbaru yang tersimpan.">
+          {recentSessions.length ? (
+            <div className="space-y-2">
+              {recentSessions.map((session) => {
+                const sessionSummary = summarizeDailyTaskRows(session.rows, session.maxScore)
+                const active = session.id === selectedSessionId
+                return (
+                  <article key={session.id} className={`rounded-xl p-3 ring-1 ${active ? 'bg-[#EAF4FF] ring-[#2F80D8]/30' : 'bg-[#F8FBFF] ring-[#D9E6F5]'}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="line-clamp-1 text-sm font-black text-[#132437]">{session.title}</p>
+                        <p className="mt-0.5 text-xs font-semibold leading-5 text-[#64748B]">{session.type} · {session.className}</p>
+                        <p className="text-xs font-semibold leading-5 text-[#64748B]">{formatAttendanceDate(session.date)} · {session.subject}</p>
+                      </div>
+                      <span className="rounded-lg bg-white px-2 py-1 text-xs font-black text-[#2F80D8] ring-1 ring-[#D9E6F5]">{sessionSummary.averagePercent || 0}%</span>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <button onClick={() => openDailyTask(session)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-2 py-2 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5] transition hover:bg-[#EAF4FF]">
+                        <PencilLine size={14} /> Buka
+                      </button>
+                      <button onClick={() => removeDailyTask(session.id)} className="inline-flex items-center justify-center rounded-lg bg-rose-50 px-2 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-100 transition hover:bg-rose-100">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          ) : (
+            <EmptyState title="Belum ada tugas harian." description="Simpan aktivitas pertama untuk mulai membuat riwayat." />
+          )}
+        </DashboardPanel>
+      </div>
+
+      <DashboardPanel title={`Rekap ${monthRange.label}`} description={`${selectedClass} · ${selectedSubject}`}>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[54rem] text-left text-sm">
+            <thead>
+              <tr className="border-b border-[#D9E6F5] text-xs uppercase tracking-[0.12em] text-[#64748B]">
+                {Object.keys(recapRows[0] || {}).map((header) => <th key={header} className="py-3 pr-3 font-black">{header}</th>)}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#D9E6F5]">
+              {recapRows.map((row) => (
+                <tr key={row.Nama}>
+                  {Object.keys(row).map((key) => (
+                    <td key={key} className={`py-3 pr-3 ${key === 'Nama' ? 'font-black text-[#132437]' : 'font-semibold text-[#475569]'}`}>
+                      {key === 'Status' ? (
+                        <StatusBadge tone={row[key] === 'Tuntas' ? 'green' : row[key] === 'Perlu Penguatan' ? 'amber' : 'gray'}>{row[key]}</StatusBadge>
+                      ) : row[key]}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </DashboardPanel>
     </div>
   )
