@@ -3566,8 +3566,9 @@ function getAttendanceSessions(user) {
 
 function setAttendanceSessions(user, rows) {
   const normalizedRows = dedupeAttendanceSessions(Array.isArray(rows) ? rows : [])
-  safeWriteLocalJson(schoolAttendanceStorageKey, normalizedRows)
-  safeWriteLocalJson(attendanceStorageKey(user), normalizedRows)
+  const schoolSaved = safeWriteLocalJson(schoolAttendanceStorageKey, normalizedRows)
+  const userSaved = safeWriteLocalJson(attendanceStorageKey(user), normalizedRows)
+  return schoolSaved && userSaved
 }
 
 function toLocalIsoDate(date = new Date()) {
@@ -5507,8 +5508,10 @@ function GuruDaftarHadir({ user, notify, appContext }) {
       return
     }
 
+    const now = new Date().toISOString()
     const nextSessions = upsertAttendanceSession(sessions, {
       ...draftSession,
+      updatedAt: now,
       rows: rows.map((row) => ({
         studentId: row.studentId,
         name: row.name,
@@ -5518,7 +5521,11 @@ function GuruDaftarHadir({ user, notify, appContext }) {
         note: row.note,
       })),
     })
-    setAttendanceSessions(user, nextSessions)
+    const saved = setAttendanceSessions(user, nextSessions)
+    if (!saved) {
+      notify('Absensi belum tersimpan. Ruang penyimpanan browser penuh atau akses storage diblokir.')
+      return
+    }
     setSessions(nextSessions)
     setAttendanceDirty(false)
     notify('Daftar hadir berhasil disimpan.')
@@ -5554,7 +5561,11 @@ function GuruDaftarHadir({ user, notify, appContext }) {
     if (!confirmed) return
 
     const nextSessions = removeAttendanceSession(sessions, draftSession)
-    setAttendanceSessions(user, nextSessions)
+    const saved = setAttendanceSessions(user, nextSessions)
+    if (!saved) {
+      notify('Absensi belum bisa dihapus dari penyimpanan. Coba ulangi setelah memuat ulang halaman.')
+      return
+    }
     setSessions(nextSessions)
     setRows(buildAttendanceRows(rosterForClass, []))
     setAttendanceDirty(false)
@@ -6024,8 +6035,9 @@ function getDailyTaskSessions(user) {
 
 function setDailyTaskSessions(user, rows) {
   const normalizedRows = dedupeDailyTaskSessions(Array.isArray(rows) ? rows : [])
-  safeWriteLocalJson(dailyTaskSchoolStorageKey, normalizedRows)
-  safeWriteLocalJson(dailyTaskStorageKey(user), normalizedRows)
+  const schoolSaved = safeWriteLocalJson(dailyTaskSchoolStorageKey, normalizedRows)
+  const userSaved = safeWriteLocalJson(dailyTaskStorageKey(user), normalizedRows)
+  return schoolSaved && userSaved
 }
 
 function dailyTaskContextKey(context = {}) {
@@ -6191,6 +6203,7 @@ function GuruTugasHarian({ user, notify, appContext }) {
     ? sessions.find((session) => session.id === selectedSessionId)
     : findDailyTaskSession(sessions, context)
   const [rows, setRows] = useState(() => buildDailyTaskRows(rosterForClass, selectedSession?.rows || [], maxScore))
+  const [dailyTaskDirty, setDailyTaskDirty] = useState(false)
   const monthRange = getAttendanceMonthRange(selectedDate)
   const teacherSessions = useMemo(() => filterRowsByTeacherSubjects(sessions, user, subjectOptions, { keepUnscoped: true }), [sessions, subjectOptions, user])
   const monthSessions = teacherSessions.filter((session) => (
@@ -6215,9 +6228,54 @@ function GuruTugasHarian({ user, notify, appContext }) {
 
   useEffect(() => {
     setRows(buildDailyTaskRows(rosterForClass, selectedSession?.rows || [], maxScore))
-  }, [rosterForClass, selectedSession?.id, selectedSession?.updatedAt, maxScore])
+    setDailyTaskDirty(false)
+  }, [rosterForClass, selectedSession?.id, selectedSession?.updatedAt])
+
+  useEffect(() => {
+    if (!dailyTaskDirty) return undefined
+    const unsavedMessage = 'Nilai tugas harian sudah diubah tetapi belum disimpan.'
+    const handleBeforeUnload = (event) => {
+      event.preventDefault()
+      event.returnValue = unsavedMessage
+      return unsavedMessage
+    }
+    const handleInternalNavigation = (event) => {
+      const anchor = event.target?.closest?.('a[href]')
+      if (!anchor) return
+      const href = anchor.getAttribute('href') || ''
+      if (!href || href.startsWith('#') || anchor.target && anchor.target !== '_self') return
+      const targetUrl = new URL(anchor.href, window.location.href)
+      const currentUrl = new URL(window.location.href)
+      if (targetUrl.origin !== currentUrl.origin || targetUrl.pathname === currentUrl.pathname) return
+      if (!window.confirm(`${unsavedMessage}\n\nTekan Simpan Tugas Harian agar data tersimpan. Lanjut tanpa menyimpan?`)) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('click', handleInternalNavigation, true)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('click', handleInternalNavigation, true)
+    }
+  }, [dailyTaskDirty])
+
+  function confirmDiscardDailyTaskChanges() {
+    if (!dailyTaskDirty) return true
+    const confirmed = window.confirm('Nilai tugas harian sudah diubah tetapi belum disimpan.\n\nLanjut dan buang perubahan yang belum disimpan?')
+    if (confirmed) setDailyTaskDirty(false)
+    return confirmed
+  }
+
+  function changeDailyTaskContext(setter, nextValue) {
+    if (!confirmDiscardDailyTaskChanges()) return
+    setter(nextValue)
+    setSelectedSessionId('')
+    setDailyTaskDirty(true)
+  }
 
   function updateRow(studentId, patch) {
+    setDailyTaskDirty(true)
     setRows((currentRows) => currentRows.map((row) => (
       row.studentId === studentId ? normalizeDailyTaskRow({ ...row, ...patch }, selectedClass, maxScore) : row
     )))
@@ -6250,14 +6308,20 @@ function GuruTugasHarian({ user, notify, appContext }) {
       updatedAt: now,
     })
     const nextSessions = upsertDailyTaskSession(sessions, session)
-    setDailyTaskSessions(user, nextSessions)
+    const saved = setDailyTaskSessions(user, nextSessions)
+    if (!saved) {
+      notify('Tugas harian belum tersimpan. Ruang penyimpanan browser penuh atau akses storage diblokir.')
+      return
+    }
     setSessions(nextSessions)
     setSelectedSessionId(session.id)
     setTitle(cleanTitle)
+    setDailyTaskDirty(false)
     notify('Tugas harian tersimpan.')
   }
 
   function openDailyTask(session) {
+    if (!confirmDiscardDailyTaskChanges()) return
     setSelectedSessionId(session.id)
     setSelectedDate(session.date)
     setSelectedClass(session.className)
@@ -6267,21 +6331,29 @@ function GuruTugasHarian({ user, notify, appContext }) {
     setMaxScore(session.maxScore || 100)
     setSemester(session.semester || 'Genap')
     setAcademicYear(session.academicYear || '2026/2027')
+    setDailyTaskDirty(false)
   }
 
   function startNewDailyTask() {
+    if (!confirmDiscardDailyTaskChanges()) return
     setSelectedSessionId('')
     setTitle(activityType)
     setRows(buildDailyTaskRows(rosterForClass, [], maxScore))
+    setDailyTaskDirty(false)
   }
 
   function removeDailyTask(sessionId) {
     const nextSessions = sessions.filter((session) => session.id !== sessionId)
-    setDailyTaskSessions(user, nextSessions)
+    const saved = setDailyTaskSessions(user, nextSessions)
+    if (!saved) {
+      notify('Tugas harian belum bisa dihapus dari penyimpanan. Coba ulangi setelah memuat ulang halaman.')
+      return
+    }
     setSessions(nextSessions)
     if (selectedSessionId === sessionId) {
       setSelectedSessionId('')
       setRows(buildDailyTaskRows(rosterForClass, [], maxScore))
+      setDailyTaskDirty(false)
     }
     notify('Tugas harian dihapus.')
   }
@@ -6354,10 +6426,10 @@ function GuruTugasHarian({ user, notify, appContext }) {
       <section className="rounded-2xl border border-[#D9E6F5] bg-white p-4 shadow-[0_10px_28px_rgba(15,36,55,0.045)]">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <label className={materialLabelClass}>Tanggal
-            <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className={materialInputClass} />
+            <input type="date" value={selectedDate} onChange={(event) => changeDailyTaskContext(setSelectedDate, event.target.value)} className={materialInputClass} />
           </label>
           <label className={materialLabelClass}>Kelas
-            <select value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)} className={materialInputClass}>
+            <select value={selectedClass} onChange={(event) => changeDailyTaskContext(setSelectedClass, event.target.value)} className={materialInputClass}>
               {classOptions.map((className) => <option key={className} value={className}>{className}</option>)}
             </select>
           </label>
@@ -6369,30 +6441,30 @@ function GuruTugasHarian({ user, notify, appContext }) {
             </div>
           ) : (
             <label className={materialLabelClass}>Mata pelajaran diampu
-              <select value={selectedSubject} onChange={(event) => setSelectedSubject(event.target.value)} className={materialInputClass}>
+              <select value={selectedSubject} onChange={(event) => changeDailyTaskContext(setSelectedSubject, event.target.value)} className={materialInputClass}>
                 {subjectOptions.map((subject) => <option key={subject} value={subject}>{subject}</option>)}
               </select>
             </label>
           )}
           <label className={materialLabelClass}>Jenis penilaian
-            <select value={activityType} onChange={(event) => setActivityType(event.target.value)} className={materialInputClass}>
+            <select value={activityType} onChange={(event) => changeDailyTaskContext(setActivityType, event.target.value)} className={materialInputClass}>
               {dailyTaskTypes.map((type) => <option key={type} value={type}>{type}</option>)}
             </select>
           </label>
           <label className={materialLabelClass}>Judul aktivitas
-            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Contoh: Praktik dialog / latihan bab 2" className={materialInputClass} />
+            <input value={title} onChange={(event) => { setTitle(event.target.value); setDailyTaskDirty(true) }} placeholder="Contoh: Praktik dialog / latihan bab 2" className={materialInputClass} />
           </label>
           <label className={materialLabelClass}>Nilai maksimal
-            <input type="number" min="1" max="1000" value={maxScore} onChange={(event) => setMaxScore(Math.max(1, Number(event.target.value || 100)))} className={materialInputClass} />
+            <input type="number" min="1" max="1000" value={maxScore} onChange={(event) => { setMaxScore(Math.max(1, Number(event.target.value || 100))); setDailyTaskDirty(true) }} className={materialInputClass} />
           </label>
           <label className={materialLabelClass}>Semester
-            <select value={semester} onChange={(event) => setSemester(event.target.value)} className={materialInputClass}>
+            <select value={semester} onChange={(event) => { setSemester(event.target.value); setDailyTaskDirty(true) }} className={materialInputClass}>
               <option>Ganjil</option>
               <option>Genap</option>
             </select>
           </label>
           <label className={materialLabelClass}>Tahun ajaran
-            <input value={academicYear} onChange={(event) => setAcademicYear(event.target.value)} className={materialInputClass} />
+            <input value={academicYear} onChange={(event) => { setAcademicYear(event.target.value); setDailyTaskDirty(true) }} className={materialInputClass} />
           </label>
         </div>
       </section>
@@ -6406,16 +6478,24 @@ function GuruTugasHarian({ user, notify, appContext }) {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <DashboardPanel title={`${activityType} ${selectedClass}`} description={`${selectedSubject} · ${formatAttendanceDate(selectedDate, { day: '2-digit', month: 'long', year: 'numeric' })}`}>
-          <div className="mb-3 flex flex-wrap gap-2">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             <button onClick={saveDailyTask} className="inline-flex items-center gap-1.5 rounded-xl bg-[#17446E] px-3 py-2 text-xs font-black text-white shadow-[0_10px_20px_rgba(23,68,110,0.18)] transition hover:bg-[#2F80D8]">
               <Save size={14} /> Simpan Tugas Harian
             </button>
+            <StatusBadge tone={dailyTaskDirty ? 'amber' : selectedSession ? 'green' : 'gray'}>
+              {dailyTaskDirty ? 'Belum disimpan' : selectedSession ? 'Sudah tersimpan' : 'Tugas baru'}
+            </StatusBadge>
             {selectedSessionId && (
               <button onClick={startNewDailyTask} className="rounded-xl bg-[#EAF4FF] px-3 py-2 text-xs font-black text-[#2F80D8] ring-1 ring-[#D9E6F5] transition hover:bg-white">
                 Buat Baru
               </button>
             )}
           </div>
+          {dailyTaskDirty && (
+            <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-800">
+              Nilai tugas harian sudah diubah tetapi belum tersimpan. Tekan <b>Simpan Tugas Harian</b> agar data tetap ada saat halaman ditutup atau akun lain dibuka.
+            </div>
+          )}
 
           {rows.length ? (
             <div className="overflow-x-auto">

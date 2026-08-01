@@ -4,6 +4,7 @@ const SHARED_SCHOOL_DATA_KEYS = [
   'islelearn-admin-profiles-',
   'islelearn-admin-',
   'islelearn-homeroom-assignments',
+  'islelearn-attendance-',
   'islelearn-daily-tasks-',
 ]
 

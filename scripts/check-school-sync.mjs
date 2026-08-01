@@ -62,6 +62,10 @@ safeWriteLocalJson('islelearn-daily-tasks-school', [{ id: 'daily-task-1', title:
 await flushEvents()
 assert.equal(changedKeys.at(-1), 'islelearn-daily-tasks-school', 'Tugas harian sekolah harus memicu sinkronisasi akun lokal.')
 
+safeWriteLocalJson('islelearn-attendance-school', [{ id: 'attendance-1', date: '2026-08-01' }])
+await flushEvents()
+assert.equal(changedKeys.at(-1), 'islelearn-attendance-school', 'Absensi sekolah harus memicu sinkronisasi akun lokal.')
+
 const storageEvent = new Event('storage')
 Object.defineProperty(storageEvent, 'key', { value: 'islelearn-admin-classes' })
 window.dispatchEvent(storageEvent)
