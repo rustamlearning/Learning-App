@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
+  ChevronDown,
   LogOut,
   Menu,
   Search,
@@ -266,13 +267,13 @@ function Topbar({ user, title, showMenuButton = true, onMenu }) {
           <h1 className="truncate text-lg font-black text-[#132437] sm:text-xl">{title}</h1>
         </div>
 
-        <form onSubmit={submitSearch} className="relative hidden min-w-[18rem] md:block">
-          <label className="flex h-11 items-center gap-2 rounded-xl bg-[#F8FBFF] px-4 text-sm text-[#64748B] ring-1 ring-[#D9E6F5]">
+        <form onSubmit={submitSearch} className="relative hidden min-w-[18rem] md:block lg:min-w-[26rem]">
+          <label className="flex h-12 items-center gap-2 rounded-[1rem] bg-white px-4 text-sm text-[#64748B] shadow-[0_10px_24px_rgba(15,36,55,0.035)] ring-1 ring-[#D9E6F5]">
             <Search size={17} />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Cari menu"
+              placeholder="Cari menu, kelas, materi, atau siswa..."
               className="w-full bg-transparent text-[#132437] outline-none placeholder:text-slate-400"
             />
           </label>
@@ -306,7 +307,7 @@ function Topbar({ user, title, showMenuButton = true, onMenu }) {
         <button
           aria-label="Notifikasi"
           disabled
-          className="grid h-11 w-11 place-items-center rounded-xl bg-[#F8FBFF] text-[#64748B] ring-1 ring-[#D9E6F5]"
+          className="grid h-12 w-12 place-items-center rounded-[1rem] bg-white text-[#64748B] shadow-[0_10px_24px_rgba(15,36,55,0.035)] ring-1 ring-[#D9E6F5]"
         >
           <Bell size={18} />
         </button>
@@ -316,9 +317,16 @@ function Topbar({ user, title, showMenuButton = true, onMenu }) {
           aria-label="Buka profil"
           onClick={() => profilePath && navigate(profilePath)}
           disabled={!profilePath}
-          className="hidden h-11 w-11 place-items-center rounded-xl bg-[#17446E] text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#2F80D8] disabled:cursor-default disabled:hover:translate-y-0 sm:grid"
+          className="hidden min-h-12 items-center gap-3 rounded-[1rem] bg-white px-2.5 pr-3 text-left shadow-[0_10px_24px_rgba(15,36,55,0.035)] ring-1 ring-[#D9E6F5] transition hover:-translate-y-0.5 hover:bg-[#F8FBFF] disabled:cursor-default disabled:hover:translate-y-0 sm:flex"
         >
-          {user.avatar}
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#17446E] text-sm font-black text-white">
+            {user.avatar}
+          </span>
+          <span className="hidden min-w-0 lg:block">
+            <span className="block max-w-[9rem] truncate text-sm font-black leading-tight text-[#102A43]">{user.name}</span>
+            <span className="mt-0.5 block text-xs font-bold leading-tight text-[#64748B]">{roleLabels[user.role]}</span>
+          </span>
+          <ChevronDown size={15} className="hidden text-[#64748B] lg:block" />
         </button>
       </div>
     </header>

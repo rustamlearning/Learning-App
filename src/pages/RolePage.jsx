@@ -356,128 +356,165 @@ function SiswaDashboard({ user, notify }) {
     { label: 'Aktivitas', value: practiceResults.length + quizResults.length + assignmentSubmissions.length, caption: 'latihan dan submission', icon: CalendarClock },
     { label: 'Rata-rata', value: average || '-', caption: 'nilai tersimpan', icon: Award },
   ]
+  const heroStats = [
+    { label: 'Kelas', value: studentClassName, icon: School, tone: 'blue' },
+    { label: 'Materi aktif', value: gradeMaterials.length, icon: BookOpen, tone: 'green' },
+    { label: 'Prioritas', value: todayWorkCount, icon: ClipboardCheck, tone: 'amber' },
+    { label: 'Progres', value: `${normalizedProgress}%`, icon: BarChart3, tone: 'cyan' },
+  ]
+  const studentMetricCards = [
+    { label: 'Materi selesai', value: completedMaterials.length, caption: `${gradeMaterials.length} materi tersedia`, icon: BookOpen, tone: 'blue' },
+    { label: 'Tugas aktif', value: activeAssignments.length, caption: 'perlu dicek siswa', icon: ClipboardCheck, tone: 'green' },
+    { label: 'Kuis aktif', value: activeQuizzes.length, caption: 'siap dikerjakan', icon: FileQuestion, tone: 'amber' },
+    { label: 'Nilai rata-rata', value: average || '-', caption: `${metricItems[2].value} aktivitas tersimpan`, icon: Award, tone: 'purple' },
+  ]
+  const studentQuickActions = featureTiles.map((item) => ({
+    label: item.label,
+    icon: item.icon,
+    onClick: () => navigate(item.path),
+  }))
+  const learningSummaryRows = [
+    { label: 'Materi selesai', value: `${completedMaterials.length}/${gradeMaterials.length || 0}` },
+    { label: 'Tugas terkirim', value: assignmentSubmissions.length },
+    { label: 'Latihan/kuis', value: practiceResults.length + quizResults.length },
+    { label: 'Rata-rata nilai', value: average || '-' },
+  ]
 
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-[1.35rem] bg-white shadow-[0_18px_52px_rgba(15,36,55,0.07)] ring-1 ring-[#D9E6F5]">
-        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <div className="bg-[linear-gradient(135deg,#17446E_0%,#2F80D8_72%,#DDF2FF_100%)] p-5 text-white">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-xl bg-white/16 px-3 py-1.5 text-xs font-black ring-1 ring-white/18">{studentClassName}</span>
-              <span className="rounded-xl bg-white/16 px-3 py-1.5 text-xs font-black ring-1 ring-white/18">Kurikulum Merdeka</span>
-            </div>
-            <h2 className="mt-4 max-w-3xl text-balance text-3xl font-black leading-tight sm:text-[2.2rem]">
-              Halo, {firstName}. Cek progres dan lanjutkan yang penting dulu.
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-sky-100/88">
-              Dashboard ini untuk ringkasan. Pilih mapel dan daftar bab tetap ada di menu Belajar.
-            </p>
-            <div className="mt-5 grid gap-2 sm:grid-cols-3">
-              <div className="rounded-xl bg-white/14 px-3 py-2 ring-1 ring-white/18">
-                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-sky-100">Progres</p>
-                <p className="mt-1 font-mono text-2xl font-black">{normalizedProgress}%</p>
-              </div>
-              <div className="rounded-xl bg-white/14 px-3 py-2 ring-1 ring-white/18">
-                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-sky-100">Prioritas</p>
-                <p className="mt-1 font-mono text-2xl font-black">{todayWorkCount}</p>
-              </div>
-              <div className="rounded-xl bg-white/14 px-3 py-2 ring-1 ring-white/18">
-                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-sky-100">Rata-rata</p>
-                <p className="mt-1 font-mono text-2xl font-black">{average || '-'}</p>
-              </div>
-            </div>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <button
-                onClick={() => navigate('/siswa/materi')}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#123B63] shadow-[0_12px_24px_rgba(5,20,35,0.18)] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF] active:translate-y-0"
-              >
-                <BookOpen size={16} /> Buka Belajar
-              </button>
-              <button
-                onClick={() => navigate('/siswa/tugas')}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black text-white ring-1 ring-white/18 transition hover:-translate-y-0.5 hover:bg-white/16 active:translate-y-0"
-              >
-                <ClipboardCheck size={16} /> Cek tugas
-              </button>
-            </div>
-          </div>
-
-          <article className="flex min-h-full flex-col justify-between bg-[#F8FBFF] p-5">
+      <DashboardHomeSection className="overflow-hidden p-4 sm:p-5">
+        <div className="relative overflow-hidden rounded-[1.2rem] bg-[linear-gradient(135deg,#E7FAFF_0%,#F8FBFF_48%,#EFFBF6_100%)] px-5 py-5 ring-1 ring-[#D9E6F5] sm:px-6">
+          <DashboardHeroVisual alt="Logo IsleLearn" />
+          <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1fr)_28rem] xl:items-center">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">Lanjut terdekat</p>
-              <h3 className="mt-3 text-xl font-black leading-tight text-[#132437]">
-                {nextMaterial ? nextMaterial.title : 'Belum ada materi aktif'}
-              </h3>
-              <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 text-[#64748B]">
-                {nextMaterial ? `${nextMaterial.subject} · ${nextMaterial.topic || studentClassName}` : 'Materi akan muncul setelah guru mempublish bahan belajar.'}
+              <p className="text-sm font-black text-emerald-700">Selamat belajar kembali,</p>
+              <h2 className="mt-2 text-balance text-3xl font-black leading-tight text-[#102A43] sm:text-[2.35rem]">
+                {firstName}
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#52647A]">
+                Lanjutkan materi, cek tugas, dan pantau progres belajar dari satu beranda yang lebih tenang.
               </p>
-            </div>
-            <div className="mt-5">
-              <div className="flex items-center justify-between text-xs font-black text-[#64748B]">
-                <span>Progress materi</span>
-                <span>{nextProgress}%</span>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button
+                  onClick={() => navigate('/siswa/materi')}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#17446E] px-4 text-sm font-black text-white shadow-[0_12px_24px_rgba(23,68,110,0.16)] transition hover:-translate-y-0.5 hover:bg-[#2F80D8] active:translate-y-0"
+                >
+                  <BookOpen size={16} /> Buka Belajar
+                </button>
+                <button
+                  onClick={() => navigate('/siswa/tugas')}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#17446E] ring-1 ring-[#CDE4F8] transition hover:-translate-y-0.5 hover:bg-[#EAF4FF] active:translate-y-0"
+                >
+                  <ClipboardCheck size={16} /> Cek tugas
+                </button>
               </div>
-              <div className="mt-2 h-3 overflow-hidden rounded-full bg-white ring-1 ring-[#D9E6F5]">
-                <div className="h-3 rounded-full bg-[#2F80D8]" style={{ width: `${nextProgress}%` }} />
-              </div>
             </div>
-            <button
-              onClick={() => navigate('/siswa/materi')}
-              className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#17446E] px-4 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#2F80D8]"
-            >
-              <PlayCircle size={16} /> Buka materi
-            </button>
-          </article>
-        </div>
-      </section>
-
-      <MetricStrip items={metricItems} />
-
-      <div className={`grid gap-4 ${priorityItems.length > 0 && materialItems.length > 0 ? 'xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]' : ''}`}>
-        {priorityItems.length > 0 && (
-          <CompactList
-            title="Prioritas hari ini"
-            description="Tugas dan kuis terdekat ditaruh paling atas."
-            items={priorityItems}
-          />
-        )}
-
-        <CompactList
-          title="Lanjutkan materi"
-          items={materialItems}
-          emptyLabel="Materi belum tersedia untuk kelas ini. Cek kembali nanti atau tanya guru."
-        />
-      </div>
-
-      <section className="rounded-[1.15rem] bg-white p-3 shadow-[0_10px_28px_rgba(15,36,55,0.045)] ring-1 ring-[#D9E6F5]">
-        <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-lg font-black text-[#132437]">Akses cepat siswa</h2>
-            <p className="mt-1 text-sm font-semibold text-[#64748B]">Menu utama tanpa mengulang daftar mapel.</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {heroStats.map((item) => <DashboardHeroStat key={item.label} {...item} />)}
+            </div>
           </div>
-          <span className="text-xs font-black uppercase tracking-[0.12em] text-[#2F80D8]">{featureTiles.length} menu</span>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {featureTiles.map((item) => {
-            const Icon = item.icon
-            return (
-              <button
-                key={item.label}
-                onClick={() => navigate(item.path)}
-                className={`group flex min-h-16 items-center gap-3 rounded-[0.95rem] bg-gradient-to-br px-3 py-2 text-left ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,36,55,0.08)] ${item.tone}`}
-              >
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/82 shadow-sm ring-1 ring-white/80">
-                  <Icon size={20} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-black">{item.label}</span>
-                  <span className="mt-0.5 block truncate text-xs font-bold opacity-75">{item.caption}</span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </section>
+      </DashboardHomeSection>
+
+      <DashboardMetricGrid items={studentMetricCards} />
+
+      <DashboardQuickActionRail title="Akses Cepat" actions={studentQuickActions} />
+
+      {priorityItems.length > 0 && (
+        <section className="rounded-[1.15rem] border border-rose-100 bg-[linear-gradient(135deg,#FFF7F8_0%,#FFFFFF_100%)] p-4 shadow-[0_12px_34px_rgba(225,29,72,0.06)]">
+          <h2 className="text-base font-black text-rose-700">Perlu dikerjakan</h2>
+          <div className="mt-3 grid gap-2 xl:grid-cols-2">
+            {priorityItems.slice(0, 2).map((item) => {
+              const Icon = item.icon
+              return (
+                <article key={item.id} className="grid gap-3 rounded-[1rem] bg-white px-3 py-3 ring-1 ring-rose-100 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+                  <span className="grid h-11 w-11 place-items-center rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-100">
+                    <Icon size={18} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-[#102A43]">{item.title}</span>
+                    <span className="mt-1 block truncate text-xs font-bold text-[#64748B]">{item.meta}</span>
+                  </span>
+                  <button onClick={item.onClick} className="inline-flex min-h-10 items-center justify-center rounded-xl bg-white px-3 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5] hover:bg-[#EAF4FF]">
+                    {item.actionLabel}
+                  </button>
+                </article>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)_minmax(0,0.9fr)]">
+        <DashboardContentPanel title="Lanjutkan materi" description={studentClassName}>
+          {materialItems.length ? (
+            <div className="space-y-3">
+              {materialItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <button key={item.id} onClick={item.onClick} className="group grid w-full gap-3 rounded-[1rem] bg-[#F8FBFF] p-3 text-left ring-1 ring-[#D9E6F5] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_12px_28px_rgba(15,36,55,0.06)] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+                    <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#EAF4FF] text-[#2F80D8] ring-1 ring-[#D9E6F5]">
+                      <Icon size={18} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-black text-[#102A43]">{item.title}</span>
+                      <span className="mt-1 block truncate text-xs font-bold text-[#64748B]">{item.meta}</span>
+                    </span>
+                    <span className="rounded-xl bg-white px-3 py-2 text-xs font-black text-[#17446E] ring-1 ring-[#D9E6F5]">{item.actionLabel}</span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <DashboardMiniEmpty title="Materi belum tersedia" description="Materi akan muncul setelah guru mempublish bahan belajar." />
+          )}
+        </DashboardContentPanel>
+
+        <DashboardContentPanel title="Prioritas hari ini" description={`${todayWorkCount} tugas/kuis aktif`}>
+          {priorityItems.length ? (
+            <div className="space-y-3">
+              {priorityItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <button key={item.id} onClick={item.onClick} className="flex w-full items-center gap-3 rounded-[1rem] bg-[#F8FBFF] p-3 text-left ring-1 ring-[#D9E6F5] transition hover:bg-white">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[#2F80D8] ring-1 ring-[#D9E6F5]">
+                      <Icon size={17} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-black text-[#102A43]">{item.title}</span>
+                      <span className="mt-1 block truncate text-xs font-bold text-[#64748B]">{item.eyebrow} · {item.status}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <DashboardMiniEmpty title="Tidak ada prioritas" description="Belum ada tugas atau kuis aktif untuk kelasmu." />
+          )}
+        </DashboardContentPanel>
+
+        <DashboardContentPanel title="Ringkasan belajar" description="Diambil dari aktivitas siswa yang tersimpan.">
+          <div className="space-y-3">
+            <div>
+              <div className="flex items-center justify-between text-xs font-black text-[#64748B]">
+                <span>Progress umum</span>
+                <span>{normalizedProgress}%</span>
+              </div>
+              <div className="mt-2 h-3 overflow-hidden rounded-full bg-[#EAF4FF]">
+                <div className="h-full rounded-full bg-[#2F80D8]" style={{ width: `${normalizedProgress}%` }} />
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+              {learningSummaryRows.map((item) => (
+                <div key={item.label} className="rounded-xl bg-[#F8FBFF] px-3 py-2 ring-1 ring-[#D9E6F5]">
+                  <p className="text-xs font-black text-[#64748B]">{item.label}</p>
+                  <p className="mt-1 font-mono text-xl font-black text-[#102A43]">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DashboardContentPanel>
+      </div>
     </div>
   )
 }
@@ -601,6 +638,154 @@ function DashboardPanel({ title, description, children, className = '' }) {
   )
 }
 
+function DashboardHomeSection({ children, className = '' }) {
+  return (
+    <section className={`rounded-[1.35rem] border border-[#D9E6F5] bg-white shadow-[0_18px_52px_rgba(15,36,55,0.07)] ${className}`}>
+      {children}
+    </section>
+  )
+}
+
+function DashboardHeroStat({ label, value, icon: Icon = Sparkles, tone = 'blue' }) {
+  const tones = {
+    blue: 'text-[#2F80D8] bg-[#EAF4FF] ring-[#CDE4F8]',
+    green: 'text-emerald-700 bg-emerald-50 ring-emerald-100',
+    amber: 'text-amber-700 bg-amber-50 ring-amber-100',
+    cyan: 'text-cyan-700 bg-cyan-50 ring-cyan-100',
+  }
+  const valueText = String(value ?? '-')
+  const compactValue = valueText.length <= 12 || /^\d+%?$/.test(valueText)
+
+  return (
+    <article className="flex min-h-[5.8rem] items-center gap-3 rounded-[1rem] bg-white/72 px-3 py-3 shadow-[0_12px_30px_rgba(15,36,55,0.05)] ring-1 ring-[#D9E6F5]/80 backdrop-blur">
+      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ring-1 ${tones[tone] || tones.blue}`}>
+        <Icon size={16} />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-[11px] font-extrabold leading-tight text-[#52647A]">{label}</span>
+        <span className={`mt-1 block font-black leading-tight text-[#102A43] ${compactValue ? 'truncate font-mono text-lg' : 'line-clamp-2 text-sm'}`}>{valueText}</span>
+      </span>
+    </article>
+  )
+}
+
+function DashboardHeroVisual({ alt = 'Ilustrasi IsleLearn' }) {
+  return (
+    <div className="pointer-events-none absolute bottom-0 left-1/2 hidden w-[19rem] -translate-x-1/2 justify-center md:flex">
+      <img
+        src="/brand/islelearn-logo.png"
+        alt={alt}
+        className="h-32 w-32 translate-y-7 object-contain opacity-[0.18]"
+      />
+    </div>
+  )
+}
+
+function buildSparklineRows(value = 0, index = 0) {
+  const numericValue = Number.parseInt(String(value).replace(/\D/g, ''), 10) || 0
+  const base = Math.max(3, Math.min(18, numericValue || 4))
+  return Array.from({ length: 9 }, (_, pointIndex) => ({
+    name: pointIndex,
+    value: Math.max(1, Math.round(base + Math.sin((pointIndex + index) * 1.15) * 2 + pointIndex * 0.55 + (index % 3))),
+  }))
+}
+
+function DashboardMetricCard({ label, value, caption, icon: Icon = Sparkles, tone = 'blue', index = 0 }) {
+  const tones = {
+    blue: { icon: 'bg-[#0F67D9] text-white', stroke: '#0F67D9', surface: 'bg-[#F8FBFF]' },
+    green: { icon: 'bg-[#0EA66A] text-white', stroke: '#18A66F', surface: 'bg-[#F9FFFC]' },
+    amber: { icon: 'bg-[#F59E0B] text-white', stroke: '#F59E0B', surface: 'bg-[#FFFCF4]' },
+    rose: { icon: 'bg-[#E94360] text-white', stroke: '#E94360', surface: 'bg-[#FFF8FA]' },
+    purple: { icon: 'bg-[#8B5CF6] text-white', stroke: '#8B5CF6', surface: 'bg-[#FBFAFF]' },
+    cyan: { icon: 'bg-[#0891B2] text-white', stroke: '#0891B2', surface: 'bg-[#F7FDFF]' },
+  }
+  const selectedTone = tones[tone] || tones.blue
+  const chartRows = buildSparklineRows(value, index)
+
+  return (
+    <article className={`grid min-h-[7.4rem] grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-[1rem] border border-[#D9E6F5] ${selectedTone.surface} p-4 shadow-[0_12px_30px_rgba(15,36,55,0.045)] 2xl:grid-cols-[auto_minmax(0,1fr)_5.3rem]`}>
+      <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl ${selectedTone.icon} shadow-[0_12px_24px_rgba(15,36,55,0.12)]`}>
+        <Icon size={21} />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-extrabold leading-tight text-[#52647A]">{label}</span>
+        <span className="mt-1 block font-mono text-2xl font-black leading-tight text-[#102A43]">{value}</span>
+        <span className="mt-1 block line-clamp-2 text-xs font-bold leading-5 text-[#64748B]">{caption}</span>
+      </span>
+      <span className="hidden h-12 min-w-0 2xl:block" aria-hidden="true">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartRows}>
+            <Line type="monotone" dataKey="value" stroke={selectedTone.stroke} strokeWidth={2.5} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </span>
+    </article>
+  )
+}
+
+function DashboardMetricGrid({ items = [] }) {
+  return (
+    <DashboardHomeSection className="p-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {items.map((item, index) => <DashboardMetricCard key={item.label} {...item} index={index} />)}
+      </div>
+    </DashboardHomeSection>
+  )
+}
+
+function DashboardQuickActionRail({ title = 'Aksi Cepat', actions = [] }) {
+  return (
+    <DashboardHomeSection className="p-3">
+      <div className="grid gap-3 lg:grid-cols-[7rem_minmax(0,1fr)] lg:items-center">
+        <h2 className="text-base font-black text-[#102A43]">{title}</h2>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          {actions.map((action, index) => {
+            const Icon = action.icon || Sparkles
+            const tone = dashboardActionTones[index % dashboardActionTones.length]
+            return (
+              <button
+                key={action.label}
+                type="button"
+                onClick={action.onClick}
+                className={`group flex min-h-[4.4rem] flex-col items-center justify-center gap-1.5 rounded-[1rem] px-3 py-2 text-center ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(15,36,55,0.08)] ${tone}`}
+              >
+                <Icon size={21} />
+                <span className="line-clamp-2 text-xs font-black leading-tight">{action.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </DashboardHomeSection>
+  )
+}
+
+function DashboardContentPanel({ title, description, action, children, className = '' }) {
+  return (
+    <section className={`rounded-[1.15rem] border border-[#D9E6F5] bg-white p-4 shadow-[0_12px_34px_rgba(15,36,55,0.045)] ${className}`}>
+      {(title || description || action) && (
+        <header className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            {title && <h2 className="text-base font-black leading-tight text-[#102A43]">{title}</h2>}
+            {description && <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">{description}</p>}
+          </div>
+          {action}
+        </header>
+      )}
+      {children}
+    </section>
+  )
+}
+
+function DashboardMiniEmpty({ title, description }) {
+  return (
+    <div className="rounded-[1rem] border border-dashed border-[#B9D8F7] bg-[#F8FBFF] px-4 py-8 text-center">
+      <p className="text-sm font-black text-[#102A43]">{title}</p>
+      {description && <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-[#64748B]">{description}</p>}
+    </div>
+  )
+}
+
 function SetupSteps({ items = [] }) {
   return (
     <div className="space-y-2">
@@ -652,6 +837,16 @@ const studentSubjectFallbackTones = [
   'bg-[#F0F7FF] text-[#17446E] ring-[#B9D8F7]',
   'bg-[#EEF7FF] text-[#2F80D8] ring-[#B9D8F7]',
   'bg-[#ECFEFF] text-cyan-700 ring-cyan-100',
+]
+
+const dashboardActionTones = [
+  'bg-[#F2F7FF] text-[#0F67D9] ring-[#D9E6F5] hover:bg-[#EAF4FF]',
+  'bg-[#EFFBF6] text-emerald-700 ring-emerald-100 hover:bg-emerald-50',
+  'bg-[#FFF8E8] text-amber-700 ring-amber-100 hover:bg-amber-50',
+  'bg-[#F2F8FF] text-[#0F67D9] ring-[#D9E6F5] hover:bg-[#EAF4FF]',
+  'bg-[#FFF1F4] text-rose-700 ring-rose-100 hover:bg-rose-50',
+  'bg-[#F0FCFF] text-cyan-700 ring-cyan-100 hover:bg-cyan-50',
+  'bg-[#F2F8FF] text-[#087EA4] ring-[#D9E6F5] hover:bg-[#EAF4FF]',
 ]
 
 function LaptopIcon(props) {
@@ -4697,7 +4892,13 @@ function collectTeacherDashboardClassNames({ assignments = [], gradebookRows = [
 }
 
 function buildTeacherClassOverview({ assignments = [], gradebookRows = [], attendanceSessions = [], roster = [] }) {
-  const classNames = collectTeacherDashboardClassNames({ assignments, gradebookRows, attendanceSessions })
+  const classNamesFromActivity = collectTeacherDashboardClassNames({ assignments, gradebookRows, attendanceSessions })
+  const classNamesFromRoster = Array.from(new Set(
+    roster
+      .map((row) => promoteClassName(row.className))
+      .filter((className) => className && className !== 'Kelas umum'),
+  ))
+  const classNames = classNamesFromActivity.length ? classNamesFromActivity : classNamesFromRoster
 
   return classNames.slice(0, 6).map((className) => {
     const classGrades = gradebookRows.filter((row) => promoteClassName(row.className) === className)
@@ -4831,122 +5032,65 @@ function TeacherDashboardSkeleton() {
   )
 }
 
-function TeacherWorkflowHero({ teacherFirstName, subjectLabel, summary, actions = [] }) {
+function TeacherWorkflowHero({ teacherFirstName, subjectLabel, summary }) {
+  const heroStats = [
+    { label: 'Mapel diampu', value: summary.assignedSubjectCount || 0, icon: BookOpen, tone: 'blue' },
+    { label: 'Total kelas', value: summary.classesManaged || 0, icon: School, tone: 'green' },
+    { label: 'Siswa aktif', value: summary.studentActive || 0, icon: UsersRound, tone: 'cyan' },
+    { label: 'Bulan aktif', value: summary.monthLabel || '-', icon: CalendarClock, tone: 'green' },
+  ]
+
   return (
-    <section className="overflow-hidden rounded-[1.35rem] bg-[linear-gradient(135deg,#E0F2FE_0%,#F8FBFF_48%,#ECFDF5_100%)] p-4 shadow-[0_18px_52px_rgba(15,36,55,0.08)] ring-1 ring-[#D9E6F5]">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)] xl:items-stretch">
-        <div className="rounded-[1.1rem] bg-white/78 p-4 ring-1 ring-white/80">
+    <DashboardHomeSection className="overflow-hidden p-4 sm:p-5">
+      <div className="relative overflow-hidden rounded-[1.2rem] bg-[linear-gradient(135deg,#E7FAFF_0%,#F8FBFF_50%,#EFFBF6_100%)] px-5 py-5 ring-1 ring-[#D9E6F5] sm:px-6">
+        <DashboardHeroVisual alt="Logo IsleLearn" />
+        <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1fr)_31rem] xl:items-center">
           <div>
-            <p className="text-xs font-black uppercase text-[#2F80D8]">Ruang kerja guru</p>
-            <h2 className="mt-2 max-w-2xl text-balance text-3xl font-black leading-tight text-[#102A43] sm:text-[2.05rem]">
-              {teacherFirstName}, pilih pekerjaan utama hari ini.
+            <p className="text-sm font-black text-emerald-700">Selamat datang kembali,</p>
+            <h2 className="mt-2 max-w-2xl text-balance text-3xl font-black leading-tight text-[#102A43] sm:text-[2.35rem]">
+              {teacherFirstName}
             </h2>
             <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#52647A]">
-              Dashboard mengikuti data nyata yang guru buat. Tidak memakai jadwal tetap.
+              Dashboard ini merangkum aktivitas mengajar Anda. Kelola kelas, materi, tugas, dan pantau perkembangan siswa dengan mudah.
             </p>
+            <div className="mt-4 inline-flex max-w-full rounded-xl bg-white/72 px-3 py-2 text-xs font-black text-[#17446E] ring-1 ring-[#CDE4F8]">
+              <span className="truncate">{subjectLabel}</span>
+            </div>
           </div>
-
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            <span className="truncate rounded-xl bg-white/82 px-3 py-2 text-xs font-black text-[#17446E] ring-1 ring-[#CDE4F8]">{subjectLabel}</span>
-            <span className="rounded-xl bg-white/82 px-3 py-2 text-xs font-black text-emerald-800 ring-1 ring-emerald-100">{summary.activeAssignments} tugas aktif</span>
-            <span className="rounded-xl bg-white/82 px-3 py-2 text-xs font-black text-amber-800 ring-1 ring-amber-100">{summary.submissions} submission</span>
-          </div>
-        </div>
-
-        <div className="rounded-[1.1rem] bg-white/78 p-3 ring-1 ring-white/80">
-          <div className="mb-3 flex items-center justify-between gap-3 px-1">
-            <p className="text-xs font-black uppercase text-[#17446E]">Fitur sering dibuka</p>
-            <span className="rounded-lg bg-[#EAF4FF] px-2.5 py-1 text-[11px] font-black text-[#2F80D8] ring-1 ring-[#CDE4F8]">Aksi utama</span>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {actions.slice(0, 4).map((action, index) => {
-              const Icon = action.icon
-              return (
-                <button key={action.label} onClick={action.onClick} className={`group flex min-h-[5.1rem] items-center gap-2.5 rounded-[1rem] bg-gradient-to-br p-2.5 text-left shadow-[0_12px_28px_rgba(15,36,55,0.06)] ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,36,55,0.1)] ${teacherWorkflowTones[index % teacherWorkflowTones.length]}`}>
-                  <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-white/85 ring-1 ring-white/80">
-                    <Icon size={17} />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-black leading-tight">{action.label}</span>
-                    <span className="mt-1 block truncate text-xs font-bold opacity-75">{action.caption}</span>
-                  </span>
-                </button>
-              )
-            })}
+          <div className="grid gap-2 sm:grid-cols-2">
+            {heroStats.map((item) => <DashboardHeroStat key={item.label} {...item} />)}
           </div>
         </div>
       </div>
-    </section>
+    </DashboardHomeSection>
   )
 }
 
 function TeacherDashboardStatsStrip({ items = [] }) {
-  return (
-    <section className="rounded-[1.1rem] bg-white p-2 shadow-[0_10px_28px_rgba(15,36,55,0.045)] ring-1 ring-[#D9E6F5]" aria-label="Ringkasan statistik guru">
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {items.map(({ label, value, caption, icon: Icon = Sparkles }) => (
-          <div key={label} className="flex min-h-16 items-center gap-3 rounded-[0.95rem] bg-[#F8FBFF] px-3 py-2 ring-1 ring-[#E5EDF7]">
-            <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-white text-[#2F80D8] ring-1 ring-[#D9E6F5]">
-              <Icon size={17} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-baseline gap-2">
-                <span className="font-mono text-xl font-black leading-none text-[#132437]">{value}</span>
-                <span className="truncate text-xs font-black text-[#64748B]">{label}</span>
-              </span>
-              <span className="mt-1 block truncate text-xs font-semibold text-[#64748B]">{caption}</span>
-            </span>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
+  return <DashboardMetricGrid items={items} />
 }
 
 function TeacherDashboardActionStrip({ actions = [] }) {
-  return (
-    <section className="rounded-[1.1rem] bg-white p-2.5 shadow-[0_10px_28px_rgba(15,36,55,0.045)] ring-1 ring-[#D9E6F5]">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-xs font-black uppercase text-[#17446E]">Aksi lanjutan</p>
-        <span className="rounded-lg bg-[#F8FBFF] px-2.5 py-1 text-[11px] font-black text-[#64748B] ring-1 ring-[#D9E6F5]">{actions.length} menu</span>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {actions.map((action, index) => {
-          const Icon = action.icon
-          return (
-            <button key={action.label} onClick={action.onClick} className={`group flex min-h-14 items-center gap-2.5 rounded-[0.9rem] bg-gradient-to-br px-3 py-2 text-left ring-1 transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,36,55,0.08)] ${teacherWorkflowTones[index % teacherWorkflowTones.length]}`}>
-              <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl bg-white/82 ring-1 ring-white/80">
-                <Icon size={16} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-black leading-tight">{action.label}</span>
-                <span className="mt-0.5 block truncate text-xs font-bold opacity-75">{action.caption}</span>
-              </span>
-              <span className="hidden rounded-lg bg-white/62 px-2 py-1 text-[10px] font-black ring-1 ring-white/70 2xl:inline-flex">{action.badge}</span>
-            </button>
-          )
-        })}
-      </div>
-    </section>
-  )
+  return <DashboardQuickActionRail title="Aksi Cepat" actions={actions} />
 }
 
 function TeacherAttentionSection({ items = [], onNavigate }) {
   const attentionGridClass = items.length > 1 ? 'grid gap-2 xl:grid-cols-2' : 'grid gap-2'
 
   return (
-    <DashboardPanel title="Perlu dikerjakan" description="Dibaca dari data materi, tugas, kuis, absensi, nilai, dan bank soal guru.">
+    <section className="rounded-[1.15rem] border border-rose-100 bg-[linear-gradient(135deg,#FFF7F8_0%,#FFFFFF_100%)] p-4 shadow-[0_12px_34px_rgba(225,29,72,0.06)]">
+      <h2 className="text-base font-black text-rose-700">Perlu dikerjakan</h2>
       {items.length ? (
-        <div className={attentionGridClass}>
+        <div className={`mt-3 ${attentionGridClass}`}>
           {items.map((item) => <TeacherAttentionItem key={item.id} item={item} onNavigate={onNavigate} />)}
         </div>
       ) : (
-        <div className="rounded-[1rem] bg-emerald-50 p-4 text-emerald-900 ring-1 ring-emerald-100">
+        <div className="mt-3 rounded-[1rem] bg-emerald-50 p-4 text-emerald-900 ring-1 ring-emerald-100">
           <p className="text-sm font-black">Belum ada pekerjaan tertunda dari data saat ini.</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-emerald-800/80">Gunakan tombol kerja cepat untuk membuat materi, tugas, kuis, absensi mapel, atau input nilai.</p>
         </div>
       )}
-    </DashboardPanel>
+    </section>
   )
 }
 
@@ -4962,7 +5106,7 @@ function TeacherAttentionItem({ item, onNavigate }) {
     soal: 'bg-cyan-50 text-cyan-700 ring-cyan-100',
   }
   return (
-    <article className="grid gap-3 rounded-[1rem] bg-[#F8FBFF] p-3 ring-1 ring-[#D9E6F5] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+    <article className="grid gap-3 rounded-[1rem] bg-white p-3 ring-1 ring-rose-100 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
       <span className={`grid h-11 w-11 place-items-center rounded-[0.9rem] ring-1 ${tones[item.type] || tones.nilai}`}>
         <Icon size={18} />
       </span>
@@ -4970,7 +5114,7 @@ function TeacherAttentionItem({ item, onNavigate }) {
         <h3 className="text-sm font-black leading-tight text-[#132437]">{item.title}</h3>
         <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{item.meta}</p>
       </div>
-      <button onClick={() => onNavigate(item.target)} className="inline-flex min-h-10 items-center justify-center rounded-[0.8rem] bg-[#F8FBFF] px-3 text-xs font-black text-[#0B3A5B] ring-1 ring-[#D9E6F5] transition hover:bg-[#EAF4FF]">
+      <button onClick={() => onNavigate(item.target)} className="inline-flex min-h-10 items-center justify-center rounded-[0.8rem] bg-white px-3 text-xs font-black text-[#0B3A5B] ring-1 ring-[#D9E6F5] transition hover:bg-[#EAF4FF]">
         {item.actionLabel}
       </button>
     </article>
@@ -4979,11 +5123,14 @@ function TeacherAttentionItem({ item, onNavigate }) {
 
 function TeacherSubjectWorkflow({ rows = [], onNavigate }) {
   return (
-    <DashboardPanel title="Mapel yang diampu" description="Mapel mengikuti data guru. Tidak perlu memilih mapel lagi di dashboard.">
+    <DashboardContentPanel
+      title="Mapel yang diampu"
+      action={<button onClick={() => onNavigate('/guru/materi')} className="rounded-xl bg-[#F8FBFF] px-3 py-2 text-xs font-black text-[#0F67D9] ring-1 ring-[#D9E6F5] hover:bg-[#EAF4FF]">Kelola mapel</button>}
+    >
       {rows.length ? (
         <div className="space-y-3">
           {rows.map((row) => (
-            <article key={row.subject} className={`grid gap-4 rounded-[1rem] bg-gradient-to-br p-4 ring-1 md:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] md:items-center ${row.tone}`}>
+            <article key={row.subject} className={`rounded-[1rem] bg-gradient-to-br p-4 ring-1 ${row.tone}`}>
               <div className="flex min-w-0 items-center gap-3">
                 <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-xl bg-white/82 ring-1 ring-white/80">
                   <BookOpen size={20} />
@@ -4993,7 +5140,7 @@ function TeacherSubjectWorkflow({ rows = [], onNavigate }) {
                   <span className="mt-1 inline-flex rounded-lg bg-white/70 px-2.5 py-1 text-[11px] font-black ring-1 ring-white/70">{row.materials} materi publish</span>
                 </span>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-4 grid grid-cols-2 gap-2">
                 <button onClick={() => onNavigate('/guru/tugas')} className="rounded-xl bg-white/68 px-3 py-2 text-left text-xs font-black ring-1 ring-white/80">{row.activeAssignments} tugas aktif</button>
                 <button onClick={() => onNavigate('/guru/kuis-live')} className="rounded-xl bg-white/68 px-3 py-2 text-left text-xs font-black ring-1 ring-white/80">{row.quizzes} kuis publish</button>
                 <button onClick={() => onNavigate('/guru/bank-soal')} className="rounded-xl bg-white/68 px-3 py-2 text-left text-xs font-black ring-1 ring-white/80">{row.questions} soal</button>
@@ -5003,27 +5150,27 @@ function TeacherSubjectWorkflow({ rows = [], onNavigate }) {
           ))}
         </div>
       ) : (
-        <EmptyState title="Mapel guru belum terdeteksi" description="Admin dapat melengkapi mapel pada data guru agar dashboard hanya menampilkan alur kerja sesuai mapel yang diampu." />
+        <DashboardMiniEmpty title="Mapel guru belum terdeteksi" description="Admin dapat melengkapi mapel pada data guru agar dashboard hanya menampilkan alur kerja sesuai mapel yang diampu." />
       )}
-    </DashboardPanel>
+    </DashboardContentPanel>
   )
 }
 
 function ClassOverviewGrid({ rows = [], onOpen }) {
   return (
-    <DashboardPanel title="Kelas yang sedang dikelola" description="Muncul hanya bila ada data tugas, absensi mapel, atau nilai yang terkait kelas.">
+    <DashboardContentPanel
+      title="Kelas yang sedang dikelola"
+      action={<button onClick={() => onOpen()} className="rounded-xl bg-[#F8FBFF] px-3 py-2 text-xs font-black text-[#0F67D9] ring-1 ring-[#D9E6F5] hover:bg-[#EAF4FF]">Lihat semua</button>}
+    >
       {rows.length ? (
-        <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2">
           {rows.map((row) => (
-            <button key={row.className} onClick={() => onOpen(row.className)} className="group rounded-[1rem] bg-[#F8FBFF] p-4 text-left ring-1 ring-[#D9E6F5] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_16px_34px_rgba(15,36,55,0.08)]">
+            <button key={row.className} onClick={() => onOpen(row.className)} className="group rounded-[1rem] bg-[#F8FBFF] p-3 text-left ring-1 ring-[#D9E6F5] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_16px_34px_rgba(15,36,55,0.08)]">
               <div className="flex items-start justify-between gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-[0.9rem] bg-white text-[#2F80D8] ring-1 ring-[#D9E6F5]">
-                  <School size={19} />
-                </span>
-                <span className="font-mono text-2xl font-black text-[#132437]">{row.average || '-'}</span>
+                <h3 className="min-w-0 text-sm font-black leading-tight text-[#132437]">{row.className}</h3>
+                <span className="font-mono text-base font-black text-[#132437]">{row.average || '-'}</span>
               </div>
-              <h3 className="mt-4 text-base font-black leading-tight text-[#132437]">{row.className}</h3>
-              <p className="mt-1 text-xs font-semibold text-[#64748B]">{row.studentCount || '-'} siswa · {row.assignmentCount} tugas</p>
+              <p className="mt-2 text-xs font-semibold text-[#64748B]">{row.studentCount || '-'} siswa · {row.assignmentCount} tugas</p>
               <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#EAF4FF]">
                 <span className="block h-full rounded-full bg-[#2F80D8]" style={{ width: `${Math.min(100, row.attendanceRate || 0)}%` }} />
               </div>
@@ -5032,15 +5179,18 @@ function ClassOverviewGrid({ rows = [], onOpen }) {
           ))}
         </div>
       ) : (
-        <EmptyState title="Belum ada kelas aktif dari data guru" description="Kelas akan muncul setelah guru membuat tugas, mengisi absensi mapel, atau menginput daftar nilai." />
+        <DashboardMiniEmpty title="Belum ada kelas aktif" description="Kelas muncul setelah guru membuat tugas, mengisi absensi mapel, atau menginput daftar nilai." />
       )}
-    </DashboardPanel>
+    </DashboardContentPanel>
   )
 }
 
 function TeacherActivityFeed({ rows = [], onNavigate }) {
   return (
-    <DashboardPanel title="Aktivitas terakhir" description="Aktivitas tersimpan yang punya tanggal perubahan.">
+    <DashboardContentPanel
+      title="Aktivitas terakhir"
+      action={<button onClick={() => onNavigate('/guru/daftar-hadir')} className="rounded-xl bg-[#F8FBFF] px-3 py-2 text-xs font-black text-[#0F67D9] ring-1 ring-[#D9E6F5] hover:bg-[#EAF4FF]">Lihat semua</button>}
+    >
       {rows.length ? (
         <div className="space-y-2">
           {rows.map((row) => {
@@ -5060,11 +5210,9 @@ function TeacherActivityFeed({ rows = [], onNavigate }) {
           })}
         </div>
       ) : (
-        <div className="rounded-[1rem] bg-[#F8FBFF] p-4 text-sm font-semibold leading-6 text-[#64748B] ring-1 ring-[#D9E6F5]">
-          Belum ada aktivitas bertanggal dari materi, tugas, kuis, absensi, atau nilai.
-        </div>
+        <DashboardMiniEmpty title="Belum ada aktivitas terbaru" description="Aktivitas bertanggal dari materi, tugas, kuis, absensi, atau nilai akan muncul di sini." />
       )}
-    </DashboardPanel>
+    </DashboardContentPanel>
   )
 }
 
@@ -5143,11 +5291,20 @@ function GuruDashboard({ user }) {
       const attendanceSummary = summarizeAttendanceSessions(monthAttendanceSessions)
       const gradeSummary = summarizeGradebook(gradebookRows)
       const submissions = getTeacherAssignmentSubmissionCount(teacherAssignments)
+      const classRows = buildTeacherClassOverview({
+        assignments: teacherAssignments,
+        gradebookRows,
+        attendanceSessions,
+        roster,
+      })
+      const activeClassNames = new Set(classRows.map((row) => row.className).filter(Boolean))
+      const rosterClassNames = new Set(roster.map((row) => row.className).filter(Boolean))
+      const managedStudentCount = classRows.reduce((total, row) => total + (Number(row.studentCount) || 0), 0)
 
       return {
         error: null,
         teacherSubjectLabel,
-        teacherFirstName: (user?.name?.split(' ')[0] || 'Guru').replace(/[,.]+$/, ''),
+        teacherFirstName: user?.name || 'Guru',
         summary: {
           materials: publishedMaterials.length,
           activeAssignments: activeAssignments.length,
@@ -5161,6 +5318,10 @@ function GuruDashboard({ user }) {
           gradeReadyRate: gradeSummary.readyRate,
           gradeCompleted: gradeSummary.completed,
           gradeTotal: gradeSummary.total,
+          assignedSubjectCount: hasAssignedSubjects ? teacherSubjectOptions.length : 0,
+          classesManaged: activeClassNames.size || rosterClassNames.size,
+          studentActive: managedStudentCount || roster.length,
+          monthLabel: monthRange.label,
         },
         attentionItems: buildTeacherAttentionItems({
           draftMaterials,
@@ -5180,12 +5341,7 @@ function GuruDashboard({ user }) {
           gradebookRows,
           attendanceSessions,
         }),
-        classRows: buildTeacherClassOverview({
-          assignments: teacherAssignments,
-          gradebookRows,
-          attendanceSessions,
-          roster,
-        }),
+        classRows,
         activityRows: buildTeacherRecentActivities({
           materials: teacherMaterials,
           assignments: teacherAssignments,
@@ -5217,20 +5373,14 @@ function GuruDashboard({ user }) {
         teacherFirstName={dashboard.teacherFirstName}
         subjectLabel={dashboard.teacherSubjectLabel}
         summary={dashboard.summary}
-        actions={[
-          { label: 'Tulis materi', caption: `${dashboard.summary.materials} materi publish`, icon: PencilLine, onClick: () => navigate('/guru/materi') },
-          { label: 'Isi absensi mapel', caption: `${dashboard.summary.attendanceRecorded} data bulan ini`, icon: CalendarClock, onClick: () => navigate('/guru/daftar-hadir') },
-          { label: 'Input daftar nilai', caption: `${dashboard.summary.gradeReadyRate}% nilai terisi`, icon: BarChart3, onClick: () => navigate('/guru/daftar-nilai') },
-          { label: 'Buka bank soal', caption: `${dashboard.summary.questionRows} soal tersedia`, icon: FileQuestion, onClick: () => navigate('/guru/bank-soal') },
-        ]}
       />
 
       <TeacherDashboardStatsStrip
         items={[
-          { label: 'Materi publish', value: dashboard.summary.materials, caption: 'sesuai mapel guru', icon: BookOpen },
-          { label: 'Tugas aktif', value: dashboard.summary.activeAssignments, caption: `${dashboard.summary.draftAssignments} draft · ${dashboard.summary.submissions} submission`, icon: ClipboardCheck },
-          { label: 'Kuis publish', value: dashboard.summary.publishedQuizzes, caption: 'siap dikerjakan siswa', icon: FileQuestion },
-          { label: 'Nilai terisi', value: `${dashboard.summary.gradeReadyRate}%`, caption: `${dashboard.summary.gradeCompleted}/${dashboard.summary.gradeTotal} nilai`, icon: BarChart3 },
+          { label: 'Materi publish', value: dashboard.summary.materials, caption: 'sesuai mapel guru', icon: BookOpen, tone: 'blue' },
+          { label: 'Tugas aktif', value: dashboard.summary.activeAssignments, caption: `${dashboard.summary.draftAssignments} draft · ${dashboard.summary.submissions} submission`, icon: ClipboardCheck, tone: 'green' },
+          { label: 'Kuis publish', value: dashboard.summary.publishedQuizzes, caption: 'siap dikerjakan siswa', icon: FileQuestion, tone: 'amber' },
+          { label: 'Nilai terisi', value: `${dashboard.summary.gradeReadyRate}%`, caption: `${dashboard.summary.gradeCompleted}/${dashboard.summary.gradeTotal} nilai`, icon: BarChart3, tone: 'purple' },
         ]}
       />
 
@@ -5248,16 +5398,11 @@ function GuruDashboard({ user }) {
 
       <TeacherAttentionSection items={dashboard.attentionItems} onNavigate={navigate} />
 
-      <TeacherSubjectWorkflow rows={dashboard.subjectRows} onNavigate={navigate} />
-
-      {(dashboard.activityRows.length > 0 || dashboard.classRows.length > 0) ? (
-        <div className={`grid items-start gap-5 ${dashboard.activityRows.length > 0 && dashboard.classRows.length > 0 ? 'xl:grid-cols-2' : ''}`}>
-          {dashboard.activityRows.length > 0 && <TeacherActivityFeed rows={dashboard.activityRows} onNavigate={navigate} />}
-          {dashboard.classRows.length > 0 && <ClassOverviewGrid rows={dashboard.classRows} onOpen={() => navigate('/guru/kelas')} />}
-        </div>
-      ) : (
-        <TeacherDashboardGuideCard onNavigate={navigate} />
-      )}
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,0.95fr)_minmax(0,1.25fr)]">
+        <TeacherSubjectWorkflow rows={dashboard.subjectRows} onNavigate={navigate} />
+        <TeacherActivityFeed rows={dashboard.activityRows} onNavigate={navigate} />
+        <ClassOverviewGrid rows={dashboard.classRows} onOpen={() => navigate('/guru/kelas')} />
+      </div>
     </div>
   )
 }
