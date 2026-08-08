@@ -211,8 +211,9 @@ export const teachers = [
   { id: 'teacher-hj-husnaeni', name: 'Hj. HUSNAENI, S.Pd', nip: '197303272023212005', subject: 'BP/BK' },
 ]
 export const classes = [
-  { id: 'class-x-aisyah-binti-abu-bakar', name: 'X Aisyah Binti Abu Bakar', grade: 10, students: 0, average: 0, progress: 0 },
-  { id: 'class-x-khadijah-binti-khuwailid', name: 'X Khadijah Binti Khuwailid', grade: 10, students: 0, average: 0, progress: 0 },
+  { id: 'class-x-aisyah-binti-abu-bakar', name: 'X Aisyah Binti Abu Bakar', grade: 10, students: 20, average: 0, progress: 0 },
+  { id: 'class-x-aminah-binti-wahab', name: 'X Aminah Binti Wahab', grade: 10, students: 20, average: 0, progress: 0 },
+  { id: 'class-x-khadijah-binti-khuwailid', name: 'X Khadijah Binti Khuwailid', grade: 10, students: 21, average: 0, progress: 0 },
   { id: 'class-xi-pangeran-diponegoro', name: 'XI Utsman Bin Affan', grade: 11, students: 24, average: 0, progress: 0 },
   { id: 'class-xi-soeharto', name: 'XI Ali Bin Abi Thalib', grade: 11, students: 25, average: 0, progress: 0 },
   { id: 'class-xii-jenderal-sudirman', name: 'XII Abu Bakar As Siddiq', grade: 12, students: 27, average: 0, progress: 0 },

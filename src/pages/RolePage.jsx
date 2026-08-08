@@ -3580,6 +3580,28 @@ const attendanceTypeOptions = [
 ]
 
 const gradeFormatClassRoster = {
+  'X Aisyah Binti Abu Bakar': [
+    ['AMIRA KAESYA PUTRI', 'P'], ['ASRI MUTMAINNAH', 'P'], ['ASYIFA FITRAYUNI NUR', 'P'], ['AYU ANGRAENI', 'P'],
+    ['DIMAS SEPTIADI', 'L'], ['EKA NOVITA FITRI', 'P'], ['ELSHI HASRUNI', 'P'], ['HARIS', 'L'],
+    ['HUSNUL KHATIMAH', 'P'], ['JUITA NIRMALA PUTRI', 'P'], ['KURNIATI', 'P'], ['MIAWATI', 'P'],
+    ['MIFTAHUL JANNA', 'P'], ['MUHAMMAD AKBAR', 'L'], ['MUHAMMAD FADIL SAHBANI', 'L'], ['MUHAMMAD SAYID', 'L'],
+    ['NUR ASIYFAH', 'P'], ['RISKY', 'L'], ['SARLIN', 'L'], ['SITTI AISYAH', 'P'],
+  ],
+  'X Aminah Binti Wahab': [
+    ['ALIM BAHRI', 'L'], ['ANTIKA', 'P'], ['CANTIKA', 'P'], ['HARTINI', 'P'],
+    ['ISNIL FATIMA', 'P'], ['JUMRAWATI', 'P'], ['LUTFI JUANDA', 'L'], ['MINARTI', 'P'],
+    ['MIRDA', 'P'], ['MUH. ABIYAN LUTHFI', 'L'], ['NIA RAMADANI', 'P'], ['NUR HALISNA', 'P'],
+    ['NURFADILA', 'L'], ['RAMA SAPUTRA', 'L'], ['RINI AYU RAMADANI', 'P'], ['SAHRIL', 'L'],
+    ['SAKINAH', 'P'], ['SHALSABILA RIFKA', 'P'], ['SULAIMAN', 'L'], ['WAHYU', 'L'],
+  ],
+  'X Khadijah Binti Khuwailid': [
+    ['AQSHA MAULANA', 'L'], ['ASRIANTI', 'P'], ['CITRA AYU', 'P'], ['DINA RAMADHANI', 'P'],
+    ['ELSA NURALIZAH', 'P'], ['GISEL', 'P'], ['HADIJA', 'P'], ['JUTAWAN RAHMAN', 'L'],
+    ['MUH. AJZA', 'L'], ['MUH. ASHAR', 'L'], ['MUHAMMAD MARFIN', 'L'], ['NASRIL AHMAD', 'L'],
+    ['NURUL ISTIQOMAH', 'P'], ['PUTRI ABEL LESTARI', 'P'], ['RATU AYU NIRMALASARI', 'P'], ['RESKI ILAHI', 'L'],
+    ['SARTIA', 'P'], ['SARTIKA CAHYANI', 'P'], ['SITTI AMINAH', 'P'], ['SOFIAN SUDIRMAN', 'L'],
+    ['TIARA AYU WULANDARI', 'P'],
+  ],
   'XI Utsman Bin Affan': [
     ['ABD. WAHAB', 'L'], ['ADAM PUTRA PERDANA', 'L'], ['AL HUSNA', 'P'], ['ANDI NUR SALAM', 'L'],
     ['ASLAM', 'L'], ['BERLIAN', 'P'], ['DANDI BARATA', 'L'], ['KRISDAYANTI', 'P'],
