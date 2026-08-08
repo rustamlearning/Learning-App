@@ -384,7 +384,6 @@ function SiswaDashboard({ user, notify }) {
     <div className="space-y-4">
       <DashboardHomeSection className="overflow-hidden p-4 sm:p-5">
         <div className="relative overflow-hidden rounded-[1.2rem] bg-[linear-gradient(135deg,#E7FAFF_0%,#F8FBFF_48%,#EFFBF6_100%)] px-5 py-5 ring-1 ring-[#D9E6F5] sm:px-6">
-          <DashboardHeroVisual alt="Logo IsleLearn" />
           <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1fr)_28rem] xl:items-center">
             <div>
               <p className="text-sm font-black text-emerald-700">Selamat belajar kembali,</p>
@@ -666,18 +665,6 @@ function DashboardHeroStat({ label, value, icon: Icon = Sparkles, tone = 'blue' 
         <span className={`mt-1 block font-black leading-tight text-[#102A43] ${compactValue ? 'truncate font-mono text-lg' : 'line-clamp-2 text-sm'}`}>{valueText}</span>
       </span>
     </article>
-  )
-}
-
-function DashboardHeroVisual({ alt = 'Ilustrasi IsleLearn' }) {
-  return (
-    <div className="pointer-events-none absolute bottom-0 left-1/2 hidden w-[19rem] -translate-x-1/2 justify-center md:flex">
-      <img
-        src="/brand/islelearn-logo.png"
-        alt={alt}
-        className="h-32 w-32 translate-y-7 object-contain opacity-[0.18]"
-      />
-    </div>
   )
 }
 
@@ -5043,7 +5030,6 @@ function TeacherWorkflowHero({ teacherFirstName, subjectLabel, summary }) {
   return (
     <DashboardHomeSection className="overflow-hidden p-4 sm:p-5">
       <div className="relative overflow-hidden rounded-[1.2rem] bg-[linear-gradient(135deg,#E7FAFF_0%,#F8FBFF_50%,#EFFBF6_100%)] px-5 py-5 ring-1 ring-[#D9E6F5] sm:px-6">
-        <DashboardHeroVisual alt="Logo IsleLearn" />
         <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1fr)_31rem] xl:items-center">
           <div>
             <p className="text-sm font-black text-emerald-700">Selamat datang kembali,</p>
