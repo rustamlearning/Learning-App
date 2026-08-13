@@ -3831,6 +3831,14 @@ function normalizeAttendanceRosterRows(rows = []) {
     .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'id-ID', { sensitivity: 'base' }))
 }
 
+function getRosterRequestErrorMessage(error) {
+  if (/jwt expired/i.test(String(error?.message || ''))) {
+    return 'Sesi server sedang diperbarui. Muat ulang atau login ulang jika data roster belum muncul.'
+  }
+
+  return error?.message || 'Roster Supabase belum terbaca.'
+}
+
 function getAttendanceClassOptions(roster, classRows = []) {
   const adminClasses = normalizeClassLookupRows([
     ...getLocalAdminCollection('classes', classes),
@@ -3876,7 +3884,7 @@ function useAttendanceRosterReference(appContext) {
         if (active) {
           setClassRows(localAttendanceClasses)
           setRoster(localAttendanceRoster)
-          setError(loadError.message)
+          setError(getRosterRequestErrorMessage(loadError))
         }
       } finally {
         if (active) setLoading(false)
@@ -5542,7 +5550,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
         if (active) {
           setAttendanceClassRows(localAttendanceClasses)
           setRoster(localAttendanceRoster)
-          setRosterError(loadError.message)
+          setRosterError(getRosterRequestErrorMessage(loadError))
         }
       } finally {
         if (active) setLoadingRoster(false)

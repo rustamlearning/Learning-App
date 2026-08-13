@@ -4,7 +4,9 @@ import {
   getLoginEmailsByIdentifier,
   getProfileByAuthUserId,
   isSupabaseConfigured,
+  isJwtExpiredError,
   normalizeLoginIdentifier,
+  refreshSession,
   signInWithPassword,
   signOut,
 } from '../services/supabaseClient.js'
@@ -35,6 +37,9 @@ const LEGACY_DEMO_PURGE_KEY = LEGACY_DEMO_PURGE_STORAGE_KEY
 const LEGACY_DEMO_KEYS = [LEGACY_AUTH_STORAGE_KEY, LEGACY_SUPABASE_SESSION_STORAGE_KEY]
 const LEGACY_DEMO_PREFIXES = Object.values(STORAGE_SUFFIX).map((suffix) => legacyStorageKey(suffix))
 const TEACHER_PASSWORD_STORAGE_KEY = 'islelearn-teacher-passwords-v1'
+const SESSION_REFRESH_MARGIN_MS = 2 * 60 * 1000
+const SESSION_REFRESH_RETRY_MS = 30 * 1000
+const DEFAULT_SESSION_EXPIRES_IN_SECONDS = 60 * 60
 const LOCAL_PREVIEW_USERS = {
   siswa: {
     id: 'local-preview-siswa',
@@ -99,16 +104,15 @@ export function AuthProvider({ children }) {
           const rawSession = localStorage.getItem(SUPABASE_SESSION_KEY)
 
           if (rawSession) {
-            const storedSession = JSON.parse(rawSession)
-            const authUser = await getCurrentAuthUser(storedSession.access_token)
-            const profile = await getProfileByAuthUserId(authUser.id, storedSession.access_token)
+            const { session: restoredSession, authUser, profile } = await restoreSupabaseSession(JSON.parse(rawSession))
 
             if (!profile && !isDemoAuthEnabled()) {
               throw new Error('Profil pengguna belum terdaftar di database sekolah.')
             }
 
             if (active) {
-              setSession(storedSession)
+              localStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(restoredSession))
+              setSession(restoredSession)
               setUser(hydrateUserFromSharedSchoolData(toAppUser(authUser, profile)))
             }
 
@@ -143,6 +147,71 @@ export function AuthProvider({ children }) {
       active = false
     }
   }, [])
+
+  useEffect(() => {
+    if (!session?.refresh_token || !isSupabaseConfigured() || !isRemoteDataEnabled()) return undefined
+
+    let active = true
+    let refreshTimer = null
+    let refreshing = false
+
+    function clearRefreshTimer() {
+      if (!refreshTimer) return
+      window.clearTimeout(refreshTimer)
+      refreshTimer = null
+    }
+
+    async function refreshActiveSession() {
+      if (!active || refreshing) return
+
+      refreshing = true
+      clearRefreshTimer()
+
+      try {
+        const refreshedSession = normalizeSupabaseSession(await refreshSession(session.refresh_token), session)
+        if (!active) return
+
+        localStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(refreshedSession))
+        localStorage.removeItem(STORAGE_KEY)
+        setSession(refreshedSession)
+      } catch (error) {
+        if (!active) return
+
+        if (isExpiredRefreshSessionError(error)) {
+          localStorage.removeItem(SUPABASE_SESSION_KEY)
+          localStorage.removeItem(STORAGE_KEY)
+          setSession(null)
+          setUser(null)
+          return
+        }
+
+        refreshTimer = window.setTimeout(refreshActiveSession, SESSION_REFRESH_RETRY_MS)
+      } finally {
+        refreshing = false
+      }
+    }
+
+    function scheduleRefresh() {
+      clearRefreshTimer()
+      refreshTimer = window.setTimeout(refreshActiveSession, getSessionRefreshDelay(session))
+    }
+
+    function refreshWhenVisible() {
+      if (document.visibilityState === 'hidden') return
+      if (shouldRefreshSupabaseSession(session)) refreshActiveSession()
+    }
+
+    scheduleRefresh()
+    window.addEventListener('focus', refreshWhenVisible)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+
+    return () => {
+      active = false
+      clearRefreshTimer()
+      window.removeEventListener('focus', refreshWhenVisible)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [session])
 
   useEffect(() => subscribeToSharedSchoolDataChanges(() => {
     setUser((currentUser) => {
@@ -195,7 +264,7 @@ export function AuthProvider({ children }) {
     if (isSupabaseConfigured()) {
       try {
         const authEmails = await getRemoteLoginEmailCandidates(normalized, teacherByNip)
-        const supabaseSession = await signInWithFirstWorkingEmail(authEmails, password)
+        const supabaseSession = normalizeSupabaseSession(await signInWithFirstWorkingEmail(authEmails, password))
         const profile = await getProfileByAuthUserId(supabaseSession.user.id, supabaseSession.access_token)
 
         if (!profile && !isDemoAuthEnabled()) {
@@ -300,6 +369,93 @@ export function AuthProvider({ children }) {
   }), [user, loading, session])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+async function restoreSupabaseSession(storedSession) {
+  let activeSession = await refreshSupabaseSessionIfNeeded(storedSession)
+
+  try {
+    const authUser = await getCurrentAuthUser(activeSession.access_token)
+    const profile = await getProfileByAuthUserId(authUser.id, activeSession.access_token)
+    return { session: activeSession, authUser, profile }
+  } catch (error) {
+    if (!isJwtExpiredError(error) || !activeSession?.refresh_token) throw error
+
+    activeSession = normalizeSupabaseSession(await refreshSession(activeSession.refresh_token), activeSession)
+    const authUser = await getCurrentAuthUser(activeSession.access_token)
+    const profile = await getProfileByAuthUserId(authUser.id, activeSession.access_token)
+    return { session: activeSession, authUser, profile }
+  }
+}
+
+async function refreshSupabaseSessionIfNeeded(session) {
+  const normalizedSession = normalizeSupabaseSession(session)
+  if (!shouldRefreshSupabaseSession(normalizedSession)) return normalizedSession
+
+  if (!normalizedSession?.refresh_token) {
+    throw new Error('Sesi login sudah berakhir. Silakan masuk ulang.')
+  }
+
+  return normalizeSupabaseSession(await refreshSession(normalizedSession.refresh_token), normalizedSession)
+}
+
+function normalizeSupabaseSession(session, previousSession = {}) {
+  if (!session) return null
+
+  const expiresIn = Number(session.expires_in || previousSession?.expires_in || DEFAULT_SESSION_EXPIRES_IN_SECONDS)
+  const expiresAt = Number(
+    session.expires_at
+    || readJwtExpiresAt(session.access_token)
+    || previousSession?.expires_at
+    || Math.floor(Date.now() / 1000) + expiresIn
+  )
+
+  return {
+    ...previousSession,
+    ...session,
+    expires_in: expiresIn,
+    expires_at: expiresAt,
+    refresh_token: session.refresh_token || previousSession?.refresh_token,
+    token_type: session.token_type || previousSession?.token_type || 'bearer',
+  }
+}
+
+function shouldRefreshSupabaseSession(session) {
+  if (!session?.access_token) return true
+  return getSessionExpiresAtMs(session) - Date.now() <= SESSION_REFRESH_MARGIN_MS
+}
+
+function getSessionRefreshDelay(session) {
+  return Math.max(getSessionExpiresAtMs(session) - Date.now() - SESSION_REFRESH_MARGIN_MS, 0)
+}
+
+function getSessionExpiresAtMs(session) {
+  const expiresAt = Number(session?.expires_at || readJwtExpiresAt(session?.access_token))
+  return expiresAt ? expiresAt * 1000 : Date.now()
+}
+
+function readJwtExpiresAt(accessToken) {
+  try {
+    const payload = String(accessToken || '').split('.')[1]
+    if (!payload || typeof atob !== 'function') return 0
+
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const paddedBase64 = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
+    return Number(JSON.parse(atob(paddedBase64)).exp) || 0
+  } catch (error) {
+    return 0
+  }
+}
+
+function isExpiredRefreshSessionError(error) {
+  const message = String(error?.message || '').toLowerCase()
+  return [400, 401, 403].includes(Number(error?.status))
+    && (
+      message.includes('refresh token')
+      || message.includes('invalid_grant')
+      || message.includes('expired')
+      || message.includes('not found')
+    )
 }
 
 async function getRemoteLoginEmailCandidates(identifier, teacherByNip) {
