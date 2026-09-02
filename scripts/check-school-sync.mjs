@@ -8,11 +8,14 @@ class MemoryStorage {
   }
 
   setItem(key, value) {
-    this.#rows.set(key, String(value))
+    const textValue = String(value)
+    this.#rows.set(key, textValue)
+    this[key] = textValue
   }
 
   removeItem(key) {
     this.#rows.delete(key)
+    delete this[key]
   }
 
   key(index) {
@@ -37,6 +40,7 @@ globalThis.localStorage = new MemoryStorage()
 globalThis.window = new EventTarget()
 
 const {
+  readLocalRowsByPrefix,
   safeWriteLocalJson,
   setLocalAdminProfiles,
   subscribeToSharedSchoolDataChanges,
@@ -65,6 +69,19 @@ assert.equal(changedKeys.at(-1), 'islelearn-daily-tasks-school', 'Tugas harian s
 safeWriteLocalJson('islelearn-attendance-school', [{ id: 'attendance-1', date: '2026-08-01' }])
 await flushEvents()
 assert.equal(changedKeys.at(-1), 'islelearn-attendance-school', 'Absensi sekolah harus memicu sinkronisasi akun lokal.')
+
+safeWriteLocalJson('sea-learning-attendance-local-preview-guru', [{ id: 'legacy-attendance-1', date: '2026-08-02' }])
+await flushEvents()
+assert.equal(changedKeys.at(-1), 'sea-learning-attendance-local-preview-guru', 'Absensi legacy harus memicu sinkronisasi akun lokal.')
+assert.deepEqual(
+  readLocalRowsByPrefix('sea-learning-attendance-').map((item) => item.id),
+  ['legacy-attendance-1'],
+  'Absensi legacy harus tetap dapat dibaca untuk pemulihan.'
+)
+
+safeWriteLocalJson('sea-learning-daily-tasks-local-preview-guru', [{ id: 'legacy-daily-task-1', title: 'Tugas lama' }])
+await flushEvents()
+assert.equal(changedKeys.at(-1), 'sea-learning-daily-tasks-local-preview-guru', 'Tugas harian legacy harus memicu sinkronisasi akun lokal.')
 
 const storageEvent = new Event('storage')
 Object.defineProperty(storageEvent, 'key', { value: 'islelearn-admin-classes' })

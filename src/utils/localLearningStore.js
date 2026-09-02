@@ -6,6 +6,8 @@ const SHARED_SCHOOL_DATA_KEYS = [
   'islelearn-homeroom-assignments',
   'islelearn-attendance-',
   'islelearn-daily-tasks-',
+  'sea-learning-attendance-',
+  'sea-learning-daily-tasks-',
 ]
 
 export function readLocalRowsByPrefix(prefix) {

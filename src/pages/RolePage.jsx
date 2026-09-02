@@ -3717,6 +3717,7 @@ function getGradeFormatRoster() {
   ))
 }
 
+const attendanceStoragePrefixes = ['islelearn-attendance-', 'sea-learning-attendance-']
 const schoolAttendanceStorageKey = 'islelearn-attendance-school'
 
 function attendanceStorageKey(user) {
@@ -3769,13 +3770,22 @@ function dedupeAttendanceSessions(rows = []) {
       session.subject || '',
       session.lessonTime || '',
     ].join('|')
-    byScope.set(key, session)
+    const storedSession = byScope.get(key)
+    if (!storedSession || getStoredSessionTimestamp(session) >= getStoredSessionTimestamp(storedSession)) {
+      byScope.set(key, session)
+    }
   })
   return Array.from(byScope.values()).sort((a, b) => String(b.updatedAt || b.date || '').localeCompare(String(a.updatedAt || a.date || '')))
 }
 
+function getStoredSessionTimestamp(session = {}) {
+  const value = Date.parse(session.updatedAt || session.createdAt || session.date || '')
+  return Number.isNaN(value) ? 0 : value
+}
+
 function getAttendanceSessions(user) {
   return dedupeAttendanceSessions([
+    ...attendanceStoragePrefixes.flatMap((prefix) => readLocalRowsByPrefix(prefix)),
     ...safeReadLocalJson(schoolAttendanceStorageKey, []),
     ...safeReadLocalJson(attendanceStorageKey(user), []),
   ])
@@ -4739,7 +4749,7 @@ function getTeacherDashboardAssignments(user, subjectOptions = []) {
 }
 
 function getTeacherDashboardDailyTasks(user, subjectOptions = []) {
-  return filterRowsByTeacherSubjects(dedupeDailyTaskSessions(readLocalRowsByPrefix('islelearn-daily-tasks-')), user, subjectOptions)
+  return filterRowsByTeacherSubjects(dedupeDailyTaskSessions(dailyTaskStoragePrefixes.flatMap((prefix) => readLocalRowsByPrefix(prefix))), user, subjectOptions)
 }
 
 function getTeacherDashboardQuizzes(user, subjectOptions = []) {
@@ -5461,6 +5471,15 @@ function GuruDaftarHadir({ user, notify, appContext }) {
   const [lessonTime, setLessonTime] = useState('07.30 - 09.00')
   const [sessions, setSessions] = useState(() => getAttendanceSessions(user))
   const [attendanceDirty, setAttendanceDirty] = useState(false)
+
+  useEffect(() => {
+    const restoredSessions = getAttendanceSessions(user)
+    setSessions(restoredSessions)
+    if (restoredSessions.length > 0) {
+      setAttendanceSessions(user, restoredSessions)
+    }
+  }, [user?.id])
+
   const fillClassOptions = useMemo(() => attendanceType === 'daily' && user?.role === 'guru' && homeroomClasses.length
     ? homeroomClasses
     : classOptions, [attendanceType, classOptions, homeroomClasses, user?.role])
@@ -6115,6 +6134,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
 
 const dailyTaskTypes = ['Nilai Harian', 'Tugas', 'Praktek', 'Proyek', 'LKPD', 'Kuis Singkat', 'Portofolio']
 const dailyTaskKktp = 75
+const dailyTaskStoragePrefixes = ['islelearn-daily-tasks-', 'sea-learning-daily-tasks-']
 const dailyTaskSchoolStorageKey = 'islelearn-daily-tasks-school'
 
 function dailyTaskStorageKey(user) {
@@ -6188,13 +6208,17 @@ function dedupeDailyTaskSessions(rows = []) {
   rows.forEach((row) => {
     const session = normalizeDailyTaskSession(row)
     if (isLegacyPreviewClassName(session.className)) return
-    byId.set(session.id, session)
+    const storedSession = byId.get(session.id)
+    if (!storedSession || getStoredSessionTimestamp(session) >= getStoredSessionTimestamp(storedSession)) {
+      byId.set(session.id, session)
+    }
   })
   return Array.from(byId.values()).sort((left, right) => String(right.updatedAt || right.date || '').localeCompare(String(left.updatedAt || left.date || '')))
 }
 
 function getDailyTaskSessions(user) {
   return dedupeDailyTaskSessions([
+    ...dailyTaskStoragePrefixes.flatMap((prefix) => readLocalRowsByPrefix(prefix)),
     ...safeReadLocalJson(dailyTaskSchoolStorageKey, []),
     ...safeReadLocalJson(dailyTaskStorageKey(user), []),
   ])
@@ -6382,6 +6406,14 @@ function GuruTugasHarian({ user, notify, appContext }) {
   const summary = summarizeDailyTaskRows(rows, maxScore)
   const recapRows = buildDailyTaskStudentRecap(rosterForClass, monthSessions)
   const teacherSubjectLabel = getTeacherSubjectNames(user).length ? subjectOptions.join(', ') : 'Semua mapel'
+
+  useEffect(() => {
+    const restoredSessions = getDailyTaskSessions(user)
+    setSessions(restoredSessions)
+    if (restoredSessions.length > 0) {
+      setDailyTaskSessions(user, restoredSessions)
+    }
+  }, [user?.id])
 
   useEffect(() => {
     if (!classOptions.includes(selectedClass) && classOptions[0]) setSelectedClass(classOptions[0])
@@ -8632,7 +8664,7 @@ function getReportGradebookRows(user) {
 function getReportAttendanceSessions(user) {
   return filterAttendanceSessionsByMode(uniqueRowsById([
     ...getAttendanceSessions(user),
-    ...readLocalRowsByPrefix('islelearn-attendance-').map(normalizeAttendanceSession),
+    ...attendanceStoragePrefixes.flatMap((prefix) => readLocalRowsByPrefix(prefix)).map(normalizeAttendanceSession),
   ]).filter((session) => !isLegacyPreviewClassName(session.className)), { type: 'daily' })
 }
 
