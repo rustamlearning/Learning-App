@@ -33,10 +33,7 @@ async function request(path, { method = 'GET', body, accessToken, headers = {} }
 
   if (!response.ok) {
     const message = data?.error_description || data?.msg || data?.message || 'Request Supabase gagal.'
-    const error = new Error(message)
-    error.status = response.status
-    error.data = data
-    throw error
+    throw new Error(message)
   }
 
   return data
@@ -46,17 +43,6 @@ export async function signInWithPassword(email, password) {
   return request('/auth/v1/token?grant_type=password', {
     method: 'POST',
     body: { email, password },
-  })
-}
-
-export async function refreshSession(refreshToken) {
-  if (!refreshToken) {
-    throw new Error('Sesi login sudah berakhir. Silakan masuk ulang.')
-  }
-
-  return request('/auth/v1/token?grant_type=refresh_token', {
-    method: 'POST',
-    body: { refresh_token: refreshToken },
   })
 }
 
@@ -173,8 +159,4 @@ export async function deleteRows(tableName, filters = {}, accessToken) {
 
 export function normalizeLoginIdentifier(value) {
   return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ')
-}
-
-export function isJwtExpiredError(error) {
-  return /jwt expired/i.test(String(error?.message || ''))
 }
