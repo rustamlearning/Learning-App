@@ -111,13 +111,16 @@ async function checkSchemaReadiness() {
     'create or replace function resolve_login_email',
     'Students can insert own submissions',
     'Students can insert quiz attempts',
+    'create table if not exists attendance_sessions',
+    'create table if not exists attendance_rows',
+    'Teachers and admins can manage attendance sessions',
   ]
   const missing = requiredSnippets.filter((snippet) => !schema.includes(snippet))
 
   if (missing.length > 0) {
     issues.push(`supabase/schema.sql belum memuat hardening terbaru: ${missing.join(', ')}.`)
   } else {
-    checks.push('supabase/schema.sql memuat RPC login alias dan policy submission/quiz.')
+    checks.push('supabase/schema.sql memuat RPC login alias, policy submission/quiz, dan tabel absensi.')
   }
 }
 

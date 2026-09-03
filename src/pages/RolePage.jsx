@@ -87,8 +87,9 @@ import { AIChatPanel, AIGeneratorPanel, BadgeCard, DailyMissionCard, FlashcardDe
 import { fetchMaterialLookups, fetchMaterials, fetchStudentMaterialProgress, markMaterialCompleted, removeMaterial, saveMaterial } from '../services/materialService.js'
 import { fetchQuestions, removeQuestion, saveQuestion } from '../services/questionService.js'
 import { fetchQuizAttempts, fetchQuizQuestions, fetchQuizzes, fetchStudentRecord, removeQuiz, saveQuiz, submitQuizAttempt } from '../services/quizService.js'
-import { exportBackupData, fetchAdminStudents, fetchAdminTeachers, fetchClasses, fetchSubjects, removeAdminStudent, removeAdminTeacher, removeClass, saveAdminStudent, saveAdminTeacher, saveClass } from '../services/adminService.js'
+import { exportBackupData, fetchAdminStudents, fetchAdminTeachers, fetchClasses, fetchSubjects, removeAdminStudent, removeAdminTeacher, removeClass, saveAdminStudent, saveAdminTeacher, saveClass, saveClassHomeroomTeacher } from '../services/adminService.js'
 import { createAssignmentSubmission, fetchAssignmentSubmissions, fetchAssignments, removeAssignment, saveAssignment } from '../services/assignmentService.js'
+import { attendanceScopeKey, deleteAttendanceSessionFromSupabase, fetchAttendanceSessions, saveAttendanceSession, saveAttendanceSessions } from '../services/attendanceService.js'
 import {
   isExternalMaterialType,
   isHtmlMaterialType,
@@ -125,7 +126,10 @@ import {
   getHomeroomAssignmentForUser,
   getHomeroomAssignments,
   getHomeroomClassesForUser,
+  getHomeroomClassesForUserFromAssignments,
   isTeacherHomeroom,
+  buildHomeroomAssignmentsFromClasses,
+  mergeHomeroomAssignments,
   promoteHomeroomClassName,
   setHomeroomAssignments,
 } from '../utils/homeroomAccess.js'
@@ -145,6 +149,28 @@ export default function RolePage({ role, page }) {
   useEffect(() => subscribeToSharedSchoolDataChanges(() => {
     setSchoolDataRevision((revision) => revision + 1)
   }), [])
+
+  useEffect(() => {
+    if (!accessToken || !['admin', 'guru', 'pimpinan'].includes(user?.role)) return undefined
+
+    let active = true
+
+    async function loadAttendanceCache() {
+      try {
+        const remoteSessions = await fetchAttendanceSessions({ accessToken })
+        if (!active || remoteSessions.length === 0) return
+        const mergedSessions = mergeAttendanceSessionsByFreshness(getAttendanceSessions(user), remoteSessions)
+        setAttendanceSessions(user, mergedSessions)
+      } catch {
+        // Layar daftar hadir menampilkan status sinkronisasi yang lebih spesifik.
+      }
+    }
+
+    loadAttendanceCache()
+    return () => {
+      active = false
+    }
+  }, [accessToken, user?.id, user?.role])
 
   const content = useMemo(() => {
     if (role === 'siswa') return renderSiswa(page, user, notify, { accessToken, supabaseEnabled })
@@ -225,7 +251,7 @@ function renderAdmin(page, user, notify, setConfirmOpen, appContext) {
   if (page === 'guru') return <AdminProfiles role="guru" title="Data Guru" notify={notify} appContext={appContext} />
   if (page === 'siswa') return <AdminProfiles role="siswa" title="Data Siswa" notify={notify} appContext={appContext} />
   if (page === 'kelas') return <AdminKelas notify={notify} appContext={appContext} />
-  if (page === 'wali-kelas') return <AdminWaliKelas notify={notify} />
+  if (page === 'wali-kelas') return <AdminWaliKelas notify={notify} appContext={appContext} />
   if (page === 'mapel') return <AdminMapel notify={notify} appContext={appContext} />
   if (page === 'daftar-hadir') return <GuruDaftarHadir user={user} notify={notify} appContext={appContext} />
   if (page === 'pengaturan') return <Pengaturan notify={notify} />
@@ -3565,15 +3591,15 @@ const attendanceStatuses = ['Hadir', 'Izin', 'Sakit', 'Alpa']
 const attendanceTypeOptions = [
   {
     value: 'daily',
-    label: 'Daftar Hadir Harian',
-    shortLabel: 'Harian',
+    label: 'Absensi Wali Kelas',
+    shortLabel: 'Wali Kelas',
     actor: 'Wali kelas',
     description: 'Absensi resmi harian yang diisi wali kelas.',
   },
   {
     value: 'subject',
-    label: 'Daftar Hadir Mapel',
-    shortLabel: 'Per Mapel',
+    label: 'Absensi Mapel',
+    shortLabel: 'Mapel',
     actor: 'Guru mapel',
     description: 'Absensi setiap pertemuan saat guru mengajar di kelas.',
   },
@@ -3674,10 +3700,13 @@ function normalizeClassLookupRows(rows = []) {
   normalizedRows.forEach((row) => {
     const className = promoteClassName(row?.name || row?.className || row?.class_name || '')
     if (!className || isLegacyPreviewClassName(className)) return
+    const homeroomTeacherId = row?.homeroomTeacherId || row?.homeroom_teacher_id || row?.homeroomTeacher?.id || ''
     byName.set(className, {
       ...row,
       name: className,
       grade: gradeLevelFromClassName(className, row?.grade || row?.level || ''),
+      homeroomTeacherId,
+      homeroom_teacher_id: homeroomTeacherId || null,
     })
   })
 
@@ -3798,6 +3827,61 @@ function setAttendanceSessions(user, rows) {
   return schoolSaved && userSaved
 }
 
+function attendanceSupabaseBackupKey(user) {
+  return `islelearn-supabase-attendance-backup-${user?.id || 'school'}`
+}
+
+function getAttendanceSessionTimestamp(session = {}) {
+  const candidates = [session.updatedAt, session.syncedAt, session.createdAt, session.date]
+  for (const candidate of candidates) {
+    const timestamp = Date.parse(candidate)
+    if (!Number.isNaN(timestamp)) return timestamp
+  }
+  return 0
+}
+
+function mergeAttendanceSessionsByFreshness(...sessionGroups) {
+  const byScope = new Map()
+
+  sessionGroups.flat().forEach((row) => {
+    if (!row) return
+    const session = normalizeAttendanceSession(row)
+    if (isLegacyPreviewClassName(session.className)) return
+    const key = session.scopeKey || attendanceScopeKey(session)
+    const current = byScope.get(key)
+    const nextRows = session.rows?.length ? session.rows : current?.rows || []
+    const nextSession = { ...(current || {}), ...session, scopeKey: key, rows: nextRows }
+
+    if (!current || getAttendanceSessionTimestamp(nextSession) >= getAttendanceSessionTimestamp(current)) {
+      byScope.set(key, nextSession)
+    }
+  })
+
+  return Array.from(byScope.values()).sort((a, b) => getAttendanceSessionTimestamp(b) - getAttendanceSessionTimestamp(a))
+}
+
+function backupAttendanceSessionsBeforeSupabaseSync(user, sessions = []) {
+  const normalizedRows = dedupeAttendanceSessions(sessions)
+  if (normalizedRows.length === 0) return true
+  const existingBackup = safeReadLocalJson(attendanceSupabaseBackupKey(user), null)
+  return safeWriteLocalJson(attendanceSupabaseBackupKey(user), {
+    createdAt: existingBackup?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sessions: normalizedRows,
+  })
+}
+
+function getAttendanceSupabaseErrorMessage(error) {
+  const message = String(error?.message || '')
+  if (/relation .*attendance_sessions.*does not exist/i.test(message) || /Could not find the table .*attendance_sessions/i.test(message)) {
+    return 'Tabel absensi Supabase belum dibuat. Jalankan migration absensi dulu, lalu buka ulang halaman.'
+  }
+  if (/jwt expired/i.test(message)) {
+    return 'Sesi server sedang diperbarui. Muat ulang atau login ulang bila sinkronisasi belum lanjut.'
+  }
+  return message || 'Sinkronisasi Supabase belum berhasil.'
+}
+
 function toLocalIsoDate(date = new Date()) {
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
   return localDate.toISOString().slice(0, 10)
@@ -3839,6 +3923,14 @@ function normalizeAttendanceRosterRows(rows = []) {
       gender: item.gender || item.sex || item.jk || '',
     }))
     .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'id-ID', { sensitivity: 'base' }))
+}
+
+function getRosterRequestErrorMessage(error) {
+  if (/jwt expired/i.test(String(error?.message || ''))) {
+    return 'Sesi server sedang diperbarui. Muat ulang atau login ulang jika data roster belum muncul.'
+  }
+
+  return error?.message || 'Roster Supabase belum terbaca.'
 }
 
 function getAttendanceClassOptions(roster, classRows = []) {
@@ -3886,7 +3978,7 @@ function useAttendanceRosterReference(appContext) {
         if (active) {
           setClassRows(localAttendanceClasses)
           setRoster(localAttendanceRoster)
-          setError(loadError.message)
+          setError(getRosterRequestErrorMessage(loadError))
         }
       } finally {
         if (active) setLoading(false)
@@ -5442,16 +5534,24 @@ function GuruDashboard({ user }) {
 function GuruDaftarHadir({ user, notify, appContext }) {
   const localAttendanceRoster = useMemo(() => getAttendanceRoster(), [])
   const localAttendanceClasses = useMemo(() => normalizeClassLookupRows(getLocalAdminCollection('classes', classes)), [])
+  const localAttendanceSubjects = useMemo(() => normalizeMaterialSubjectRows(getLocalAdminCollection('subjects', subjects)), [])
   const [roster, setRoster] = useState(localAttendanceRoster)
   const [attendanceClassRows, setAttendanceClassRows] = useState(localAttendanceClasses)
+  const [attendanceSubjectRows, setAttendanceSubjectRows] = useState(localAttendanceSubjects)
   const [loadingRoster, setLoadingRoster] = useState(Boolean(appContext?.accessToken))
   const [rosterError, setRosterError] = useState('')
+  const [attendanceSyncState, setAttendanceSyncState] = useState(appContext?.accessToken ? 'checking' : 'local')
+  const [attendanceSyncMessage, setAttendanceSyncMessage] = useState('')
   const classOptions = useMemo(() => getAttendanceClassOptions(roster, attendanceClassRows), [attendanceClassRows, roster])
   const teacherSubjectOptions = useMemo(() => getTeacherSubjectNames(user), [user])
   const subjectOptionsForAttendance = useMemo(() => (
     teacherSubjectOptions.length ? teacherSubjectOptions : subjects.map((subject) => subject.name)
   ), [teacherSubjectOptions])
-  const homeroomClasses = useMemo(() => getHomeroomClassesForUser(user), [user])
+  const homeroomAssignments = useMemo(() => mergeHomeroomAssignments(
+    getHomeroomAssignments(),
+    buildHomeroomAssignmentsFromClasses(attendanceClassRows),
+  ), [attendanceClassRows])
+  const homeroomClasses = useMemo(() => getHomeroomClassesForUserFromAssignments(user, homeroomAssignments), [homeroomAssignments, user])
   const canFillDailyAttendance = user?.role === 'admin' || homeroomClasses.length > 0
   const canFillSubjectAttendance = user?.role === 'guru'
   const availableAttendanceTypes = useMemo(() => attendanceTypeOptions.filter((option) => (
@@ -5540,6 +5640,10 @@ function GuruDaftarHadir({ user, notify, appContext }) {
       if (!appContext?.accessToken) {
         setRoster(localAttendanceRoster)
         setAttendanceClassRows(localAttendanceClasses)
+        setAttendanceSubjectRows(localAttendanceSubjects)
+        setSessions(getAttendanceSessions(user))
+        setAttendanceSyncState('local')
+        setAttendanceSyncMessage('')
         setLoadingRoster(false)
         setRosterError('')
         return
@@ -5547,21 +5651,78 @@ function GuruDaftarHadir({ user, notify, appContext }) {
 
       try {
         setLoadingRoster(true)
-        const [serverClasses, serverStudents] = await Promise.all([
+        setAttendanceSyncState('checking')
+        setAttendanceSyncMessage('')
+        const [serverClasses, serverStudents, serverSubjects] = await Promise.all([
           fetchClasses({ accessToken: appContext.accessToken }),
           fetchAdminStudents({ accessToken: appContext.accessToken }),
+          fetchSubjects({ accessToken: appContext.accessToken }),
         ])
+        const normalizedClassRows = normalizeClassLookupRows(serverClasses.length > 0 ? serverClasses : localAttendanceClasses)
+        const normalizedRosterRows = normalizeAttendanceRosterRows(serverStudents.length > 0 ? serverStudents : localAttendanceRoster)
+        const normalizedSubjectRows = normalizeMaterialSubjectRows(serverSubjects.length > 0 ? serverSubjects : localAttendanceSubjects)
+        const localSessions = getAttendanceSessions(user)
+        let remoteSessions = []
+        let remoteAttendanceError = null
+
+        try {
+          remoteSessions = await fetchAttendanceSessions({ accessToken: appContext.accessToken })
+        } catch (loadAttendanceError) {
+          remoteAttendanceError = loadAttendanceError
+        }
 
         if (active) {
-          setAttendanceClassRows(normalizeClassLookupRows(serverClasses.length > 0 ? serverClasses : localAttendanceClasses))
-          setRoster(normalizeAttendanceRosterRows(serverStudents.length > 0 ? serverStudents : localAttendanceRoster))
+          const mergedSessions = mergeAttendanceSessionsByFreshness(localSessions, remoteSessions)
+          if (localSessions.length > 0) backupAttendanceSessionsBeforeSupabaseSync(user, localSessions)
+          setAttendanceClassRows(normalizedClassRows)
+          setAttendanceSubjectRows(normalizedSubjectRows)
+          setRoster(normalizedRosterRows)
+          setSessions(mergedSessions)
+          setAttendanceSessions(user, mergedSessions)
           setRosterError('')
+
+          if (remoteAttendanceError) {
+            setAttendanceSyncState('pending')
+            setAttendanceSyncMessage(getAttendanceSupabaseErrorMessage(remoteAttendanceError))
+          } else {
+            setAttendanceSyncState('synced')
+            setAttendanceSyncMessage('Supabase aktif. Rekaman absensi lama dan baru dibaca dari database sekolah.')
+          }
+        }
+
+        if (!remoteAttendanceError && localSessions.length > 0) {
+          try {
+            const savedRemoteSessions = await saveAttendanceSessions({
+              accessToken: appContext.accessToken,
+              sessions: mergeAttendanceSessionsByFreshness(localSessions, remoteSessions),
+              user,
+              classRows: normalizedClassRows,
+              subjectRows: normalizedSubjectRows,
+            })
+
+            if (active) {
+              const syncedSessions = mergeAttendanceSessionsByFreshness(localSessions, remoteSessions, savedRemoteSessions)
+              setSessions(syncedSessions)
+              setAttendanceSessions(user, syncedSessions)
+              setAttendanceSyncState('synced')
+              setAttendanceSyncMessage('Supabase aktif. Semua rekaman absensi lokal sudah disalin ke database sekolah.')
+            }
+          } catch (syncError) {
+            if (active) {
+              setAttendanceSyncState('pending')
+              setAttendanceSyncMessage(`Data lokal tetap aman. Sinkronisasi Supabase tertunda: ${getAttendanceSupabaseErrorMessage(syncError)}`)
+            }
+          }
         }
       } catch (loadError) {
         if (active) {
           setAttendanceClassRows(localAttendanceClasses)
+          setAttendanceSubjectRows(localAttendanceSubjects)
           setRoster(localAttendanceRoster)
-          setRosterError(loadError.message)
+          setSessions(getAttendanceSessions(user))
+          setAttendanceSyncState('pending')
+          setAttendanceSyncMessage('Data lokal tetap aman. Supabase belum bisa memuat roster absensi.')
+          setRosterError(getRosterRequestErrorMessage(loadError))
         }
       } finally {
         if (active) setLoadingRoster(false)
@@ -5572,7 +5733,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
     return () => {
       active = false
     }
-  }, [appContext?.accessToken, localAttendanceClasses, localAttendanceRoster])
+  }, [appContext?.accessToken, localAttendanceClasses, localAttendanceRoster, localAttendanceSubjects, user])
 
   useEffect(() => {
     if (!availableAttendanceTypes.some((option) => option.value === attendanceType) && availableAttendanceTypes[0]) {
@@ -5688,7 +5849,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
     setRows((currentRows) => currentRows.map((row) => ({ ...row, status })))
   }
 
-  function saveAttendance() {
+  async function saveAttendance() {
     if (!canEditCurrentAttendance) {
       notify('Akun ini hanya dapat melihat rekap kehadiran, bukan mengisi daftar hadir pada mode ini.')
       return
@@ -5707,14 +5868,43 @@ function GuruDaftarHadir({ user, notify, appContext }) {
         note: row.note,
       })),
     })
-    const saved = setAttendanceSessions(user, nextSessions)
-    if (!saved) {
+    const savedLocally = setAttendanceSessions(user, nextSessions)
+    setSessions(nextSessions)
+    setAttendanceDirty(false)
+
+    if (!savedLocally && !appContext?.accessToken) {
       notify('Absensi belum tersimpan. Ruang penyimpanan browser penuh atau akses storage diblokir.')
       return
     }
-    setSessions(nextSessions)
-    setAttendanceDirty(false)
-    notify('Daftar hadir berhasil disimpan.')
+
+    if (!appContext?.accessToken) {
+      notify('Daftar hadir berhasil disimpan di perangkat ini.')
+      return
+    }
+
+    try {
+      setAttendanceSyncState('checking')
+      setAttendanceSyncMessage('Menyimpan absensi ke Supabase...')
+      const savedRemoteSession = await saveAttendanceSession({
+        accessToken: appContext.accessToken,
+        session: nextSessions.find((item) => attendanceSessionMatchesScope(item, draftSession)) || draftSession,
+        user,
+        classRows: attendanceClassRows,
+        subjectRows: attendanceSubjectRows,
+      })
+      const syncedSessions = mergeAttendanceSessionsByFreshness(nextSessions, [savedRemoteSession])
+      setSessions(syncedSessions)
+      setAttendanceSessions(user, syncedSessions)
+      setAttendanceSyncState('synced')
+      setAttendanceSyncMessage('Supabase aktif. Daftar hadir terakhir sudah tersimpan di database sekolah.')
+      notify('Daftar hadir berhasil disimpan ke Supabase.')
+    } catch (syncError) {
+      setAttendanceSyncState('pending')
+      setAttendanceSyncMessage(`Data lokal tetap aman. Sinkronisasi Supabase tertunda: ${getAttendanceSupabaseErrorMessage(syncError)}`)
+      notify(savedLocally
+        ? 'Daftar hadir tersimpan lokal. Sinkronisasi Supabase tertunda.'
+        : 'Absensi belum aman di Supabase maupun penyimpanan lokal. Coba ulangi setelah koneksi pulih.')
+    }
   }
 
   function restoreSavedAttendance() {
@@ -5727,7 +5917,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
     notify(savedSession ? 'Perubahan dibatalkan. Daftar hadir kembali ke data terakhir tersimpan.' : 'Perubahan dibatalkan. Daftar hadir kembali kosong.')
   }
 
-  function deleteSavedAttendance() {
+  async function deleteSavedAttendance() {
     if (!canEditCurrentAttendance) {
       notify('Akun ini hanya dapat melihat rekap kehadiran, bukan menghapus daftar hadir pada mode ini.')
       return
@@ -5746,6 +5936,22 @@ function GuruDaftarHadir({ user, notify, appContext }) {
     const confirmed = window.confirm(`Hapus daftar hadir untuk ${scopeLabel}?\n\nData tanggal ini akan kembali kosong dan dapat diisi ulang.`)
     if (!confirmed) return
 
+    if (appContext?.accessToken) {
+      try {
+        setAttendanceSyncState('checking')
+        setAttendanceSyncMessage('Menghapus isian tanggal ini dari Supabase...')
+        await deleteAttendanceSessionFromSupabase({
+          accessToken: appContext.accessToken,
+          session: savedSession,
+        })
+      } catch (syncError) {
+        setAttendanceSyncState('pending')
+        setAttendanceSyncMessage(`Penghapusan dibatalkan agar data Supabase tidak berbeda: ${getAttendanceSupabaseErrorMessage(syncError)}`)
+        notify('Daftar hadir belum dihapus karena Supabase belum mengonfirmasi penghapusan.')
+        return
+      }
+    }
+
     const nextSessions = removeAttendanceSession(sessions, draftSession)
     const saved = setAttendanceSessions(user, nextSessions)
     if (!saved) {
@@ -5755,6 +5961,10 @@ function GuruDaftarHadir({ user, notify, appContext }) {
     setSessions(nextSessions)
     setRows(buildAttendanceRows(rosterForClass, []))
     setAttendanceDirty(false)
+    if (appContext?.accessToken) {
+      setAttendanceSyncState('synced')
+      setAttendanceSyncMessage('Supabase aktif. Isian tanggal yang dipilih sudah dihapus dari database sekolah.')
+    }
     notify('Daftar hadir pada tanggal ini sudah dihapus. Silakan isi ulang bila diperlukan.')
   }
 
@@ -5802,6 +6012,18 @@ function GuruDaftarHadir({ user, notify, appContext }) {
       {rosterError && (
         <div className="rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
           Supabase belum mengirim data siswa absensi: {rosterError}. Data lokal ditampilkan sementara.
+        </div>
+      )}
+
+      {attendanceSyncMessage && (
+        <div className={`rounded-2xl p-3 text-sm font-semibold ring-1 ${
+          attendanceSyncState === 'pending'
+            ? 'bg-amber-50 text-amber-800 ring-amber-100'
+            : attendanceSyncState === 'checking'
+              ? 'bg-sky-50 text-sky-800 ring-sky-100'
+              : 'bg-emerald-50 text-emerald-800 ring-emerald-100'
+        }`}>
+          {attendanceSyncMessage}
         </div>
       )}
 
@@ -13778,11 +14000,68 @@ function AdminDashboard() {
   )
 }
 
-function AdminWaliKelas({ notify }) {
-  const classRows = useMemo(() => normalizeClassLookupRows(getLocalAdminCollection('classes', classes)), [])
-  const teacherRows = useMemo(() => normalizeTeacherProfileRows(getLocalAdminProfiles('guru', teachers.map((teacher) => ({ ...teacher, role: 'guru' })))), [])
-  const [rows, setRows] = useState(() => buildHomeroomAssignmentRows(classRows, teacherRows))
+function AdminWaliKelas({ notify, appContext }) {
+  const localClassRows = useMemo(() => normalizeClassLookupRows(getLocalAdminCollection('classes', classes)), [])
+  const localTeacherRows = useMemo(() => normalizeTeacherProfileRows(getLocalAdminProfiles('guru', teachers.map((teacher) => ({ ...teacher, role: 'guru' })))), [])
+  const [classRows, setClassRows] = useState(localClassRows)
+  const [teacherRows, setTeacherRows] = useState(localTeacherRows)
+  const [rows, setRows] = useState(() => buildHomeroomAssignmentRows(localClassRows, localTeacherRows))
+  const [loading, setLoading] = useState(Boolean(appContext?.accessToken))
+  const [error, setError] = useState('')
   const assignedCount = rows.filter((row) => row.teacherId || row.teacherNip || row.teacherName).length
+
+  useEffect(() => {
+    let active = true
+
+    async function loadHomeroomAssignments() {
+      if (!appContext?.accessToken) {
+        const nextRows = buildHomeroomAssignmentRows(localClassRows, localTeacherRows)
+        setClassRows(localClassRows)
+        setTeacherRows(localTeacherRows)
+        setRows(nextRows)
+        setLoading(false)
+        setError('')
+        return
+      }
+
+      try {
+        setLoading(true)
+        const [remoteClasses, remoteTeachers] = await Promise.all([
+          fetchClasses({ accessToken: appContext.accessToken }),
+          fetchAdminTeachers({ accessToken: appContext.accessToken }),
+        ])
+        if (!active) return
+
+        const normalizedClasses = normalizeClassLookupRows(remoteClasses.length > 0 ? remoteClasses : localClassRows)
+        const normalizedTeachers = normalizeTeacherProfileRows(remoteTeachers.length > 0 ? remoteTeachers : localTeacherRows)
+        const remoteAssignments = buildHomeroomAssignmentsFromClasses(normalizedClasses, normalizedTeachers, { includeUnassigned: true })
+        const assignmentRows = buildHomeroomAssignmentRows(normalizedClasses, normalizedTeachers, remoteAssignments)
+
+        setHomeroomAssignments(assignmentRows)
+        setLocalAdminCollection('classes', normalizedClasses)
+        setLocalAdminProfiles('guru', normalizedTeachers)
+        setClassRows(normalizedClasses)
+        setTeacherRows(normalizedTeachers)
+        setRows(assignmentRows)
+        setError('')
+      } catch (loadError) {
+        if (!active) return
+
+        const nextRows = buildHomeroomAssignmentRows(localClassRows, localTeacherRows)
+        setClassRows(localClassRows)
+        setTeacherRows(localTeacherRows)
+        setRows(nextRows)
+        setError(loadError.message)
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadHomeroomAssignments()
+    return () => {
+      active = false
+    }
+  }, [appContext?.accessToken, localClassRows, localTeacherRows])
 
   function updateTeacher(className, teacherId) {
     const teacher = teacherRows.find((item) => item.id === teacherId) || null
@@ -13800,9 +14079,45 @@ function AdminWaliKelas({ notify }) {
     )))
   }
 
-  function saveAssignments() {
-    setHomeroomAssignments(rows)
-    notify('Penugasan wali kelas tersimpan dan langsung tersinkron ke akun guru di perangkat ini.')
+  async function saveAssignments() {
+    if (!appContext?.accessToken) {
+      setHomeroomAssignments(rows)
+      notify('Penugasan wali kelas tersimpan dan langsung tersinkron ke akun guru di perangkat ini.')
+      return
+    }
+
+    try {
+      const classesByName = new Map(classRows.map((classItem) => [promoteClassName(classItem.name || classItem.className), classItem]))
+      const saveableRows = rows
+        .map((row) => ({ row, classItem: classesByName.get(promoteClassName(row.className)) }))
+        .filter(({ classItem }) => classItem?.id)
+
+      await Promise.all(saveableRows.map(({ row, classItem }) => (
+        saveClassHomeroomTeacher({
+          accessToken: appContext.accessToken,
+          classId: classItem.id,
+          teacherId: row.teacherId || '',
+        })
+      )))
+
+      const nextClassRows = normalizeClassLookupRows(classRows.map((classItem) => {
+        const assignment = rows.find((row) => promoteClassName(row.className) === promoteClassName(classItem.name || classItem.className))
+        if (!assignment) return classItem
+        return {
+          ...classItem,
+          homeroomTeacherId: assignment.teacherId || '',
+          homeroom_teacher_id: assignment.teacherId || null,
+        }
+      }))
+
+      setHomeroomAssignments(rows)
+      setLocalAdminCollection('classes', nextClassRows)
+      setClassRows(nextClassRows)
+      setRows(buildHomeroomAssignmentRows(nextClassRows, teacherRows, rows))
+      notify('Penugasan wali kelas tersimpan di Supabase. Akun guru wali kelas akan melihat Absensi Mapel dan Absensi Wali Kelas.')
+    } catch (saveError) {
+      notify(`Gagal menyimpan wali kelas: ${saveError.message}`)
+    }
   }
 
   function clearAssignment(className) {
@@ -13818,20 +14133,23 @@ function AdminWaliKelas({ notify }) {
       <PageHeader
         eyebrow="Admin"
         title="Wali Kelas"
-        description="Tentukan guru yang bertanggung jawab atas Rapor setiap rombel. Guru lain tetap menginput nilai di Daftar Nilai."
+        description="Tentukan guru yang bertanggung jawab atas Rapor dan Absensi Wali Kelas setiap rombel. Guru tersebut tetap punya Absensi Mapel."
         action={<QuickActionButton icon={Save} label="Simpan wali kelas" onClick={saveAssignments} />}
       />
 
-      <MetricStrip items={[
+      {loading && <LoadingState label="Memuat penugasan wali kelas..." />}
+      {error && <div className="rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">Supabase belum mengirim penugasan wali kelas: {error}. Data lokal ditampilkan.</div>}
+
+      {!loading && <MetricStrip items={[
         { label: 'Rombel', value: rows.length, caption: 'kelas tersedia', icon: School },
         { label: 'Wali kelas', value: assignedCount, caption: 'sudah ditetapkan', icon: ClipboardList },
-        { label: 'Guru mapel', value: teacherRows.length, caption: 'bisa input nilai', icon: UsersRound },
-        { label: 'Akses Rapor', value: assignedCount, caption: 'akun wali kelas', icon: FileText },
-      ]} />
+        { label: 'Guru mapel', value: teacherRows.length, caption: 'tetap punya absensi mapel', icon: UsersRound },
+        { label: 'Akses harian', value: assignedCount, caption: 'absensi wali kelas', icon: FileText },
+      ]} />}
 
-      <DashboardPanel
+      {!loading && <DashboardPanel
         title="Penugasan wali kelas per rombel"
-        description="Pilih satu wali kelas untuk tiap rombel. Hak akses Rapor mengikuti NIP/id guru yang dipilih di sini."
+        description="Pilih satu wali kelas untuk tiap rombel. Hak akses Rapor dan Absensi Wali Kelas mengikuti id/NIP guru yang dipilih di sini."
       >
         <div className="overflow-x-auto">
           <table className="w-full min-w-[52rem] text-left text-sm">
@@ -13868,7 +14186,7 @@ function AdminWaliKelas({ notify }) {
                   <td className="py-3 pr-3 align-top text-sm font-semibold text-[#64748B]">{row.subject || '-'}</td>
                   <td className="py-3 pr-3 align-top">
                     <StatusBadge tone={row.teacherId || row.teacherNip ? 'green' : 'gray'}>
-                      {row.teacherId || row.teacherNip ? 'Rapor aktif' : 'Belum aktif'}
+                      {row.teacherId || row.teacherNip ? 'Wali aktif' : 'Belum aktif'}
                     </StatusBadge>
                   </td>
                   <td className="py-3 pr-3 align-top">
@@ -13887,9 +14205,9 @@ function AdminWaliKelas({ notify }) {
         </div>
 
         <div className="mt-4 rounded-xl bg-[#F8FBFF] p-3 text-sm font-semibold leading-6 text-[#64748B] ring-1 ring-[#D9E6F5]">
-          Alur akses: Admin menetapkan wali kelas di halaman ini, guru mapel mengisi Daftar Nilai, lalu wali kelas membuka Rapor untuk melengkapi identitas, catatan wali kelas, dan cetak dokumen.
+          Alur akses: guru mapel selalu punya Absensi Mapel. Jika guru yang sama ditetapkan sebagai wali kelas, akun guru tersebut juga membuka Absensi Wali Kelas untuk rombelnya.
         </div>
-      </DashboardPanel>
+      </DashboardPanel>}
     </div>
   )
 }
@@ -13918,14 +14236,15 @@ function normalizeTeacherProfileRows(rows = []) {
     .sort((a, b) => a.name.localeCompare(b.name, 'id-ID'))
 }
 
-function buildHomeroomAssignmentRows(classRows = [], teacherRows = []) {
-  const existingRows = getHomeroomAssignments()
+function buildHomeroomAssignmentRows(classRows = [], teacherRows = [], sourceAssignments = getHomeroomAssignments()) {
+  const existingRows = sourceAssignments
   const existingByClass = new Map(existingRows.map((row) => [promoteClassName(row.className), row]))
   const baseClassRows = classRows.length ? classRows : normalizeClassLookupRows(classes)
 
   return baseClassRows.map((classItem) => {
     const className = promoteClassName(classItem.name || classItem.className)
-    const existing = existingByClass.get(className) || {}
+    const classHomeroomTeacherId = classItem.homeroomTeacherId || classItem.homeroom_teacher_id || ''
+    const existing = existingByClass.get(className) || (classHomeroomTeacherId ? { teacherId: classHomeroomTeacherId } : {})
     const teacher = teacherRows.find((item) => (
       (existing.teacherId && item.id === existing.teacherId)
       || (existing.teacherNip && item.nip === existing.teacherNip)

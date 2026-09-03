@@ -36,6 +36,41 @@ export function setHomeroomAssignments(rows) {
   return normalizedRows
 }
 
+export function buildHomeroomAssignmentsFromClasses(classRows = [], teacherRows = [], { includeUnassigned = false } = {}) {
+  const teachersById = new Map((Array.isArray(teacherRows) ? teacherRows : [])
+    .flatMap((teacher) => [
+      [teacher?.id, teacher],
+      [teacher?.teacherId, teacher],
+      [teacher?.user_id, teacher],
+    ])
+    .filter(([id]) => Boolean(id)))
+
+  return normalizeHomeroomAssignments((Array.isArray(classRows) ? classRows : []).map((classRow) => {
+    const teacherId = classRow?.homeroomTeacherId || classRow?.homeroom_teacher_id || ''
+    const teacher = teachersById.get(teacherId) || {}
+    return {
+      id: classRow?.id ? `homeroom-${classRow.id}` : undefined,
+      className: classRow?.name || classRow?.className || classRow?.class_name,
+      teacherId,
+      teacherNip: teacher.nip || teacher.teacherNip || teacher.teacher_nip || '',
+      teacherName: teacher.name || teacher.fullName || teacher.teacherName || teacher.teacher_name || '',
+      subject: teacher.subject || '',
+      updatedAt: classRow?.updatedAt || classRow?.updated_at || classRow?.created_at || '',
+    }
+  })).filter((assignment) => includeUnassigned || assignment.teacherId || assignment.teacherNip || assignment.teacherName)
+}
+
+export function mergeHomeroomAssignments(...assignmentGroups) {
+  return normalizeHomeroomAssignments(assignmentGroups.flatMap((group) => Array.isArray(group) ? group : []))
+}
+
+export function getHomeroomClassesForUserFromAssignments(user, assignments = []) {
+  if (!user) return []
+  return normalizeHomeroomAssignments(assignments)
+    .filter((assignment) => homeroomTeacherMatchesUser(assignment, user))
+    .map((assignment) => assignment.className)
+}
+
 export function normalizeHomeroomAssignments(rows = []) {
   const byClass = new Map()
 
@@ -62,10 +97,7 @@ export function normalizeHomeroomAssignments(rows = []) {
 }
 
 export function getHomeroomClassesForUser(user) {
-  if (!user) return []
-  return getHomeroomAssignments()
-    .filter((assignment) => homeroomTeacherMatchesUser(assignment, user))
-    .map((assignment) => assignment.className)
+  return getHomeroomClassesForUserFromAssignments(user, getHomeroomAssignments())
 }
 
 export function getHomeroomAssignmentForUser(user, className = '') {

@@ -144,7 +144,7 @@ async function saveLoginAlias({ accessToken, profile }) {
 
 export async function fetchClasses({ accessToken }) {
   return listRows('classes', {
-    select: 'id,name,grade,academic_year,created_at',
+    select: 'id,name,grade,homeroom_teacher_id,academic_year,created_at',
     accessToken,
   })
 }
@@ -158,6 +158,13 @@ export async function saveClass({ accessToken, classItem }) {
   const rows = classItem.id
     ? await updateRow('classes', classItem.id, payload, accessToken)
     : await createRow('classes', payload, accessToken)
+  return rows[0]
+}
+
+export async function saveClassHomeroomTeacher({ accessToken, classId, teacherId }) {
+  const rows = await updateRow('classes', classId, {
+    homeroom_teacher_id: teacherId || null,
+  }, accessToken)
   return rows[0]
 }
 
@@ -206,6 +213,8 @@ export async function exportBackupData({ accessToken }) {
     'badges',
     'student_badges',
     'announcements',
+    'attendance_sessions',
+    'attendance_rows',
   ]
 
   const entries = await Promise.all(tables.map(async (table) => [table, await listRows(table, { select: '*', accessToken })]))

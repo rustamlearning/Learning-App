@@ -32,7 +32,9 @@ union all select 'teachers', count(*) from teachers
 union all select 'materials', count(*) from materials
 union all select 'questions', count(*) from questions
 union all select 'quizzes', count(*) from quizzes
-union all select 'quiz_questions', count(*) from quiz_questions;
+union all select 'quiz_questions', count(*) from quiz_questions
+union all select 'attendance_sessions', count(*) from attendance_sessions
+union all select 'attendance_rows', count(*) from attendance_rows;
 
 -- 4. Cek guru dan mapel
 select
