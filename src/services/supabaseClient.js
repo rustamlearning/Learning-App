@@ -12,28 +12,47 @@ export function getSupabaseConfig() {
   }
 }
 
-async function request(path, { method = 'GET', body, accessToken, headers = {} } = {}) {
+const DEFAULT_REQUEST_TIMEOUT_MS = 20000
+
+async function request(path, { method = 'GET', body, accessToken, headers = {}, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS } = {}) {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY.')
   }
 
-  const response = await fetch(`${SUPABASE_URL}${path}`, {
-    method,
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${accessToken || SUPABASE_ANON_KEY}`,
-      'Content-Type': 'application/json',
-      ...headers,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  })
+  const controller = new AbortController()
+  const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs)
+  let response
+
+  try {
+    response = await fetch(`${SUPABASE_URL}${path}`, {
+      method,
+      signal: controller.signal,
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${accessToken || SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Request Supabase terlalu lama merespons. Data lokal tetap aman.')
+    }
+    throw error
+  } finally {
+    globalThis.clearTimeout(timeout)
+  }
 
   const text = await response.text()
   const data = text ? JSON.parse(text) : null
 
   if (!response.ok) {
     const message = data?.error_description || data?.msg || data?.message || 'Request Supabase gagal.'
-    throw new Error(message)
+    const error = new Error(message)
+    error.status = response.status
+    error.data = data
+    throw error
   }
 
   return data
@@ -43,6 +62,17 @@ export async function signInWithPassword(email, password) {
   return request('/auth/v1/token?grant_type=password', {
     method: 'POST',
     body: { email, password },
+  })
+}
+
+export async function refreshSession(refreshToken) {
+  if (!refreshToken) {
+    throw new Error('Sesi login sudah berakhir. Silakan masuk ulang.')
+  }
+
+  return request('/auth/v1/token?grant_type=refresh_token', {
+    method: 'POST',
+    body: { refresh_token: refreshToken },
   })
 }
 
@@ -116,9 +146,22 @@ function uniqueLoginEmails(emails) {
 export async function listRows(tableName, { select = '*', filters = {}, accessToken } = {}) {
   const query = new URLSearchParams({ select })
   Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') query.set(key, `eq.${value}`)
+    const expression = buildFilterExpression(value)
+    if (expression) query.set(key, expression)
   })
   return request(`/rest/v1/${tableName}?${query.toString()}`, { accessToken })
+}
+
+function buildFilterExpression(value) {
+  if (value === undefined || value === null || value === '') return ''
+  if (Array.isArray(value)) return `in.(${value.join(',')})`
+  if (typeof value === 'object') {
+    if (Array.isArray(value.values)) return `${value.operator || 'in'}.(${value.values.join(',')})`
+    if (value.operator && value.value !== undefined && value.value !== null && value.value !== '') {
+      return `${value.operator}.${value.value}`
+    }
+  }
+  return `eq.${value}`
 }
 
 export async function createRow(tableName, payload, accessToken) {
@@ -159,4 +202,8 @@ export async function deleteRows(tableName, filters = {}, accessToken) {
 
 export function normalizeLoginIdentifier(value) {
   return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+export function isJwtExpiredError(error) {
+  return /jwt expired/i.test(String(error?.message || ''))
 }

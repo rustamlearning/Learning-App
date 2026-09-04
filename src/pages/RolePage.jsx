@@ -3860,6 +3860,19 @@ function mergeAttendanceSessionsByFreshness(...sessionGroups) {
   return Array.from(byScope.values()).sort((a, b) => getAttendanceSessionTimestamp(b) - getAttendanceSessionTimestamp(a))
 }
 
+function getPendingLocalAttendanceSessions(localSessions = [], remoteSessions = []) {
+  const remoteByScope = new Map(remoteSessions.map((session) => [
+    session.scopeKey || attendanceScopeKey(session),
+    session,
+  ]))
+
+  return localSessions.filter((session) => {
+    const scopeKey = session.scopeKey || attendanceScopeKey(session)
+    const remoteSession = remoteByScope.get(scopeKey)
+    return !remoteSession || getAttendanceSessionTimestamp(session) > getAttendanceSessionTimestamp(remoteSession)
+  })
+}
+
 function backupAttendanceSessionsBeforeSupabaseSync(user, sessions = []) {
   const normalizedRows = dedupeAttendanceSessions(sessions)
   if (normalizedRows.length === 0) return true
@@ -5671,8 +5684,10 @@ function GuruDaftarHadir({ user, notify, appContext }) {
           remoteAttendanceError = loadAttendanceError
         }
 
+        const mergedSessions = mergeAttendanceSessionsByFreshness(localSessions, remoteSessions)
+        const pendingLocalSessions = remoteAttendanceError ? [] : getPendingLocalAttendanceSessions(localSessions, remoteSessions)
+
         if (active) {
-          const mergedSessions = mergeAttendanceSessionsByFreshness(localSessions, remoteSessions)
           if (localSessions.length > 0) backupAttendanceSessionsBeforeSupabaseSync(user, localSessions)
           setAttendanceClassRows(normalizedClassRows)
           setAttendanceSubjectRows(normalizedSubjectRows)
@@ -5685,16 +5700,19 @@ function GuruDaftarHadir({ user, notify, appContext }) {
             setAttendanceSyncState('pending')
             setAttendanceSyncMessage(getAttendanceSupabaseErrorMessage(remoteAttendanceError))
           } else {
-            setAttendanceSyncState('synced')
-            setAttendanceSyncMessage('Supabase aktif. Rekaman absensi lama dan baru dibaca dari database sekolah.')
+            setAttendanceSyncState(pendingLocalSessions.length > 0 ? 'checking' : 'synced')
+            setAttendanceSyncMessage(pendingLocalSessions.length > 0
+              ? 'Supabase aktif. Halaman sudah siap, cache lokal yang lebih baru sedang disinkronkan.'
+              : 'Supabase aktif. Rekaman absensi lama dan baru dibaca dari database sekolah.')
           }
+          setLoadingRoster(false)
         }
 
-        if (!remoteAttendanceError && localSessions.length > 0) {
+        if (pendingLocalSessions.length > 0) {
           try {
             const savedRemoteSessions = await saveAttendanceSessions({
               accessToken: appContext.accessToken,
-              sessions: mergeAttendanceSessionsByFreshness(localSessions, remoteSessions),
+              sessions: pendingLocalSessions,
               user,
               classRows: normalizedClassRows,
               subjectRows: normalizedSubjectRows,

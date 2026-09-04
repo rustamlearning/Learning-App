@@ -2,6 +2,7 @@ import { createRow, deleteRow, deleteRows, listRows, updateRow } from './supabas
 
 const validAttendanceStatuses = new Set(['Hadir', 'Izin', 'Sakit', 'Alpa'])
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const attendanceRowsBatchSize = 20
 
 function compactText(value) {
   return String(value || '').trim().replace(/\s+/g, ' ')
@@ -231,12 +232,35 @@ async function persistAttendanceRows({ accessToken, sessionId, rows = [] }) {
 }
 
 export async function fetchAttendanceSessions({ accessToken }) {
-  const rows = await listRows('attendance_sessions', {
-    select: '*,attendance_rows(*)',
+  const sessionRows = await listRows('attendance_sessions', {
+    select: '*',
     accessToken,
   })
 
-  return (rows || []).map(normalizeRemoteAttendanceSession)
+  if (!sessionRows?.length) return []
+
+  const rowsBySessionId = new Map()
+  for (let index = 0; index < sessionRows.length; index += attendanceRowsBatchSize) {
+    const sessionIds = sessionRows.slice(index, index + attendanceRowsBatchSize).map((row) => row.id).filter(Boolean)
+    if (sessionIds.length === 0) continue
+
+    const attendanceRows = await listRows('attendance_rows', {
+      select: '*',
+      filters: { session_id: sessionIds },
+      accessToken,
+    })
+
+    ;(attendanceRows || []).forEach((row) => {
+      const rows = rowsBySessionId.get(row.session_id) || []
+      rows.push(row)
+      rowsBySessionId.set(row.session_id, rows)
+    })
+  }
+
+  return sessionRows.map((row) => normalizeRemoteAttendanceSession({
+    ...row,
+    attendance_rows: rowsBySessionId.get(row.id) || [],
+  }))
 }
 
 export async function saveAttendanceSession({ accessToken, session, user, classRows = [], subjectRows = [] }) {
