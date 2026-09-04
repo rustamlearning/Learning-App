@@ -3746,6 +3746,59 @@ function getGradeFormatRoster() {
   ))
 }
 
+function attendanceText(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ')
+}
+
+function attendanceRosterKey(row = {}, fallbackClassName = '') {
+  const className = promoteClassName(row.className || row.class || row.class_name || fallbackClassName)
+  const name = attendanceText(row.name || row.fullName || row.studentName || row.student_name)
+  const stableId = attendanceText(row.studentId || row.student_id || row.studentKey || row.student_key || row.id)
+  return `${className}|${normalizeLookupText(name) || normalizeLookupText(stableId)}`
+}
+
+function normalizeAttendanceRosterCandidate(row = {}, fallbackClassName = '', fallbackIndex = 0) {
+  const name = attendanceText(row.name || row.fullName || row.studentName || row.student_name)
+  if (!name) return null
+
+  return {
+    id: attendanceText(row.studentId || row.student_id || row.studentKey || row.student_key || row.id) || `student-${fallbackIndex + 1}`,
+    profileId: row.profileId || row.profile_id || row.id || '',
+    studentId: row.studentId || row.student_id || row.studentKey || row.student_key || '',
+    name,
+    classId: row.classId || row.class_id || '',
+    className: promoteClassName(row.className || row.class || row.class_name || fallbackClassName),
+    nis: row.nis || row.studentNumber || row.student_number || row.email || '',
+    gender: row.gender || row.sex || row.jk || '',
+  }
+}
+
+function mergeAttendanceRosterRows(...groups) {
+  const byStudent = new Map()
+
+  groups.flat().forEach((row, index) => {
+    const normalized = normalizeAttendanceRosterCandidate(row, '', index)
+    if (!normalized || isLegacyPreviewStudentRow(normalized)) return
+
+    const key = attendanceRosterKey(normalized)
+    const current = byStudent.get(key)
+    byStudent.set(key, current ? {
+      ...current,
+      ...normalized,
+      id: current.id || normalized.id,
+      studentId: current.studentId || normalized.studentId,
+      profileId: current.profileId || normalized.profileId,
+      nis: current.nis || normalized.nis,
+      gender: current.gender || normalized.gender,
+    } : normalized)
+  })
+
+  return Array.from(byStudent.values()).sort((left, right) => (
+    promoteClassName(left.className).localeCompare(promoteClassName(right.className), 'id-ID')
+    || String(left.name || '').localeCompare(String(right.name || ''), 'id-ID', { sensitivity: 'base' })
+  ))
+}
+
 const attendanceStoragePrefixes = ['islelearn-attendance-', 'sea-learning-attendance-']
 const schoolAttendanceStorageKey = 'islelearn-attendance-school'
 
@@ -3918,7 +3971,7 @@ function formatAttendanceDate(isoDate, options = { day: '2-digit', month: 'short
 function getAttendanceRoster() {
   const savedStudents = normalizeAttendanceRosterRows(getLocalAdminProfiles('siswa', students))
 
-  return savedStudents.length ? savedStudents : getGradeFormatRoster()
+  return mergeAttendanceRosterRows(savedStudents, getGradeFormatRoster())
 }
 
 function normalizeAttendanceRosterRows(rows = []) {
@@ -3983,8 +4036,8 @@ function useAttendanceRosterReference(appContext) {
         ])
 
         if (active) {
-          setClassRows(normalizeClassLookupRows(serverClasses.length > 0 ? serverClasses : localAttendanceClasses))
-          setRoster(normalizeAttendanceRosterRows(serverStudents.length > 0 ? serverStudents : localAttendanceRoster))
+          setClassRows(normalizeClassLookupRows([...localAttendanceClasses, ...serverClasses]))
+          setRoster(mergeAttendanceRosterRows(normalizeAttendanceRosterRows(serverStudents), localAttendanceRoster))
           setError('')
         }
       } catch (loadError) {
@@ -4021,6 +4074,35 @@ function getRosterForClass(roster, className) {
   return roster.filter((item) => promoteClassName(item.className) === targetClass)
 }
 
+function getAttendanceRosterFromSessions(sessions = [], className = '') {
+  const targetClass = className ? promoteClassName(className) : ''
+  const sessionRows = []
+
+  sessions.forEach((session) => {
+    const sessionClass = promoteClassName(session?.className)
+    if (targetClass && sessionClass !== targetClass) return
+
+    ;(Array.isArray(session?.rows) ? session.rows : []).forEach((row) => {
+      sessionRows.push({
+        ...row,
+        id: row.studentId || row.student_id || row.studentKey || row.student_key || row.id,
+        className: promoteClassName(row.className || row.class_name || sessionClass),
+      })
+    })
+  })
+
+  return mergeAttendanceRosterRows(sessionRows)
+}
+
+function getAttendanceRosterForClass(roster, className, sessions = []) {
+  const targetClass = promoteClassName(className)
+  return mergeAttendanceRosterRows(
+    getRosterForClass(roster, targetClass),
+    getGradeFormatRoster().filter((item) => promoteClassName(item.className) === targetClass),
+    getAttendanceRosterFromSessions(sessions, targetClass),
+  )
+}
+
 function getGradeRosterForClass(roster, className) {
   const targetClass = promoteClassName(className)
   const rows = roster.filter((item) => promoteClassName(item.className) === targetClass)
@@ -4033,18 +4115,64 @@ function getAttendanceSession(sessions, date, className, options = {}) {
 }
 
 function buildAttendanceRows(roster, savedRows = []) {
-  const savedById = new Map(savedRows.map((item) => [item.studentId || item.id || item.name, item]))
+  const savedById = new Map()
+  savedRows.forEach((item) => {
+    [
+      item.studentId,
+      item.student_id,
+      item.studentKey,
+      item.student_key,
+      item.id,
+      item.name,
+      item.studentName,
+      item.student_name,
+    ].forEach((key) => {
+      const normalizedKey = attendanceText(key)
+      if (normalizedKey) savedById.set(normalizedKey, item)
+    })
+
+    const normalizedName = normalizeLookupText(item.name || item.studentName || item.student_name)
+    if (normalizedName) savedById.set(`name:${normalizedName}`, item)
+  })
+
   return roster.map((student) => {
-    const saved = savedById.get(student.id) || savedById.get(student.name) || {}
+    const saved = savedById.get(attendanceText(student.id))
+      || savedById.get(attendanceText(student.studentId))
+      || savedById.get(attendanceText(student.profileId))
+      || savedById.get(attendanceText(student.name))
+      || savedById.get(`name:${normalizeLookupText(student.name)}`)
+      || {}
     return {
-      studentId: student.id,
+      studentId: saved.studentId || saved.student_id || saved.studentKey || saved.student_key || student.studentId || student.id,
       name: student.name,
-      nis: student.nis || '',
+      nis: saved.nis || student.nis || '',
       className: student.className || 'Kelas umum',
       status: attendanceStatuses.includes(saved.status) ? saved.status : 'Hadir',
       note: saved.note || '',
     }
   })
+}
+
+function attendanceRowsMatchStudent(row = {}, student = {}) {
+  const rowIds = [
+    row.studentId,
+    row.student_id,
+    row.studentKey,
+    row.student_key,
+    row.id,
+  ].map(attendanceText).filter(Boolean)
+  const studentIds = [
+    student.id,
+    student.studentId,
+    student.student_id,
+    student.profileId,
+    student.profile_id,
+  ].map(attendanceText).filter(Boolean)
+  const rowName = normalizeLookupText(row.name || row.studentName || row.student_name)
+  const studentName = normalizeLookupText(student.name || student.fullName || student.studentName || student.student_name)
+
+  return rowIds.some((rowId) => studentIds.includes(rowId))
+    || Boolean(rowName && studentName && rowName === studentName)
 }
 
 function summarizeAttendanceRows(rows = []) {
@@ -4181,7 +4309,7 @@ function buildStudentAttendanceRecap(roster, rangeSessions) {
 
     rangeSessions.forEach((session) => {
       const row = Array.isArray(session.rows)
-        ? session.rows.find((item) => item.studentId === student.id || item.name === student.name)
+        ? session.rows.find((item) => attendanceRowsMatchStudent(item, student))
         : null
       const status = attendanceStatuses.includes(row?.status) ? row.status : ''
       if (status) {
@@ -5551,7 +5679,6 @@ function GuruDaftarHadir({ user, notify, appContext }) {
   const [roster, setRoster] = useState(localAttendanceRoster)
   const [attendanceClassRows, setAttendanceClassRows] = useState(localAttendanceClasses)
   const [attendanceSubjectRows, setAttendanceSubjectRows] = useState(localAttendanceSubjects)
-  const [loadingRoster, setLoadingRoster] = useState(false)
   const [rosterError, setRosterError] = useState('')
   const [attendanceSyncState, setAttendanceSyncState] = useState(appContext?.accessToken ? 'checking' : 'local')
   const [attendanceSyncMessage, setAttendanceSyncMessage] = useState('')
@@ -5596,7 +5723,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
   const fillClassOptions = useMemo(() => attendanceType === 'daily' && user?.role === 'guru' && homeroomClasses.length
     ? homeroomClasses
     : classOptions, [attendanceType, classOptions, homeroomClasses, user?.role])
-  const rosterForClass = useMemo(() => getRosterForClass(roster, selectedClass), [roster, selectedClass])
+  const rosterForClass = useMemo(() => getAttendanceRosterForClass(roster, selectedClass, sessions), [roster, selectedClass, sessions])
   const attendanceMode = getAttendanceTypeMeta(attendanceType)
   const recapMode = getAttendanceTypeMeta(recapType)
   const canEditCurrentAttendance = attendanceType === 'daily' ? canFillDailyAttendance : canFillSubjectAttendance
@@ -5657,22 +5784,19 @@ function GuruDaftarHadir({ user, notify, appContext }) {
         setSessions(getAttendanceSessions(user))
         setAttendanceSyncState('local')
         setAttendanceSyncMessage('')
-        setLoadingRoster(false)
         setRosterError('')
         return
       }
 
       try {
-        setLoadingRoster(true)
         setAttendanceSyncState('checking')
-        setAttendanceSyncMessage('')
         const [serverClasses, serverStudents, serverSubjects] = await Promise.all([
           fetchClasses({ accessToken: appContext.accessToken }),
           fetchAdminStudents({ accessToken: appContext.accessToken }),
           fetchSubjects({ accessToken: appContext.accessToken }),
         ])
-        const normalizedClassRows = normalizeClassLookupRows(serverClasses.length > 0 ? serverClasses : localAttendanceClasses)
-        const normalizedRosterRows = normalizeAttendanceRosterRows(serverStudents.length > 0 ? serverStudents : localAttendanceRoster)
+        const normalizedClassRows = normalizeClassLookupRows([...localAttendanceClasses, ...serverClasses])
+        let normalizedRosterRows = mergeAttendanceRosterRows(normalizeAttendanceRosterRows(serverStudents), localAttendanceRoster)
         const normalizedSubjectRows = normalizeMaterialSubjectRows(serverSubjects.length > 0 ? serverSubjects : localAttendanceSubjects)
         const localSessions = getAttendanceSessions(user)
         let remoteSessions = []
@@ -5685,6 +5809,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
         }
 
         const mergedSessions = mergeAttendanceSessionsByFreshness(localSessions, remoteSessions)
+        normalizedRosterRows = mergeAttendanceRosterRows(normalizedRosterRows, getAttendanceRosterFromSessions(mergedSessions))
         const pendingLocalSessions = remoteAttendanceError ? [] : getPendingLocalAttendanceSessions(localSessions, remoteSessions)
 
         if (active) {
@@ -5703,9 +5828,8 @@ function GuruDaftarHadir({ user, notify, appContext }) {
             setAttendanceSyncState(pendingLocalSessions.length > 0 ? 'checking' : 'synced')
             setAttendanceSyncMessage(pendingLocalSessions.length > 0
               ? 'Supabase aktif. Halaman sudah siap, cache lokal yang lebih baru sedang disinkronkan.'
-              : 'Supabase aktif. Rekaman absensi lama dan baru dibaca dari database sekolah.')
+              : '')
           }
-          setLoadingRoster(false)
         }
 
         if (pendingLocalSessions.length > 0) {
@@ -5742,8 +5866,6 @@ function GuruDaftarHadir({ user, notify, appContext }) {
           setAttendanceSyncMessage('Data lokal tetap aman. Supabase belum bisa memuat roster absensi.')
           setRosterError(getRosterRequestErrorMessage(loadError))
         }
-      } finally {
-        if (active) setLoadingRoster(false)
       }
     }
 
@@ -5784,7 +5906,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
 
   useEffect(() => {
     const session = getAttendanceSession(sessions, selectedDate, selectedClass, sessionScope)
-    setRows(buildAttendanceRows(getRosterForClass(roster, selectedClass), session?.rows || []))
+    setRows(buildAttendanceRows(getAttendanceRosterForClass(roster, selectedClass, sessions), session?.rows || []))
     setAttendanceDirty(false)
   }, [roster, selectedClass, selectedDate, attendanceType, selectedSubject, lessonTime, sessions])
 
@@ -6024,12 +6146,6 @@ function GuruDaftarHadir({ user, notify, appContext }) {
           </div>
         }
       />
-
-      {loadingRoster && (
-        <div className="rounded-2xl bg-sky-50 p-3 text-sm font-semibold text-sky-800 ring-1 ring-sky-100">
-          Memuat pembaruan siswa absensi dari Supabase. Halaman tetap bisa digunakan dengan data yang sudah tersimpan.
-        </div>
-      )}
 
       {rosterError && (
         <div className="rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
