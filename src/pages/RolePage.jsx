@@ -5551,7 +5551,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
   const [roster, setRoster] = useState(localAttendanceRoster)
   const [attendanceClassRows, setAttendanceClassRows] = useState(localAttendanceClasses)
   const [attendanceSubjectRows, setAttendanceSubjectRows] = useState(localAttendanceSubjects)
-  const [loadingRoster, setLoadingRoster] = useState(Boolean(appContext?.accessToken))
+  const [loadingRoster, setLoadingRoster] = useState(false)
   const [rosterError, setRosterError] = useState('')
   const [attendanceSyncState, setAttendanceSyncState] = useState(appContext?.accessToken ? 'checking' : 'local')
   const [attendanceSyncMessage, setAttendanceSyncMessage] = useState('')
@@ -6011,8 +6011,6 @@ function GuruDaftarHadir({ user, notify, appContext }) {
     notify('Dialog cetak dibuka. Pilih Save as PDF untuk menyimpan rekap absensi.')
   }
 
-  if (loadingRoster) return <LoadingState label="Memuat siswa absensi dari Supabase..." />
-
   return (
     <div className="space-y-4">
       <PageHeader
@@ -6026,6 +6024,12 @@ function GuruDaftarHadir({ user, notify, appContext }) {
           </div>
         }
       />
+
+      {loadingRoster && (
+        <div className="rounded-2xl bg-sky-50 p-3 text-sm font-semibold text-sky-800 ring-1 ring-sky-100">
+          Memuat pembaruan siswa absensi dari Supabase. Halaman tetap bisa digunakan dengan data yang sudah tersimpan.
+        </div>
+      )}
 
       {rosterError && (
         <div className="rounded-2xl bg-amber-50 p-3 text-sm font-semibold text-amber-800 ring-1 ring-amber-100">
