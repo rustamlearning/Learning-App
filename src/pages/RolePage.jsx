@@ -151,7 +151,7 @@ export default function RolePage({ role, page }) {
   }), [])
 
   useEffect(() => {
-    if (!accessToken || !['admin', 'guru', 'pimpinan'].includes(user?.role)) return undefined
+    if (!accessToken || page === 'daftar-hadir' || !['admin', 'guru', 'pimpinan'].includes(user?.role)) return undefined
 
     let active = true
 
@@ -170,7 +170,7 @@ export default function RolePage({ role, page }) {
     return () => {
       active = false
     }
-  }, [accessToken, user?.id, user?.role])
+  }, [accessToken, page, user?.id, user?.role])
 
   const content = useMemo(() => {
     if (role === 'siswa') return renderSiswa(page, user, notify, { accessToken, supabaseEnabled })
@@ -181,7 +181,7 @@ export default function RolePage({ role, page }) {
 
   return (
     <>
-      <Fragment key={`${role}-${page}-${schoolDataRevision}`}>{content}</Fragment>
+      <Fragment key={`${role}-${page}-${user?.id}-${page === 'daftar-hadir' ? 'attendance' : schoolDataRevision}`}>{content}</Fragment>
       <Toast message={toast} onClose={() => setToast('')} />
       <ConfirmDialog open={confirmOpen} title="Konfirmasi aksi" description="Aksi penting membutuhkan konfirmasi agar data tidak berubah tanpa sengaja." onCancel={() => setConfirmOpen(false)} onConfirm={() => { setConfirmOpen(false); notify('Aksi dikonfirmasi.') }} />
     </>
@@ -5711,6 +5711,12 @@ function GuruDaftarHadir({ user, notify, appContext }) {
   const [lessonTime, setLessonTime] = useState('07.30 - 09.00')
   const [sessions, setSessions] = useState(() => getAttendanceSessions(user))
   const [attendanceDirty, setAttendanceDirty] = useState(false)
+  const [loadingAttendance, setLoadingAttendance] = useState(Boolean(appContext?.accessToken))
+  const [savingAttendance, setSavingAttendance] = useState(false)
+  const saveInFlight = useRef(false)
+  const editRevision = useRef(0)
+  const attendanceUser = useRef(user)
+  attendanceUser.current = user
 
   useEffect(() => {
     const restoredSessions = getAttendanceSessions(user)
@@ -5734,6 +5740,8 @@ function GuruDaftarHadir({ user, notify, appContext }) {
     ? { type: recapType, subject: selectedSubject }
     : { type: recapType }
   const savedSession = getAttendanceSession(sessions, selectedDate, selectedClass, sessionScope)
+  const currentRowScope = attendanceScopeKey({ date: selectedDate, className: selectedClass, ...sessionScope })
+  const previousRowScope = useRef(currentRowScope)
   const [rows, setRows] = useState(() => buildAttendanceRows(rosterForClass, savedSession?.rows || []))
   const draftSession = {
     ...(savedSession || {}),
@@ -5777,6 +5785,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
     let active = true
 
     async function loadAttendanceRoster() {
+      const user = attendanceUser.current
       if (!appContext?.accessToken) {
         setRoster(localAttendanceRoster)
         setAttendanceClassRows(localAttendanceClasses)
@@ -5785,16 +5794,19 @@ function GuruDaftarHadir({ user, notify, appContext }) {
         setAttendanceSyncState('local')
         setAttendanceSyncMessage('')
         setRosterError('')
+        setLoadingAttendance(false)
         return
       }
 
       try {
+        setLoadingAttendance(true)
         setAttendanceSyncState('checking')
         const [serverClasses, serverStudents, serverSubjects] = await Promise.all([
           fetchClasses({ accessToken: appContext.accessToken }),
           fetchAdminStudents({ accessToken: appContext.accessToken }),
           fetchSubjects({ accessToken: appContext.accessToken }),
         ])
+        if (!active) return
         const normalizedClassRows = normalizeClassLookupRows([...localAttendanceClasses, ...serverClasses])
         let normalizedRosterRows = mergeAttendanceRosterRows(normalizeAttendanceRosterRows(serverStudents), localAttendanceRoster)
         const normalizedSubjectRows = normalizeMaterialSubjectRows(serverSubjects.length > 0 ? serverSubjects : localAttendanceSubjects)
@@ -5807,6 +5819,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
         } catch (loadAttendanceError) {
           remoteAttendanceError = loadAttendanceError
         }
+        if (!active) return
 
         const mergedSessions = mergeAttendanceSessionsByFreshness(localSessions, remoteSessions)
         normalizedRosterRows = mergeAttendanceRosterRows(normalizedRosterRows, getAttendanceRosterFromSessions(mergedSessions))
@@ -5866,6 +5879,8 @@ function GuruDaftarHadir({ user, notify, appContext }) {
           setAttendanceSyncMessage('Data lokal tetap aman. Supabase belum bisa memuat roster absensi.')
           setRosterError(getRosterRequestErrorMessage(loadError))
         }
+      } finally {
+        if (active) setLoadingAttendance(false)
       }
     }
 
@@ -5873,7 +5888,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
     return () => {
       active = false
     }
-  }, [appContext?.accessToken, localAttendanceClasses, localAttendanceRoster, localAttendanceSubjects, user])
+  }, [appContext?.accessToken, localAttendanceClasses, localAttendanceRoster, localAttendanceSubjects, user?.id])
 
   useEffect(() => {
     if (!availableAttendanceTypes.some((option) => option.value === attendanceType) && availableAttendanceTypes[0]) {
@@ -5905,10 +5920,13 @@ function GuruDaftarHadir({ user, notify, appContext }) {
   }, [selectedSubject, subjectOptionsForAttendance])
 
   useEffect(() => {
+    // Background refreshes must not replace an attendance draft being edited.
+    if (previousRowScope.current === currentRowScope && attendanceDirty) return
+    previousRowScope.current = currentRowScope
     const session = getAttendanceSession(sessions, selectedDate, selectedClass, sessionScope)
     setRows(buildAttendanceRows(getAttendanceRosterForClass(roster, selectedClass, sessions), session?.rows || []))
     setAttendanceDirty(false)
-  }, [roster, selectedClass, selectedDate, attendanceType, selectedSubject, lessonTime, sessions])
+  }, [roster, selectedClass, selectedDate, attendanceType, selectedSubject, lessonTime, sessions, currentRowScope, attendanceDirty])
 
   useEffect(() => {
     if (!attendanceDirty) return undefined
@@ -5977,6 +5995,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
 
   function updateRow(studentId, patch) {
     if (!canEditCurrentAttendance) return
+    editRevision.current += 1
     setAttendanceDirty(true)
     setRows((currentRows) => currentRows.map((row) => (
       row.studentId === studentId ? { ...row, ...patch } : row
@@ -5985,18 +6004,26 @@ function GuruDaftarHadir({ user, notify, appContext }) {
 
   function markAll(status) {
     if (!canEditCurrentAttendance) return
+    editRevision.current += 1
     setAttendanceDirty(true)
     setRows((currentRows) => currentRows.map((row) => ({ ...row, status })))
   }
 
   async function saveAttendance() {
+    if (saveInFlight.current || loadingAttendance) return
     if (!canEditCurrentAttendance) {
       notify('Akun ini hanya dapat melihat rekap kehadiran, bukan mengisi daftar hadir pada mode ini.')
       return
     }
 
+    if (rows.length === 0) {
+      notify('Daftar siswa belum tersedia. Absensi belum dapat disimpan.')
+      return
+    }
+
     const now = new Date().toISOString()
-    const nextSessions = upsertAttendanceSession(sessions, {
+    const savedEditRevision = editRevision.current
+    const nextSessions = upsertAttendanceSession(mergeAttendanceSessionsByFreshness(getAttendanceSessions(user), sessions), {
       ...draftSession,
       updatedAt: now,
       rows: rows.map((row) => ({
@@ -6010,7 +6037,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
     })
     const savedLocally = setAttendanceSessions(user, nextSessions)
     setSessions(nextSessions)
-    setAttendanceDirty(false)
+    if (savedLocally) setAttendanceDirty(false)
 
     if (!savedLocally && !appContext?.accessToken) {
       notify('Absensi belum tersimpan. Ruang penyimpanan browser penuh atau akses storage diblokir.')
@@ -6022,6 +6049,8 @@ function GuruDaftarHadir({ user, notify, appContext }) {
       return
     }
 
+    saveInFlight.current = true
+    setSavingAttendance(true)
     try {
       setAttendanceSyncState('checking')
       setAttendanceSyncMessage('Menyimpan absensi ke Supabase...')
@@ -6032,11 +6061,12 @@ function GuruDaftarHadir({ user, notify, appContext }) {
         classRows: attendanceClassRows,
         subjectRows: attendanceSubjectRows,
       })
-      const syncedSessions = mergeAttendanceSessionsByFreshness(nextSessions, [savedRemoteSession])
+      const syncedSessions = mergeAttendanceSessionsByFreshness(nextSessions, getAttendanceSessions(user), [savedRemoteSession])
       setSessions(syncedSessions)
       setAttendanceSessions(user, syncedSessions)
       setAttendanceSyncState('synced')
       setAttendanceSyncMessage('Supabase aktif. Daftar hadir terakhir sudah tersimpan di database sekolah.')
+      if (editRevision.current === savedEditRevision) setAttendanceDirty(false)
       notify('Daftar hadir berhasil disimpan ke Supabase.')
     } catch (syncError) {
       setAttendanceSyncState('pending')
@@ -6044,6 +6074,9 @@ function GuruDaftarHadir({ user, notify, appContext }) {
       notify(savedLocally
         ? 'Daftar hadir tersimpan lokal. Sinkronisasi Supabase tertunda.'
         : 'Absensi belum aman di Supabase maupun penyimpanan lokal. Coba ulangi setelah koneksi pulih.')
+    } finally {
+      saveInFlight.current = false
+      setSavingAttendance(false)
     }
   }
 
@@ -6058,6 +6091,7 @@ function GuruDaftarHadir({ user, notify, appContext }) {
   }
 
   async function deleteSavedAttendance() {
+    if (saveInFlight.current || loadingAttendance) return
     if (!canEditCurrentAttendance) {
       notify('Akun ini hanya dapat melihat rekap kehadiran, bukan menghapus daftar hadir pada mode ini.')
       return
@@ -6297,12 +6331,12 @@ function GuruDaftarHadir({ user, notify, appContext }) {
             </button>
           )}
           {savedSession && (
-            <button onClick={deleteSavedAttendance} className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-50">
+            <button onClick={deleteSavedAttendance} disabled={savingAttendance || loadingAttendance} className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-black text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-50 disabled:opacity-50">
               <Trash2 size={14} /> Hapus isian tanggal
             </button>
           )}
-          <button onClick={saveAttendance} className="inline-flex items-center gap-1.5 rounded-xl bg-[#17446E] px-3 py-2 text-xs font-black text-white shadow-[0_10px_20px_rgba(23,68,110,0.18)] transition hover:bg-[#2F80D8]">
-            <Save size={14} /> Simpan
+          <button onClick={saveAttendance} disabled={savingAttendance || loadingAttendance || rows.length === 0} className="inline-flex items-center gap-1.5 rounded-xl bg-[#17446E] px-3 py-2 text-xs font-black text-white shadow-[0_10px_20px_rgba(23,68,110,0.18)] transition hover:bg-[#2F80D8] disabled:cursor-wait disabled:opacity-50">
+            <Save size={14} /> {savingAttendance ? 'Menyimpan...' : loadingAttendance ? 'Memuat rekaman...' : 'Simpan'}
           </button>
         </div>}
         {attendanceDirty && (
